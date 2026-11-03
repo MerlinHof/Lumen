@@ -4,8 +4,8 @@
 
 - Native host build and stripped static ARMv7 build using the reorganized source list.
 - Fresh dependency setup reuses pinned MuPDF and rebuilds the libmobi converter;
-  official MuPDF download URL verified. A full network-only clean-clone build has
-  not been performed on this Mac. CI is configured to build host from fresh dependencies.
+  official MuPDF download URL verified. The fresh GitHub-hosted host build and its native/installer checks passed.
+  A full network-only Kindle cross-build has not been repeated.
 - ASan/UBSan UI integration: independent keyboard languages, numbers/accents,
   caret editing, editable-only clipboard, multiline tasks, forms, Notes navigation,
   reader chrome, journal, local calendar and puzzle models.
@@ -33,8 +33,10 @@ image/font/book quality.
 
 ## Not claimed
 
-No Kindle was connected during this cleanup. A complete physical fresh-device
-installation, new autostart behavior, sleep/wake, touch latency and reclaimed
-on-device space have not been measured. The reported previous 400 MB usage cannot
-be attributed precisely without the device. Host renders are not hardware photos.
+The prepared update was subsequently installed on the connected Kindle with
+all runtime hashes verified and personal files/books preserved. Accumulated
+backups were confirmed as the main storage cost; macOS metadata sidecars are now
+recognized safely. A complete physical fresh-device reinstall, new autostart
+behavior, sleep/wake and touch latency still need hardware/user verification.
+Host renders are not hardware photos.
 Private services and paid OpenAI requests were not exercised.

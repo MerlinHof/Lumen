@@ -27,7 +27,9 @@ for i in range(3):
     (root/'lumen/bin/lumen').write_text('old runtime '+str(i));assert u.update(bundle,root)
 backups=[p for p in (root/'lumen/backups').iterdir() if p.is_dir()];assert len(backups)==2
 unknown=root/'lumen/backups/before-personal';(unknown/'lumen/data').mkdir(parents=True);(unknown/'lumen/data/keep.txt').write_text('keep')
-old=root/'lumen/backups/before-1.8-legacy';(old/'lumen').mkdir(parents=True);(old/'lumen/ANFORDERUNGEN.md').write_text('old runtime documentation')
+old=root/'lumen/backups/before-1.8-20200101-000000-000001';(old/'lumen').mkdir(parents=True);(old/'lumen/ANFORDERUNGEN.md').write_text('old runtime documentation')
+(old/'._lumen').write_bytes(bytes.fromhex('0005160700020000'))
+(old/'lumen/._ANFORDERUNGEN.md').write_bytes(bytes.fromhex('0005160700020000'))
 import os;os.utime(old,(1,1))
 u.update(bundle,root);assert (unknown/'lumen/data/keep.txt').read_text()=='keep';assert not old.exists()
 assert (root/'lumen/data/notes/me.txt').read_text()=='my private note'
@@ -49,5 +51,7 @@ try:u.update(bundle,root)
 except RuntimeError:pass
 else:raise AssertionError('Traversal accepted')
 finally:legacy.write_bytes(original)
+bad=root/'lumen/backups/before-1.8-20200101-000000-000002';(bad/'lumen').mkdir(parents=True);(bad/'lumen/ANFORDERUNGEN.md').write_text('old documentation');(bad/'._lumen').write_text('not an AppleDouble header')
+assert not u.safe_backup(bad,set(manifest)|{'lumen/ANFORDERUNGEN.md'})
 assert u.storage(root)['backups']>0
 print('PASS installation: fresh prepared/stock devices, preflight, runtime hashes, updates, two-backup retention, unknown/personal preservation and corrupt/traversal rejection.')

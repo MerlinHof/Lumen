@@ -58,7 +58,8 @@ backs up the existing runtime and verifies the copied files. Your books under
 
 The two newest **recognized runtime-only backups** are retained. Older recognized
 backups are removed after a successful copy. Unknown folders, backups containing
-personal data, symlinks and ordinary app data are never pruned. You can retain more:
+personal data, symlinks and ordinary app data are never pruned. Genuine macOS AppleDouble
+metadata sidecars are recognized so they do not prevent retention on FAT storage. You can retain more:
 
 ```sh
 python3 Install-LUMEN.py --keep-backups 5

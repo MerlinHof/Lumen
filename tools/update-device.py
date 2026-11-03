@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Install or update LUMEN on a prepared Kindle; preserve all personal content."""
 from pathlib import Path, PurePosixPath
-import argparse,hashlib,json,os,shutil,sys,time
+import argparse,hashlib,json,os,re,shutil,sys,time
 
 def digest(path):
     h=hashlib.sha256()
@@ -27,16 +27,38 @@ def storage(root):
     return sizes
 
 def safe_backup(path,allowed):
-    if not path.name.startswith('before-') or path.is_symlink():return False
-    files=[p for p in path.rglob('*') if p.is_file()]
-    return bool(files) and all(not p.is_symlink() and (str(p.relative_to(path)) in allowed or str(p.relative_to(path))=='.lumen-backup.json') for p in files) and not any(p.is_symlink() for p in path.rglob('*'))
+    if not re.fullmatch(r'before-\d+\.\d+-\d{8}-\d{6}-\d{6}',path.name) or path.is_symlink():return False
+    entries=list(path.rglob('*'))
+    if any(p.is_symlink() for p in entries):return False
+    files=[p for p in entries if p.is_file()]
+    ordinary=0
+    for p in files:
+        rel=str(p.relative_to(path))
+        if rel in allowed or rel=='.lumen-backup.json':ordinary+=1;continue
+        # macOS writes AppleDouble xattrs to FAT volumes. Accept only genuine
+        # sidecars of an existing recognized file or directory, never arbitrary
+        # files merely named with an underscore prefix.
+        if p.name.startswith('._'):
+            peer=p.with_name(p.name[2:])
+            with p.open('rb') as f:header=f.read(8)
+            if header==bytes.fromhex('0005160700020000') and peer.exists() and (peer.is_dir() or str(peer.relative_to(path)) in allowed or peer.name=='.lumen-backup.json'):continue
+        if p.name=='.DS_Store':
+            with p.open('rb') as f:header=f.read(8)
+            if header[4:8]==b'Bud1':continue
+        return False
+    return ordinary>0
 
 def prune_backups(root,allowed,keep=2):
     parent=root/'lumen/backups'
-    candidates=sorted((p for p in parent.iterdir() if p.is_dir() and safe_backup(p,allowed)),key=lambda p:p.stat().st_mtime_ns,reverse=True)
+    candidates=sorted((p for p in parent.iterdir() if p.is_dir() and safe_backup(p,allowed)),key=lambda p:tuple(p.name.rsplit('-',3)[1:]),reverse=True)
     reclaimed=0
     for path in candidates[keep:]:
-        reclaimed+=sum(p.stat().st_size for p in path.rglob('*') if p.is_file());shutil.rmtree(path)
+        reclaimed+=sum(p.stat().st_size for p in path.rglob('*') if p.is_file())
+        def missing_sidecar_only(function,filename,error):
+            # macOS/FAT removes a file's AppleDouble peer automatically; a
+            # directory traversal may still contain that now-missing entry.
+            if not isinstance(error[1],FileNotFoundError):raise error[1]
+        shutil.rmtree(path,onerror=missing_sidecar_only)
     return reclaimed
 
 def update(bundle,kindle,keep_backups=2):
@@ -60,7 +82,7 @@ def update(bundle,kindle,keep_backups=2):
     existing=[r for r in manifest if (kindle/r).is_file()]+removals
     backup=None
     if existing:
-        stamp=time.strftime('%Y%m%d-%H%M%S')+'-'+str(time.time_ns()%1000000).zfill(6)
+        stamp=time.strftime('%Y%m%d-%H%M%S')+'-'+str((time.time_ns()//1000)%1000000).zfill(6)
         backup=kindle/'lumen/backups'/('before-'+version+'-'+stamp);backup.mkdir(parents=True)
         for rel in existing:
             saved=backup/rel;saved.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(kindle/rel,saved)
