@@ -29,7 +29,7 @@ def storage(root):
 def safe_backup(path,allowed):
     if not path.name.startswith('before-') or path.is_symlink():return False
     files=[p for p in path.rglob('*') if p.is_file()]
-    return bool(files) and all(not p.is_symlink() and (str(p.relative_to(path)) in allowed or p.name=='.lumen-backup.json') for p in files) and not any(p.is_symlink() for p in path.rglob('*'))
+    return bool(files) and all(not p.is_symlink() and (str(p.relative_to(path)) in allowed or str(p.relative_to(path))=='.lumen-backup.json') for p in files) and not any(p.is_symlink() for p in path.rglob('*'))
 
 def prune_backups(root,allowed,keep=2):
     parent=root/'lumen/backups'
@@ -76,7 +76,7 @@ def update(bundle,kindle,keep_backups=2):
     for rel in removals:(kindle/rel).unlink()
     # Create only structural folders; user settings are initialized by the native app.
     for name in ['data','data/books','data/covers','data/notes','data/photos']:(kindle/'lumen'/name).mkdir(parents=True,exist_ok=True)
-    reclaimed=prune_backups(kindle,set(manifest)|set(legacy),keep_backups) if (kindle/'lumen/backups').exists() else 0
+    reclaimed=prune_backups(kindle,set(manifest)|set(legacy)|{'lumen/ANFORDERUNGEN.md'},keep_backups) if (kindle/'lumen/backups').exists() else 0
     print(f'LUMEN {version}: {len(manifest)} files copied and verified.')
     print('Personal books, settings, notes and photos preserved.')
     if backup:print('Rollback backup:',backup)

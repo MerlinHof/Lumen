@@ -27,7 +27,9 @@ for i in range(3):
     (root/'lumen/bin/lumen').write_text('old runtime '+str(i));assert u.update(bundle,root)
 backups=[p for p in (root/'lumen/backups').iterdir() if p.is_dir()];assert len(backups)==2
 unknown=root/'lumen/backups/before-personal';(unknown/'lumen/data').mkdir(parents=True);(unknown/'lumen/data/keep.txt').write_text('keep')
-u.update(bundle,root);assert (unknown/'lumen/data/keep.txt').read_text()=='keep'
+old=root/'lumen/backups/before-1.8-legacy';(old/'lumen').mkdir(parents=True);(old/'lumen/ANFORDERUNGEN.md').write_text('old runtime documentation')
+import os;os.utime(old,(1,1))
+u.update(bundle,root);assert (unknown/'lumen/data/keep.txt').read_text()=='keep';assert not old.exists()
 assert (root/'lumen/data/notes/me.txt').read_text()=='my private note'
 assert (root/'documents/My book.epub').read_text()=='my book'
 assert (root/'lumen/DISABLE_AUTOSTART').exists()
