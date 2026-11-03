@@ -1,0 +1,86 @@
+static void improvements_tests(void) {
+    clip_active = 0;
+    keyboard = 0;
+    route_to(27);
+    memset(calc_expr, 'i', 70);
+    calc_expr[70] = 0;
+    calc_cursor = 70;
+    assert(calc_input_start() == 0);
+    memset(calc_expr, 'W', 100);
+    calc_expr[100] = 0;
+    calc_cursor = 100;
+    assert(calc_input_start() > 0);
+    calc_cursor = 1;
+    assert(calc_input_start() == 0);
+    assert(!app_route_valid(116) && !app_route_valid(121));
+    int ids[APP_COUNT], n = v1_visible(ids);
+    for (int i = 0; i < n; i++)
+        assert(ids[i] != APP_FILES && ids[i] != APP_RPG);
+    memset(ink_pixels, 255, sizeof(ink_pixels));
+    ink_eraser = 0;
+    ink_width = 3;
+    ink_stamp(100, 154);
+    assert(ink_pixels[100 * 600 + 100] < 255);
+    ink_eraser = 1;
+    ink_stamp(100, 154);
+    for (int y = 96; y <= 104; y++)
+        for (int x = 96; x <= 104; x++)
+            assert(ink_pixels[y * 600 + x] == 255);
+    ink_note = 12345;
+    ink_page = 0;
+    ink_dirty = 1;
+    ink_save();
+    char p[2048];
+    snprintf(p, sizeof(p), "%s/notes/12345-page-0.ink", data_root);
+    assert(access(p, F_OK));
+    ink_note = -1;
+    route_to(1);
+    open_keyboard(0, "Search", "select these words");
+    ui_draw();
+    Input h = {.kind = INPUT_HOLD, .x = 28 + textwidth_raw("select ", &body), .y = 476};
+    ui_input(&h);
+    assert(clip_active == 1);
+    Input m = {.kind = INPUT_MOVE, .x = 28 + textwidth_raw("select these", &body), .y = 476};
+    ui_input(&m);
+    assert(clip_active == 1 && clip_e > clip_s);
+    Input release = m;
+    release.kind = INPUT_TAP;
+    ui_input(&release);
+    assert(clip_active == 2);
+    Input copy = {.kind = INPUT_TAP, .x = 100, .y = 380};
+    ui_input(&copy);
+    assert(!strcmp(clipboard_text, "these"));
+    keyboard = 0;
+    chat_clear();
+    assert(chat_append(0, "Why read?") && chat_append(1, "A quiet place to think.") &&
+           chat_append(0, "How do I start?"));
+    unsigned long long id = chat_id;
+    char *body = NULL;
+    size_t size = 0;
+    FILE *f = open_memstream(&body, &size);
+    chat_write_request(f, "test-model", "");
+    fclose(f);
+    Json j;
+    JsonToken t[128];
+    assert(json_parse(&j, body, t, 128));
+    assert(json_at(&j, json_get(&j, 0, "input"), 2) >= 0);
+    free(body);
+    chat_clear();
+    assert(chat_load(id) && chat_count == 3 && !strcmp(chat_messages[2].text, "How do I start?"));
+    chat_complete("Start with **one chapter**.\n\nMake a small habit.");
+    assert(chat_count == 4);
+    route_to(122);
+    ui_draw();
+    shot17("chat");
+    chat_scan();
+    assert(chat_archive_count == 1);
+    route_to(128);
+    ui_draw();
+    shot17("chats");
+    route_to(114);
+    recipe_search16 = 1;
+    companion_page16 = 2;
+    assert(recipes_back() && !recipe_search16 && !companion_page16);
+    puts("PASS improvements: pixel-measured formula scrolling, removed routes, real erasing, drag "
+         "selection, local chat persistence/context and recipe back.");
+}

@@ -236,3 +236,17 @@ next, what just happened, can I get back, is the text comfortable, does this
 button look like its purpose? Prefer one coherent interaction over three clever
 but inconsistent variants. Leave the project easier for the next agent to
 understand than you found it.
+
+## 1.10 maintenance notes
+
+Files and Paper Quest IDs are retired tombstones; never renumber persisted app IDs.
+ToDo has only ToDo/Done and is fullscreen. Clipboard actions appear after the
+selection drag is released, not at the beginning of a long press. Notes ink is
+a fixed raster; erasing clears pixels and empty pages remove the ink file.
+Chat transcripts belong to user data and must survive updates.
+
+Package validators reject data/backups in payloads. Reinstalling identical files
+must not produce a rollback copy. Keep the twelve-update regression test and
+macOS AppleDouble handling: FAT can remove sidecars while a directory traversal
+still contains their names. Ignore only that FileNotFound case, never arbitrary
+cleanup errors. Documentation previews keep native pixels at 1:1.

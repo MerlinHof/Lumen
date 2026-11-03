@@ -23,9 +23,16 @@ assert not (root/'lumen').exists()
 assert u.update(bundle,root) is None
 (root/'lumen/data/notes').mkdir(exist_ok=True);(root/'lumen/data/notes/me.txt').write_text('my private note')
 (root/'lumen/DISABLE_AUTOSTART').write_text('')
-for i in range(3):
+for i in range(12):
     (root/'lumen/bin/lumen').write_text('old runtime '+str(i));assert u.update(bundle,root)
 backups=[p for p in (root/'lumen/backups').iterdir() if p.is_dir()];assert len(backups)==2
+before=set(p.name for p in backups);u.update(bundle,root)
+assert before==set(p.name for p in (root/'lumen/backups').iterdir() if p.is_dir()),'Reinstall must not create another backup'
+from package import validate_runtime_mapping
+for unsafe in ['lumen/backups/a','lumen/data/a','../escape']:
+ try:validate_runtime_mapping({unsafe:'device/LUMEN.sh'})
+ except RuntimeError:pass
+ else:raise AssertionError('Backup/data admitted into release')
 unknown=root/'lumen/backups/before-personal';(unknown/'lumen/data').mkdir(parents=True);(unknown/'lumen/data/keep.txt').write_text('keep')
 old=root/'lumen/backups/before-1.8-20200101-000000-000001';(old/'lumen').mkdir(parents=True);(old/'lumen/ANFORDERUNGEN.md').write_text('old runtime documentation')
 (old/'._lumen').write_bytes(bytes.fromhex('0005160700020000'))

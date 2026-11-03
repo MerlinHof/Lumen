@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.10
+
+- Measured calculator viewport and aligned function/input edges.
+- Notes alignment, direct-child counts, natural gutter typography and true pixel erasing.
+- Drag selection before copy actions, calmer keyboard numbers and fullscreen ToDo/Done.
+- Recipe search Back behavior and denser source metadata.
+- Local OpenAI chats, follow-up context, archive and long-answer Reader continuation.
+- Retired Files and Paper Quest, removed unused text-capture work and stale test harnesses.
+- Twelve-update retention checks, identical-install skipping and package backup/data exclusion.
+- Native 1:1 documentation screenshots and a refreshed gallery.
+
+
 ## 1.9
 
 - Lean public source tree; dependencies, build artifacts and local history kept private.

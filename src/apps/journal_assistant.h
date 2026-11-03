@@ -259,31 +259,8 @@ static int u17_more_draw(void) {
         ink_color = 0;
         return 1;
     }
-    if (screen == 122) {
-        static unsigned generation;
-        if (generation != runtime.generation) {
-            config16("llm-model.txt", llm_model16, sizeof(llm_model16));
-            config16("llm-prompt16.txt", llm_prompt16, sizeof(llm_prompt16));
-            generation = runtime.generation;
-        }
-        heading("OpenAI");
-        icon_button(468, 74, IC_HISTORY);
-        icon_button(528, 74, IC_SETTINGS);
-        key_outline(28, 150, 544, 410);
-        region(28, 150, 544, 410);
-        wrapped_raw(46, 173, *llm_prompt16 ? llm_prompt16 : tr("Was möchtest du wissen?"), &body,
-                    506, 11);
-        button_h(350, 585, 222, 56, "Senden", 0);
-        ink_color = 125;
-        drawtext_raw(30, 667, llm_model16, &caption, 540);
-        ink_color = 0;
-        if (job_pid16 > 0 && job_kind16 == 2) {
-            rect(70, 285, 460, 160, 255);
-            key_outline(70, 285, 460, 160);
-            centered(80, 305, 440, 110, "Antwort wird erstellt …", &body);
-        }
-        return 1;
-    }
+    if(screen==128){chats_draw();return 1;}
+    if(screen==122){chat_draw();return 1;}
     if (screen == 123) {
         heading("OpenAI");
         icon_button(528, 74, IC_RESTART);
@@ -362,32 +339,8 @@ static int u17_more_input(const Input *in) {
         }
         return y < 48 ? -1 : 1;
     }
-    if (screen == 122) {
-        if (y >= 74 && y < 118) {
-            if (x >= 516)
-                extra_open(123);
-            else if (x >= 460) {
-                char *s = service_read("llm-answer16.txt", 131072);
-                if (s) {
-                    reader_markdown17("OpenAI", s, 122);
-                    free(s);
-                }
-            }
-            return 1;
-        }
-        if (y >= 150 && y < 560) {
-            open_keyboard(174, "Frage an OpenAI", llm_prompt16);
-            note_cursor = strlen(edit);
-            note_view_start = 0;
-            return 1;
-        }
-        if (y >= 585 && y < 641 && x >= 350) {
-            if (*llm_prompt16)
-                job_start16(2, llm_prompt16);
-            return 1;
-        }
-        return y < 48 ? -1 : 1;
-    }
+    if(screen==128)return chats_input(in);
+    if(screen==122)return chat_input(in);
     if (screen == 123) {
         if (y >= 74 && y < 118 && x >= 516) {
             job_start16(3, "");

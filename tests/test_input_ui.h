@@ -17,17 +17,17 @@ static void input_tests18(void) {
     options[OPT_KEYBOARD_LANGUAGE]=2;keyboard_layout18();assert(!strcmp(keyboard_keys18[10].text,"a"));ui_draw();shot17("keyboard-fr");
     options[OPT_KEYBOARD_LANGUAGE]=0;
     open_keyboard(0,"Search","copy me");ui_draw();
-    Input hold={.kind=INPUT_HOLD,.x=40,.y=476};ui_input(&hold);assert(clip_active);
+    Input hold={.kind=INPUT_HOLD,.x=40,.y=476};ui_input(&hold);assert(clip_active==1);Input release={.kind=INPUT_TAP,.x=hold.x,.y=hold.y};ui_input(&release);assert(clip_active==2);
     Input all={.kind=INPUT_TAP,.x=250,.y=380};ui_input(&all);assert(clip_e==(int)strlen(edit));
     Input copy={.kind=INPUT_TAP,.x=100,.y=380};ui_input(&copy);assert(!strcmp(clipboard_text,"copy me")&&!clip_active);
-    open_keyboard(0,"Search","XY");ui_draw();hold.x=28;ui_input(&hold);assert(clip_active&&note_cursor==0);
-    Input paste={.kind=INPUT_TAP,.x=400,.y=450};ui_input(&paste);assert(!strcmp(edit,"copy meXY"));
+    open_keyboard(0,"Search","");ui_draw();hold.x=28;ui_input(&hold);assert(clip_active==1&&note_cursor==0);release.x=hold.x;ui_input(&release);
+    Input paste={.kind=INPUT_TAP,.x=400,.y=450};ui_input(&paste);assert(!strcmp(edit,"copy me"));
     open_keyboard(5,"Password","secret");ui_draw();ui_input(&hold);assert(!clip_active);
     keyboard=0;
     task_tab=task_board=task_page=0;task_context16[0]=0;task_count=2;
     snprintf(tasks[0].title,200,"One line");snprintf(tasks[1].title,200,"First line\nSecond line\nThird line");tasks[0].state=0;tasks[1].state=2;
-    route_to(74);ui_draw();tasks_layout18();assert(task_rows_count18==2&&task_rows18[1].h>task_rows18[0].h);
-    shot17("tasks-multiline");Input edit_task={.kind=INPUT_TAP,.x=100,.y=task_rows18[1].y+15};ui_input(&edit_task);
+    route_to(74);ui_draw();tasks_layout18();assert(task_rows_count18==1&&app_route_fullscreen(74));task_tab=1;tasks_layout18();assert(task_rows_count18==1&&task_rows18[0].h>68);
+    shot17("tasks-multiline");Input edit_task={.kind=INPUT_TAP,.x=100,.y=task_rows18[0].y+15};ui_input(&edit_task);
     assert(keyboard&&keyboard_target==180&&keyboard_multiline());assert(strstr(edit,"Second line"));
     note_cursor=strlen(edit);keyboard_insert("\nFourth line");commit_keyboard();assert(strstr(tasks[1].title,"Fourth line"));
     open_keyboard(0,"Search","");ui_draw();
@@ -40,7 +40,7 @@ static void input_tests18(void) {
     char utf[32]="éöX";int cur=4;text_backspace(utf,&cur);assert(!strcmp(utf,"éX")&&cur==2);
     assert(!text_insert(utf,5,&cur,"too long"));assert(!strcmp(utf,"éX"));
     route_to(27);snprintf(calc_expr,sizeof(calc_expr),"1+2");calc_cursor=1;ui_draw();
-    Input calc_hold={.kind=INPUT_HOLD,.x=70,.y=380};ui_input(&calc_hold);assert(clip_active);
-    snprintf(clipboard_text,sizeof(clipboard_text),"9");Input cp={.kind=INPUT_TAP,.x=400,.y=450};ui_input(&cp);assert(!strcmp(calc_expr,"19+2"));
+    Input calc_hold={.kind=INPUT_HOLD,.x=70,.y=380};ui_input(&calc_hold);assert(clip_active==1);Input cr={.kind=INPUT_TAP,.x=70,.y=380};ui_input(&cr);assert(clip_active==2);
+    snprintf(clipboard_text,sizeof(clipboard_text),"9");Input cp={.kind=INPUT_TAP,.x=400,.y=450};ui_input(&cp);assert(!strcmp(calc_expr,"9"));
     puts("PASS input: independent layouts, number row, accents/one-shot shift, UTF-8 caret insertion/deletion, editable-only copy/paste, multiline tasks, 100 queued key pairs and cached keyboard rendering.");
 }

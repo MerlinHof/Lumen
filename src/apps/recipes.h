@@ -351,7 +351,8 @@ static int recipes_draw17(void) {
                      recipes17[i].lang);
         else
             snprintf(source, 100, "%s", tr("Offline verfügbar"));
-        drawtext_raw(88, y + 53, source, &caption, 470);
+        int lines=textwidth_raw(recipe_search16?recipes17[i].title:recipe_recent16[i].title,&small)>470?2:1;
+        drawtext_raw(88, y + (lines==2?46:29), source, &caption, 470);
         ink_color = 0;
         rect(28, y + 77, 544, 1, 205);
     }
@@ -408,4 +409,9 @@ static int recipes_input17(const Input *in) {
         return 1;
     }
     return -1;
+}
+
+static int recipes_back(void) {
+    if(screen!=114||!recipe_search16)return 0;
+    recipe_search16=0;companion_page16=0;recipe_archive16();return 1;
 }

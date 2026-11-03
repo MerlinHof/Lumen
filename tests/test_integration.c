@@ -4,6 +4,7 @@
 static void tap17(int x,int y){Input in={.kind=INPUT_TAP,.x=x,.y=y};ui_input(&in);ui_draw();}
 static void shot17(const char*n){notice[0]=0;ui_draw();char p[256];snprintf(p,256,"build/tests/%s.pgm",n);FILE*f=fopen(p,"wb");fprintf(f,"P5\n600 800\n255\n");fwrite(ui_pixels,1,480000,f);fclose(f);}
 #include "test_input_ui.h"
+#include "test_improvements.h"
 int main(int argc,char**argv){(void)argv;library_root="build/tests/fixtures";data_root="build/tests/test-data";mkdir(data_root,0700);assert(engine_init());ui_init();assert(!app_route_valid(124));if(argc>1){selected_recipe17.meal=0;strcpy(selected_recipe17.lang,"de");strcpy(selected_recipe17.id,"wiki-de-115892");strcpy(selected_recipe17.title,"Rote-Bete-Gnocchi mit Spinat");assert(recipes_fetch17(""));recipe_archive16();assert(recipe_recent_count16>0);char path[4096];snprintf(path,sizeof(path),"%s/recipe-archive16/wiki-de-115892.html",data_root);assert(file_open16(path,114));assert(engine_count()>0);ui_draw();shot17("recipe-live");ui_close();engine_shutdown();puts("PASS native German recipe fetch, rich HTML, image preparation, offline archive and Reader");return 0;}
  route_to(29);ui_draw();u16_notes_defaults();note_tree.current=note_tree.folder[0].id;ui_draw();assert(u17_notes_depth());tap17(20,20);assert(!note_tree.current);
  note_selected=-1;extra_commit(30,"Title\nSome text to edit.");int id=note_selected;route_to(29);ui_draw();shot17("notes");u17_notes_menu(0,id,150);ui_draw();tap17(drop_x+100,drop_y+25);assert(dropdown&&drop_target==936);ui_draw();shot17("folder-popup");tap17(drop_x+100,drop_y+5+48+20);assert(v1_folder_for(id)==note_tree.folder[0].id);
@@ -20,5 +21,5 @@ int main(int argc,char**argv){(void)argv;library_root="build/tests/fixtures";dat
  calendar_view16=1;route_to(21);ui_draw();shot17("calendar-week");tap17(200,350);assert(calendar_view16==0);ui_draw();shot17("calendar-day");
  route_to(79);extra_prepare(79);ui_draw();tap17(400,90);assert(dropdown&&drop_target==933);tap17(drop_x+90,drop_y+5+48+20);assert(screen==125);ui_draw();shot17("solar");
  for(int lang=0;lang<3;lang++){options[OPT_LANGUAGE]=lang;route_to(123);ui_draw();shot17(lang==0?"de":lang==1?"en":"fr");assert(strcmp(tr_language("Dieser Ordner ist leer.",lang),lang?"Dieser Ordner ist leer.":"English")!=0);}options[OPT_LANGUAGE]=0;
- input_tests18();
+ input_tests18(); improvements_tests();
  ui_close();engine_shutdown();puts("PASS compact popups/nested folder menu, notes back, task editing/checkboxes, calculator dropdown, inline sleep, clipboard hit limits, warehouse/maze, crossword, journal editing, model list, Markdown Reader/chrome, local calendar and planet selector.");}

@@ -14,7 +14,7 @@ Do not use the package as a firmware update or copy it to the Kindle's update sl
 
 ## First installation
 
-1. Download **LUMEN-1.9.zip** from [Releases](https://github.com/MerlinHof/Lumen/releases/latest).
+1. Download **LUMEN-1.10.zip** from [Releases](https://github.com/MerlinHof/Lumen/releases/latest).
 2. Extract the complete folder. Connect the prepared Kindle by USB and open its storage.
 3. **macOS:** open `Install-LUMEN.command`. Alternatively, on macOS/Linux with Python 3.9+:
    ```sh
@@ -92,3 +92,22 @@ file `lumen/DISABLE_AUTOSTART` over USB. Removing user files is not required.
 
 The simulated fresh-install checks are documented in [Validation](validation.md).
 A full physical reinstall on a freshly prepared Kindle has not been performed for 1.9.
+
+## Why backups no longer accumulate
+
+Earlier versions created a rollback copy for every update without an effective
+retention limit. macOS AppleDouble metadata then prevented strict recognition of
+those directories. That is fixed and regression-tested.
+
+- Releases contain only the explicit runtime allowlist: no `data`, `backups`,
+  local compiler or project-folder archive can enter the package.
+- Backups are created **on the Kindle**, from its previous installed runtime.
+- A successful update retains the two newest recognized copies, ordered by
+  their recorded timestamp, independently of directory modification times.
+- Reinstalling identical runtime files creates no new copy and does not rewrite them.
+- Genuine macOS metadata is recognized; missing automatically removed sidecars
+  do not abort cleanup. Unknown/user-content directories remain protected.
+- Twelve successive updates and an identical reinstall are tested in CI.
+
+This bounds automatic runtime backup growth; your own photos, books, chats and
+notes remain user content and are never silently deleted to enforce a size limit.

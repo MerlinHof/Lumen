@@ -4873,5 +4873,75 @@
     "Mit + eine Aufgabe hinzufügen",
     "Add a task with +",
     "Ajouter une tâche avec +"
+  ],
+  "%d direkte Einträge": [
+    "%d direkte Einträge",
+    "%d direct items",
+    "%d éléments directs"
+  ],
+  "Ein Gedanke. Ein Gespräch.": [
+    "Ein Gedanke. Ein Gespräch.",
+    "One thought. A conversation.",
+    "Une idée. Une conversation."
+  ],
+  "Was möchtest du verstehen?": [
+    "Was möchtest du verstehen?",
+    "What would you like to understand?",
+    "Que veux-tu comprendre ?"
+  ],
+  "Stelle eine Frage. Den nächsten Gedanken kannst du direkt anschließen.": [
+    "Stelle eine Frage. Den nächsten Gedanken kannst du direkt anschließen.",
+    "Ask a question. Follow your next thought from there.",
+    "Pose une question, puis poursuis ton idée."
+  ],
+  "Nachricht schreiben …": [
+    "Nachricht schreiben …",
+    "Write a message …",
+    "Écrire un message…"
+  ],
+  "Antwort wird geschrieben …": [
+    "Antwort wird geschrieben …",
+    "Writing a reply …",
+    "Réponse en cours…"
+  ],
+  "Bitte die laufende Anfrage abwarten.": [
+    "Bitte die laufende Anfrage abwarten.",
+    "Please wait for the current request.",
+    "Attends la fin de la requête."
+  ],
+  "Bitte zuerst einen API-Schlüssel einrichten.": [
+    "Bitte zuerst einen API-Schlüssel einrichten.",
+    "Set up an API key first.",
+    "Configure d’abord une clé API."
+  ],
+  "Chat ist voll. Bitte einen neuen Chat beginnen.": [
+    "Chat ist voll. Bitte einen neuen Chat beginnen.",
+    "This chat is full. Start a new chat.",
+    "Cette conversation est pleine. Crée une nouvelle conversation."
+  ],
+  "Deine Gespräche werden hier auf diesem Kindle gespeichert.": [
+    "Deine Gespräche werden hier auf diesem Kindle gespeichert.",
+    "Your conversations are saved here on this Kindle.",
+    "Tes conversations sont enregistrées sur ce Kindle."
+  ],
+  "Nachricht": [
+    "Nachricht",
+    "Message",
+    "Message"
+  ],
+  "Du": [
+    "Du",
+    "You",
+    "Toi"
+  ],
+  "Chats": [
+    "Chats",
+    "Chats",
+    "Conversations"
+  ],
+  "1 direkter Eintrag": [
+    "1 direkter Eintrag",
+    "1 direct item",
+    "1 élément direct"
   ]
 }

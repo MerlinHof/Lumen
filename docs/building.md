@@ -39,8 +39,7 @@ python3 tools/check.py --http   # also starts a local transfer test server
 
 Build host **and Kindle** before the installer/package checks. Tests use synthetic
 content under `build/tests`, never the mounted Kindle. ASan/UBSan cover the UI
-integration executable. The older model tests remain useful as focused fixtures;
-the current command is the supported release check.
+integration executable. Only the current supported test harnesses are kept in the source tree.
 
 ## Preview and screenshots
 

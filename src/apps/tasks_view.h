@@ -21,10 +21,10 @@ static void tasks_layout18(void) {
             if (!task_matches16(i))
                 continue;
             if (task_board ? (tasks[i].state == 2) != col
-                           : (task_tab && ((task_tab == 2) != (tasks[i].state == 2))))
+                           : ((task_tab == 1) != (tasks[i].state == 2)))
                 continue;
             int h = task_height18(i, task_board ? 194 : 365);
-            if (y + h > 664 && y > (task_board ? 195 : 201)) {
+            if (y + h > 720 && y > (task_board ? 195 : 201)) {
                 page18++;
                 y = task_board ? 195 : 201;
             }
@@ -52,11 +52,11 @@ static void tasks_draw18(void) {
             tasks[i].state = 0;
             v1_dirty = 1;
         }
-    const char *tabs[] = {"Alle", "ToDo", "Erledigt"};
-    if (task_tab > 2)
-        task_tab = 2;
+    const char *tabs[] = {"ToDo", "Erledigt"};
+    if (task_tab > 1)
+        task_tab = 1;
     if (!task_board)
-        segments(28, 137, 544, 44, tabs, 3, task_tab);
+        segments(28, 137, 544, 44, tabs, 2, task_tab);
     else {
         centered(28, 139, 262, 44, "ToDo", &body);
         centered(310, 139, 262, 44, "Erledigt", &body);
@@ -83,7 +83,7 @@ static void tasks_draw18(void) {
             icon_button(522, row.y + 7, IC_TRASH);
         }
     }
-    pager(679, &task_page, task_pages18);
+    pager(746, &task_page, task_pages18);
 }
 static int tasks_input18(const Input *in) {
     if (in->kind != INPUT_TAP)
@@ -101,9 +101,9 @@ static int tasks_input18(const Input *in) {
         return 1;
     }
     if (!task_board && y >= 137 && y < 181 && x >= 28 && x < 572) {
-        task_tab = (x - 28) / (544 / 3);
-        if (task_tab > 2)
-            task_tab = 2;
+        task_tab = (x - 28) / (544 / 2);
+        if (task_tab > 1)
+            task_tab = 1;
         task_page = 0;
         return 1;
     }

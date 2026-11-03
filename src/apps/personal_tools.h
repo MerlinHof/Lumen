@@ -217,7 +217,7 @@ static int v1_visible(int *out) {
     int n = 0;
     for (int i = 0; i < APP_COUNT; i++) {
         int id = launcher_order[i];
-        if (id != APP_NUMSCRATCH && id != APP_DRAWING && launcher_visible[id])
+        if (id != APP_NUMSCRATCH && id != APP_DRAWING && id != APP_FILES && id != APP_RPG && launcher_visible[id])
             out[n++] = id;
     }
     return n;
@@ -874,19 +874,17 @@ static void v1_timer_ring(int fullscreen) {
         button_h(312, 665, 260, 60, "Zurücksetzen", 0);
     }
 }
+static int launcher_manage_indices(int *indices) {
+    int n=0;for(int i=0;i<APP_COUNT;i++)if(app_route_valid(app_definition(launcher_order[i])->entry))indices[n++]=i;return n;
+}
 static void v1_launcher_settings(void) {
-    heading("Apps verwalten");
-    drawtext(30, 127, "Sichtbarkeit & Reihenfolge", &caption, 540);
-    for (int r = 0; r < 7 && launcher_settings_page * 7 + r < APP_COUNT - 2; r++) {
-        int i = launcher_settings_page * 7 + r, id = launcher_order[i], y = 174 + r * 68;
-        v1_icon(28, y + 3, id);
-        drawtext(87, y + 10, app_definition(id)->name, &small, 264);
-        page_arrow(354, y + 4, IC_UP, i > 0);
-        page_arrow(405, y + 4, IC_DOWN, i + 1 < APP_COUNT - 2);
-        toggle(492, y + 4, launcher_visible[id]);
-        rect(28, y + 60, 544, 1, 195);
-    }
-    pager(687, &launcher_settings_page, (APP_COUNT - 2 + 6) / 7);
+    heading("Apps verwalten");drawtext(30,127,"Sichtbarkeit & Reihenfolge",&caption,540);
+    int indices[APP_COUNT],count=launcher_manage_indices(indices);
+    for(int r=0;r<7&&launcher_settings_page*7+r<count;r++) {
+        int pos=launcher_settings_page*7+r,i=indices[pos],id=launcher_order[i],y=174+r*68;
+        v1_icon(28,y+3,id);drawtext(87,y+10,app_definition(id)->name,&small,264);
+        page_arrow(354,y+4,IC_UP,pos>0);page_arrow(405,y+4,IC_DOWN,pos+1<count);toggle(492,y+4,launcher_visible[id]);rect(28,y+60,544,1,195);
+    }pager(687,&launcher_settings_page,(count+6)/7);
 }
 static void v1_open(int target) {
     polish_open(target);
@@ -1474,29 +1472,18 @@ static int v1_input(const Input *in) {
             }
         }
         break;
-    case 83:
-        if (y >= 174 && y < 650) {
-            int i = launcher_settings_page * 7 + (y - 174) / 68;
-            if (i < APP_COUNT) {
-                int id = launcher_order[i];
-                if (x >= 460)
-                    launcher_visible[id] ^= 1;
-                else if (x >= 354 && x < 400 && i > 0) {
-                    launcher_order[i] = launcher_order[i - 1];
-                    launcher_order[i - 1] = id;
-                } else if (x >= 405 && x < 455 && i + 1 < APP_COUNT - 2) {
-                    launcher_order[i] = launcher_order[i + 1];
-                    launcher_order[i + 1] = id;
-                }
-                v1_dirty = 1;
+    case 83: {
+        int indices[APP_COUNT],count=launcher_manage_indices(indices);
+        if(y>=174&&y<650){int pos=launcher_settings_page*7+(y-174)/68;
+            if(pos<count){int i=indices[pos],id=launcher_order[i];
+                if(x>=460)launcher_visible[id]^=1;
+                else if(x>=354&&x<400&&pos>0){int other=indices[pos-1];launcher_order[i]=launcher_order[other];launcher_order[other]=id;}
+                else if(x>=405&&x<455&&pos+1<count){int other=indices[pos+1];launcher_order[i]=launcher_order[other];launcher_order[other]=id;}
+                v1_dirty=1;
             }
-        } else if (y >= 687 && y < 731) {
-            if (x < 300 && launcher_settings_page)
-                launcher_settings_page--;
-            else if (x >= 300 && (launcher_settings_page + 1) * 7 < APP_COUNT - 2)
-                launcher_settings_page++;
-        }
+        }else if(y>=687&&y<731){if(x<300&&launcher_settings_page)launcher_settings_page--;else if(x>=300&&(launcher_settings_page+1)*7<count)launcher_settings_page++;}
         break;
+    }
     case 84:
         if (y >= 145 && y < 641) {
             int i = folder_page * 8 + (y - 145) / 62;

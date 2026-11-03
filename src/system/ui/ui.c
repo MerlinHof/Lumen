@@ -66,6 +66,12 @@ static void u17_calendar_dirty(void);
 static void small_number17(int, int, const char *, int);
 static void u17_gray_icon(int, int);
 static void models_parse17(void), reader_markdown17(const char *, const char *, int);
+static void chat_write_request(FILE *,const char *,const char *);
+static void chat_complete(const char *);
+static void chat_clear(void);
+static void chat_draw(void),chats_draw(void);
+static int chat_input(const Input *),chats_input(const Input *);
+static int recipes_back(void);
 static int recipes_draw17(void), recipes_input17(const Input *), cross_commit17(const char *);
 static void games_save17(void), journal_store17(void),
     u17_game_manual(int, const char *, const char *);
@@ -266,8 +272,7 @@ static int v1_input(const Input *), v1_commit(int, const char *), v1_tick(void),
 static int v1_notes_input(const Input *), clipboard_input(const Input *);
 static void v1_notes_draw(void), v1_note_tools(void), v1_launcher(void),
     v1_launcher_input(int, int);
-static void text_capture_record(int, int, const char *, const Font *);
-static void clipboard_draw(void), text_capture_begin(void), v1_effect(void), v1_close(void);
+static void clipboard_draw(void), v1_effect(void), v1_close(void);
 static int v1_sleep_photo(void), v1_chess_tick(void);
 static void v1_note_created(int), v1_timer_ring(int), v1_timer_started(void);
 static int v1_sleep_poll(void), v1_sleep_tick(void);
@@ -410,7 +415,6 @@ static int glyph_bottom(const Font *f, unsigned c) {
                               ->bottom;
 }
 static int drawtext_raw(int x, int y, const char *s, const Font *f, int maxw) {
-    text_capture_record(x, y + ui_y_offset, s, f);
     y += ui_y_offset;
     int start = x;
     while (*s) {
@@ -1269,7 +1273,6 @@ static void lock_backdrop(Book *b) {
     memcpy(ui_pixels, cached, sizeof(cached));
 }
 void ui_draw(void) {
-    text_capture_begin();
     widget_count = 0;
     pagination = (Pagination){0};
     if (keyboard && keyboard_background_valid18 && !sleeping) {
@@ -1764,6 +1767,7 @@ int ui_input(const Input *in) {
             u17_notes_up();
             return 1;
         }
+        if(x<62 && !keyboard && !dropdown && recipes_back())return 1;
         if (x < 62 && can_back()) {
             apps_pause();
             if (battery_popup) {
@@ -2240,6 +2244,7 @@ static int annotations_write(void) {
 #include "../../apps/puzzle_boards.h"
 #include "../../apps/game_manuals.h"
 #include "../../apps/recipes.h"
+#include "../../apps/chat.h"
 // clang-format on
 
 static void app_leave(AppId app, void *ctx) {
@@ -2396,6 +2401,7 @@ static int app_read_book(int index) {
     return app_send(&request);
 }
 void ui_close(void) {
+    chat_clear();
     companion_close16();
     u15_flush();
     polish_close();

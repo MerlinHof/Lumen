@@ -115,18 +115,8 @@ static int keyboard_secret18(void) {
     return text_input_spec(keyboard_target).secret;
 }
 static void keyboard_scroll18(void) {
-    note_cursor = (int)text_boundary(edit, note_cursor < 0 ? 0 : (size_t)note_cursor);
-    if (keyboard_view18 > note_cursor)
-        keyboard_view18 = note_cursor;
-    char b[8192];
-    for (;;) {
-        snprintf(b, sizeof(b), "%.*s", note_cursor - keyboard_view18, edit + keyboard_view18);
-        if (textwidth_raw(b, &body) <= 510 || keyboard_view18 >= note_cursor)
-            break;
-        const char *p = edit + keyboard_view18;
-        utf8_next(&p);
-        keyboard_view18 = p - edit;
-    }
+    note_cursor=text_boundary(edit,note_cursor<0?0:(size_t)note_cursor);
+    keyboard_view18=text_visible_start(edit,note_cursor,&body,510,keyboard_secret18()?'*':0);
 }
 static void keyboard_place18(int x) {
     const char *p = edit + keyboard_view18;
@@ -182,9 +172,15 @@ static void keyboard_draw18(void) {
     } else {
         for (int i = 0; i < keyboard_count18; i++) {
             KeyboardKey18 *k = &keyboard_keys18[i];
-            button_h(k->x, k->y, k->w, k->h, "", k->action == KEY_SHIFT18 && keyboard_shift);
+            if(k->y==506) {
+                region(k->x,k->y,k->w,k->h);
+                rect(k->x,k->y,k->w,1,155);rect(k->x,k->y+k->h-1,k->w,1,155);
+                rect(k->x,k->y,1,k->h,155);rect(k->x+k->w-1,k->y,1,k->h,155);
+            } else button_h(k->x, k->y, k->w, k->h, "", k->action == KEY_SHIFT18 && keyboard_shift);
+            if(k->y==506)ink_color=112;
             centered(k->x, k->y, k->w, k->h, k->text,
                      k->action == KEY_TEXT18 && k->y > 550 ? &body : &small);
+            ink_color=0;
             int kind = k->action == KEY_SHIFT18    ? IC_SHIFT
                        : k->action == KEY_DELETE18 ? IC_DELETE
                        : k->action == KEY_SPACE18  ? IC_SPACE

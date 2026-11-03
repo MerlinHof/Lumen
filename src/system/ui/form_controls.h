@@ -12,19 +12,12 @@ static void checkbox(int x, int y, int checked) {
     }
 }
 
-static void small_number17(int right, int y, const char *number, int color) {
-    static const unsigned char digits[10][7] = {
-        {14, 17, 19, 21, 25, 17, 14}, {4, 12, 4, 4, 4, 4, 14},  {14, 17, 1, 2, 4, 8, 31},
-        {30, 1, 1, 14, 1, 1, 30},     {2, 6, 10, 18, 31, 2, 2}, {31, 16, 16, 30, 1, 1, 30},
-        {14, 16, 16, 30, 17, 17, 14}, {31, 1, 2, 4, 8, 8, 8},   {14, 17, 17, 14, 17, 17, 14},
-        {14, 17, 17, 15, 1, 1, 14}};
-    int x = right - (int)strlen(number) * 9;
-    for (; *number; number++, x += 9) {
-        if (*number < '0' || *number > '9')
-            continue;
-        for (int yy = 0; yy < 7; yy++)
-            for (int xx = 0; xx < 5; xx++)
-                if (digits[*number - '0'][yy] & (1 << (4 - xx)))
-                    rect(x + xx, y + yy * 2, 1, 2, color);
-    }
+/* Natural font metrics, centered in the gutter and aligned to the text ink. */
+static void small_number17(int center, int text_y, const char *number, int color) {
+    int nh, nt = ink_top(number, &caption, &nh), th, tt = ink_top("H", &small, &th);
+    int old = ink_color;
+    ink_color = color;
+    drawtext_raw(center - textwidth_raw(number, &caption) / 2, text_y + tt + (th - nh) / 2 - nt,
+                 number, &caption, center * 2 - 8);
+    ink_color = old;
 }

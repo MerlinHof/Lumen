@@ -14,5 +14,27 @@ static void search_field(int x, int y, int w, const char *value, const char *hin
 }
 
 /* Search lives in the title bar; the shared keyboard carries the query. */
-static void search_action(void) { icon_button(528, 74, IC_SEARCH); }
-static int search_action_hit(int x, int y) { return x >= 516 && x < 580 && y >= 74 && y < 118; }
+static void search_action(void) {
+    icon_button(528, 74, IC_SEARCH);
+}
+static int search_action_hit(int x, int y) {
+    return x >= 516 && x < 580 && y >= 74 && y < 118;
+}
+
+/* One linear pass, shared by calculator and the system input viewport. */
+static int text_visible_start(const char *text, int cursor, const Font *font, int width,
+                              unsigned mask) {
+    cursor = text_boundary(text, cursor < 0 ? 0 : (size_t)cursor);
+    const char *p = text;
+    int used = 0;
+    while (*p && p - text < cursor) {
+        unsigned g = glyph(&p);
+        used += glyph_advance(font, mask ? mask : g);
+    }
+    p = text;
+    while (used > width && p - text < cursor) {
+        unsigned g = glyph(&p);
+        used -= glyph_advance(font, mask ? mask : g);
+    }
+    return p - text;
+}

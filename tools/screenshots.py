@@ -21,15 +21,17 @@ OUT.mkdir(parents=True,exist_ok=True)
 binary=compile_test('gallery','tests/render_gallery.c',True);subprocess.run([str(binary)],check=True)
 images=ROOT/'docs/images';images.mkdir(exist_ok=True)
 for p in folder.glob('*.pgm'):Image.open(p).save(images/(p.stem+'.png'),optimize=True)
-# A restrained documentation contact sheet. Every panel is an actual native render.
-canvas=Image.new('RGB',(1920,1150),'#ebe9e3');draw=ImageDraw.Draw(canvas)
-font=ImageFont.truetype(next(p for p in ['/System/Library/Fonts/Supplemental/Georgia.ttf','/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf'] if Path(p).exists()),70)
-small=ImageFont.truetype(next(p for p in ['/System/Library/Fonts/Supplemental/Arial.ttf','/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'] if Path(p).exists()),25)
-draw.text((80,48),'LUMEN',font=font,fill='#171717');draw.text((82,139),'A quieter kind of Kindle.',font=small,fill='#555')
+# Native pixels are kept at 1:1: no resampling of the app screenshots.
+canvas=Image.new('RGB',(2100,1260),'#eae7df');draw=ImageDraw.Draw(canvas)
+serif=next(p for p in ['/System/Library/Fonts/Supplemental/Georgia.ttf','/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf'] if Path(p).exists())
+sans=next(p for p in ['/System/Library/Fonts/Supplemental/Arial.ttf','/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'] if Path(p).exists())
+font=ImageFont.truetype(serif,86);small=ImageFont.truetype(sans,27)
+draw.text((95,55),'LUMEN',font=font,fill='#1b1b1a')
+draw.text((100,166),'READ SLOWLY. THINK CLEARLY.',font=small,fill='#5b5953')
 for i,name in enumerate(['library','reader','apps']):
-    x=80+i*604;y=222
-    draw.rounded_rectangle((x-10,y-10,x+560,y+744),radius=26,fill='#252525')
-    im=Image.open(images/(name+'.png')).convert('RGB').resize((550,734),Image.Resampling.LANCZOS)
-    canvas.paste(im,(x,y));draw.text((x,y+775),{'library':'READ','reader':'FOCUS','apps':'EXPLORE'}[name],font=small,fill='#555')
+    x=100+i*650;y=280
+    draw.rounded_rectangle((x-12,y-12,x+611,y+811),radius=28,fill='#2d2c29')
+    im=Image.open(images/(name+'.png')).convert('RGB');canvas.paste(im,(x,y))
+    draw.text((x,y+842),{'library':'01  THE LIBRARY','reader':'02  THE PAGE','apps':'03  A LITTLE MORE'}[name],font=small,fill='#5b5953')
 canvas.save(images/'hero.png',optimize=True)
 print('Native screenshots regenerated:',images)

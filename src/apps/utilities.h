@@ -238,11 +238,7 @@ static int job_start16(int kind, const char *arg) {
             size_t z = 0;
             FILE *f = open_memstream(&body, &z);
             if (f) {
-                fputs("{\"model\":", f);
-                json_escape16(f, model);
-                fputs(",\"input\":", f);
-                json_escape16(f, arg);
-                fputs(",\"max_output_tokens\":4096,\"store\":false}", f);
+                chat_write_request(f,model,arg);
                 fclose(f);
                 if (*key)
                     ok = curl16("https://api.openai.com/v1/responses", out, key, body);
@@ -321,9 +317,7 @@ static int u16_jobs_tick(void) {
             if (f) {
                 fclose(f);
                 if (n) {
-                    extra_write_text("llm-answer16.txt", text);
-                    if (screen == 122 || screen == 123)
-                        reader_markdown17("OpenAI", text, 122);
+                    chat_complete(text);
                 }
                 free(text);
             }

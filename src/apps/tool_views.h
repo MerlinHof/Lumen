@@ -776,6 +776,10 @@ static void calc_function_key(int x, int y, const char *key) {
     }
     centered(x, y, 57, 44, calc_label(key), &small);
 }
+static int calc_input_start(void) {
+    calc_cursor=text_boundary(calc_expr,calc_cursor<0?0:(size_t)calc_cursor);
+    return text_visible_start(calc_expr,calc_cursor,&small,468,0);
+}
 static void app_calculator(void) {
     calc_alt = !!calc_alt;
     heading("Rechner");
@@ -784,18 +788,18 @@ static void app_calculator(void) {
     icon_button(528, 74, IC_SETTINGS);
 
     key_outline(28, 132, 544, 216);
-    key_outline(28, 361, 486, 52);
-    icon_button(528, 365, IC_DELETE);
-    int start = calc_cursor > 37 ? calc_cursor - 37 : 0;
-    char shown[128];
-    snprintf(shown, sizeof(shown), "%.60s", calc_expr + start);
+    key_outline(28, 361, 498, 52);
+    region(536,365,36,44); icon(532,365,IC_DELETE);
+    int start = calc_input_start();
+    char shown[1024];
+    snprintf(shown, sizeof(shown), "%s", calc_expr + start);
     int ih, it = ink_top(*shown ? shown : "Ag", &small, &ih);
     int input_y = 361 + (52 - ih) / 2 - it;
-    drawtext_raw(43, input_y, shown, &small, 455);
+    drawtext_raw(43, input_y, shown, &small, 468);
     char prefix[1024];
     snprintf(prefix, sizeof(prefix), "%.*s", calc_cursor - start, calc_expr + start);
     int cx = 43 + textwidth(prefix, &small);
-    if (cx < 500 && cursor_visible) {
+    if (cx < 516 && cursor_visible) {
         text_caret(cx, input_y, &small);
     }
     if (calc_memory != 0)
@@ -1287,7 +1291,7 @@ static void system_screen(void) {
     const char *tabs[] = {"Speicher & Version", "Verwaltung"};
     segments(28, 133, 544, 44, tabs, 2, extra_page);
     if (!extra_page) {
-        drawtext(30, 205, "LUMEN 1.9", &editorial, 540);
+        drawtext(30, 205, "LUMEN 1.10", &editorial, 540);
         drawtext(30, 253, "Kindle KT2 · 600 × 800", &caption, 540);
         wrapped(30, 289,
                 "Diese Software wurde Ende 2026 von GPT-6.1 Sol entwickelt unter Aufsicht und "
@@ -1714,7 +1718,7 @@ static int extra_input(const Input *in) {
             return 1;
         }
         if (y >= 361 && y < 413) {
-            int start = calc_cursor > 37 ? calc_cursor - 37 : 0;
+            int start = calc_input_start();
             int w = 43;
             const char *p = calc_expr + text_boundary(calc_expr, start);
             while (*p) {

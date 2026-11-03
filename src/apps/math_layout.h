@@ -120,13 +120,13 @@ static void math_parenthesis(int x, int top, int bottom, int right, const Font *
                      glyph_advance(f, right ? ')' : '(') + 4);
         return;
     }
-    int w = 3;
+    int w = 6;
     int px = x + (right ? 0 : w), py = top;
     for (int i = 1; i <= 48; i++) {
         double t = i / 48.;
         int nx = x + (right ? w * sin(t * 3.14159265359) : w - w * sin(t * 3.14159265359)),
             ny = top + (bottom - top) * t;
-        stroke(px, py, nx, ny, 2);
+        aa_stroke(px, py, nx, ny, 2);
         px = nx;
         py = ny;
     }

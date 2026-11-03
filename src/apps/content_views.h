@@ -61,8 +61,8 @@ static void polish_notes(void) {
     drawtext_raw(28, 74, name, &editorial, 360);
     note_rename_x17 = 36 + (int)fmin(350, textwidth_raw(name, &editorial));
     if (note_tree.current) {
-        icon_button(note_rename_x17, 74, IC_EDIT);
-        u17_gray_icon(note_rename_x17, 74);
+        icon_button(note_rename_x17, 71, IC_EDIT);
+        u17_gray_icon(note_rename_x17, 71);
     }
     icon_button(468, 74, IC_FOLDER_PLUS);
     icon_button(528, 74, IC_NOTE_PLUS);
@@ -76,8 +76,13 @@ static void polish_notes(void) {
         int i = tree_page * 7 + r, y = 151 + r * 78;
         region(28, y, 412, 72);
         if (tree_type[i]) {
-            icon(28, y + 10, IC_FOLDER);
-            label_at(84, y, 410, 64, note_tree.folder[tree_id[i]].name, &body);
+            int folder=note_tree.folder[tree_id[i]].id, children=0;
+            for(int f=0;f<note_tree.nf;f++)children+=note_tree.folder[f].parent==folder;
+            for(int n=0;n<note_count;n++)children+=v1_folder_for(note_ids[n])==folder;
+            icon(28, y - 4, IC_FOLDER);
+            label_at(84, y, 410, 38, note_tree.folder[tree_id[i]].name, &body);
+            char count[100];if(children==1)snprintf(count,sizeof(count),"%s",tr("1 direkter Eintrag"));else snprintf(count,sizeof(count),tr("%d direkte Einträge"),children);
+            ink_color=125;label_at(84,y+36,410,24,count,&caption);ink_color=0;
         } else {
             char path[100], title[256];
             snprintf(path, sizeof(path), "notes/%d.txt", tree_id[i]);
@@ -85,7 +90,7 @@ static void polish_notes(void) {
             snprintf(title, sizeof(title), "%s", s ? s : "");
             free(s);
             title[strcspn(title, "\r\n")] = 0;
-            icon(28, y + 10, IC_NOTE);
+            icon(28, y - 5, IC_NOTE);
             label_at(84, y, 410, 34, *title ? title : tr("Notiz"), &small);
             time_t stamp = tree_id[i];
             strftime(title, sizeof(title), "%d.%m.%Y", localtime(&stamp));

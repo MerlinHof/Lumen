@@ -33,7 +33,7 @@ static const AppDefinition definitions[APP_COUNT] = {
     {APP_WORDLE, "Wordle", 70, 1, 3},
     {APP_PHOTOS, "Fotos", 71, 1, 3},
     {APP_LANGUAGE, "Sprachen", 73, 0, 3},
-    {APP_TASKS, "ToDo", 74, 0, 3},
+    {APP_TASKS, "ToDo", 74, 1, 3},
     {APP_FLASHCARDS, "Karteikarten", 76, 1, 3},
     {APP_PLANETARIUM, "Planetarium", 79, 1, 3},
     {APP_NONOGRAMS, "Nonogramme", 81, 1, 3},
@@ -48,12 +48,12 @@ static const AppDefinition definitions[APP_COUNT] = {
     {APP_CONNECT4, "Vier gewinnt", 113, 1, 3},
     {APP_RECIPES, "Rezepte", 114, 1, 3},
     {APP_PERIODIC, "Periodensystem", 115, 1, 3},
-    {APP_FILES, "Dateien", 116, 1, 3},
+    {APP_FILES, "", -1, 1, 3},
     {APP_KNIGHTS, "Springertour", 117, 1, 3},
     {APP_SOKOBAN, "Sokoban", 118, 1, 3},
     {APP_MAZE, "Labyrinth", 119, 1, 3},
     {APP_CROSSWORD, "Kreuzworträtsel", 120, 1, 3},
-    {APP_RPG, "Paper Quest", 121, 1, 3},
+    {APP_RPG, "", -1, 1, 3},
     {APP_LLM, "OpenAI", 122, 1, 3}};
 static const AppRoute routes[] = {
     {0, APP_LIBRARY, 0},      {1, APP_LIBRARY, 0},         {2, APP_READER, 0},
@@ -86,9 +86,9 @@ static const AppRoute routes[] = {
     {100, APP_CALCULATOR, 1}, {101, APP_STORE, 0},         {102, APP_NOTES, 1},
     {104, APP_READER, 0},     {105, APP_SETTINGS, 0},      {110, APP_JOURNAL, 0},
     {111, APP_STUDY, 0},      {112, APP_BINGO, 0},         {113, APP_CONNECT4, 0},
-    {114, APP_RECIPES, 0},    {115, APP_PERIODIC, 0},      {116, APP_FILES, 0},
+    {114, APP_RECIPES, 0},    {115, APP_PERIODIC, 0},
     {117, APP_KNIGHTS, 0},    {118, APP_SOKOBAN, 0},       {119, APP_MAZE, 0},
-    {120, APP_CROSSWORD, 0},  {121, APP_RPG, 0},           {122, APP_LLM, 0},
+    {120, APP_CROSSWORD, 0},             {122, APP_LLM, 0}, {128, APP_LLM, 1},
     {123, APP_LLM, 1},        {125, APP_PLANETARIUM, 1},   {126, APP_JOURNAL, 1},
     {127, APP_STUDY, 1}};
 const AppDefinition *app_definition(AppId id) {

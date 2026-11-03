@@ -18,5 +18,15 @@ int main(void) {
     if(library_count){ui_open(0);page=engine_count()>1?1:0;reader_chrome=0;picture("reader");}
     route_to(29);note_selected=-1;extra_commit(30,"A little room to think\n\nWhat made today feel different?\n\nA walk without headphones.\nA chapter before breakfast.\nAn idea worth keeping.\n\nSmall things, written down.");route_to(30);picture("notes");
     open_keyboard(30,"Note",note_text);note_cursor=strlen(edit);picture("keyboard");keyboard=0;
+    keyboard=0;note_selected=-1;extra_commit(30,"Small things worth keeping\n\nA page. A walk. An unhurried morning.");
+    note_tree.current=0;route_to(29);picture("notes-list");
+    task_count=3;task_tab=task_board=task_page=0;task_context16[0]=0;
+    snprintf(tasks[0].title,200,"Read one chapter\nLeave a sentence in the journal");tasks[0].state=0;
+    snprintf(tasks[1].title,200,"Try a recipe for the weekend");tasks[1].state=0;
+    snprintf(tasks[2].title,200,"Take a slow walk");tasks[2].state=2;
+    route_to(74);picture("todo");
+    chat_clear();chat_append(0,"How can I make more room for reading?");
+    chat_append(1,"Start small. Choose a quiet moment that already belongs to you: the first cup of tea, a train journey, or the last few minutes before sleep.\n\nOne chapter is enough. Leave your book somewhere visible and let the next page be an invitation, not another task.\n\nA little consistency matters more than a perfect routine.");
+    route_to(122);chat_page=0;picture("chat");
     ui_close();engine_shutdown();return 0;
 }

@@ -58,7 +58,7 @@ static void editor_draw18(void) {
             (i == 0 || editor_numbers18[i] != editor_numbers18[i - 1])) {
             char num[16];
             snprintf(num, sizeof(num), "%d", editor_numbers18[i]);
-            small_number17(left - 5, 62 + r * 29, num, 135);
+            small_number17(left / 2, 54 + r * 29, num, 135);
         }
         drawtext_raw(left, 54 + r * 29, b, &small, 544 - text_input_spec(keyboard_target).gutter);
         int active = note_cursor >= line.start && note_cursor <= line.end;

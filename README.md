@@ -20,6 +20,19 @@
 
 ---
 
+## New in 1.10
+
+Cleaner calculator alignment and pixel-measured input scrolling; properly aligned
+Notes and line numbers; direct folder counts; real erasing with empty ink pages
+removed; drag-to-select text; a calmer number row; fullscreen ToDo/Done; clearer
+recipe navigation; and local OpenAI chats with follow-up questions and Reader
+continuation for long replies. Files and Paper Quest have been retired.
+
+<details><summary><strong>A conversation, a list, a place to keep a thought</strong></summary>
+<br>
+<table><tr><td><img src="docs/images/chat.png" width="280" alt="OpenAI conversation with local chat history"></td><td><img src="docs/images/notes-list.png" width="280" alt="Notes folders with direct item counts"></td><td><img src="docs/images/todo.png" width="280" alt="Fullscreen ToDo and Done"></td></tr></table>
+</details>
+
 ## A small computer that knows when to be quiet
 
 LUMEN gives a Kindle a clean library, an immersive reader and a collection of
@@ -88,7 +101,7 @@ Existing preferences and personal content survive updates.
 
 ### Small runtime. Personal data stays personal.
 
-The packaged runtime is approximately **27 MiB**; actual size is printed when
+The packaged runtime is approximately **28 MiB**; actual size is printed when
 packaging. A Kindle's `lumen` folder also includes personal data, caches and old
 rollback copies. The installer now retains **two recognized runtime backups**
 after a successful update, while leaving unknown folders and user data alone.
@@ -141,7 +154,7 @@ life or individual account integrations. See [Validation](docs/validation.md).
 
 The calendar is local; Apple/Google cloud sync is not included. The timer is
 visual and cannot wake deep sleep. Article images and available books depend on
-the source. The basic language-learning and RPG tools are intentionally small.
+the source. The basic language-learning and tools are intentionally small.
 
 ## Contributing with care
 

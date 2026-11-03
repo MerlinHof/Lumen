@@ -79,7 +79,8 @@ def update(bundle,kindle,keep_backups=2):
     needed=sum((payload/r).stat().st_size for r in manifest)+sum((kindle/r).stat().st_size for r in manifest if (kindle/r).is_file())
     if shutil.disk_usage(kindle).free<needed+8*1048576:raise RuntimeError('Not enough space for the runtime and a rollback backup.')
     removals=[r for r,hashes in legacy.items() if (kindle/r).is_file() and digest(kindle/r) in hashes]
-    existing=[r for r in manifest if (kindle/r).is_file()]+removals
+    changed=[r for r,expected in manifest.items() if not (kindle/r).is_file() or digest(kindle/r)!=expected]
+    existing=([r for r in manifest if (kindle/r).is_file()]+removals) if changed or removals else []
     backup=None
     if existing:
         stamp=time.strftime('%Y%m%d-%H%M%S')+'-'+str((time.time_ns()//1000)%1000000).zfill(6)
@@ -87,7 +88,7 @@ def update(bundle,kindle,keep_backups=2):
         for rel in existing:
             saved=backup/rel;saved.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(kindle/rel,saved)
         (backup/'.lumen-backup.json').write_text(json.dumps({'version':version,'files':existing}))
-    for rel in manifest:
+    for rel in changed:
         dest=destination(kindle,rel);dest.parent.mkdir(parents=True,exist_ok=True);temp=dest.with_name(dest.name+'.lumen-update')
         with (payload/rel).open('rb') as source,temp.open('wb') as out:
             shutil.copyfileobj(source,out);out.flush();os.fsync(out.fileno())
@@ -99,7 +100,7 @@ def update(bundle,kindle,keep_backups=2):
     # Create only structural folders; user settings are initialized by the native app.
     for name in ['data','data/books','data/covers','data/notes','data/photos']:(kindle/'lumen'/name).mkdir(parents=True,exist_ok=True)
     reclaimed=prune_backups(kindle,set(manifest)|set(legacy)|{'lumen/ANFORDERUNGEN.md'},keep_backups) if (kindle/'lumen/backups').exists() else 0
-    print(f'LUMEN {version}: {len(manifest)} files copied and verified.')
+    print(f'LUMEN {version}: {len(changed)} files copied; {len(manifest)} files verified.')
     print('Personal books, settings, notes and photos preserved.')
     if backup:print('Rollback backup:',backup)
     if reclaimed:print(f'Old managed runtime backups removed: {reclaimed/1048576:.1f} MiB reclaimed. Two newest retained.')

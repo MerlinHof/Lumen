@@ -1,4 +1,4 @@
-# Validation · LUMEN 1.9
+# Validation · LUMEN 1.10
 
 ## Checked locally
 
@@ -40,3 +40,21 @@ recognized safely. A complete physical fresh-device reinstall, new autostart
 behavior, sleep/wake and touch latency still need hardware/user verification.
 Host renders are not hardware photos.
 Private services and paid OpenAI requests were not exercised.
+
+## 1.10 checks
+
+Native sanitizer checks cover the calculator width threshold, deleted routes,
+erasing to white and removing empty ink files, dragged text selection before
+copy actions, chat file round trips, multi-turn request JSON and recipe Back.
+Installer tests perform twelve updates, an identical reinstall and explicit
+package-path rejection. The refresh engine was not changed.
+
+The OpenAI chat implementation follows the official conversation-state guide:
+https://developers.openai.com/api/docs/guides/conversation-state . Previous user
+and assistant text is sent as input with `store:false`; transcripts are kept
+locally. Private API keys and paid live requests were not used in these tests.
+
+The connected Kindle subsequently received 1.10: all runtime hashes, personal
+files and books were verified. Backup retention left exactly two rollback
+directories. This is file-copy/storage validation, not a claim of hands-on
+touch, eraser or live API testing on the device.

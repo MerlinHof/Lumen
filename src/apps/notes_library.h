@@ -16,6 +16,8 @@ static void ink_save(void) {
         return;
     char p[2048];
     snprintf(p, sizeof(p), "%s/notes/%d-page-%d.ink", data_root, ink_note, ink_page);
+    int empty=1;for(size_t i=0;i<sizeof(ink_pixels);i++)if(ink_pixels[i]!=255){empty=0;break;}
+    if(empty){unlink(p);ink_dirty=0;return;}
     if (atomic_write(p, ink_pixels, sizeof(ink_pixels)))
         ink_dirty = 0;
 }
@@ -181,7 +183,7 @@ static void u15_note_editor_draw(void) {
             num[0] = 0;
         ink_color = 135;
         if (left == 48)
-            small_number17(43, 62 + r * 29, num, 135);
+            small_number17(24, 54 + r * 29, num, 135);
         ink_color = 0;
         drawtext_raw(left, 54 + r * 29, b, &small,
                      editing && keyboard_target != 30 ? 544 : (i % 23 < 2 ? 420 : 528));
@@ -244,6 +246,7 @@ static void ink_stamp(int x, int y) {
                 int d2 = (xx - x) * (xx - x) + (yy - y) * (yy - y);
                 if (d2 > (radius + 1) * (radius + 1))
                     continue;
+                if(ink_eraser){if(d2<=radius*radius)ink_pixels[yy*600+xx]=255;continue;}
                 double a = d2 <= (radius - 1) * (radius - 1)
                                ? 1
                                : ((radius + .5) * (radius + .5) - d2) / (2 * radius);
@@ -252,8 +255,8 @@ static void ink_stamp(int x, int y) {
                 if (a > 1)
                     a = 1;
                 int at = yy * 600 + xx;
-                ink_pixels[at] =
-                    (unsigned char)(ink_pixels[at] * (1 - a) + (ink_eraser ? 255 : 0) * a);
+                if(ink_eraser) { if(d2<=radius*radius)ink_pixels[at]=255; }
+                else ink_pixels[at]=(unsigned char)(ink_pixels[at]*(1-a));
             }
     ink_dirty = 1;
 }
