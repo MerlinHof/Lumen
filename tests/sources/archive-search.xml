@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+              <response>
+              <lst name="responseHeader">
+              <int name="status">0</int>
+              <int name="QTime">41</int>
+              <lst name="params">
+                <str name="sort">(none requested)</str>
+                <str name="wt">xml</str>
+                <str name="rows">5</str>
+                <str name="qin">mediatype:texts AND collection:opensource AND (philosophy)</str>
+                <str name="fl"></str>
+                <str name="start">0</str>
+                <str name="q">mediatype:texts AND collection:opensource AND (text:philosophy OR text:philosophy OR text__reviews:philosophy)</str>
+              </lst>
+              </lst><result name="response" numFound="16991" start="0">
+  <doc>
+    <str name="identifier">simone-weil-attente-de-dieu-1942.docx-raccourci</str>
+    <str name="title">Simone Weil Attente De Dieu 1942.docx Raccourci</str>
+  </doc>
+  <doc>
+    <str name="creator">Fujimoto, Nobuki</str>
+    <str name="identifier">rei-aios-paper-61-zcsg-1776004887685</str>
+    <str name="title">Zero-Centered Symbol Grammar: A World-First Dimensional Encoding of Nagarjuna's Sunyata-of-Sunyata with Unified Contraction-Expansion Notation</str>
+  </doc>
+  <doc>
+    <str name="creator">Prophet Kacou Philippe</str>
+    <str name="identifier">kacou-7-Comparison-between-Darby-and-Louis-Segond</str>
+    <str name="title">Kacou 7 (Kc.7) : Comparison between Darby and Louis Segond</str>
+  </doc>
+  <doc>
+    <str name="creator">H.M Robinson</str>
+    <str name="identifier">prime-matter-in-aristotle-robinson-h-m-phronesis-1-2-19-pages-168-188-1974</str>
+    <str name="title">Prime Matter In Aristotle Robinson, H M Phronesis, # 1 2, 19, Pages 168 188, 1974</str>
+  </doc>
+  <doc>
+    <str name="creator">Fujimoto, Nobuki</str>
+    <str name="identifier">rei-aios-paper-26-qmrp-1775178242960</str>
+    <str name="title">The Relativity of Information Resolution and Quality Metrics: Proof that D-FUMTn Continuously Subsumes the Shannon Limit (3 World Firsts, 381 Tests)</str>
+  </doc>
+</result>
+</response>

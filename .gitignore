@@ -1,0 +1,15 @@
+# Local dependencies, build products, archives and device data never belong in Git.
+/.local/
+/build/
+/dist/
+/bin/
+/development/
+/release*/
+__pycache__/
+*.pyc
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
+/data/

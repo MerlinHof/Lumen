@@ -1,0 +1,7 @@
+Home Assistant logomark: original monochrome asset from https://github.com/home-assistant/assets/tree/master/logo. Trademark and property of the Open Home Foundation. LUMEN is an independent personal client, not an official Home Assistant application.
+Wikipedia name and W identify the Wikimedia service; no affiliation is implied.
+
+LUMEN 1.6: TheMealDB is an independent recipe data provider; no affiliation.
+Element facts retrieved from NIH PubChem Periodic Table on 2026-11-02:
+https://pubchem.ncbi.nlm.nih.gov/rest/pug/periodictable/CSV
+Apple, iCloud, Google and OpenAI are the marks of their respective owners.

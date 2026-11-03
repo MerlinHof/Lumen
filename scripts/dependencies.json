@@ -1,0 +1,11 @@
+{
+  "mupdf": {
+    "version": "1.28.5",
+    "url": "https://github.com/ArtifexSoftware/mupdf-downloads/releases/download/1.28.5/mupdf-1.28.5-source.tar.gz",
+    "sha256": "98a5c10cda20c3992cdf76ff6b2a1149c32bd79cc796d3f703230b1185b7e934"
+  },
+  "zig": {
+    "version": "0.14.1",
+    "index": "https://ziglang.org/download/index.json"
+  }
+}

@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<files>
+  <file name="Prime Matter in Aristotle -- Robinson, H_M_ -- Phronesis, #1-2, 19, pages 168-188, 1974.pdf" source="original">
+    <mtime>1741747133</mtime>
+    <size>1226606</size>
+    <md5>9fa3f111efac2fbac2a2e1badbf15862</md5>
+    <crc32>f02c9af0</crc32>
+    <sha1>81bdb9354562f0f829ad78dbdb4a4a7c7e4b1d66</sha1>
+    <format>Text PDF</format>
+    <viruscheck>1741747485</viruscheck>
+  </file>
+  <file name="Prime Matter in Aristotle -- Robinson, H_M_ -- Phronesis, #1-2, 19, pages 168-188, 1974_chocr.html.gz" source="derivative">
+    <ocr>tesseract 5.3.0-6-g76ae</ocr>
+    <ocr_parameters>lang-eng;two-pass-disabled;pass-dpi-disabled;autonomous-mode-disabled;binarisation-method-otsu</ocr_parameters>
+    <ocr_module_version>0.0.21</ocr_module_version>
+    <ocr_detected_script>Latin</ocr_detected_script>
+    <ocr_detected_script_conf>1.0000</ocr_detected_script_conf>
+    <ocr_detected_lang>en</ocr_detected_lang>
+    <ocr_detected_lang_conf>1.0000</ocr_detected_lang_conf>
+    <format>chOCR</format>
+    <original>Prime Matter in Aristotle -- Robinson, H_M_ -- Phronesis, #1-2, 19, pages 168-188, 1974_jp2.zip</original>
+    <mtime>1741747639</mtime>
+    <size>674585</size>
+    <md5>cae6a571ef583ad93da4470e77e1b181</md5>
+    <crc32>30186f1c</crc32>
+    <sha1>deb16385583668dc660cd931385eae67382b3ff2</sha1>
+  </file>
+  <file name="Prime Matter in Aristotle -- Robinson, H_M_ -- Phronesis, #1-2, 19, pages 168-188, 1974_djvu.txt" source="derivative">
+    <format>DjVuTXT</format>
+    <original>Prime Matter in Aristotle -- Robinson, H_M_ -- Phronesis, #1-2, 19, pages 168-188, 1974_djvu.xml</original>
+    <mtime>1741747897</mtime>
+    <size>51974</size>
+    <md5>74157cedbfd7a4a16ca74028f7337341</md5>
+    <crc32>47c345e2</crc32>
+    <sha1>5141a30a67e486246f3076270b7dc2a3a16a51c2</sha1>
+  </file>
+  <file name="Prime Matter in Aristotle -- Robinson, H_M_ -- Phronesis, #1-2, 19, pages 168-188, 1974_djvu.xml" source="derivative">
+    <format>Djvu XML</format>
+    <original>Prime Matter in Aristotle -- Robinson, H_M_ -- Phronesis, #1-2, 19, pages 168-188, 1974_hocr.html</original>
+    <mtime>1741747668</mtime>
+    <size>680456</size>
+    <md5>5d48498052ca2979df999eeb02155bb4</md5>
+    <crc32>87169f62</crc32>
+    <sha1>a0242fedc0a3de312db429eec3582a5375b11ce6</sha1>
+  </file>
+  <file name="Prime Matter in Aristotle -- Robinson, H_M_ -- Phronesis, #1-2, 19, pages 168-188, 1974_hocr.html" source="derivative">
+    <hocr_char_to_word_module_version>1.3.0</hocr_char_to_word_module_version>
+    <hocr_char_to_word_hocr_version>1.1.56</hocr_char_to_word_hocr_version>
+    <ocr_parameters>lang-eng;two-pass-disabled;pass-dpi-disabled;autonomous-mode-disabled;binarisation-method-otsu</ocr_parameters>
+    <ocr_module_version>0.0.21</ocr_module_version>
+    <ocr_detected_script>Latin</ocr_detected_script>
+    <ocr_detected_script_conf>1.0000</ocr_detected_script_conf>
+    <ocr_detected_lang>en</ocr_detected_lang>
+    <ocr_detected_lang_conf>1.0000</ocr_detected_lang_conf>
+    <format>hOCR</format>
+    <original>Prime Matter in Aristotle -- Robinson, H_M_ -- Phronesis, #1-2, 19, pages 168-188, 1974_chocr.html.gz</original>
+    <mtime>1741747654</mtime>
+    <size>1229637</size>
+    <md5>962578d9c0946a33302e7e2007b0de38</md5>
+    <crc32>e84a3547</crc32>
+    <sha1>e79939b84966be9142ae1e6d7dc5bcb698ab18bb</sha1>
+  </file>
+  <file name="Prime Matter in Aristotle -- Robinson, H_M_ -- Phronesis, #1-2, 19, pages 168-188, 1974_hocr_pageindex.json.gz" source="derivative">
+    <hocr_pageindex_module_version>1.1.0</hocr_pageindex_module_version>
+    <hocr_pageindex_hocr_version>1.1.56</hocr_pageindex_hocr_version>
+    <format>OCR Page Index</format>
+    <original>Prime Matter in Aristotle -- Robinson, H_M_ -- Phronesis, #1-2, 19, pages 168-188, 1974_hocr.html</original>
+    <mtime>1741747875</mtime>
+    <size>272</size>
+    <md5>c25d6d8f65ab4308d087a620097e6b6f</md5>
+    <crc32>f440cc50</crc32>
+    <sha1>965c196706cfb0aa10073f6450d336f952acd497</sha1>
+  </file>
+  <file name="Prime Matter in Aristotle -- Robinson, H_M_ -- Phronesis, #1-2, 19, pages 168-188, 1974_hocr_searchtext.txt.gz" source="derivative">
+    <hocr_fts_text_module_version>1.2.0</hocr_fts_text_module_version>
+    <hocr_fts_text_hocr_version>1.1.56</hocr_fts_text_hocr_version>
+    <word_conf_0_10>11</word_conf_0_10>
+    <word_conf_11_20>3</word_conf_11_20>
+    <word_conf_21_30>6</word_conf_21_30>
+    <word_conf_31_40>5</word_conf_31_40>
+    <word_conf_41_50>12</word_conf_41_50>
+    <word_conf_51_60>12</word_conf_51_60>
+    <word_conf_61_70>24</word_conf_61_70>
+    <word_conf_71_80>34</word_conf_71_80>
+    <word_conf_81_90>107</word_conf_81_90>
+    <word_conf_91_100>8582</word_conf_91_100>
+    <format>OCR Search Text</format>
+    <original>Prime Matter in Aristotle -- Robinson, H_M_ -- Phronesis, #1-2, 19, pages 168-188, 1974_hocr.html</original>
+    <mtime>1741747886</mtime>
+    <size>16238</size>
+    <md5>536d1bfc422489035e5406a4fd747d9d</md5>
+    <crc32>dcdaf87e</crc32>
+    <sha1>40d376e48fe7a57c74b7e007cbff49e089accf6a</sha1>
+  </file>
+  <file name="Prime Matter in Aristotle -- Robinson, H_M_ -- Phronesis, #1-2, 19, pages 168-188, 1974_jp2.zip" source="derivative">
+    <format>Single Page Processed JP2 ZIP</format>
+    <original>Prime Matter in Aristotle -- Robinson, H_M_ -- Phronesis, #1-2, 19, pages 168-188, 1974.pdf</original>
+    <mtime>1741747556</mtime>
+    <size>11035257</size>
+    <md5>572707045d14b56d1df1f39982ce7ff7</md5>
+    <crc32>6e204a73</crc32>
+    <sha1>954eed42f59bb8c73db88881fe62ecbf60817a85</sha1>
+    <filecount>21</filecount>
+  </file>
+  <file name="Prime Matter in Aristotle -- Robinson, H_M_ -- Phronesis, #1-2, 19, pages 168-188, 1974_page_numbers.json" source="derivative">
+    <hocr_pagenumber_module_version>1.0.5</hocr_pagenumber_module_version>
+    <hocr_pagenumber_hocr_version>1.1.54</hocr_pagenumber_hocr_version>
+    <hocr_pagenumber_confidence>88</hocr_pagenumber_confidence>
+    <format>Page Numbers JSON</format>
+    <original>Prime Matter in Aristotle -- Robinson, H_M_ -- Phronesis, #1-2, 19, pages 168-188, 1974_hocr.html</original>
+    <mtime>1741747915</mtime>
+    <size>3694</size>
+    <md5>24d5bb63d7d4135ed7f360834e6cd405</md5>
+    <crc32>3adb7191</crc32>
+    <sha1>862d33f767d452f54d607a80e9b72064154c0409</sha1>
+  </file>
+  <file name="Prime Matter in Aristotle -- Robinson, H_M_ -- Phronesis, #1-2, 19, pages 168-188, 1974_scandata.xml" source="derivative">
+    <format>Scandata</format>
+    <original>Prime Matter in Aristotle -- Robinson, H_M_ -- Phronesis, #1-2, 19, pages 168-188, 1974_djvu.xml</original>
+    <mtime>1741747915</mtime>
+    <size>7771</size>
+    <md5>db3bf883fb06a510de441147542edc0c</md5>
+    <crc32>ef267b36</crc32>
+    <sha1>1e3cd1b7f61c3b0957aa90c7fe90f9176d74d931</sha1>
+  </file>
+  <file name="__ia_thumb.jpg" source="original">
+    <mtime>1741747930</mtime>
+    <size>17522</size>
+    <md5>e5d3814f49e42cd02589306120901769</md5>
+    <crc32>f4eb0aef</crc32>
+    <sha1>f385c60a2e39b8da67e506c88a64b550f0ba78a6</sha1>
+    <format>Item Tile</format>
+  </file>
+  <file name="prime-matter-in-aristotle-robinson-h-m-phronesis-1-2-19-pages-168-188-1974_archive.torrent" source="metadata">
+    <btih>3ab6f5031f76fce4185a788c7ddbe9ba403fb128</btih>
+    <mtime>1741747931</mtime>
+    <size>5318</size>
+    <md5>00b5109add48777bd52e8c4aaacfe886</md5>
+    <crc32>8666dda6</crc32>
+    <sha1>6e3348365fb2403e6ae8d997ef6c69d808eb7195</sha1>
+    <format>Archive BitTorrent</format>
+  </file>
+  <file name="prime-matter-in-aristotle-robinson-h-m-phronesis-1-2-19-pages-168-188-1974_files.xml" source="original">
+    <format>Metadata</format>
+    <md5>152aabebd9bac6440bc6b6b88cdbc867</md5>
+    <summation>md5</summation>
+  </file>
+  <file name="prime-matter-in-aristotle-robinson-h-m-phronesis-1-2-19-pages-168-188-1974_meta.sqlite" source="original">
+    <mtime>1741747167</mtime>
+    <size>20480</size>
+    <md5>7d6feb74368eeaaeb5e127fe45e481a1</md5>
+    <crc32>46b956e2</crc32>
+    <sha1>cb4e18c4e18680543b581c220cfcb5e6aae3e63b</sha1>
+    <format>Metadata</format>
+  </file>
+  <file name="prime-matter-in-aristotle-robinson-h-m-phronesis-1-2-19-pages-168-188-1974_meta.xml" source="original">
+    <mtime>1741747915</mtime>
+    <size>1669</size>
+    <md5>94f7a0d55e5620b59c1c2158038c4956</md5>
+    <crc32>47459d34</crc32>
+    <sha1>707953fa2b887d5265658804023d3080bfcd175f</sha1>
+    <format>Metadata</format>
+  </file>
+</files>

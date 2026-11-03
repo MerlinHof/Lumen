@@ -1,0 +1,20 @@
+name: Native checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  host:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y clang make build-essential pkg-config
+      - name: Prepare pinned reader dependency
+        run: python3 tools/setup.py host
+      - name: Build native host
+        run: python3 tools/build.py host
+      - name: Input, defaults and UI regression checks
+        run: python3 tools/check.py --native-only
+      - name: Installer boundaries with synthetic payload
+        run: python3 tests/test_installation.py --fixture
