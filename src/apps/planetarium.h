@@ -135,7 +135,7 @@ static void sky_map(void) {
     }
 }
 static void sky_draw(void) {
-    heading("Planetarium");
+    heading_width("Planetarium", 214);
     icon_button(528, 74, IC_SETTINGS);
     char b[150];
     snprintf(b, sizeof(b), "%02d.%02d.%04d %02d:%02d UTC · %.2f°, %.2f°", sky_config.day,

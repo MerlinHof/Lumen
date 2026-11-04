@@ -1,7 +1,7 @@
 /* System-owned status and navigation bars. No app content. */
 static void tabbar(void) {
     rect(0, 736, 600, 64, 255);
-    rect(28, 736, 544, 2, 190);
+    divider(screen == 2 ? 0 : 28, 736, screen == 2 ? 600 : 544);
     int count = options[OPT_APPS] ? 4 : 3, width = 600 / count;
     int active = app_definition(app_for_route(screen))->tab;
     const int kinds[] = {IC_HOME, IC_SETTINGS, IC_STORE, IC_GRID};
@@ -18,11 +18,7 @@ static void tabbar(void) {
 }
 static void header(void) {
     time_t now = time(NULL);
-    if (now - status_time > 30) {
-        device_status(battery, sizeof(battery), wifi, sizeof(wifi));
-        status_time = now;
-        battery_charging = device_charging();
-    }
+    refresh_status(0);
     rect(0, 0, 600, 48, 255);
     int left = can_back() ? 68 : 24;
     if (can_back()) {

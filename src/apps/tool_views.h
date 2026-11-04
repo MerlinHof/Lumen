@@ -79,6 +79,8 @@ static int wiki_image_attempts;
 static int wiki_image_available(void);
 static int wiki_page, stats_page, reading_goal = 20;
 static time_t last_sync;
+static int weather_snapshot_valid;
+static char *weather_snapshot;
 static int time_year, time_month, time_day, time_hour, time_minute;
 static const char *zone_names[] = {"Berlin / Europa", "UTC", "London", "New York", "Tokyo"};
 static const char *zone_values[] = {"CET-1CEST,M3.5.0,M10.5.0/3", "UTC0",
@@ -131,7 +133,40 @@ static void extra_zone(void) {
     setenv("TZ", zone_values[z], 1);
     tzset();
 }
+/* Small title cache, invalidated when notes are scanned after save, upload or
+ * app activation. Scrolling/feedback redraws never reread whole note bodies. */
+static unsigned note_list_generation;
+static struct {
+    int id;
+    unsigned generation;
+    char title[256];
+} note_titles[14];
+static unsigned note_title_slot;
+static const char *note_list_title(int id) {
+    for (int i = 0; i < 14; i++)
+        if (note_titles[i].id == id && note_titles[i].generation == note_list_generation)
+            return *note_titles[i].title ? note_titles[i].title : tr("Notiz");
+    unsigned slot = note_title_slot++ % 14;
+    note_titles[slot].id = id;
+    note_titles[slot].generation = note_list_generation;
+    char path[2048];
+    snprintf(path, sizeof(path), "%s/notes/%d.txt", data_root, id);
+    FILE *f = fopen(path, "r");
+    note_titles[slot].title[0] = 0;
+    if (f) {
+        if (!fgets(note_titles[slot].title, sizeof(note_titles[slot].title), f))
+            note_titles[slot].title[0] = 0;
+        fclose(f);
+    }
+    note_titles[slot].title[strcspn(note_titles[slot].title, "\r\n")] = 0;
+    return *note_titles[slot].title ? note_titles[slot].title : tr("Notiz");
+}
+static int note_newest_first(const void *a, const void *b) {
+    int x = *(const int *)a, y = *(const int *)b;
+    return (y > x) - (y < x);
+}
 static void notes_scan(void) {
+    note_list_generation++;
     note_count = 0;
     char p[2048];
     local_path(p, sizeof(p), "notes");
@@ -151,15 +186,7 @@ static void notes_scan(void) {
         }
     }
     closedir(d);
-    for (int i = 0; i < note_count; i++)
-        for (int j = i + 1; j < note_count; j++)
-            if (note_ids[j] > note_ids[i]) {
-                int t = note_ids[j];
-                note_ids[j] = note_ids[i];
-                note_ids[i] = t;
-            }
-    if (note_page * 7 >= note_count)
-        note_page = note_count ? (note_count - 1) / 7 : 0;
+    qsort(note_ids, note_count, sizeof(*note_ids), note_newest_first);
     if (note_page * 7 >= note_count)
         note_page = note_count ? (note_count - 1) / 7 : 0;
 }
@@ -367,6 +394,8 @@ static void extra_open(int target) {
     extra_prepare(target);
 }
 static void extra_prepare(int target) {
+    if (target == 32)
+        weather_snapshot_valid = 0;
     if (target >= 60)
         new_apps_open(target);
     if (target == 52)
@@ -418,7 +447,9 @@ static void extra_prepare(int target) {
         time_minute = t.tm_min;
     }
 }
-static int extra_ringing(void) { return alarm_ring; }
+static int extra_ringing(void) {
+    return alarm_ring;
+}
 static void extra_alarm_label(char *out, int cap) {
     out[0] = 0;
     if (alarm_enabled)
@@ -468,6 +499,8 @@ static int extra_poll(void) {
 }
 static int extra_tick(void) {
     int changed = new_apps_tick() | v1_tick() | v1_chess_tick(), done = service_poll();
+    if (done == SERVICE_WEATHER || done == -SERVICE_WEATHER)
+        weather_snapshot_valid = 0;
     if (*notice && time(NULL) >= notice_until) {
         notice[0] = 0;
         changed = 1;
@@ -627,7 +660,8 @@ static void calc_preview(void) {
     calc_error[0] = 0;
 }
 static void calc_insert(const char *s) {
-    if (!text_insert(calc_expr, sizeof(calc_expr), &calc_cursor, s)) return;
+    if (!text_insert(calc_expr, sizeof(calc_expr), &calc_cursor, s))
+        return;
     calc_preview();
     calc_error[0] = 0;
 }
@@ -739,8 +773,12 @@ static void calc_key(int x, int y, int w, int h, const char *label) {
     key_outline(x, y, w, h);
     centered(x, y, w, h, label, &body);
 }
-static int calc_function_left(void) { return calc_alt ? 66 : 28; }
-static int calc_function_pitch(void) { return 63; }
+static int calc_function_left(void) {
+    return calc_alt ? 66 : 28;
+}
+static int calc_function_pitch(void) {
+    return 63;
+}
 static void calc_function_key(int x, int y, const char *key) {
     region(x, y, 57, 44);
     key_outline(x, y, 57, 44);
@@ -777,19 +815,20 @@ static void calc_function_key(int x, int y, const char *key) {
     centered(x, y, 57, 44, calc_label(key), &small);
 }
 static int calc_input_start(void) {
-    calc_cursor=text_boundary(calc_expr,calc_cursor<0?0:(size_t)calc_cursor);
-    return text_visible_start(calc_expr,calc_cursor,&small,468,0);
+    calc_cursor = text_boundary(calc_expr, calc_cursor < 0 ? 0 : (size_t)calc_cursor);
+    return text_visible_start(calc_expr, calc_cursor, &small, 468, 0);
 }
 static void app_calculator(void) {
     calc_alt = !!calc_alt;
-    heading("Rechner");
-    icon_button(416, 74, IC_GRAPH);
-    icon_button(472, 74, IC_HISTORY);
+    heading_actions("Rechner", 3);
+    icon_button(408, 74, IC_GRAPH);
+    icon_button(468, 74, IC_HISTORY);
     icon_button(528, 74, IC_SETTINGS);
 
     key_outline(28, 132, 544, 216);
     key_outline(28, 361, 498, 52);
-    region(536,365,36,44); icon(532,365,IC_DELETE);
+    region(536, 365, 36, 44);
+    icon(532, 365, IC_DELETE);
     int start = calc_input_start();
     char shown[1024];
     snprintf(shown, sizeof(shown), "%s", calc_expr + start);
@@ -830,9 +869,7 @@ static void app_calc_history(void) {
         if (i < 0)
             break;
         int y = 145 + r * 64;
-        region(28, y, 544, 61);
-        wrapped_raw(38, y + 9, calc_history[i], &small, 520, 2);
-        rect(28, y + 61, 544, 1, 205);
+        list_row(28, y, 544, 64, -1, 0, calc_history[i], NULL, &small, 2);
     }
     pager(679, &extra_page, (calc_history_count + 7) / 8);
 }
@@ -866,14 +903,16 @@ static void app_timer(void) {
         centered(28, 225, 544, 36, "Weckzeit", &caption);
         snprintf(b, sizeof(b), "%02d:%02d", alarm_hour, alarm_minute);
         button_h(100, 292, 400, 94, b, 0);
-        drawtext(30, 449, "Wecker aktiv", &body, 400);
+        label_at(30, 442, 430, 48, tr("Wecker aktiv"), &body);
         toggle(492, 450, alarm_enabled);
         wrapped(30, 535, "Einmaliger Wecker zur eingestellten Uhrzeit.", &small, 540, 3);
     }
     wrapped(30, 664, "Visuelles Signal beim Lesen. Im Tiefschlaf kein Wecksignal.", &caption, 540,
             3);
 }
-static void app_notes(void) { v1_notes_draw(); }
+static void app_notes(void) {
+    v1_notes_draw();
+}
 static const char *note_next_line(const char *p, int width) {
     const char *q = p, *space = NULL;
     int w = 0;
@@ -894,8 +933,12 @@ static const char *note_next_line(const char *p, int width) {
         q++;
     return q;
 }
-static void note_editor_draw(void) { u15_note_editor_draw(); }
-static void note_editor_touch(int x, int y) { u15_note_editor_touch(x, y); }
+static void note_editor_draw(void) {
+    u15_note_editor_draw();
+}
+static void note_editor_touch(int x, int y) {
+    u15_note_editor_touch(x, y);
+}
 static void app_note(void) {
     if (!keyboard)
         v1_note_tools();
@@ -1019,28 +1062,34 @@ static void weather_symbol(int x, int y, int code, int size) {
 }
 
 static void app_weather(void) {
-    heading("Wetter");
-    icon_button(472, 74, IC_SEARCH);
+    heading_actions("Wetter", 2);
+    icon_button(468, 74, IC_SEARCH);
     icon_button(528, 74, IC_RESTART);
-    char *s = service_read("weather.json", 100000);
-    JsonToken tokens[4096];
-    Json j;
-    char *place = service_read("weather-place.json", 65536);
-    char location[256] = "";
-    JsonToken geo_tokens[2048];
-    Json geo;
-    if (place && json_parse(&geo, place, geo_tokens, 2048)) {
-        int first = json_at(&geo, json_get(&geo, 0, "results"), 0);
-        json_string(&geo, json_get(&geo, first, "name"), location, sizeof(location));
+    static JsonToken tokens[4096];
+    static Json j;
+    static char location[256];
+    static int valid;
+    if (!weather_snapshot_valid) {
+        free(weather_snapshot);
+        weather_snapshot = service_read("weather.json", 100000);
+        valid = weather_snapshot && json_parse(&j, weather_snapshot, tokens, 4096);
+        char *place = service_read("weather-place.json", 65536);
+        JsonToken geo_tokens[2048];
+        Json geo;
+        location[0] = 0;
+        if (place && json_parse(&geo, place, geo_tokens, 2048)) {
+            int first = json_at(&geo, json_get(&geo, 0, "results"), 0);
+            json_string(&geo, json_get(&geo, first, "name"), location, sizeof(location));
+        }
+        free(place);
+        weather_snapshot_valid = 1;
     }
-    free(place);
-    drawtext_raw(30, 128, *location ? location : weather_city, &body, 540);
-    if (!s || !json_parse(&j, s, tokens, 4096)) {
+    label_at(30, 128, 540, 40, *location ? location : weather_city, &body);
+    if (!valid) {
         wrapped(30, 210,
                 service_busy() ? "Wetter wird geladen …"
                                : "Ort suchen oder Vorhersage aktualisieren.",
                 &editorial, 540, 4);
-        free(s);
         return;
     }
     int current = json_get(&j, 0, "current"), daily = json_get(&j, 0, "daily");
@@ -1049,7 +1098,6 @@ static void app_weather(void) {
            wind = json_number(&j, json_get(&j, current, "wind_speed_10m")),
            code = json_number(&j, json_get(&j, current, "weather_code"));
     if (!isfinite(temp) || !isfinite(code)) {
-        free(s);
         return;
     }
     double is_day = json_number(&j, json_get(&j, current, "is_day"));
@@ -1095,9 +1143,10 @@ static void app_weather(void) {
     json_string(&j, json_get(&j, current, "time"), stamp, sizeof(stamp));
     snprintf(b, sizeof(b), "Open-Meteo · %.16s%s", stamp, service_busy() ? " …" : "");
     drawtext(30, 697, b, &caption, 540);
-    free(s);
 }
-static void app_home_assistant(void) { ha_dashboard(); }
+static void app_home_assistant(void) {
+    ha_dashboard();
+}
 static void app_ha_setup(void) {
     heading("Home Assistant");
     drawtext(30, 142, "Serveradresse", &small, 540);
@@ -1209,7 +1258,7 @@ static void app_quotes(void) {
         region(28, y, 544, bottom - y);
         quote_hit_top[quote_hit_count] = y;
         quote_hit_bottom[quote_hit_count++] = bottom;
-        rect(28, bottom, 544, 2, 195);
+        divider(28, bottom, 544);
         y = bottom + 16;
     }
     if (!global_quote_count)
@@ -1226,14 +1275,14 @@ static void app_time_settings(void) {
     strftime(b, sizeof(b), "%d.%m.%Y  %H:%M", &t);
     key_outline(28, 140, 544, 108);
     centered(28, 140, 544, 108, b, &editorial);
-    drawtext(30, 299, "Automatisch über WLAN", &small, 430);
+    label_at(30, 290, 430, 48, tr("Automatisch über WLAN"), &small);
     toggle(492, 298, options[OPT_AUTO_TIME]);
     if (options[OPT_AUTO_TIME]) {
         wrapped(30, 385, "Datum und Uhrzeit werden täglich über WLAN abgeglichen.", &small, 540, 3);
 
     } else {
         button_h(28, 387, 544, 54, "Datum und Uhrzeit setzen", 0);
-        drawtext(30, 493, "Zeitzone", &small, 220);
+        label_at(30, 480, 220, 52, tr("Zeitzone"), &small);
         dropdown_button(270, 480, 302, 52, zone_names[options[OPT_ZONE] % 5]);
     }
 }
@@ -1291,7 +1340,7 @@ static void system_screen(void) {
     const char *tabs[] = {"Speicher & Version", "Verwaltung"};
     segments(28, 133, 544, 44, tabs, 2, extra_page);
     if (!extra_page) {
-        drawtext(30, 205, "LUMEN 1.10", &editorial, 540);
+        drawtext(30, 205, "LUMEN 2.0", &editorial, 540);
         drawtext(30, 253, "Kindle KT2 · 600 × 800", &caption, 540);
         wrapped(30, 289,
                 "Diese Software wurde Ende 2026 von GPT-6.1 Sol entwickelt unter Aufsicht und "
@@ -1331,13 +1380,13 @@ static void system_screen(void) {
             rect(xx, y + 7, 15, 15, colors[i]);
             if (i == 4)
                 key_outline(xx, y + 7, 15, 15);
-            drawtext(xx + 28, y, labels[i], i == 2 ? &caption : &small, 230);
+            label_at(xx + 28, y, 230, 28, tr(labels[i]), i == 2 ? &caption : &small);
             storage_size(b, sizeof(b), sizes[i]);
-            drawtext(xx + 28, y + 31, b, &caption, 230);
+            label_at(xx + 28, y + 29, 230, 22, b, &caption);
         }
         wrapped(30, 695, "USB-Speicher und belegte Systempartition.", &caption, 540, 1);
     } else {
-        drawtext(30, 224, "LUMEN nach dem Booten", &small, 430);
+        label_at(30, 216, 430, 48, tr("LUMEN nach dem Booten"), &small);
         toggle(492, 224, options[OPT_AUTOSTART]);
         const char *actions[] = {"Automatischer Ruhezustand", "Konfiguration exportieren",
                                  "Konfiguration importieren", "Amazon öffnen",
@@ -1722,10 +1771,13 @@ static int extra_input(const Input *in) {
             int w = 43;
             const char *p = calc_expr + text_boundary(calc_expr, start);
             while (*p) {
-                const char *next = p; unsigned c = glyph(&next);
+                const char *next = p;
+                unsigned c = glyph(&next);
                 int a = glyph_advance(&small, c);
-                if (x < w + a / 2) break;
-                w += a; p = next;
+                if (x < w + a / 2)
+                    break;
+                w += a;
+                p = next;
             }
             calc_cursor = p - calc_expr;
             return 1;

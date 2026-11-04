@@ -66,11 +66,11 @@ static void u17_calendar_dirty(void);
 static void small_number17(int, int, const char *, int);
 static void u17_gray_icon(int, int);
 static void models_parse17(void), reader_markdown17(const char *, const char *, int);
-static void chat_write_request(FILE *,const char *,const char *);
+static void chat_write_request(FILE *, const char *, const char *);
 static void chat_complete(const char *);
 static void chat_clear(void);
-static void chat_draw(void),chats_draw(void);
-static int chat_input(const Input *),chats_input(const Input *);
+static void chat_draw(void), chats_draw(void);
+static int chat_input(const Input *), chats_input(const Input *);
 static int recipes_back(void);
 static int recipes_draw17(void), recipes_input17(const Input *), cross_commit17(const char *);
 static void games_save17(void), journal_store17(void),
@@ -334,15 +334,20 @@ static void open_dropdown(int target, const char **labels, int count, int select
     drop_w = w;
     pressed = -1;
 }
-static int theme_gray(int c) { return c >= 210 && c < 255 ? (c >= 231 ? 220 : 200) : c; }
+static int theme_gray(int c) {
+    return c >= 210 && c < 255 ? (c >= 231 ? 220 : 200) : c;
+}
 static void rect(int x, int y, int w, int h, int color) {
     y += ui_y_offset;
     color = theme_gray(color);
-    for (int j = y; j < y + h && j < HEIGHT; j++)
-        if (j >= 0)
-            for (int i = x; i < x + w && i < WIDTH; i++)
-                if (i >= 0)
-                    ui_pixels[j * WIDTH + i] = (unsigned char)color;
+    if (w <= 0 || h <= 0 || x >= WIDTH || y >= HEIGHT)
+        return;
+    int left = x < 0 ? 0 : x, right = x + w > WIDTH ? WIDTH : x + w;
+    int top = y < 0 ? 0 : y, bottom = y + h > HEIGHT ? HEIGHT : y + h;
+    if (left >= right || top >= bottom)
+        return;
+    for (int j = top; j < bottom; j++)
+        memset(ui_pixels + j * WIDTH + left, color, (size_t)(right - left));
 }
 static unsigned glyph(const char **s) {
     unsigned c = utf8_next(s);
@@ -414,6 +419,44 @@ static int glyph_bottom(const Font *f, unsigned c) {
                                            f->w, f->h)
                               ->bottom;
 }
+/* Exact non-white bounds, cached once per built-in glyph. Font metrics used
+ * for layout are unchanged; antialiasing fringes are included in these bounds. */
+typedef struct {
+    unsigned char ready, left, right, top, bottom;
+} GlyphBounds;
+static GlyphBounds glyph_bounds[5][sizeof(small_advance)];
+static const GlyphBounds *text_bounds(const Font *f, unsigned c) {
+    int face = f == &small       ? 0
+               : f == &body      ? 1
+               : f == &title     ? 2
+               : f == &editorial ? 3
+               : f == &caption   ? 4
+                                 : -1;
+    if (face < 0 || c >= sizeof(small_advance))
+        return NULL;
+    GlyphBounds *b = &glyph_bounds[face][c];
+    if (!b->ready) {
+        b->left = f->w;
+        b->right = 0;
+        b->top = f->h;
+        b->bottom = 0;
+        const unsigned char *pixels = f->pixels + c * f->w * f->h;
+        for (int y = 0; y < f->h; y++)
+            for (int x = 0; x < f->w; x++)
+                if (pixels[y * f->w + x] < 255) {
+                    if (x < b->left)
+                        b->left = x;
+                    if (x + 1 > b->right)
+                        b->right = x + 1;
+                    if (y < b->top)
+                        b->top = y;
+                    if (y + 1 > b->bottom)
+                        b->bottom = y + 1;
+                }
+        b->ready = 1;
+    }
+    return b;
+}
 static int drawtext_raw(int x, int y, const char *s, const Font *f, int maxw) {
     y += ui_y_offset;
     int start = x;
@@ -425,21 +468,29 @@ static int drawtext_raw(int x, int y, const char *s, const Font *f, int maxw) {
         if (x + a > start + maxw)
             break;
         const unsigned char *p = glyph_pixels(f, c);
-        for (int j = 0; j < f->h && y + j < HEIGHT; j++)
-            if (y + j >= 0)
-                for (int i = 0; i < f->w && x + i < WIDTH; i++)
-                    if (x + i >= 0) {
-                        unsigned char v = p[j * f->w + i];
-                        if (v < 255) {
-                            int old = ui_pixels[(y + j) * WIDTH + x + i];
-                            ui_pixels[(y + j) * WIDTH + x + i] =
-                                (unsigned char)(old + ((ink_color == 0 && f == &caption ? 88
-                                                        : ink_color < 0 ? 0
-                                                                        : ink_color) -
-                                                       old) *
-                                                          (255 - v) / 255);
-                        }
-                    }
+        const GlyphBounds *bounds = text_bounds(f, c);
+        int top = bounds ? bounds->top : 0, bottom = bounds ? bounds->bottom : f->h;
+        int left = bounds ? bounds->left : 0, right = bounds ? bounds->right : f->w;
+        if (top < -y)
+            top = -y;
+        if (bottom > HEIGHT - y)
+            bottom = HEIGHT - y;
+        if (left < -x)
+            left = -x;
+        if (right > WIDTH - x)
+            right = WIDTH - x;
+        int color = ink_color == 0 && f == &caption ? 88 : ink_color < 0 ? 0 : ink_color;
+        for (int j = top; j < bottom && left < right; j++) {
+            const unsigned char *source = p + j * f->w;
+            unsigned char *dest = ui_pixels + (y + j) * WIDTH;
+            for (int i = left; i < right; i++) {
+                int v = source[i];
+                if (v < 255) {
+                    int old = dest[x + i];
+                    dest[x + i] = old + (color - old) * (255 - v) / 255;
+                }
+            }
+        }
         x += a;
     }
     return x;
@@ -487,7 +538,9 @@ static int textwidth_raw(const char *s, const Font *f) {
         w += glyph_advance(f, glyph(&s));
     return w;
 }
-static int textwidth(const char *s, const Font *f) { return textwidth_raw(tr(s), f); }
+static int textwidth(const char *s, const Font *f) {
+    return textwidth_raw(tr(s), f);
+}
 static int ink_top(const char *label, const Font *f, int *height) {
     int top = f->h, bottom = -1;
     while (*label) {
@@ -598,26 +651,38 @@ static void aa_stroke(int x0, int y0, int x1, int y1, int thickness) {
             blend_pixel(x, y, thickness / 2.f + 0.5f - sqrtf(xx * xx + yy * yy), 0);
         }
 }
-static void aa_arc(int cx, int cy, int r, int start, int end, int thickness) {
+static void aa_arc_color(int cx, int cy, int r, int start, int end, int thickness, int color) {
     if (thickness < 2)
         thickness = 2;
     int extent = r + (thickness + 1) / 2 + 1;
     for (int dy = -extent; dy <= extent; dy++)
         for (int dx = -extent; dx <= extent; dx++) {
-            float angle = atan2f(dy, dx) * 180 / 3.14159265f;
-            if (angle < 0)
-                angle += 360;
-            if (angle < start || angle > end)
+            float squared = dx * dx + dy * dy;
+            float half = thickness / 2.f + .5f;
+            if (squared > (r + half) * (r + half) ||
+                (r > half && squared < (r - half) * (r - half)))
                 continue;
+            if (start > 0 || end < 360) {
+                float angle = atan2f(dy, dx) * 180 / 3.14159265f;
+                if (angle < 0)
+                    angle += 360;
+                if (angle < start || angle > end)
+                    continue;
+            }
             float distance = sqrtf(dx * dx + dy * dy);
             float alpha = thickness / 2.f + .5f - fabsf(distance - r);
-            blend_pixel(cx + dx, cy + dy, alpha, 0);
+            blend_pixel(cx + dx, cy + dy, alpha, color);
         }
+}
+static void aa_arc(int cx, int cy, int r, int start, int end, int thickness) {
+    aa_arc_color(cx, cy, r, start, end, thickness, 0);
 }
 static void stroke(int x0, int y0, int x1, int y1, int thickness) {
     aa_stroke(x0, y0, x1, y1, thickness);
 }
-static void ring(int x, int y, int r, int thickness) { aa_arc(x, y, r, 0, 360, thickness); }
+static void ring(int x, int y, int r, int thickness) {
+    aa_arc(x, y, r, 0, 360, thickness);
+}
 static void arc(int cx, int cy, int r, int start, int end, int thickness) {
     int px = cx + cosf(start * 3.14159265f / 180) * r,
         py = cy + sinf(start * 3.14159265f / 180) * r;
@@ -637,7 +702,9 @@ static void aa_disc(int cx, int cy, int r, int color) {
         for (int x = -r - 1; x <= r + 1; x++)
             blend_pixel(cx + x, cy + y, r + 0.5f - sqrtf(x * x + y * y), color);
 }
-static void disc(int x, int y, int r, int color) { aa_disc(x, y, r, color); }
+static void disc(int x, int y, int r, int color) {
+    aa_disc(x, y, r, color);
+}
 /* Shared 4x4 coverage masks for all rounded surfaces and image clips.
    Computed once per radius, reused for every button, card and cover. */
 static unsigned char corner_masks[33][1024], corner_ready[33];
@@ -714,6 +781,7 @@ static void progress(int x, int y, int w, int n, int total) {
         rect(x, y, (int)((long long)w * n / total), 4, 0);
 }
 #include "image_sampling.h"
+#include "cover_cache.h"
 static unsigned char clip_background[4][81];
 static void rounded_clip_end(int x, int y, int w, int h, int enabled) {
     if (!enabled)
@@ -798,6 +866,13 @@ static void cover_size(Book *b, int x, int y, int w, int h) {
         f = fopen(path, "rb");
     }
     if (f) {
+        struct stat source;
+        int cacheable = !fstat(fileno(f), &source);
+        if (cacheable && cover_tile_get(&source, x, y, w, h)) {
+            fclose(f);
+            rounded_clip_end(x, y, w, h, options[OPT_COVER_RADIUS]);
+            return;
+        }
         char magic[3];
         int cw, ch, m;
         if (fscanf(f, "%2s %d %d %d", magic, &cw, &ch, &m) == 4 && !strcmp(magic, "P5") && cw > 0 &&
@@ -825,8 +900,13 @@ static void cover_size(Book *b, int x, int y, int w, int h) {
                         int u = ((2 * i + 1) * sw * 128 / w) - 128,
                             v = ((2 * j + 1) * sh * 128 / h) - 128;
                         int value = image_bilinear(pix + y0 * cw + x0, cw, sw, sh, u, v);
-                        rect(x + i, y + j, 1, 1, image_tone(value, x + i, y + j));
+                        int px = x + i, py = y + j + ui_y_offset;
+                        if (px >= 0 && px < WIDTH && py >= 0 && py < HEIGHT)
+                            ui_pixels[py * WIDTH + px] =
+                                theme_gray(image_tone(value, x + i, y + j));
                     }
+                if (cacheable)
+                    cover_tile_put(&source, x, y, w, h);
                 rounded_clip_end(x, y, w, h, options[OPT_COVER_RADIUS]);
                 fclose(f);
                 return;
@@ -850,7 +930,7 @@ static void cover_size(Book *b, int x, int y, int w, int h) {
             initial[n] = 0;
         }
     }
-    const Font *face = w > 90 ? &title : &editorial;
+    const Font *face = w > 90 ? &title : w > 70 ? &body : &small;
     centered(x + 8, y + h / 4, w - 16, h / 2, initial, face);
     if (w > 100)
         centered(x + 12, y + h - 42, w - 24, 26, b->format, &caption);
@@ -859,9 +939,15 @@ static void cover_size(Book *b, int x, int y, int w, int h) {
 static void cover(Book *b, int x, int y, int scale) {
     cover_size(b, x, y, scale == 2 ? 52 : 120 / scale, scale == 2 ? 72 : 164 / scale);
 }
-static int featured(void) { return library_last(); }
-static int library_per(void) { return featured() >= 0 && listpage == 0 ? 3 : 6; }
-static int library_top(void) { return featured() >= 0 && listpage == 0 ? 365 : 115; }
+static int featured(void) {
+    return library_last();
+}
+static int library_per(void) {
+    return featured() >= 0 && listpage == 0 ? 3 : 6;
+}
+static int library_top(void) {
+    return featured() >= 0 && listpage == 0 ? 365 : 115;
+}
 static int library_begin(void) {
     return featured() >= 0 ? (listpage ? 3 + (listpage - 1) * 6 : 0) : listpage * 6;
 }
@@ -931,6 +1017,8 @@ static void system_loading(int target) {
 }
 #include "widgets.h"
 #include "text_flow.h"
+#include "list.h"
+#include "titlebar.h"
 static void update_view(void) {
     view_count = library_view(view, query, 0, settings.sort);
     /* Keep installer fixtures and our welcome note out of the personal shelves. */
@@ -996,7 +1084,7 @@ void ui_init(void) {
     }
     device_status(battery, sizeof(battery), wifi, sizeof(wifi));
     battery_charging = device_charging();
-    status_time = time(NULL);
+    status_time = charging_checked = time(NULL);
 }
 static void position_signature(int *v) {
     v[0] = settings.size;
@@ -1158,10 +1246,24 @@ int ui_open(int index) {
     selecting = 0;
     return 1;
 }
-static void heading(const char *label) {
-    drawtext(28, 74, label, &editorial, 544);
-    drawtext(29, 74, label, &editorial, 543);
+static int refresh_status(int force) {
+    time_t now = time(NULL);
+    if (force || !status_time || now < status_time || now - status_time >= 30) {
+        device_status(battery, sizeof(battery), wifi, sizeof(wifi));
+        int before = battery_charging;
+        battery_charging = device_charging();
+        status_time = charging_checked = now;
+        return before != battery_charging;
+    }
+    if (now < charging_checked || now - charging_checked >= (battery_charging ? 5 : 30)) {
+        int before = battery_charging;
+        battery_charging = device_charging();
+        charging_checked = now;
+        return before != battery_charging;
+    }
+    return 0;
 }
+
 #include "chrome.h"
 static void connect_screen(void);
 static void more_settings(void);
@@ -1277,7 +1379,8 @@ void ui_draw(void) {
     pagination = (Pagination){0};
     if (keyboard && keyboard_background_valid18 && !sleeping) {
         memcpy(ui_pixels, keyboard_background18, sizeof(ui_pixels));
-        if (screen != 2) header();
+        if (screen != 2)
+            header();
         goto input_overlays18;
     }
     memset(ui_pixels, 255, sizeof(ui_pixels));
@@ -1420,7 +1523,8 @@ int ui_input(const Input *in) {
     if (polish_photo_full() && in->kind == INPUT_TAP)
         return polish_photo_input(in);
     int input18 = keyboard_intercept18(in);
-    if (input18 >= 0) return input18;
+    if (input18 >= 0)
+        return input18;
     int update17 = u17_input(in);
     if (update17 >= 0) {
         pressed = -1;
@@ -1445,14 +1549,8 @@ int ui_input(const Input *in) {
     if (in->kind == INPUT_STATUS && sleeping)
         return v1_sleep_tick() ? 1 : 2;
     if (in->kind == INPUT_STATUS) {
-        if (in->x == -1 || time(NULL) - charging_checked >= (battery_charging ? 5 : 30)) {
-            int charge = device_charging();
-            charging_checked = time(NULL);
-            if (charge != battery_charging) {
-                battery_charging = charge;
-                return 1;
-            }
-        }
+        if (refresh_status(in->x == -1))
+            return 1;
         int tick16 = u16_tick();
         if (tick16)
             return tick16;
@@ -1601,9 +1699,7 @@ int ui_input(const Input *in) {
                 network_results();
             wifi_scanning = 0;
         }
-        device_status(battery, sizeof(battery), wifi, sizeof(wifi));
-        battery_charging = device_charging();
-        status_time = time(NULL);
+        refresh_status(0);
         return 1;
     }
     if (in->kind == INPUT_NETWORK) {
@@ -1689,7 +1785,7 @@ int ui_input(const Input *in) {
             full = 1;
             device_status(battery, sizeof(battery), wifi, sizeof(wifi));
             battery_charging = device_charging();
-            status_time = time(NULL);
+            status_time = charging_checked = time(NULL);
             extra_tick();
         }
         return 1;
@@ -1767,7 +1863,8 @@ int ui_input(const Input *in) {
             u17_notes_up();
             return 1;
         }
-        if(x<62 && !keyboard && !dropdown && recipes_back())return 1;
+        if (x < 62 && !keyboard && !dropdown && recipes_back())
+            return 1;
         if (x < 62 && can_back()) {
             apps_pause();
             if (battery_popup) {
@@ -1978,7 +2075,9 @@ static void commit_keyboard(void) {
     keyboard = 0;
     pressed = -1;
 }
-static size_t keyboard_capacity(void) { return text_input_spec(keyboard_target).capacity; }
+static size_t keyboard_capacity(void) {
+    return text_input_spec(keyboard_target).capacity;
+}
 static void modal_input(const Input *in) {
     if (in->kind == INPUT_SWIPE && keyboard && keyboard_multiline() && down_y >= 54 &&
         down_y < 502) {
@@ -2401,6 +2500,10 @@ static int app_read_book(int index) {
     return app_send(&request);
 }
 void ui_close(void) {
+    cover_tiles_clear();
+    free(weather_snapshot);
+    weather_snapshot = NULL;
+    weather_snapshot_valid = 0;
     chat_clear();
     companion_close16();
     u15_flush();
@@ -2410,7 +2513,9 @@ void ui_close(void) {
     ui_unicode_close();
 }
 
-int ui_power_request(void) { return power_request; }
+int ui_power_request(void) {
+    return power_request;
+}
 
 void ui_power_screen(int restart) {
     widget_count = 0;
@@ -2420,4 +2525,6 @@ void ui_power_screen(int restart) {
              &editorial);
 }
 
-int ui_batch_input(void) { return keyboard || (screen == 30 && note_ink_mode); }
+int ui_batch_input(void) {
+    return keyboard || (screen == 30 && note_ink_mode);
+}

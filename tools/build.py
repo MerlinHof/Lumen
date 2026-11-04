@@ -23,7 +23,8 @@ def build(target):
     objects=[]
     for source in sources():
         obj=object_path(target,source);obj.parent.mkdir(parents=True,exist_ok=True);dep=obj.with_suffix('.d');signature=obj.with_suffix('.command.json')
-        cmd=compiler+flags+['-MMD','-MF',str(dep),'-c',str(ROOT/'src'/source),'-o',str(obj)]
+        unit_flags=flags+(['-O2'] if target=='kindle' and source in ('system/ui/ui.c','system/device.c','system/unicode.c') else [])
+        cmd=compiler+unit_flags+['-MMD','-MF',str(dep),'-c',str(ROOT/'src'/source),'-o',str(obj)]
         stale=not obj.exists() or not dep.exists() or not signature.exists()
         if not stale:
             try:

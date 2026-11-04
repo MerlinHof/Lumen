@@ -58,3 +58,37 @@ The connected Kindle subsequently received 1.10: all runtime hashes, personal
 files and books were verified. Backup retention left exactly two rollback
 directories. This is file-copy/storage validation, not a claim of hands-on
 touch, eraser or live API testing on the device.
+
+## 2.0 quality and performance checks
+
+- Native host and ARMv7 builds completed.
+- Sanitizer integration covers 100 pixel-identical clipped text cases across all
+  five UI fonts, shared row geometry, exact cover-cache reuse and replacement
+  invalidation, weather-snapshot lifecycle and distinct game action positions.
+- The native atlas contains 92 views: 47 active app entries, populated list
+  fixtures, Reader controls, secondary views and settings in DE/EN/FR.
+- Existing input, editing, navigation, fresh defaults, twelve-update retention,
+  unchanged reinstall and transfer HTTP checks pass. Release numbering rejects
+  multi-digit minor versions such as 2.10.
+- The adaptive refresh engine and firmware service lifecycle are unchanged.
+
+A sequential comparison compiled the previous 1.10 UI from Git and the current
+2.0 UI with the same macOS ARM64 host/sanitizer harness and demo fixtures. Each
+view was drawn eight times; the median CPU draw-time reduction across 92 views
+was **80.9%** in this run. This is a host rendering measurement, not a claim of
+80.9% faster Kindle display, touch response, startup or battery life.
+
+| Native view | 1.10 CPU draw | 2.0 CPU draw |
+| --- | ---: | ---: |
+| Library, demo covers | 22.50 ms | 2.47 ms |
+| Settings | 2.87 ms | 0.54 ms |
+| App launcher | 2.96 ms | 1.25 ms |
+| Calculator | 1.46 ms | 0.46 ms |
+| Timer | 2.50 ms | 0.65 ms |
+| Wi-Fi list | 1.30 ms | 0.37 ms |
+| Reader with controls | 1.22 ms | 0.27 ms |
+
+Caches are bounded RAM allocations; they do not add persistent backups or
+resampled cover files. The package remains an explicit runtime allowlist.
+Physical usability, sleep/wake and account integrations still need user testing;
+paid/private services were not exercised for this quality-only update.

@@ -224,7 +224,7 @@ static void chat_draw(void) {
         config16("llm-model.txt", llm_model16, sizeof(llm_model16));
         config16("llm-prompt16.txt", llm_prompt16, sizeof(llm_prompt16));
     }
-    heading("OpenAI");
+    heading_actions("OpenAI", 3);
     icon_button(408, 74, IC_PLUS);
     icon_button(468, 74, IC_CONTENTS);
     icon_button(528, 74, IC_SETTINGS);
@@ -252,7 +252,7 @@ static void chat_draw(void) {
             drawtext_raw(40, yy - 15, "…", &small, 35);
             button_h(76, yy, 280, 36, "Weiterlesen", 0);
         }
-        rect(28, y + chat_rows[row].height + 5, 544, 1, 205);
+        divider(28, y + chat_rows[row].height + 5, 544);
     }
     key_outline(28, 634, 470, 91);
     region(28, 634, 470, 91);
@@ -320,19 +320,13 @@ static int chat_input(const Input *in) {
     return 1;
 }
 static void chats_draw(void) {
-    heading("Chats");
+    heading_actions("Chats", 1);
     icon_button(528, 74, IC_PLUS);
     for (int r = 0; r < 7 && chat_archive_page * 7 + r < chat_archive_count; r++) {
         int i = chat_archive_page * 7 + r, y = 148 + r * 76;
-        region(28, y, 544, 69);
-        icon(28, y + 5, IC_TYPE);
-        label_at(84, y, 480, 34, chat_archive[i].title, &small);
         char date[50];
         strftime(date, sizeof(date), "%d.%m.%Y · %H:%M", localtime(&chat_archive[i].modified));
-        ink_color = 125;
-        label_at(84, y + 32, 480, 26, date, &caption);
-        ink_color = 0;
-        rect(28, y + 70, 544, 1, 205);
+        list_row(28, y, 544, 76, IC_TYPE, 0, chat_archive[i].title, date, &small, 1);
     }
     if (!chat_archive_count)
         wrapped(32, 240, "Deine Gespräche werden hier auf diesem Kindle gespeichert.", &editorial,

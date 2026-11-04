@@ -1,4 +1,4 @@
-# LUMEN 1.9 · System und Apps
+# LUMEN 2.0 · System und Apps
 
 LUMEN ist ein natives ARMv7-Programm mit gemeinsamer App-Laufzeit. Apps sind
 Quellmodule mit stabilen IDs und Routen; sie laufen im selben Prozess. Sie sind
@@ -69,3 +69,24 @@ synchronen Dateischreibvorgänge pro Tastendruck einführen.
 ## Repository and installation boundaries
 
 `device` contains target-only launcher/autostart code; `tools` host-side build and installation code. Dependencies live in ignored `.local`; generated objects are in `build/<target>/obj` and explicit source lists prevent stale objects from linking. `packaging/runtime.json` is independent of all old releases. Shared `system/defaults` defines fresh boot, reset and option bounds. The installer validates every file first and prunes only recognized runtime-only backups after successful verification.
+
+## Shared quality and rendering contracts
+
+`system/ui/list.h` measures visible-ink row groups, aligns leading icons with
+titles and trailing actions with rows, and draws consistent metadata and rules.
+`titlebar.h` fits headings into space reserved for action columns. Form labels
+share visible vertical centers with their controls; last-line truncation respects
+UTF-8. Apps keep their own content, selection and existing pagination semantics.
+
+Text rendering caches exact non-white glyph bounds and visits only the useful
+area. Filled rectangles use clipped row writes. Antialiased rings reject pixels
+outside the stroke before expensive angle calculations and full circles need no
+angle calculation. The adaptive E-Ink refresh engine is unchanged.
+
+Cover display tiles are bounded to eight RAM entries, at most 80,000 bytes each.
+The source file identity, timestamp (including nanoseconds), length, crop,
+dimensions and ordered-dither phase form the key. Rounding is applied afterward
+against the current screen. No new persistent image cache or backup is created.
+Notes retain fourteen first-line titles until a scan/save invalidates them;
+weather parses its bounded snapshot on activation or job completion, not redraw.
+Periodic status queries are coalesced; detailed render logging is opt-in.

@@ -14,7 +14,7 @@ Do not use the package as a firmware update or copy it to the Kindle's update sl
 
 ## First installation
 
-1. Download **LUMEN-1.10.zip** from [Releases](https://github.com/MerlinHof/Lumen/releases/latest).
+1. Download **LUMEN-2.0.zip** from [Releases](https://github.com/MerlinHof/Lumen/releases/latest).
 2. Extract the complete folder. Connect the prepared Kindle by USB and open its storage.
 3. **macOS:** open `Install-LUMEN.command`. Alternatively, on macOS/Linux with Python 3.9+:
    ```sh
@@ -91,7 +91,7 @@ file `lumen/DISABLE_AUTOSTART` over USB. Removing user files is not required.
   reader remains available. The repository and release contain no personal books or keys.
 
 The simulated fresh-install checks are documented in [Validation](validation.md).
-A full physical reinstall on a freshly prepared Kindle has not been performed for 1.9.
+A full physical reinstall on a freshly prepared Kindle has not been performed for 2.0.
 
 ## Why backups no longer accumulate
 

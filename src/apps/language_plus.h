@@ -5,8 +5,12 @@ static struct {
 static int language_ready, language_tab, language_answered, language_options[4],
     language_choice = -1, language_book_page;
 static char language_written[512];
-static int language_source(void) { return lang_pair == 2 ? 1 : 0; }
-static int language_target(void) { return lang_pair == 0 ? 1 : lang_pair == 1 ? 2 : 0; }
+static int language_source(void) {
+    return lang_pair == 2 ? 1 : 0;
+}
+static int language_target(void) {
+    return lang_pair == 0 ? 1 : lang_pair == 1 ? 2 : 0;
+}
 static void language_init(void) {
     if (language_ready)
         return;
@@ -91,7 +95,7 @@ static void polish_language(void) {
         started = 1;
         language_new();
     }
-    heading("Sprachen");
+    heading_actions("Sprachen", 1);
     icon_button(528, 74, IC_BOOK);
     const char *pair[] = {"DE → EN", "DE → FR", "EN → DE"};
     segments(28, 132, 544, 39, pair, 3, lang_pair);
@@ -217,7 +221,7 @@ static void language_book(void) {
         int i = language_book_page * 6 + r, y = 145 + r * 86;
         drawtext_raw(30, y, v1_lessons[i][language_source()], &body, 540);
         drawtext_raw(30, y + 38, v1_lessons[i][language_target()], &small, 540);
-        rect(28, y + 76, 544, 1, 205);
+        divider(28, y + 76, 544);
     }
     pager(679, &language_book_page, 4);
 }

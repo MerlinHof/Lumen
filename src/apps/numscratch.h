@@ -133,7 +133,7 @@ static void scratch_touch(int x, int y) {
     scratch_scroll_lock = 0;
 }
 static void app_scratch(void) {
-    heading("NumScratch");
+    heading_actions("NumScratch", 1);
     icon_button(528, 74, IC_TYPE);
     scratch_editor();
 }

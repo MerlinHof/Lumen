@@ -270,7 +270,9 @@ static int recipes_fetch17(const char *unused) {
                 fz_drop_xml(c, x);
                 fz_drop_buffer(c, b);
             }
-            fz_catch(c) { ok = 0; }
+            fz_catch(c) {
+                ok = 0;
+            }
             fz_drop_context(c);
             free(html);
         }
@@ -332,7 +334,7 @@ static void recipes_open_ready17(void) {
 static int recipes_draw17(void) {
     if (screen != 114)
         return 0;
-    heading("Rezepte");
+    heading_actions("Rezepte", 2);
     search_action();
     icon_button(468, 74, IC_HISTORY);
     drawtext(30, 140, recipe_search16 ? "Suchergebnisse" : "Zuletzt geöffnet · offline verfügbar",
@@ -340,21 +342,15 @@ static int recipes_draw17(void) {
     int count = recipe_search16 ? recipes_count17 : recipe_recent_count16;
     for (int row = 0; row < 6 && companion_page16 * 6 + row < count; row++) {
         int i = companion_page16 * 6 + row, y = 189 + row * 80;
-        region(28, y, 544, 75);
-        icon(28, y + 12, IC_BOOK);
-        wrapped_raw(88, y + 2, recipe_search16 ? recipes17[i].title : recipe_recent16[i].title,
-                    &small, 470, 2);
-        ink_color = 130;
         char source[100];
         if (recipe_search16)
-            snprintf(source, 100, recipes17[i].meal ? "TheMealDB" : "Wikibooks · %s",
+            snprintf(source, sizeof(source), recipes17[i].meal ? "TheMealDB" : "Wikibooks · %s",
                      recipes17[i].lang);
         else
-            snprintf(source, 100, "%s", tr("Offline verfügbar"));
-        int lines=textwidth_raw(recipe_search16?recipes17[i].title:recipe_recent16[i].title,&small)>470?2:1;
-        drawtext_raw(88, y + (lines==2?46:29), source, &caption, 470);
-        ink_color = 0;
-        rect(28, y + 77, 544, 1, 205);
+            snprintf(source, sizeof(source), "%s", tr("Offline verfügbar"));
+        list_row(28, y, 544, 80, IC_BOOK, 0,
+                 recipe_search16 ? recipes17[i].title : recipe_recent16[i].title, source, &small,
+                 2);
     }
     pager(715, &companion_page16, (count + 5) / 6);
     if (!count)
@@ -412,6 +408,10 @@ static int recipes_input17(const Input *in) {
 }
 
 static int recipes_back(void) {
-    if(screen!=114||!recipe_search16)return 0;
-    recipe_search16=0;companion_page16=0;recipe_archive16();return 1;
+    if (screen != 114 || !recipe_search16)
+        return 0;
+    recipe_search16 = 0;
+    companion_page16 = 0;
+    recipe_archive16();
+    return 1;
 }

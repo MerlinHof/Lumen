@@ -16,7 +16,7 @@ static double stamp(void) {
 }
 int main(int argc, char **argv) {
     if (argc == 2 && !strcmp(argv[1], "--version")) {
-        puts("LUMEN 1.10 / MuPDF 1.28.5 / native ARMv7");
+        puts("LUMEN 2.0 / MuPDF 1.28.5 / native ARMv7");
         return 0;
     }
     const char *preview = NULL, *inspect = NULL, *render = NULL;
@@ -110,6 +110,7 @@ int main(int argc, char **argv) {
     ui_draw();
     device_present(ui_pixels, 1, settings.refresh);
     fprintf(stderr, "startup_ms=%.1f books=%d\n", (stamp() - start) * 1000, library_count);
+    int profile = getenv("LUMEN_PROFILE") && !strcmp(getenv("LUMEN_PROFILE"), "1");
     Input input;
     device_poll_interval(ui_poll_interval());
     while (device_wait(&input)) {
@@ -129,7 +130,8 @@ int main(int argc, char **argv) {
         }
         ui_draw();
         device_present(ui_pixels, ui_full_refresh(), settings.refresh);
-        fprintf(stderr, "action=%d render_ms=%.1f\n", input.kind, (stamp() - began) * 1000);
+        if (profile)
+            fprintf(stderr, "action=%d render_ms=%.1f\n", input.kind, (stamp() - began) * 1000);
     }
     int power_request = ui_power_request();
     if (power_request) {
@@ -141,7 +143,7 @@ int main(int argc, char **argv) {
     device_close();
     ui_close();
     engine_shutdown();
-    fprintf(stderr, "LUMEN 1.10 clean exit\n");
+    fprintf(stderr, "LUMEN 2.0 clean exit\n");
     if (power_request)
         device_system_power(power_request == 2);
     return 0;

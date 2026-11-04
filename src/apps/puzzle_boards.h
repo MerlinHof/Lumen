@@ -7,8 +7,12 @@ static Warehouse17 warehouse17, undo_warehouse17, initial_warehouse17;
 static int warehouse_ready17, warehouse_undo17, warehouse_facing17 = 4;
 static unsigned char maze17[33 * 35];
 static int maze_ready17, maze_x17 = 1, maze_y17 = 1, maze_moves17, maze_win17;
-static int box17(int v) { return v == 3 || v == 5; }
-static int floor17(int v) { return v == 0 || v == 2; }
+static int box17(int v) {
+    return v == 3 || v == 5;
+}
+static int floor17(int v) {
+    return v == 0 || v == 2;
+}
 static void warehouse_new17(int level) {
     Warehouse17 *s = &warehouse17;
     memset(s, 0, sizeof(*s));
@@ -205,7 +209,7 @@ static int cross_commit17(const char *text) {
     return 1;
 }
 static void crossword_draw17(void) {
-    heading("Kreuzworträtsel");
+    heading_actions("Kreuzworträtsel", 3);
     icon_button(468, 74, IC_DONE);
     icon_button(528, 74, IC_RESTART);
     if (!cross_seed16) {
@@ -284,7 +288,7 @@ static int u17_games_draw(void) {
             else
                 warehouse_ready17 = 1;
         }
-        heading("Sokoban");
+        heading_actions("Sokoban", 3);
         icon_button(468, 74, IC_UNDO);
         icon_button(528, 74, IC_RESTART);
         Warehouse17 *s = &warehouse17;
@@ -308,7 +312,7 @@ static int u17_games_draw(void) {
     if (screen == 119) {
         if (!maze_ready17)
             maze_new17();
-        heading("Labyrinth");
+        heading_actions("Labyrinth", 1);
         icon_button(528, 74, IC_RESTART);
         for (int y = 0; y < 35; y++)
             for (int x = 0; x < 33; x++)

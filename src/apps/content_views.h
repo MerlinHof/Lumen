@@ -58,11 +58,11 @@ static void tree_build(void) {
 static void polish_notes(void) {
     u16_notes_defaults();
     const char *name = note_tree.current ? v1_folder_name(note_tree.current) : tr("Notizen");
-    drawtext_raw(28, 74, name, &editorial, 360);
+    label_ellipsis(28, 74, note_tree.current ? 350 : 410, 44, name, &editorial, 0);
     note_rename_x17 = 36 + (int)fmin(350, textwidth_raw(name, &editorial));
     if (note_tree.current) {
-        icon_button(note_rename_x17, 71, IC_EDIT);
-        u17_gray_icon(note_rename_x17, 71);
+        icon_button(note_rename_x17, 74, IC_EDIT);
+        u17_gray_icon(note_rename_x17, 74);
     }
     icon_button(468, 74, IC_FOLDER_PLUS);
     icon_button(528, 74, IC_NOTE_PLUS);
@@ -74,32 +74,27 @@ static void polish_notes(void) {
     }
     for (int r = 0; r < 7 && tree_page * 7 + r < tree_count; r++) {
         int i = tree_page * 7 + r, y = 151 + r * 78;
-        region(28, y, 412, 72);
+        ListLayout l;
         if (tree_type[i]) {
-            int folder=note_tree.folder[tree_id[i]].id, children=0;
-            for(int f=0;f<note_tree.nf;f++)children+=note_tree.folder[f].parent==folder;
-            for(int n=0;n<note_count;n++)children+=v1_folder_for(note_ids[n])==folder;
-            icon(28, y - 4, IC_FOLDER);
-            label_at(84, y, 410, 38, note_tree.folder[tree_id[i]].name, &body);
-            char count[100];if(children==1)snprintf(count,sizeof(count),"%s",tr("1 direkter Eintrag"));else snprintf(count,sizeof(count),tr("%d direkte Einträge"),children);
-            ink_color=125;label_at(84,y+36,410,24,count,&caption);ink_color=0;
+            int folder = note_tree.folder[tree_id[i]].id, children = 0;
+            for (int f = 0; f < note_tree.nf; f++)
+                children += note_tree.folder[f].parent == folder;
+            for (int n = 0; n < note_count; n++)
+                children += v1_folder_for(note_ids[n]) == folder;
+            char count[100];
+            if (children == 1)
+                snprintf(count, sizeof(count), "%s", tr("1 direkter Eintrag"));
+            else
+                snprintf(count, sizeof(count), tr("%d direkte Einträge"), children);
+            l = list_row(28, y, 544, 78, IC_FOLDER, 76, note_tree.folder[tree_id[i]].name, count,
+                         &body, 1);
         } else {
-            char path[100], title[256];
-            snprintf(path, sizeof(path), "notes/%d.txt", tree_id[i]);
-            char *s = service_read(path, 8191);
-            snprintf(title, sizeof(title), "%s", s ? s : "");
-            free(s);
-            title[strcspn(title, "\r\n")] = 0;
-            icon(28, y - 5, IC_NOTE);
-            label_at(84, y, 410, 34, *title ? title : tr("Notiz"), &small);
             time_t stamp = tree_id[i];
-            strftime(title, sizeof(title), "%d.%m.%Y", localtime(&stamp));
-            ink_color = 125;
-            drawtext_raw(84, y + 34, title, &caption, 350);
-            ink_color = 0;
+            char date[50];
+            strftime(date, sizeof(date), "%d.%m.%Y", localtime(&stamp));
+            l = list_row(28, y, 544, 78, IC_NOTE, 76, note_list_title(tree_id[i]), date, &body, 1);
         }
-        icon_button(522, y + 12, IC_MORE);
-        rect(28, y + 73, 544, 1, 205);
+        icon_button(522, l.action_y, IC_MORE);
     }
     pager(746, &tree_page, (tree_count + 6) / 7);
 }
@@ -140,8 +135,12 @@ static int polish_notes_input(const Input *in) {
     }
     return 1;
 }
-static void polish_tasks(void) { tasks_draw18(); }
-static int polish_tasks_input(const Input *in) { return tasks_input18(in); }
+static void polish_tasks(void) {
+    tasks_draw18();
+}
+static int polish_tasks_input(const Input *in) {
+    return tasks_input18(in);
+}
 typedef struct {
     unsigned magic;
     int language;
@@ -236,7 +235,9 @@ static void polish_wiki_archive(void) {
     free(a);
     polish_wiki_saved();
 }
-static void wiki_title_key(const char *title, char *out, int cap) { utf8_fold(title, out, cap); }
+static void wiki_title_key(const char *title, char *out, int cap) {
+    utf8_fold(title, out, cap);
+}
 static int wiki_same_title(const char *a, const char *b) {
     char x[768], y[768];
     wiki_title_key(a, x, sizeof(x));
@@ -368,18 +369,15 @@ static void wiki_history_current(void) {
         wiki_history_scan();
 }
 static void polish_wiki_history(void) {
-    heading("Wikipedia");
+    heading_actions("Wikipedia", 1);
     search_action();
     for (int r = 0; r < 7 && wiki_history_page * 7 + r < wiki_entry_count; r++) {
         int i = wiki_history_page * 7 + r, y = 151 + r * 78;
-        region(28, y, 476, 72);
-        label_at(30, y, 474, 40, wiki_entries[i].title, &body);
         time_t stamp = wiki_entries[i].seen;
         char b[100];
-        strftime(b, 100, "%d.%m.%Y · %H:%M", localtime(&stamp));
-        drawtext_raw(30, y + 43, b, &caption, 474);
-        icon_button(522, y + 12, IC_TRASH);
-        rect(28, y + 70, 544, 1, 205);
+        strftime(b, sizeof(b), "%d.%m.%Y · %H:%M", localtime(&stamp));
+        ListLayout l = list_row(28, y, 544, 78, -1, 76, wiki_entries[i].title, b, &body, 1);
+        icon_button(522, l.action_y, IC_TRASH);
     }
     if (!wiki_entry_count)
         wrapped(30, 180, "Gelesene Artikel bleiben hier offline gespeichert, bis du sie löschst.",
@@ -554,7 +552,7 @@ static void photo_bounds(void) {
     photo_bh = bottom - top + 1;
 }
 static void polish_photos_grid(void) {
-    heading("Fotos");
+    heading_actions("Fotos", 1);
     icon_button(528, 74, IC_PLUS);
     uint64_t key = photo_count ? press_id(photo_names[0]) ^ photo_count : 0;
     if (photo_grid_page != photo_page || photo_grid_key != key) {
@@ -974,20 +972,15 @@ static void press_list_draw(void) {
     } else
         snprintf(date, sizeof(date), "%02u.%02u.%04u", press_list.date % 100,
                  press_list.date / 100 % 100, press_list.date / 10000);
-    heading("News");
+    heading_actions("News", 1);
     search_action();
-    label_at(30, 120, 540, 28, date, &caption);
-    if (press_busy())
-        drawtext(30, 115, "Nachrichten werden geladen …", &caption, 540);
+    label_at(30, 120, 540, 28, press_busy() ? tr("Nachrichten werden geladen …") : date, &caption);
     for (int r = 0; r < 5 && press_list_page * 5 + r < press_list.count; r++) {
         int i = press_list_page * 5 + r, y = 151 + r * 113;
         PressItem *a = &press_list.item[i];
         char b[180];
         snprintf(b, sizeof(b), "%s · %s", tr(a->category), a->publisher);
-        drawtext_raw(30, y, b, &caption, 540);
-        wrapped_raw(30, y + 28, a->title, &body, 540, 2);
-        region(28, y, 544, 107);
-        rect(28, y + 105, 544, 1, 195);
+        list_row(28, y, 544, 113, -1, 0, a->title, b, &body, 2);
     }
     if (!press_list.count && !press_busy())
         wrapped(30, 180, "Keine Nachrichten verfügbar. Gespeicherte Ausgaben bleiben erhalten.",
@@ -1019,7 +1012,7 @@ static void polish_news_draw(void) {
         }
         return;
     }
-    heading("News");
+    heading_actions("News", 1);
     search_action();
     label_at(30, 132, 540, 35, tr("Kuratierte Ausgaben"), &caption);
     for (int r = 0; r < 7 && press_date_page * 7 + r < press_dates_count; r++) {
@@ -1027,12 +1020,10 @@ static void polish_news_draw(void) {
         char b[80];
         snprintf(b, sizeof(b), "%02d.%02d.%04d%s", date % 100, date / 100 % 100, date / 10000,
                  date == news_date() ? tr(" · Heute") : "");
-        label_at(30, y, 485, 44, b, &body);
-        drawtext(30, y + 43, date == news_date() ? "Nachrichten des Tages" : "Gespeicherte Ausgabe",
-                 &caption, 480);
-        icon(528, y + 11, IC_NEXT);
-        region(28, y, 544, 69);
-        rect(28, y + 69, 544, 1, 205);
+        const char *detail =
+            tr(date == news_date() ? "Nachrichten des Tages" : "Gespeicherte Ausgabe");
+        ListLayout l = list_row(28, y, 544, 75, -1, 62, b, detail, &body, 1);
+        icon(528, l.action_y, IC_NEXT);
     }
     pager(746, &press_date_page, (press_dates_count + 6) / 7);
 }

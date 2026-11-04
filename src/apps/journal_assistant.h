@@ -219,16 +219,11 @@ static int u17_more_draw(void) {
             int date = journal_dates17[journal_page17 * 7 + r], y = 145 + r * 74;
             char b[100];
             snprintf(b, 100, "%02d.%02d.%04d", date % 100, date / 100 % 100, date / 10000);
-            region(28, y, 544, 66);
-            drawtext_raw(30, y + 8, b, &body, 460);
-            ink_color = 130;
-            drawtext(30, y + 40,
-                     date == app_date_key(time(NULL)) ? "Heute · Gedanken festhalten"
-                                                      : "Öffnen und weiter schreiben",
-                     &caption, 480);
-            ink_color = 0;
-            icon(528, y + 10, IC_NEXT);
-            rect(28, y + 68, 544, 1, 205);
+            const char *detail =
+                tr(date == app_date_key(time(NULL)) ? "Heute · Gedanken festhalten"
+                                                    : "Öffnen und weiter schreiben");
+            ListLayout l = list_row(28, y, 544, 74, -1, 62, b, detail, &body, 1);
+            icon(528, l.action_y, IC_NEXT);
         }
         pager(679, &journal_page17, (journal_count17 + 6) / 7);
         return 1;
@@ -259,10 +254,16 @@ static int u17_more_draw(void) {
         ink_color = 0;
         return 1;
     }
-    if(screen==128){chats_draw();return 1;}
-    if(screen==122){chat_draw();return 1;}
+    if (screen == 128) {
+        chats_draw();
+        return 1;
+    }
+    if (screen == 122) {
+        chat_draw();
+        return 1;
+    }
     if (screen == 123) {
-        heading("OpenAI");
+        heading_actions("OpenAI", 1);
         icon_button(528, 74, IC_RESTART);
         if (!models_loaded17) {
             models_parse17();
@@ -339,8 +340,10 @@ static int u17_more_input(const Input *in) {
         }
         return y < 48 ? -1 : 1;
     }
-    if(screen==128)return chats_input(in);
-    if(screen==122)return chat_input(in);
+    if (screen == 128)
+        return chats_input(in);
+    if (screen == 122)
+        return chat_input(in);
     if (screen == 123) {
         if (y >= 74 && y < 118 && x >= 516) {
             job_start16(3, "");

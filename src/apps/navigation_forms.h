@@ -8,7 +8,9 @@ static void u17_gray_icon(int x, int y) {
                     *v = 135 + *v * 120 / 255;
             }
 }
-static int u17_notes_depth(void) { return note_tree.current != 0; }
+static int u17_notes_depth(void) {
+    return note_tree.current != 0;
+}
 static void u17_notes_up(void) {
     int i = folder15_index(note_tree.current);
     note_tree.current = i >= 0 ? note_tree.folder[i].parent : 0;
@@ -120,11 +122,13 @@ static int u17_input(const Input *in) {
     }
     return u17_more_input(in);
 }
-static int u17_draw(void) { return u17_more_draw(); }
+static int u17_draw(void) {
+    return u17_more_draw();
+}
 static int calendar_layout17(void) {
     if (screen != 21 || calendar_view16 == 2 || calendar_view16 == 3)
         return 0;
-    heading("Kalender");
+    heading_width("Kalender", 194);
     const char *views[] = {"Tag", "Woche", "Monat", "Jahr"};
     dropdown_button(250, 74, 145, 44, views[calendar_view16]);
     icon_button(468, 74, IC_TODAY);
@@ -178,7 +182,7 @@ static int calendar_layout17(void) {
         ink_color = 130;
         drawtext_raw(134, 253, label, &caption, 400);
         ink_color = 0;
-        rect(28, 294, 544, 2, 190);
+        divider(28, 294, 544);
         drawtext(30, 315, "Tagesnotiz", &editorial, 480);
         if (*calendar_note) {
             static int date;

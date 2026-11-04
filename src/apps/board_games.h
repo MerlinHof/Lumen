@@ -8,7 +8,9 @@ static int chess_ready, chess_history, chess_selected = -1, chess_flip, chess_pr
                                        chess_promotion_from;
 static int chess_computer;
 static int tic[9], tic_turn = 1, tic_result, tic_score[3];
-static int side(int p) { return p > 0 ? 1 : p < 0 ? -1 : 0; }
+static int side(int p) {
+    return p > 0 ? 1 : p < 0 ? -1 : 0;
+}
 static void chess_reset(void) {
     memset(&chess, 0, sizeof(chess));
     int row[] = {4, 2, 3, 5, 6, 3, 2, 4};
@@ -203,7 +205,7 @@ static void games_init(int target) {
 }
 #include "../system/ui/chess_icons.h"
 static void app_chess(void) {
-    heading("Schach");
+    heading_actions("Schach", 1);
     icon_button(528, 74, IC_RESTART);
     const char *modes[] = {"Computer", "Multiplayer"};
     segments(28, 125, 544, 36, modes, 2, !chess_computer);
@@ -258,7 +260,7 @@ static void app_chess(void) {
     }
 }
 static void app_tic(void) {
-    heading("Tic Tac Toe");
+    heading_actions("Tic Tac Toe", 1);
     icon_button(528, 74, IC_RESTART);
     centered(28, 145, 544, 48,
              tic_result == 3 ? "Unentschieden"

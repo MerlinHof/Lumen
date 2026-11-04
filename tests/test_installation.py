@@ -62,3 +62,14 @@ bad=root/'lumen/backups/before-1.8-20200101-000000-000002';(bad/'lumen').mkdir(p
 assert not u.safe_backup(bad,set(manifest)|{'lumen/ANFORDERUNGEN.md'})
 assert u.storage(root)['backups']>0
 print('PASS installation: fresh prepared/stock devices, preflight, runtime hashes, updates, two-backup retention, unknown/personal preservation and corrupt/traversal rejection.')
+
+# Release numbering has one decimal digit; historical backup names stay valid.
+spec=importlib.util.spec_from_file_location('lumen_package',Path('tools/package.py'))
+package_rules=importlib.util.module_from_spec(spec);spec.loader.exec_module(package_rules)
+assert package_rules.validate_version('2.9')=='2.9'
+assert package_rules.validate_version('3.0')=='3.0'
+try:package_rules.validate_version('2.10')
+except RuntimeError:pass
+else:raise AssertionError('Multi-digit minor release accepted')
+
+print('PASS version policy: 2.9, 3.0 accepted; 2.10 rejected.')

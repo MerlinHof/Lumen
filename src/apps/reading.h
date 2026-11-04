@@ -57,8 +57,8 @@ static void reader(void) {
         u15_reader_progress();
     if (reader_chrome) {
         rect(0, 48, 600, 116, 255);
-        drawtext_raw(28, 58, library[selected].title, &small, 544);
-        drawtext_raw(29, 58, library[selected].title, &small, 543);
+        label_ellipsis(28, 56, 544, 36, library[selected].title, &body, 0);
+        label_ellipsis(29, 56, 543, 36, library[selected].title, &body, 0);
         rect(0, 162, 600, 2, 190);
 
         region(65, 108, 100, 44);
@@ -78,7 +78,7 @@ static void settings_screen(void) {
     drawtext(30, 121, reading_page ? "Abstände & Gesten" : "Schrift & Satz", &caption, 540);
     for (int row = 0; row < 6 && reading_page * 6 + row < 10; row++) {
         int id = reading_page * 6 + row, y = 155 + row * 84;
-        drawtext(30, y + 8, reader_labels[id], &small, 300);
+        form_label(30, y, 310, 44, reader_labels[id]);
         if (id == 0 || id == 4 || id == 8) {
             const char *value = id == 0   ? reader_families[options[OPT_FONT] % 5]
                                 : id == 4 ? reader_align[options[OPT_ALIGN] % 2]
@@ -100,7 +100,7 @@ static void settings_screen(void) {
             centered(444, y, 78, 44, value, &small);
             button_h(524, y, 48, 44, "+", 0);
         }
-        rect(30, y + 64, 542, 2, 190);
+        divider(28, y + 66, 544);
     }
     pager(679, &reading_page, 2);
 }

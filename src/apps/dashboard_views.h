@@ -187,9 +187,11 @@ static void app_open(int target) {
 static int launcher_page;
 static const int launcher_targets[] = {27, 28, 29, 31, 32, 33, 21, 22, 38, 36, 23,
                                        24, 25, 26, 48, 49, 52, 63, 64, 65, 66, 67};
-static void app_launcher(void) { v1_launcher(); }
+static void app_launcher(void) {
+    v1_launcher();
+}
 static void app_calendar(void) {
-    heading("Kalender");
+    heading_width("Kalender", 194);
     icon_button(468, 74, IC_TODAY);
     icon_button(528, 74, IC_NOTE_PLUS);
     const char *months[] = {"Januar", "Februar", "März",      "April",   "Mai",      "Juni",
@@ -206,7 +208,7 @@ static void app_calendar(void) {
                               "Wochentag.Fr", "Wochentag.Sa", "Wochentag.So"};
     for (int i = 0; i < 7; i++)
         centered(27 + i * 78, 194, 78, 34, weekdays[i], &caption);
-    rect(28, 227, 544, 1, 205);
+    divider(28, 227, 544);
     struct tm first = {
         .tm_year = calendar_year - 1900, .tm_mon = calendar_month - 1, .tm_mday = 1, .tm_hour = 12};
     mktime(&first);
@@ -232,7 +234,7 @@ static void app_calendar(void) {
         if (r && r->seconds)
             rect(x + 29, y + 55, 20, 2, 160);
     }
-    rect(28, 592, 544, 1, 205);
+    divider(28, 592, 544);
     snprintf(label, sizeof(label), "%02d.%02d.%04d", calendar_day, calendar_month, calendar_year);
     ReadingDay *activity = app_day(calendar_year * 10000 + calendar_month * 100 + calendar_day, 0);
     if (activity) {
@@ -249,10 +251,12 @@ static void app_calendar(void) {
 }
 static void stat_card(int x, int y, const char *label, const char *value) {
     key_outline(x, y, 260, 108);
-    drawtext(x + 15, y + 13, label, &caption, 230);
-    drawtext(x + 15, y + 45, value, &editorial, 230);
+    label_at(x + 15, y + 12, 230, 24, tr(label), &caption);
+    label_ellipsis(x + 15, y + 44, 230, 44, tr(value), &editorial, 0);
 }
-static void app_restart(void) { icon_button(528, 74, IC_RESTART); }
+static void app_restart(void) {
+    icon_button(528, 74, IC_RESTART);
+}
 static void app_mines(void) {
     heading("Minesweeper");
     app_restart();

@@ -217,14 +217,15 @@ static int v1_visible(int *out) {
     int n = 0;
     for (int i = 0; i < APP_COUNT; i++) {
         int id = launcher_order[i];
-        if (id != APP_NUMSCRATCH && id != APP_DRAWING && id != APP_FILES && id != APP_RPG && launcher_visible[id])
+        if (id != APP_NUMSCRATCH && id != APP_DRAWING && id != APP_FILES && id != APP_RPG &&
+            launcher_visible[id])
             out[n++] = id;
     }
     return n;
 }
 static void v1_launcher(void) {
     polish_order();
-    heading("Apps");
+    heading_actions("Apps", 1);
     icon_button(528, 74, IC_SETTINGS);
     int ids[APP_COUNT], n = v1_visible(ids);
     int pages = (n + 11) / 12;
@@ -412,7 +413,7 @@ static void v1_nono_new(void) {
     v1_dirty = 1;
 }
 static void v1_nono_draw(void) {
-    heading("Nonogramme");
+    heading_actions("Nonogramme", 1);
     icon_button(528, 74, IC_RESTART);
     centered(28, 133, 544, 32, "5 × 5 · Ein Bild aus Logik", &caption);
     for (int r = 0; r < 5; r++) {
@@ -474,7 +475,7 @@ static void hex_shape(int x, int y, int fill) {
         stroke(x + dx[i], y + dy[i], x + dx[(i + 1) % 6], y + dy[(i + 1) % 6], 2);
 }
 static void v1_hex_draw(void) {
-    heading("Hex");
+    heading_actions("Hex", 1);
     icon_button(528, 74, IC_RESTART);
     centered(28, 128, 544, 38,
              hex_win ? (hex_win == 1 ? "Schwarz gewinnt" : "Grau gewinnt")
@@ -517,7 +518,9 @@ static const char *v1_lessons[][3] = {
     {"Freund", "Friend", "Ami"},
     {"Zeit", "Time", "Temps"},
     {"Haus", "House", "Maison"}};
-static void v1_language_draw(void) { polish_language(); }
+static void v1_language_draw(void) {
+    polish_language();
+}
 static void flash_next(void) {
     flash_selected = -1;
     flash_reveal = 0;
@@ -529,7 +532,7 @@ static void flash_next(void) {
             flash_selected = i;
 }
 static void v1_flash_draw(void) {
-    heading("Karteikarten");
+    heading_actions("Karteikarten", 2);
     icon_button(528, 74, IC_PLUS);
     icon_button(468, 74, IC_CONTENTS);
     int due = 0;
@@ -553,7 +556,7 @@ static void v1_flash_draw(void) {
     if (!flash_reveal)
         button_h(28, 622, 544, 60, "Antwort zeigen", 0);
     else {
-        rect(28, 440, 544, 2, 190);
+        divider(28, 440, 544);
         wrapped_raw(32, 470, c->back, &small, 536, 6);
         const char *ratings[] = {"Nochmal", "Schwer", "Gut", "Leicht"};
         for (int i = 0; i < 4; i++) {
@@ -573,7 +576,9 @@ static void v1_flash_draw(void) {
     }
 }
 
-static void v1_tasks_draw(void) { polish_tasks(); }
+static void v1_tasks_draw(void) {
+    polish_tasks();
+}
 static void v1_photos_scan(void) {
     photo_cache_page = -1;
     photo_loaded[0] = 0;
@@ -663,8 +668,12 @@ static void v1_export_drawing(void) {
     ui_message(ok ? "In Fotos gespeichert." : "Speichern fehlgeschlagen.");
     v1_photos_scan();
 }
-static void v1_photos_draw(void) { polish_photos_grid(); }
-static void v1_photo_draw(void) { polish_photo(); }
+static void v1_photos_draw(void) {
+    polish_photos_grid();
+}
+static void v1_photo_draw(void) {
+    polish_photo();
+}
 static void v1_archive_scan(void) {
     news_date_count = 0;
     news_dates[news_date_count++] = news_date();
@@ -690,7 +699,9 @@ static void v1_archive_scan(void) {
                 news_dates[j] = t;
             }
 }
-static void v1_archive_draw(void) { polish_news_draw(); }
+static void v1_archive_draw(void) {
+    polish_news_draw();
+}
 static const char *v1_folder_name(int id) {
     for (int i = 0; i < note_tree.nf; i++)
         if (note_tree.folder[i].id == id)
@@ -698,9 +709,15 @@ static const char *v1_folder_name(int id) {
     return tr("Notizen");
 }
 
-static void v1_notes_draw(void) { polish_notes(); }
-static int v1_notes_input(const Input *in) { return polish_notes_input(in); }
-static void v1_note_tools(void) { u15_note_tools(); }
+static void v1_notes_draw(void) {
+    polish_notes();
+}
+static int v1_notes_input(const Input *in) {
+    return polish_notes_input(in);
+}
+static void v1_note_tools(void) {
+    u15_note_tools();
+}
 static void v1_folder_picker_draw(void) {
     heading("Notiz verschieben");
     int n = note_tree.nf + 1;
@@ -846,11 +863,7 @@ static void v1_timer_ring(int fullscreen) {
     double f = (timer_due || timer_paused) ? fmin(1, remain / (total * 1000.)) : 1;
     int cy = fullscreen ? 370 : 278,
         r = fullscreen ? 215 : 72; /* Sparse ring, only updated on changed seconds. */
-    for (int a = 0; a < 360; a += 2) {
-        double t = a * .01745329252;
-        int x = 300 + r * sin(t), y = cy - r * cos(t);
-        disc(x, y, 5, 205);
-    }
+    aa_arc_color(300, cy, r, 0, 360, fullscreen ? 12 : 10, 205);
     int end = 270 + (int)(360 * f);
     if (f >= .9999)
         ring(300, cy, r, fullscreen ? 12 : 10);
@@ -875,16 +888,27 @@ static void v1_timer_ring(int fullscreen) {
     }
 }
 static int launcher_manage_indices(int *indices) {
-    int n=0;for(int i=0;i<APP_COUNT;i++)if(app_route_valid(app_definition(launcher_order[i])->entry))indices[n++]=i;return n;
+    int n = 0;
+    for (int i = 0; i < APP_COUNT; i++)
+        if (app_route_valid(app_definition(launcher_order[i])->entry))
+            indices[n++] = i;
+    return n;
 }
 static void v1_launcher_settings(void) {
-    heading("Apps verwalten");drawtext(30,127,"Sichtbarkeit & Reihenfolge",&caption,540);
-    int indices[APP_COUNT],count=launcher_manage_indices(indices);
-    for(int r=0;r<7&&launcher_settings_page*7+r<count;r++) {
-        int pos=launcher_settings_page*7+r,i=indices[pos],id=launcher_order[i],y=174+r*68;
-        v1_icon(28,y+3,id);drawtext(87,y+10,app_definition(id)->name,&small,264);
-        page_arrow(354,y+4,IC_UP,pos>0);page_arrow(405,y+4,IC_DOWN,pos+1<count);toggle(492,y+4,launcher_visible[id]);rect(28,y+60,544,1,195);
-    }pager(687,&launcher_settings_page,(count+6)/7);
+    heading("Apps verwalten");
+    drawtext(30, 127, "Sichtbarkeit & Reihenfolge", &caption, 540);
+    int indices[APP_COUNT], count = launcher_manage_indices(indices);
+    for (int r = 0; r < 7 && launcher_settings_page * 7 + r < count; r++) {
+        int pos = launcher_settings_page * 7 + r, i = indices[pos], id = launcher_order[i],
+            y = 174 + r * 68;
+        v1_icon(28, y + 10, id);
+        label_at(87, y + 10, 252, 44, tr(app_definition(id)->name), &small);
+        page_arrow(354, y + 10, IC_UP, pos > 0);
+        page_arrow(405, y + 10, IC_DOWN, pos + 1 < count);
+        toggle(492, y + 16, launcher_visible[id]);
+        divider(28, y + 67, 544);
+    }
+    pager(687, &launcher_settings_page, (count + 6) / 7);
 }
 static void v1_open(int target) {
     polish_open(target);
@@ -948,7 +972,7 @@ static void v1_draw(void) {
         v1_flash_draw();
         break;
     case 77:
-        heading("Kartenbibliothek");
+        heading_actions("Kartenbibliothek", 1);
         icon_button(528, 74, IC_PLUS);
         for (int r = 0; r < 7 && flash_page * 7 + r < flash_count; r++) {
             int i = flash_page * 7 + r, y = 151 + r * 72;
@@ -956,7 +980,7 @@ static void v1_draw(void) {
             drawtext_raw(30, y, flashcards[i].front, &small, 466);
             drawtext_raw(30, y + 33, flashcards[i].deck, &caption, 466);
             icon_button(522, y + 8, IC_TRASH);
-            rect(28, y + 66, 544, 1, 195);
+            divider(28, y + 66, 544);
         }
         pager(695, &flash_page, (flash_count + 6) / 7);
         break;
@@ -1473,15 +1497,30 @@ static int v1_input(const Input *in) {
         }
         break;
     case 83: {
-        int indices[APP_COUNT],count=launcher_manage_indices(indices);
-        if(y>=174&&y<650){int pos=launcher_settings_page*7+(y-174)/68;
-            if(pos<count){int i=indices[pos],id=launcher_order[i];
-                if(x>=460)launcher_visible[id]^=1;
-                else if(x>=354&&x<400&&pos>0){int other=indices[pos-1];launcher_order[i]=launcher_order[other];launcher_order[other]=id;}
-                else if(x>=405&&x<455&&pos+1<count){int other=indices[pos+1];launcher_order[i]=launcher_order[other];launcher_order[other]=id;}
-                v1_dirty=1;
+        int indices[APP_COUNT], count = launcher_manage_indices(indices);
+        if (y >= 174 && y < 650) {
+            int pos = launcher_settings_page * 7 + (y - 174) / 68;
+            if (pos < count) {
+                int i = indices[pos], id = launcher_order[i];
+                if (x >= 460)
+                    launcher_visible[id] ^= 1;
+                else if (x >= 354 && x < 400 && pos > 0) {
+                    int other = indices[pos - 1];
+                    launcher_order[i] = launcher_order[other];
+                    launcher_order[other] = id;
+                } else if (x >= 405 && x < 455 && pos + 1 < count) {
+                    int other = indices[pos + 1];
+                    launcher_order[i] = launcher_order[other];
+                    launcher_order[other] = id;
+                }
+                v1_dirty = 1;
             }
-        }else if(y>=687&&y<731){if(x<300&&launcher_settings_page)launcher_settings_page--;else if(x>=300&&(launcher_settings_page+1)*7<count)launcher_settings_page++;}
+        } else if (y >= 687 && y < 731) {
+            if (x < 300 && launcher_settings_page)
+                launcher_settings_page--;
+            else if (x >= 300 && (launcher_settings_page + 1) * 7 < count)
+                launcher_settings_page++;
+        }
         break;
     }
     case 84:
@@ -1642,7 +1681,9 @@ static int v1_chess_tick(void) {
     return 1;
 }
 
-static void v1_note_created(int id) { v1_place(id, note_tree.current); }
+static void v1_note_created(int id) {
+    v1_place(id, note_tree.current);
+}
 
 static void v1_close(void) {
     v1_save();

@@ -68,3 +68,14 @@ the explicit runtime allowlist. There is no dependency on old release folders.
 
 See [Architecture](architecture.md), [Installation](installation.md) and
 [Agent guide](../AGENTS.md) before changing shared services or installation logic.
+
+## Quality atlas
+
+After generating demo books with `tools/screenshots.py`, run
+`python3 tools/audit-ui.py current`. With Pillow it also creates contact sheets;
+without it the original 600×800 PGM files and timing JSON are still produced.
+This covers every active app entry, populated list fixtures, Reader controls,
+settings in DE/EN/FR and secondary views. Outputs live only in `build/audit`.
+CPU times include eight native host draws; they do not measure E-Ink latency.
+`LUMEN_PROFILE=1` enables per-event session timing on hardware; normal releases
+avoid writing a log line for every frame.

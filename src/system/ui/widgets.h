@@ -3,6 +3,33 @@ static void label_at(int x, int y, int w, int h, const char *s, const Font *f) {
     int height, top = ink_top(s, f, &height);
     drawtext_raw(x, y + (h - height) / 2 - top, s, f, w);
 }
+/* The last visible line is complete UTF-8 and explicitly indicates truncation. */
+static void label_ellipsis(int x, int y, int w, int h, const char *text, const Font *font,
+                           int more) {
+    if (!more && textwidth_raw(text, font) <= w) {
+        label_at(x, y, w, h, text, font);
+        return;
+    }
+    char shown[1024];
+    const char *p = text, *end = text;
+    int used = 0, dots = textwidth_raw("...", font);
+    while (*p && *p != '\n') {
+        const char *next = p;
+        unsigned c = glyph(&next);
+        int a = glyph_advance(font, c);
+        if (used + a + dots > w || next - text > (int)sizeof(shown) - 4)
+            break;
+        used += a;
+        end = p = next;
+    }
+    snprintf(shown, sizeof(shown), "%.*s...", (int)(end - text), text);
+    label_at(x, y, w, h, shown, font);
+}
+static void form_label(int x, int y, int w, int h, const char *label) {
+    label = tr(label);
+    const Font *font = textwidth_raw(label, &small) > w ? &caption : &small;
+    label_ellipsis(x, y, w, h, label, font, 0);
+}
 static void search_field(int x, int y, int w, const char *value, const char *hint) {
     region(x, y, w, 48);
     key_outline(x, y, w, 48);

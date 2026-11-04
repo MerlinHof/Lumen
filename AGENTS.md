@@ -204,8 +204,9 @@ The installer verifies the payload before changes and keeps a usable rollback.
 No fresh install may silently claim to jailbreak stock firmware. Current support
 is KT2, 5.12.2.2, with the documented `.sh` launcher/FBInk prerequisite.
 
-Versions are 1.0, 1.1, 1.2 ...; increment by one minor number for a completed
-update. Keep `VERSION`, displayed version, package metadata and release notes
+Versions use one decimal digit: 2.0, 2.1, ... 2.9, then 3.0 (never 2.10).
+The user explicitly designated this quality/performance release 2.0. Keep
+`VERSION`, displayed version, package metadata and release notes
 consistent. Commit every finished update with its documentation and validation.
 
 ## Git and publication
@@ -250,3 +251,25 @@ must not produce a rollback copy. Keep the twelve-update regression test and
 macOS AppleDouble handling: FAT can remove sidecars while a directory traversal
 still contains their names. Ignore only that FileNotFound case, never arbitrary
 cleanup errors. Documentation previews keep native pixels at 1:1.
+
+## 2.0 quality contracts
+
+Use `system/ui/list.h` for paper lists: visible-ink primary/secondary alignment,
+quiet divider, leading icon and a separate trailing action column. Apps retain
+row input semantics and pagination. `titlebar.h` reserves action columns before
+fitting a translated heading. `widgets.h` owns UTF-8-safe last-line ellipsis and
+vertically centered form labels. Do not return to raw font-cell offsets for
+row subtitles or guess an icon's position independently of its title.
+
+`cover_cache.h` retains at most eight resampled display tiles, each at most
+80,000 bytes, in RAM. It keys source identity/time/size, crop, dimensions and
+dither phase; rounding is applied against the current background afterward.
+This does not add files, reduce image quality or change source covers. Clear
+owned buffers on shutdown. Keep the pixel-equivalence and invalidation tests.
+Text glyph ink bounds include every antialiasing fringe, not just dark pixels.
+
+Use `tools/audit-ui.py` for the native all-app / three-language visual atlas.
+Generated images and timings stay under `build/audit`, never in the payload.
+Host render timings are CPU measurements, not Kindle display/touch benchmarks.
+Only set `LUMEN_PROFILE=1` when per-frame session logging is actually needed.
+Do not disable power, Wi-Fi, app manager or reader services for speculative speed.

@@ -1,6 +1,6 @@
 /* Shared form controls: apps use these rather than drawing their own. */
 static void select_row17(int y, const char *label, const char *value) {
-    drawtext(30, y + 9, label, &small, 260);
+    form_label(30, y, 260, 48, label);
     dropdown_button(300, y, 272, 48, value);
 }
 static void checkbox(int x, int y, int checked) {

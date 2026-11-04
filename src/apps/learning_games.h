@@ -220,8 +220,8 @@ static int new_apps_tick(void) {
     return changed;
 }
 static void app_tiles(void) {
-    heading("2048");
-    icon_button(472, 74, IC_UNDO);
+    heading_actions("2048", 3);
+    icon_button(468, 74, IC_UNDO);
     icon_button(528, 74, IC_RESTART);
     char b[100];
     snprintf(b, sizeof(b), "%s  %llu", tr("Punkte"), (unsigned long long)tile_game.state.score);
@@ -310,9 +310,9 @@ static int column_gap(int c) {
     return n > 1 ? ((350 / (n - 1)) < 27 ? 350 / (n - 1) : 27) : 27;
 }
 static void app_solitaire(void) {
-    heading("Solitaire");
-    icon_button(416, 74, IC_UNDO);
-    icon_button(472, 74, IC_DONE);
+    heading_actions("Solitaire", 4);
+    icon_button(408, 74, IC_UNDO);
+    icon_button(468, 74, IC_DONE);
     icon_button(528, 74, IC_RESTART);
     PatienceState *s = &solitaire.state;
     region(21, 132, 72, 96);
@@ -350,7 +350,7 @@ static void app_solitaire(void) {
                  544);
 }
 static void app_sudoku(void) {
-    heading("Sudoku");
+    heading_actions("Sudoku", 1);
     icon_button(528, 74, IC_RESTART);
     button_h(28, 120, 140, 36, "Notizen", sudoku_pencil);
     icon_button(184, 116, IC_UNDO);
@@ -394,15 +394,18 @@ static void app_sudoku(void) {
         centered(28, 692, 544, 28, "Geschafft!", &small);
 }
 
-
-static void app_focus(void) { polish_brain(); }
+static void app_focus(void) {
+    polish_brain();
+}
 static const char *news_category(int c) {
     const char *labels[] = {"Welt",    "Wissenschaft",  "Technologie",
                             "Energie", "An diesem Tag", "Tagesrätsel"};
     return tr(labels[c >= 0 && c < 6 ? c : 0]);
 }
 
-static void app_newspaper(void) { polish_news_draw(); }
+static void app_newspaper(void) {
+    polish_news_draw();
+}
 static void app_news_settings(void) {
     heading("Zeitung · Themen");
     for (int i = 0; i < 6; i++) {

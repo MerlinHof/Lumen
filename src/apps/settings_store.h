@@ -4,7 +4,7 @@ static void connect_screen(void) {
     int active = connect_running();
     drawtext(30, 150, "Transfer-Server", &body, 400);
     toggle(492, 150, active);
-    rect(30, 207, 542, 2, 190);
+    divider(28, 207, 544);
     if (active) {
         const char *address = connect_address();
         char seen[2048];
@@ -119,12 +119,9 @@ static void settings_home(void) {
     heading("Einstellungen");
     for (int i = 0; i < 7; i++) {
         int y = 134 + i * 80;
-        region(28, y, 544, 69);
-        drawtext(30, y + 4, settings_sections[i], &body, 480);
-        drawtext(30, y + 42, settings_hints[i], &caption, 480);
-        icon(526, y + 13, IC_NEXT);
-        if (i < 6)
-            rect(28, y + 75, 544, 2, 190);
+        ListLayout l = list_row(28, y, 544, 80, -1, 62, tr(settings_sections[i]),
+                                tr(settings_hints[i]), &body, 1);
+        icon(526, l.action_y, IC_NEXT);
     }
 }
 static void open_store(void) {
@@ -156,7 +153,7 @@ static void more_settings(void) {
         drawtext(30, 145, b, &editorial, 540);
         wrapped(30, 197, "Lesestände werden automatisch gespeichert.", &caption, 540, 2);
         select_row17(279, "Sortierung", sort_modes[settings.sort % 6]);
-        rect(28, 411, 544, 2, 190);
+        divider(28, 411, 544);
         button_h(28, 449, 544, 56, "Bibliothek neu einlesen", 0);
         button_h(28, 527, 544, 56, "Buchcover neu einlesen", 0);
         return;
@@ -173,17 +170,17 @@ static void more_settings(void) {
             continue;
         int y = (setting_category == 1 ? 155 : 235) +
                 (setting_category == 1 ? index % 8 : index) * (setting_category == 1 ? 62 : 91);
-        drawtext(30, y, r->label, &small, r->choices ? 310 : 390);
+        form_label(30, y - 4, r->choices ? 312 : 310, 48, r->label);
         char value[80];
         int v = options[r->key];
         if (r->choices) {
             snprintf(value, sizeof(value), tr("%s"), r->choices[v >= 0 && v < r->count ? v : 0]);
             dropdown_button(360, y - 4, 210, 48, value);
         } else if (r->min == 0 && r->max == 1) {
-            toggle(492, y, v);
+            toggle(492, y + 4, v);
         } else {
             snprintf(value, sizeof(value), tr("%d"), v);
-            drawtext(350, y, value, &body, 80);
+            label_at(350, y - 4, 70, 48, value, &body);
             button(428, y - 4, 62, "-", 0);
             button(505, y - 4, 62, "+", 0);
         }
@@ -369,7 +366,7 @@ static void store_search(void) {
         store_complete(-1);
 }
 static void discover_screen(void) {
-    heading("Store");
+    heading_actions("Store", 2);
     icon_button(468, 74, IC_SETTINGS);
     search_action();
     drawtext(30, 133,
@@ -416,18 +413,22 @@ static void discover_screen(void) {
     for (int row = 0; row < 5 && opds_page * 5 + row < opds_count; row++) {
         OPDSItem *b = &opds_items[opds_page * 5 + row];
         int y = 174 + row * 87;
-        region(28, y, 544, 88);
-        store_cover(b, 30, y + 3, 54, 75);
         char authorbuf[256];
         const char *author = *b->author
                                  ? author_label(b->author, authorbuf, sizeof(authorbuf))
                                  : tr(b->acquisition ? "EPUB herunterladen" : "Katalog öffnen");
-        int title_lines = textwidth_raw(b->title, &small) > 412 ? 2 : 1;
-        wrapped_raw(100, y + 1, b->title, &small, 412, 2);
-        drawtext_raw(100, y + 5 + title_lines * (small.h - 4), author, &caption, 412);
-        icon(530, y + 19, IC_NEXT);
-        if (row < 4)
-            rect(108, y + 87, 464, 2, 190);
+        region(28, y, 544, 86);
+        store_cover(b, 30, y + 6, 50, 69);
+        FlowLine lines[2];
+        int n = text_flow(b->title, &small, 412, lines, 2);
+        ListLayout l = list_layout(98, y, 422, 87, 0, 0, n, 1, &small);
+        list_text(100, l.title_y, 412, b->title, &small, 2);
+        int old = ink_color;
+        ink_color = 112;
+        label_ellipsis(100, l.detail_y, 412, 16, author, &caption, 0);
+        ink_color = old;
+        icon(528, l.action_y, IC_NEXT);
+        divider(28, y + 86, 544);
     }
     if (!opds_count)
         wrapped(28, 230,
@@ -515,9 +516,9 @@ static void wifi_open(void) {
 }
 static void wifi_screen(void) {
     heading("WLAN");
-    drawtext(28, 145, "WLAN", &body, 420);
+    label_at(30, 137, 430, 48, tr("WLAN"), &body);
     toggle(492, 145, wifi_enabled);
-    rect(28, 209, 544, 2, 190);
+    divider(28, 209, 544);
     if (!wifi_enabled) {
         wrapped(28, 258, "WLAN ist ausgeschaltet.", &editorial, 544, 2);
         return;
@@ -525,23 +526,15 @@ static void wifi_screen(void) {
     for (int r = 0; r < 6 && wifi_page * 6 + r < wifi_count; r++) {
         WifiNetwork *n = &wifi_networks[wifi_page * 6 + r];
         int y = 228 + r * 72;
-        region(28, y, 470, 70);
         int connected = *wifi_ssid && !strcmp(n->ssid, wifi_ssid);
-        drawtext_raw(connected ? 61 : 30, y + 1, n->ssid, &small, connected ? 423 : 454);
-        if (connected) {
-            stroke(31, y + 17, 38, y + 24, 2);
-            stroke(38, y + 24, 51, y + 7, 2);
-        }
-        drawtext(30, y + 35,
-                 connected                 ? "Verbunden"
-                 : n->saved                ? "Gespeichert"
-                 : strstr(n->flags, "WPA") ? "Passwort geschützt"
-                                           : "Offenes Netz",
-                 &caption, 430);
+        const char *state = connected                 ? "Verbunden"
+                            : n->saved                ? "Gespeichert"
+                            : strstr(n->flags, "WPA") ? "Passwort geschützt"
+                                                      : "Offenes Netz";
+        ListLayout l =
+            list_row(28, y, 544, 72, connected ? IC_DONE : -2, 76, n->ssid, tr(state), &body, 1);
         if (n->saved)
-            icon_button(522, y + 10, IC_TRASH);
-        if (r < 5)
-            rect(28, y + 70, 544, 2, 190);
+            icon_button(522, l.action_y, IC_TRASH);
     }
     if (!wifi_count)
         wrapped(28, 258, wifi_scanning ? "Suche läuft …" : "Keine Netzwerke gefunden.", &editorial,

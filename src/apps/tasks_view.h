@@ -43,7 +43,7 @@ static void tasks_layout18(void) {
     }
 }
 static void tasks_draw18(void) {
-    heading("ToDo");
+    heading_actions("ToDo", 2);
     icon_button(528, 74, IC_PLUS);
     icon_button(468, 74, IC_GRID);
     dropdown_button(175, 74, 275, 44, *task_context16 ? task_context16 : "Alle Kontexte");

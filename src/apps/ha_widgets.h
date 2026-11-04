@@ -191,8 +191,8 @@ static void ha_graph(HAEntity *e, int x, int y, int w, int h) {
     ink_color = 0;
 }
 static void ha_dashboard(void) {
-    heading("Home Assistant");
-    icon_button(472, 74, IC_SETTINGS);
+    heading_actions("Home Assistant", 2);
+    icon_button(468, 74, IC_SETTINGS);
     icon_button(528, 74, ha_select ? IC_DONE : IC_DEVICES);
     if (!*ha_url || !*ha_token) {
         wrapped(30, 170,
@@ -213,13 +213,10 @@ static void ha_dashboard(void) {
         HAEntity *e = &ha_entities[view[ha_page * 6 + r]];
         if (ha_select) {
             int y = 250 + r * 68;
-            region(28, y, 544, 64);
-            drawtext_raw(32, y + 4, e->name, &small, 410);
             char b[120];
             snprintf(b, sizeof(b), "%s%s%s", e->state, *e->unit ? " " : "", e->unit);
-            drawtext_raw(32, y + 36, b, &caption, 410);
-            toggle(492, y + 12, ha_favorite(e->id) >= 0);
-            rect(28, y + 64, 544, 2, 190);
+            list_row(28, y, 544, 68, -1, 90, e->name, b, &small, 1);
+            toggle(492, y + 18, ha_favorite(e->id) >= 0);
             continue;
         }
         int x = 28 + (r % 2) * 282, y = 198 + (r / 2) * 154;
@@ -227,7 +224,7 @@ static void ha_dashboard(void) {
         if (e->sensor)
             ha_graph(e, x + 3, y + 3, 256, 134);
         key_outline(x, y, 262, 140);
-        drawtext_raw(x + 13, y + 10, e->name, &caption, 236);
+        label_ellipsis(x + 13, y + 8, 236, 24, e->name, &caption, 0);
         if (e->sensor) {
             char v[100], value[72];
             char *end;
@@ -241,7 +238,7 @@ static void ha_dashboard(void) {
                                                     : e->state);
             snprintf(v, sizeof(v), "%s%s%s", value, *e->unit ? " " : "", e->unit);
             const Font *f = textwidth_raw(v, &editorial) > 234 ? &body : &editorial;
-            drawtext_raw(x + 13, y + 33, v, f, 236);
+            label_ellipsis(x + 13, y + 38, 236, 44, v, f, 0);
         } else {
             drawtext(x + 13, y + 62,
                      !strcmp(e->state, "on")    ? "Ein"

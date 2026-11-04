@@ -16,12 +16,23 @@ static void ink_save(void) {
         return;
     char p[2048];
     snprintf(p, sizeof(p), "%s/notes/%d-page-%d.ink", data_root, ink_note, ink_page);
-    int empty=1;for(size_t i=0;i<sizeof(ink_pixels);i++)if(ink_pixels[i]!=255){empty=0;break;}
-    if(empty){unlink(p);ink_dirty=0;return;}
+    int empty = 1;
+    for (size_t i = 0; i < sizeof(ink_pixels); i++)
+        if (ink_pixels[i] != 255) {
+            empty = 0;
+            break;
+        }
+    if (empty) {
+        unlink(p);
+        ink_dirty = 0;
+        return;
+    }
     if (atomic_write(p, ink_pixels, sizeof(ink_pixels)))
         ink_dirty = 0;
 }
-static void u15_flush(void) { ink_save(); }
+static void u15_flush(void) {
+    ink_save();
+}
 static void ink_load(void) {
     if (ink_note == note_selected && ink_page == extra_page)
         return;
@@ -246,7 +257,11 @@ static void ink_stamp(int x, int y) {
                 int d2 = (xx - x) * (xx - x) + (yy - y) * (yy - y);
                 if (d2 > (radius + 1) * (radius + 1))
                     continue;
-                if(ink_eraser){if(d2<=radius*radius)ink_pixels[yy*600+xx]=255;continue;}
+                if (ink_eraser) {
+                    if (d2 <= radius * radius)
+                        ink_pixels[yy * 600 + xx] = 255;
+                    continue;
+                }
                 double a = d2 <= (radius - 1) * (radius - 1)
                                ? 1
                                : ((radius + .5) * (radius + .5) - d2) / (2 * radius);
@@ -255,8 +270,11 @@ static void ink_stamp(int x, int y) {
                 if (a > 1)
                     a = 1;
                 int at = yy * 600 + xx;
-                if(ink_eraser) { if(d2<=radius*radius)ink_pixels[at]=255; }
-                else ink_pixels[at]=(unsigned char)(ink_pixels[at]*(1-a));
+                if (ink_eraser) {
+                    if (d2 <= radius * radius)
+                        ink_pixels[at] = 255;
+                } else
+                    ink_pixels[at] = (unsigned char)(ink_pixels[at] * (1 - a));
             }
     ink_dirty = 1;
 }
@@ -335,14 +353,14 @@ static int u15_draw(void) {
         return 1;
     }
     if (screen == 101) {
-        heading("Store · Quellen");
+        heading_actions("Store · Quellen", 1);
         icon_button(528, 74, IC_PLUS);
         for (int r = 0; r < 6 && source15_page * 6 + r < source15_count; r++) {
             int i = source15_page * 6 + r, y = 145 + r * 82;
             drawtext_raw(30, y + 8, source15[i].name, &small, 420);
             drawtext_raw(30, y + 39, source15[i].url, &caption, 420);
             toggle(492, y + 10, source15[i].enabled);
-            rect(28, y + 75, 544, 1, 205);
+            divider(28, y + 75, 544);
         }
         pager(679, &source15_page, (source15_count + 5) / 6);
         return 1;

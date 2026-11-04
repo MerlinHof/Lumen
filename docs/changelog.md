@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.0
+
+- Quality and performance only; no new apps or user-facing features.
+- Shared ink-aligned list rows, title/action columns, form labels and UTF-8 ellipsis.
+- Consistent metadata spacing, quieter dividers and aligned icons across settings, network, notes, articles, recipes, history and app management.
+- Corrected overlapping game header actions and clearer Reader title/chrome alignment.
+- Exact glyph-bound rendering, faster rectangle/ring paths, bounded cover RAM tiles and note/weather snapshots.
+- Coalesced device-status queries, optional frame logging and speed-oriented compilation for hot system units.
+- One coherent responsive Connect stylesheet and connected desktop navigation.
+- Reproducible all-app visual atlas, three-language settings review and pixel-equivalence checks.
+- Version sequence now rolls from x.9 to (x+1).0.
+
 ## 1.10
 
 - Measured calculator viewport and aligned function/input edges.

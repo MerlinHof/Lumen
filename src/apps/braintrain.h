@@ -194,7 +194,7 @@ static void brain_finish(void) {
 }
 static void polish_brain(void) {
     brain_init();
-    heading("BrainTrain");
+    heading_actions("BrainTrain", 1);
     icon_button(528, 74, brain_phase ? IC_CLOSE : IC_HISTORY);
     char b[160];
     if (!brain_phase) {
@@ -203,9 +203,9 @@ static void polish_brain(void) {
             int x = 28 + (i % 2) * 282, y = 234 + (i / 2) * 135;
             key_outline(x, y, 262, 112);
             region(x, y, 262, 112);
-            label_at(x + 14, y + 10, 234, 42, tr(brain_modes[i]), &body);
+            label_ellipsis(x + 14, y + 14, 234, 34, tr(brain_modes[i]), &body, 0);
             snprintf(b, 160, "%s %d", tr("Stufe"), brain_stats.levels[i]);
-            drawtext_raw(x + 14, y + 67, b, &caption, 234);
+            label_at(x + 14, y + 63, 234, 24, b, &caption);
         }
         snprintf(b, 160, "%d %s · %d %s", brain_stats.streak, tr("Tage in Folge"),
                  brain_stats.sessions, tr("Runden"));

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Package only explicit runtime files; never sweep a workspace into a release."""
 from pathlib import Path
-import hashlib,json,shutil,zipfile
+import hashlib,json,shutil,zipfile,re
 ROOT=Path(__file__).resolve().parents[1]
 def validate_runtime_mapping(mapping):
     from pathlib import PurePosixPath
@@ -16,8 +16,13 @@ def validate_runtime_mapping(mapping):
         if parts[0]=='build' and relative.as_posix() not in {'build/kindle/lumen','build/kindle/mobitool'}:raise RuntimeError('Build/test data must never enter a release')
         if any(p in {'.git','.local','dist','backups','data'} for p in parts):raise RuntimeError('Unsafe package source')
 
+def validate_version(version):
+    if not re.fullmatch(r'[1-9][0-9]*\.[0-9]',version):
+        raise RuntimeError('Use one minor digit: 2.9 is followed by 3.0, never 2.10.')
+    return version
+
 def package():
-    version=(ROOT/'VERSION').read_text().strip();dist=ROOT/'dist';dist.mkdir(exist_ok=True)
+    version=validate_version((ROOT/'VERSION').read_text().strip());dist=ROOT/'dist';dist.mkdir(exist_ok=True)
     bundle=dist/('LUMEN-'+version);payload=bundle/'Kindle'
     if bundle.exists():shutil.rmtree(bundle)
     mapping=json.loads((ROOT/'packaging/runtime.json').read_text());validate_runtime_mapping(mapping);manifest={}

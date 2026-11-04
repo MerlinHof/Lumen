@@ -20,17 +20,17 @@
 
 ---
 
-## New in 1.10
+## New in 2.0
 
-Cleaner calculator alignment and pixel-measured input scrolling; properly aligned
-Notes and line numbers; direct folder counts; real erasing with empty ink pages
-removed; drag-to-select text; a calmer number row; fullscreen ToDo/Done; clearer
-recipe navigation; and local OpenAI chats with follow-up questions and Reader
-continuation for long replies. Files and Paper Quest have been retired.
+A quality and performance release: shared, carefully aligned list rows; quieter
+rules; consistent form and title-bar spacing; corrected game actions; and a more
+coherent Connect interface. Rendering does less work through exact glyph bounds,
+faster antialiased rings and bounded RAM cover tiles, preserving image quality
+and the established E-Ink refresh engine. No new apps or features.
 
-<details><summary><strong>A conversation, a list, a place to keep a thought</strong></summary>
+<details><summary><strong>A consistent rhythm, from system settings to your notes</strong></summary>
 <br>
-<table><tr><td><img src="docs/images/chat.png" width="280" alt="OpenAI conversation with local chat history"></td><td><img src="docs/images/notes-list.png" width="280" alt="Notes folders with direct item counts"></td><td><img src="docs/images/todo.png" width="280" alt="Fullscreen ToDo and Done"></td></tr></table>
+<table><tr><td><img src="docs/images/wifi.png" width="280" alt="Wi-Fi list with aligned status and actions"></td><td><img src="docs/images/settings.png" width="280" alt="System settings with shared list geometry"></td><td><img src="docs/images/notes-list.png" width="280" alt="Notes folders with direct item counts"></td></tr></table>
 </details>
 
 ## A small computer that knows when to be quiet

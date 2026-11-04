@@ -238,7 +238,7 @@ static int job_start16(int kind, const char *arg) {
             size_t z = 0;
             FILE *f = open_memstream(&body, &z);
             if (f) {
-                chat_write_request(f,model,arg);
+                chat_write_request(f, model, arg);
                 fclose(f);
                 if (*key)
                     ok = curl16("https://api.openai.com/v1/responses", out, key, body);
@@ -340,7 +340,7 @@ static int calendar_draw16(void) {
         dropdown_button(250, 74, 145, 44, names[calendar_view16]);
         return 1;
     }
-    heading("Kalender");
+    heading_actions("Kalender", 2);
 
     icon_button(468, 74, IC_TODAY);
     icon_button(528, 74, IC_NOTE_PLUS);
@@ -375,7 +375,7 @@ static int calendar_draw16(void) {
         }
         if (!count)
             event_lines16(date, 30, 208, 540, 1);
-        rect(28, 470, 544, 1, 205);
+        divider(28, 470, 544);
         drawtext(30, 490, "Tagesnotiz", &body, 540);
         wrapped_raw(30, 535, calendar_note, &small, 540, 3);
         pager(679, &calendar_day_page16, (count + 7) / 8);
@@ -418,7 +418,7 @@ static int calendar_draw16(void) {
 static void solar16(void) {
     if (sky_config.year < 1)
         sky_now();
-    heading("Planetarium");
+    heading_actions("Planetarium", 1);
     icon_button(528, 74, IC_CLOCK);
     astro_time_t t = sky_time();
     char label[120];
@@ -730,13 +730,19 @@ static void game_help16(int route) {
     if (*text)
         u17_game_manual(route, title, text);
 }
+static int game_help_x(void) {
+    return screen == 64 ? 348
+           : (screen == 63 || screen == 119 || screen == 118 || screen == 120 || screen == 121)
+               ? 408
+               : 468;
+}
 static void help_overlay16(void) {
     AppId id = app_for_route(screen);
     if ((id >= APP_MINES && id <= APP_SNAKE) || id == APP_CHESS || id == APP_TIC_TAC_TOE ||
         (id >= APP_2048 && id <= APP_SUDOKU) || id == APP_WORDLE || id == APP_NONOGRAMS ||
         id == APP_HEX || id == APP_BINGO || id == APP_CONNECT4 ||
         (id >= APP_KNIGHTS && id <= APP_RPG)) {
-        int xx = (screen == 118 || screen == 120 || screen == 121) ? 408 : 468;
+        int xx = game_help_x();
         region(xx, 74, 44, 44);
         ring(xx + 22, 96, 15, 2);
         centered(xx, 74, 44, 44, "?", &small);
@@ -894,7 +900,7 @@ static void crossword_new16(unsigned seed) {
     save_blob("crossword16.bin", crossword_answer16, sizeof(crossword_answer16));
 }
 static void crossword_draw16(void) {
-    heading("Kreuzworträtsel");
+    heading_actions("Kreuzworträtsel", 1);
     icon_button(528, 74, IC_RESTART);
     char grid[9][10] = {{0}};
     int mask[9][10] = {{0}};
@@ -1090,7 +1096,10 @@ static void u16_icon(int x, int y, int app) {
         chess_piece(x, y, 2);
         return;
     }
-    if(app==APP_SOKOBAN){paper_tile17(x+4,y+3,36,3);return;}
+    if (app == APP_SOKOBAN) {
+        paper_tile17(x + 4, y + 3, 36, 3);
+        return;
+    }
     if (app == APP_MAZE) {
         for (int i = 0; i < 3; i++) {
             stroke(x + 3 + i * 10, y + 3 + i * 6, x + 40 - i * 5, y + 3 + i * 6, 3);
@@ -1272,7 +1281,7 @@ static int u16_apps_draw(void) {
     char b[300];
 
     if (screen == 111) {
-        heading("Lernen");
+        heading_actions("Lernen", 1);
         icon_button(528, 74, IC_CLOCK);
         wrapped(30, 140,
                 "Lesen → Material schließen → aus dem Gedächtnis erklären → vergleichen. Lade dein "
@@ -1285,7 +1294,7 @@ static int u16_apps_draw(void) {
             region(28, y, 544, 62);
             icon(30, y + 8, IC_BOOK);
             drawtext_raw(90, y + 14, file_names16[i], &small, 470);
-            rect(28, y + 61, 544, 1, 205);
+            divider(28, y + 61, 544);
         }
         if (!files_count16)
             wrapped(30, 375, "Noch kein Material. Connect → Lernen → Dateien hochladen.", &body,
@@ -1323,7 +1332,7 @@ static int u16_apps_draw(void) {
         return 1;
     }
     if (screen == 116) {
-        heading("Dateien");
+        heading_actions("Dateien", 1);
         icon_button(528, 74, IC_UP);
         ink_color = 120;
         drawtext_raw(30, 136, files_dir16, &caption, 540);
@@ -1333,7 +1342,7 @@ static int u16_apps_draw(void) {
             region(28, y, 544, 58);
             icon(30, y + 7, file_dirs16[i] ? IC_FOLDER : IC_NOTE);
             drawtext_raw(90, y + 13, file_names16[i], &small, 474);
-            rect(28, y + 57, 544, 1, 205);
+            divider(28, y + 57, 544);
         }
         pager(715, &companion_page16, (files_count16 + 7) / 8);
         return 1;
@@ -1375,7 +1384,7 @@ static int u16_apps_input(const Input *in) {
     if (in->kind != INPUT_TAP)
         return -1;
     int x = in->x, y = in->y;
-    int helpx = (screen == 118 || screen == 120 || screen == 121) ? 408 : 468;
+    int helpx = game_help_x();
     if (y >= 74 && y < 118 && x >= helpx && x < helpx + 44) {
         AppId id = app_for_route(screen);
         if ((id >= APP_MINES && id <= APP_SNAKE) || id == APP_CHESS || id == APP_TIC_TAC_TOE ||
@@ -1673,8 +1682,12 @@ static void u16_calendar_choice(int choice) {
         calendar_view16 = choice;
 }
 
-static int ink_pending16(void) { return ink_dirty; }
-static int job_pending16(void) { return job_pid16 > 0; }
+static int ink_pending16(void) {
+    return ink_dirty;
+}
+static int job_pending16(void) {
+    return job_pid16 > 0;
+}
 
 static void recipe_archive16(void) {
     recipe_recent_count16 = 0;
