@@ -29,7 +29,7 @@ static TextStyle ui_text_style(TextRole role) {
                                        {&caption, UI_SECONDARY_INK, 0},
                                        {&title, UI_INK, 0},
                                        {&small, UI_INK, 0},
-                                       {&small, UI_PAPER, 1}};
+                                       {&body, UI_PAPER, 1}};
     return styles[role >= UI_TITLE && role <= UI_INVERSE ? role : UI_BODY];
 }
 static const Font *ui_font(TextRole role) {

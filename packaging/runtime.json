@@ -46,5 +46,7 @@
   "lumen/FSRS-LICENSE.txt": "licenses/FSRS-LICENSE.txt",
   "lumen/WORDLE-LICENSE.txt": "licenses/WORDLE-LICENSE.txt",
   "lumen/SKY-CATALOG-LICENSE.txt": "licenses/SKY-CATALOG-LICENSE.txt",
-  "lumen/BRAND-NOTICES.txt": "licenses/BRAND-NOTICES.txt"
+  "lumen/BRAND-NOTICES.txt": "licenses/BRAND-NOTICES.txt",
+  "lumen/lib/amazon-runtime.tar.gz": "build/kindle/amazon-runtime.tar.gz",
+  "lumen/ui-session.sh": "device/ui-session.sh"
 }

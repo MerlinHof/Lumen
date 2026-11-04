@@ -1,4 +1,4 @@
-#include "../engine.h"
+#include "engine.h"
 #include "fonts.h"
 #include <math.h>
 #include <mupdf/fitz.h>

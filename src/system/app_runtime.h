@@ -1,6 +1,6 @@
 #ifndef LUMEN_APP_RUNTIME_H
 #define LUMEN_APP_RUNTIME_H
-#include "../contracts.h"
+#include "contracts.h"
 #include <stddef.h>
 #include <stdint.h>
 /* System contract. Apps own routes and choose their chrome; the shell only

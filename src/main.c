@@ -1,9 +1,9 @@
 #define _GNU_SOURCE
-#include "device.h"
-#include "engine.h"
-#include "library.h"
-#include "services.h"
-#include "ui.h"
+#include "system/device.h"
+#include "system/engine.h"
+#include "system/library.h"
+#include "system/services.h"
+#include "system/ui/api.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,7 +16,7 @@ static double stamp(void) {
 }
 int main(int argc, char **argv) {
     if (argc == 2 && !strcmp(argv[1], "--version")) {
-        puts("LUMEN 2.0 / MuPDF 1.28.5 / native ARMv7");
+        puts("LUMEN 2.1 / MuPDF 1.28.5 / native ARMv7");
         return 0;
     }
     const char *preview = NULL, *inspect = NULL, *render = NULL;
@@ -143,7 +143,7 @@ int main(int argc, char **argv) {
     device_close();
     ui_close();
     engine_shutdown();
-    fprintf(stderr, "LUMEN 2.0 clean exit\n");
+    fprintf(stderr, "LUMEN 2.1 clean exit\n");
     if (power_request)
         device_system_power(power_request == 2);
     return 0;

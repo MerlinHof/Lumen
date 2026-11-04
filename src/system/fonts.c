@@ -1,5 +1,5 @@
 #include "fonts.h"
-#include "../library.h"
+#include "library.h"
 #include <mupdf/ucdn.h>
 #include <stdio.h>
 #include <stdlib.h>

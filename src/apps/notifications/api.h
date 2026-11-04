@@ -1,6 +1,6 @@
 #ifndef LUMEN_NOTIFICATIONS_H
 #define LUMEN_NOTIFICATIONS_H
-#include "../../device.h"
+#include "../../system/device.h"
 #include <stdint.h>
 typedef struct {
     char text[2048];

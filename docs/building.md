@@ -25,7 +25,11 @@ Setup downloads the pinned MuPDF archive from Artifex and checks its SHA-256.
 Zig is selected for the host from the official version index and checksum-checked.
 Only setup uses the network; subsequent builds are local and incremental.
 MuPDF sources include their third-party libraries. The libmobi converter is
-built separately from the included archive without DRM code.
+built separately from the included archive with device-serial support.
+Kindle setup also verifies and compresses the pinned ARM import runtime from
+`scripts/amazon-runtime.json`; source and license links are in
+[`vendor/amazon/README.md`](../vendor/amazon/README.md). This adds about 20 MiB
+to the installed runtime and is unpacked temporarily only when required.
 
 Local source/dependency copies already present under `.local/deps` are reused.
 The environment variables `MUPDF` and `ZIG` can override build dependency paths.

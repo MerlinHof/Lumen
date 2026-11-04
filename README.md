@@ -20,13 +20,19 @@
 
 ---
 
-## New in 2.0
+## New in 2.1
 
-A quality and performance release: shared, carefully aligned list rows; quieter
-rules; consistent form and title-bar spacing; corrected game actions; and a more
-coherent Connect interface. Rendering does less work through exact glyph bounds,
-faster antialiased rings and bounded RAM cover tiles, preserving image quality
-and the established E-Ink refresh engine. No new apps or features.
+A quieter, more confident design: semantic typography, rounded shared icons,
+continuous launcher squircles, restrained black primary actions and tactile
+floating notifications. Photos gain a gentle display-only contrast lift.
+
+App sources are organized by app; shared UI and services stay in the system.
+Notification close gestures cannot reach buttons underneath. Supported
+Amazon books are detected automatically and prepared locally on first opening,
+including metadata and covers; unsupported protection retains the Kindle-reader
+fallback. The converter adds about 20 MiB and is unpacked only when needed.
+Target-side conversion and the revised firmware UI pause still need hardware
+verification; see [validation](docs/validation.md).
 
 <details><summary><strong>A consistent rhythm, from system settings to your notes</strong></summary>
 <br>

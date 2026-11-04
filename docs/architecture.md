@@ -1,4 +1,4 @@
-# LUMEN 2.0 · System und Apps
+# LUMEN 2.1 · System und Apps
 
 LUMEN ist ein natives ARMv7-Programm mit gemeinsamer App-Laufzeit. Apps sind
 Quellmodule mit stabilen IDs und Routen; sie laufen im selben Prozess. Sie sind
@@ -10,7 +10,7 @@ beschrieben, statt eine vollständige Prozess- oder Datenisolation zu behaupten.
 
 `src/system/app_runtime.{c,h}` verwaltet Aktivierung, App-Wechsel und
 Lebenszyklus. `AppDefinition` beschreibt ID, Einstiegsroute, Vollbildstrategie
-und zugehörigen Systemtab. `src/apps/registry.c` enthält die App-Registrierung.
+und zugehörigen Systemtab. `src/apps/catalog.c` enthält die App-Registrierung.
 IDs bleiben stabil, damit gespeicherte Launcherreihenfolgen nicht verrutschen.
 Die zurückgezogenen Drawing-/NumScratch-IDs bleiben dafür reserviert.
 
@@ -90,3 +90,27 @@ against the current screen. No new persistent image cache or backup is created.
 Notes retain fourteen first-line titles until a scan/save invalidates them;
 weather parses its bounded snapshot on activation or job completion, not redraw.
 Periodic status queries are coalesced; detailed render logging is opt-in.
+
+## Ownership after the 2.1 refactor
+
+App code now lives under `src/apps/<app>/`: views, state, storage and adapters
+are grouped by responsibility. Calculator evaluation, news providers/archives,
+flashcard scheduling and game models are beside their app APIs. System headers
+live beside their system implementation. Retired NumScratch and standalone
+Drawing implementations are removed; their persisted IDs remain reserved.
+
+`apps/host/compose.h` explicitly composes the unity-build fragments. The shared
+host dispatch still connects older numerical routes and globals; this remains a
+single-process architecture, not independently loadable apps. That remaining
+coupling is documented rather than hidden behind directory names.
+
+Semantic text/color roles live in `system/ui/theme.h`; typography, primary actions,
+icons, continuous squircles and list geometry are shared. Notifications own their
+model and view in `apps/notifications`; named app endpoints accept copied requests
+without navigation. Overlay input owns the whole gesture before underlying apps.
+
+The Library delegates supported Amazon conversion to `system/amazon.c` and its
+app-owned Python adapter. The ARM converter stays compressed until first use;
+preparation happens in the existing loading flow, outputs are cached in personal
+data, and source files remain unchanged. UI processes are reversibly paused by
+`device/ui-session.sh`; essential firmware services retain ownership of hardware.

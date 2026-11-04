@@ -1,7 +1,7 @@
-#include "../i18n.h"
-#include "../library.h"
+#include "i18n.h"
+#include "library.h"
 #include <string.h>
-#include "../i18n_catalog.h"
+#include "i18n_catalog.h"
 size_t i18n_count(void) {
     return sizeof(translations) / sizeof(*translations);
 }

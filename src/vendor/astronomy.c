@@ -41,7 +41,6 @@
 #include <time.h>
 #endif
 #endif
-
 #include "astronomy.h"
 
 #ifdef __FAST_MATH__

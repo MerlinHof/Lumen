@@ -1,4 +1,4 @@
-#include "../press.h"
+#include "../apps/news/api.h"
 static int copy_file(const char *, const char *);
 /* Shared article-to-reader boundary. Documents live outside the personal library. */
 static void document_escape(FILE *f, const char *s, size_t n) {

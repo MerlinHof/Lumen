@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.1
+
+- Semantic typography and restrained black/depth accents; shared rounded icons and continuous launcher squircles.
+- Library book tab, internal charging bolt and display-only photo contrast enhancement.
+- Notification app with complete overlay gesture ownership.
+- App-owned source folders, colocated APIs and removal of retired drawing/NumScratch implementation.
+- On-demand, cached device-serial Amazon import with pinned converter runtime; originals preserved.
+- Reversible UI-only firmware pause with process-identity checks and wake reassertion.
+- Refreshed native screenshots, design/ownership guidance and dependency documentation.
+
 ## 2.0
 
 - Quality and performance only; no new apps or user-facing features.

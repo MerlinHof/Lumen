@@ -11,4 +11,4 @@ for name,size,file in [('small',18,'LiberationSans-Regular.ttf'),('body',25,'Lib
  for c in range(256+len(extra)):
   ch=chr(c) if 32<=c<256 else (chr(extra[c-256]) if c>=256 else ' ');im=Image.new('L',(w,h),255);ImageDraw.Draw(im).text((1,0),ch,font=cjk if ord(ch)>=0x2e80 else f,fill=0);bounds=im.point(lambda v:255 if v<160 else 0).getbbox();tops.append(bounds[1] if bounds else h);bottoms.append(bounds[3]-1 if bounds else 0);data.extend(im.tobytes());adv.append(min(w,round((cjk if ord(ch)>=0x2e80 else f).getlength(ch))))
  out += [f'static const unsigned char {name}_pixels[]={{'+','.join(map(str,data))+'};',f'static const unsigned char {name}_advance[]={{'+','.join(map(str,adv))+'};',f'static const unsigned char {name}_top[]={{'+','.join(map(str,tops))+'};',f'static const unsigned char {name}_bottom[]={{'+','.join(map(str,bottoms))+'};',f'static const Font {name}={{{w},{h},{name}_pixels,{name}_advance,{name}_top,{name}_bottom}};']
-(base/'src/fonts.h').write_text('\n'.join(out))
+(base/'src/system/ui/font_data.h').write_text('\n'.join(out))

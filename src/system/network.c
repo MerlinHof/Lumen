@@ -1,6 +1,6 @@
-#include "../i18n.h"
+#include "i18n.h"
 #define _GNU_SOURCE
-#include "../network.h"
+#include "network.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

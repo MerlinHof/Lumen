@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Fetch pinned official build dependencies into .local; no repository binaries."""
-import argparse,hashlib,json,os,platform,subprocess,tarfile,urllib.request
+import argparse,hashlib,json,os,platform,subprocess,sys,tarfile,urllib.request
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 def download(url,dest,sha):
@@ -38,9 +38,10 @@ def setup(target):
         # libmobi's small pinned source archive is included for reproducibility.
         mobi=deps/'libmobi'
         if not mobi.exists():extract(ROOT/'vendor/libmobi-0.12.tar.gz',mobi)
-        if not (mobi/'config.h').exists():subprocess.run(['sh','configure','--with-libxml2=no','--with-zlib=no','--disable-encryption','--disable-shared','--enable-tools-static'],cwd=mobi,check=True)
+        if not (mobi/'config.h').exists() or '#define USE_ENCRYPTION 1' not in (mobi/'config.h').read_text():subprocess.run(['sh','configure','--with-libxml2=no','--with-zlib=no','--enable-encryption','--disable-shared','--enable-tools-static'],cwd=mobi,check=True)
         env.update(LIBMOBI=str(mobi),MOBI_BUILD=str(ROOT/'build/kindle/mobi-obj'))
         subprocess.run(['sh',str(ROOT/'vendor/build-libmobi.sh')],env=env,check=True)
+        subprocess.run([sys.executable,str(ROOT/'tools/prepare-amazon.py')],check=True)
     print('Dependencies ready:',target)
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('target',choices=['host','kindle']);setup(p.parse_args().target)

@@ -1,6 +1,6 @@
 #define _GNU_SOURCE
-#include "../device.h"
-#include "../refresh.h"
+#include "device.h"
+#include "refresh.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -208,9 +208,15 @@ void device_request_sleep(void) {
     char *a[] = {"lipc-set-prop", "-i", "com.lab126.powerd", "powerButton", "1", NULL};
     execute("/usr/bin/lipc-set-prop", a);
 }
+static void reclaim_ui(void) {
+    char *args[] = {"sh", "/mnt/us/lumen/ui-session.sh", "reassert", NULL};
+    execute("/bin/sh", args);
+}
 int device_wake(void) {
     char *a[] = {"lipc-set-prop", "-i", "com.lab126.powerd", "wakeUp", "1", NULL};
-    return execute("/usr/bin/lipc-set-prop", a) == 0;
+    int ok = execute("/usr/bin/lipc-set-prop", a) == 0;
+    reclaim_ui();
+    return ok;
 }
 int device_system_power(int restart) {
     char *args[] = {restart ? "reboot" : "poweroff", NULL};
@@ -367,6 +373,7 @@ static int parse_event(int fd, int source, Input *input) {
     if (exiting && (!wake || exiting > wake))
         wake = exiting;
     if (wake && (!sleep || wake > sleep)) {
+        reclaim_ui();
         input->kind = INPUT_WAKE;
         return 1;
     }

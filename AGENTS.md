@@ -140,7 +140,8 @@ strikes each actual text line through its middle.
 src/
   system/       preferences, storage, network, device, reader, app runtime
     ui/         shell, chrome, keyboard, editor, widgets, icons, image helpers
-  apps/         registered app models and views
+  apps/<name>/  app-owned models, state, views and adapters
+  apps/host/    explicit unity composition and shared dispatch adapters
   vendor/       clearly credited embedded third-party source
 ```
 
@@ -287,3 +288,34 @@ They capture DOWN through release before app input, including release outside th
 surface or expiration during a gesture. Never dispatch a close gesture beneath
 an overlay. Named app endpoints support non-navigating component apps; navigation
 continues to use stable AppIntent IDs. An app need not be a launcher tile.
+
+## 2.1 ownership and design contracts
+
+Every active app owns its source under `src/apps/<name>/`. Public app APIs live
+beside their implementation (calculator/evaluate, flashcards/scheduler,
+news/provider and archive). `apps/host/compose.h` is the explicit composition root
+for the remaining unity-build view fragments. Shared dispatch adapters are still
+coupled: do not claim plugin isolation. Move behavior and state together when
+improving these boundaries; never introduce another release-number catch-all.
+System public APIs live beside their implementations under `src/system`.
+
+Use `theme.h` roles and `typography.h` for hierarchy and primary actions. Use
+`icons.h` / `app_icons.h` semantic identities, not private app copies. Black is an
+intentional accent, not a replacement background for all controls. Floating
+surfaces have a crisp offset shadow; most geometry stays square. Launcher tiles
+use the shared continuous squircle mask. Library navigation uses the book icon.
+Photo contrast is display-only: never rewrite the user's original photo.
+
+Amazon imports are a Library responsibility. Device-owned supported KFX and
+MOBI-family files are prepared lazily and cached with source identity; originals
+remain untouched. The pinned converter archive is runtime, imported EPUBs are
+personal data. Never ship a device identity, decrypted book or import cache.
+Unsupported protection must fail clearly and retain the original-reader fallback.
+Do not claim all DRM variants work; ARM converter execution needs target testing.
+Keep third-party notices and pinned source links with distributed dependencies.
+
+`device/ui-session.sh` may pause only `awesome` and `cvm` for exclusive display
+ownership. Record PID and start tick, never take ownership of an existing pause,
+reassert on wake and resume on exit. Never stop powerd, wifid, USB, D-Bus or
+appmgrd; do not generalize this into a kill-all optimization. This frees UI CPU,
+not all firmware RAM. Preserve sleep, original-reader return and recovery.

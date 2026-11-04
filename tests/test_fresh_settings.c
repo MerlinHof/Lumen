@@ -1,4 +1,4 @@
-#include "../src/library.h"
+#include "../src/system/library.h"
 #include "../src/system/defaults.h"
 #include <assert.h>
 #include <stdio.h>

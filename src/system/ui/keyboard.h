@@ -2,8 +2,6 @@ static int keyboard_multiline(void) {
     return text_input_spec(keyboard_target).multiline;
 }
 static void keyboard_insert(const char *text) {
-    if (keyboard_target == 60 && !scratch_can_insert(text))
-        return;
     note_scroll_lock = 0;
     text_insert(edit, keyboard_capacity(), &note_cursor, text);
     cursor_visible = 1;

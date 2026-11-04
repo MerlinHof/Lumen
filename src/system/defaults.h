@@ -1,6 +1,6 @@
 #ifndef LUMEN_DEFAULTS_H
 #define LUMEN_DEFAULTS_H
-#include "../library.h"
+#include "library.h"
 #define LUMEN_DEFAULT_SETTINGS {24, 145, 12, 8, 1, 2, 0}
 #define LUMEN_DEFAULT_OPTIONS { \
     [OPT_FONT] = 0, \

@@ -110,6 +110,21 @@ static void quality_tests(void) {
     ui_message("Capture test");ui_draw();ui_input(&down);
     notification_dismiss();up.x=300;up.y=600;ui_input(&up);assert(screen==27);
     assert(photo_contrast(128)==128 && photo_contrast(80)<80 && photo_contrast(180)>180);
+    /* Native import boundary: atomic output, cached reuse and invalidation. */
+    char importer[2048], source[2048], imported[2048];
+    snprintf(importer,sizeof(importer),"%s/fake-converter.sh",data_root);
+    snprintf(source,sizeof(source),"%s/source.kfx",data_root);
+    const char *script="#!/bin/sh\nprintf 'synthetic epub fixture' > \"$2\"\n";
+    assert(atomic_write(importer,script,strlen(script)));chmod(importer,0700);
+    assert(atomic_write(source,"original",8));
+    Book fake={.id=0x123456,.size=8,.modified=7,.protected_format=1};
+    snprintf(fake.path,sizeof(fake.path),"%s",source);strcpy(fake.format,"kfx");
+    setenv("LUMEN_KFX_CONVERTER",importer,1);
+    assert(library_supported(&fake));assert(amazon_prepare(&fake,imported,sizeof(imported)));
+    unlink(importer);unsetenv("LUMEN_KFX_CONVERTER");
+    assert(amazon_prepare(&fake,imported,sizeof(imported)));
+    fake.modified++;assert(!library_import_path(&fake,imported,sizeof(imported)));
+    unlink(source);
     puts("PASS quality: 100 pixel-identical clipped text cases, shared row geometry, exact cover "
          "cache/invalidation, non-overlapping game actions and weather snapshot lifecycle.");
 }

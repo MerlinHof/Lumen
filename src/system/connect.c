@@ -1,9 +1,9 @@
-#include "../i18n.h"
+#include "i18n.h"
 #define _GNU_SOURCE
-#include "../connect.h"
-#include "../engine.h"
-#include "../library.h"
-#include "../services.h"
+#include "connect.h"
+#include "engine.h"
+#include "library.h"
+#include "services.h"
 #include <arpa/inet.h>
 #include <dirent.h>
 #include <ctype.h>
@@ -422,7 +422,7 @@ static void upload(int fd, const char *query, uint64_t length, const char *initi
     } else
         response(fd, 500, "text/plain", "Upload did not complete; original files retained");
 }
-#include "../connect_web.h"
+#include "connect_web.h"
 #include "markdown.h"
 #include "connect_notes.h"
 static void handle(int fd) {

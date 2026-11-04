@@ -1,8 +1,8 @@
-#include "../i18n.h"
+#include "i18n.h"
 #define _GNU_SOURCE
-#include "../engine.h"
-#include "../library.h"
-#include "../services.h"
+#include "engine.h"
+#include "library.h"
+#include "services.h"
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <errno.h>

@@ -1,25 +1,25 @@
 #define _GNU_SOURCE
-#include "../../ui.h"
+#include "api.h"
 #include "../../apps/notifications/api.h"
-#include "../../amazon.h"
-#include "../../apps.h"
-#include "../../calc.h"
-#include "../../connect.h"
-#include "../../discover.h"
-#include "../../engine.h"
-#include "../../fonts.h"
-#include "../../i18n.h"
-#include "../../library.h"
-#include "../../network.h"
-#include "../../newspaper.h"
-#include "../../qrcodegen.h"
-#include "../../services.h"
-#include "../../system/app_runtime.h"
-#include "../../system/paper_font.h"
-#include "../../system/unicode.h"
-#include "../../system/text_edit.h"
-#include "../../system/text_input.h"
-#include "../../system/preferences.h"
+#include "../amazon.h"
+#include "../../apps/games/api.h"
+#include "../../apps/calculator/api.h"
+#include "../connect.h"
+#include "../content_service.h"
+#include "../engine.h"
+#include "font_data.h"
+#include "../i18n.h"
+#include "../library.h"
+#include "../network.h"
+#include "../../apps/news/archive_api.h"
+#include "../qrcodegen.h"
+#include "../services.h"
+#include "../app_runtime.h"
+#include "../paper_font.h"
+#include "../unicode.h"
+#include "../text_edit.h"
+#include "../text_input.h"
+#include "../preferences.h"
 #include <ctype.h>
 #include <math.h>
 #include <stdio.h>
@@ -243,11 +243,6 @@ static void soft_rect(int x, int y, int w, int h, int r, int color);
 static void aa_soft_rect(int x, int y, int w, int h, int r, int color);
 static void stroke(int x0, int y0, int x1, int y1, int thickness);
 static void commit_keyboard(void);
-static void scratch_open(void);
-static void scratch_store(const char *text);
-static void scratch_editor(void);
-static void scratch_touch(int x, int y);
-static int scratch_can_insert(const char *text);
 static void note_editor_draw(void);
 static void note_editor_touch(int x, int y);
 
@@ -278,7 +273,7 @@ static void clipboard_draw(void), v1_effect(void), v1_close(void);
 static int v1_sleep_photo(void), v1_chess_tick(void);
 static void v1_note_created(int), v1_timer_ring(int), v1_timer_started(void);
 static int v1_sleep_poll(void), v1_sleep_tick(void);
-static void v1_export_drawing(void), app_icon(int, int, int);
+static void app_icon(int, int, int);
 static void polish_photos_grid(void);
 static void polish_tasks(void);
 static int polish_tasks_input(const Input *);
@@ -604,7 +599,6 @@ static void segments(int x, int y, int w, int h, const char *const *labels, int 
         }
     }
 }
-static void arc(int x, int y, int r, int from, int to, int thickness);
 static void disc(int x, int y, int r, int color);
 static void aa_arc(int x, int y, int r, int from, int to, int thickness);
 static void aa_disc(int x, int y, int r, int color);
@@ -685,18 +679,6 @@ static void stroke(int x0, int y0, int x1, int y1, int thickness) {
 }
 static void ring(int x, int y, int r, int thickness) {
     aa_arc(x, y, r, 0, 360, thickness);
-}
-static void arc(int cx, int cy, int r, int start, int end, int thickness) {
-    int px = cx + cosf(start * 3.14159265f / 180) * r,
-        py = cy + sinf(start * 3.14159265f / 180) * r;
-    for (int a = start + 3; a <= end + 2; a += 3) {
-        int angle = a > end ? end : a;
-        int x = cx + cosf(angle * 3.14159265f / 180) * r,
-            y = cy + sinf(angle * 3.14159265f / 180) * r;
-        stroke(px, py, x, y, thickness);
-        px = x;
-        py = y;
-    }
 }
 static void aa_soft_rect(int,int,int,int,int,int);
 #include "icons.h"
@@ -1216,8 +1198,7 @@ int ui_open(int index) {
     const char *readerpath = b->path;
     if (library_import_path(b, converted, sizeof(converted)))
         readerpath = converted;
-    else if (!strcmp(b->format, "mobi") || !strcmp(b->format, "azw3") ||
-             !strcmp(b->format, "azw")) {
+    else if (amazon_can_prepare(b)) {
         if (!amazon_prepare(b, converted, sizeof(converted))) {
             b->protected_format = 1;
             selected = index;
@@ -1226,6 +1207,18 @@ int ui_open(int index) {
             return 0;
         }
         readerpath = converted;
+    }
+    if(readerpath==converted) {
+        char title[384]="",author[192]="",meta[2048];
+        snprintf(meta,sizeof(meta),"%s/books/%016llx.meta",data_root,(unsigned long long)b->id);
+        if(access(meta,F_OK) && engine_metadata(readerpath,title,sizeof(title),author,sizeof(author))) {
+            if(*title)snprintf(b->title,sizeof(b->title),"%s",title);
+            if(*author)snprintf(b->author,sizeof(b->author),"%s",author);
+            char text[640];int n=snprintf(text,sizeof(text),"%s\n%s\n",b->title,b->author);atomic_write(meta,text,n);
+        }
+        char cover[2048];snprintf(cover,sizeof(cover),"%s/covers/%016llx.hi.pgm",data_root,(unsigned long long)b->id);
+        if(access(cover,R_OK))engine_thumbnail_hd(readerpath,cover);
+        b->protected_format=0;
     }
     if (!engine_open(readerpath, settings.size, settings.leading, settings.margin)) {
         selected = -1;
@@ -1271,11 +1264,14 @@ static int refresh_status(int force) {
     }
     return 0;
 }
-
 #include "chrome.h"
 static void connect_screen(void);
 static void more_settings(void);
-#include "../../apps/reading.h"
+#include "../../apps/library/view.h"
+#include "../../apps/reader/view.h"
+#include "../../apps/settings/reading.h"
+#include "../../apps/reader/menus.h"
+#include "../../apps/library/details.h"
 static int centered_lines(int x, int y, int width, const char *text, const Font *font, int limit) {
     int row = 0;
     while (*text && row < limit) {
@@ -1578,15 +1574,7 @@ int ui_input(const Input *in) {
     int intercepted = extra_intercept(in);
     if (intercepted >= 0)
         return intercepted;
-    if (screen == 31 &&
-        (in->kind == INPUT_DOWN || in->kind == INPUT_MOVE || in->kind == INPUT_TAP ||
-         in->kind == INPUT_SWIPE) &&
-        ((in->kind == INPUT_DOWN && in->y >= 112 && in->y < 800) ||
-         (in->kind != INPUT_DOWN && down_y >= 112 && down_y < 800))) {
-        if (in->kind == INPUT_DOWN)
-            down_y = in->y;
-        return extra_input(in);
-    }
+
     if (screen == 23 && in->kind == INPUT_HOLD && !sleeping)
         return apps_input(in);
     if (!sleeping && screen == 2 && in->kind == INPUT_HOLD && !reader_chrome && in->y > 60 &&
@@ -2179,7 +2167,12 @@ static void modal_input(const Input *in) {
         return;
     }
 }
-#include "../../apps/settings_store.h"
+#include "../../apps/transfer/view.h"
+#include "../../apps/settings/preferences.h"
+#include "../../apps/store/entry.h"
+#include "../../apps/settings/options.h"
+#include "../../apps/store/view.h"
+#include "../../apps/wifi/app.h"
 int ui_poll_interval(void) {
     if (sleeping)
         return v1_sleep_poll();
@@ -2320,31 +2313,7 @@ static int annotations_write(void) {
     return atomic_write(path, annotations, sizeof(Annotation) * (size_t)annotation_count);
 }
 
-// clang-format off
-/* Dependency order: core app models, their views, then cross-app polish. */
-#include "form_controls.h"
-#include "game_tiles.h"
-#include "../../apps/dashboard_views.h"
-#include "../../apps/tool_views.h"
-#include "../../apps/board_games.h"
-#include "../../apps/numscratch.h"
-#include "../../apps/learning_games.h"
-#include "../../apps/personal_tools.h"
-#include "../../system/reader_document.h"
-#include "../../apps/content_views.h"
-#include "../../apps/notes_library.h"
-#include "../../apps/settings_tasks.h"
-#include "../../apps/utilities.h"
-#include "../../apps/navigation_forms.h"
-#include "clipboard.h"
-#include "../../apps/tasks_view.h"
-#include "../../apps/journal_assistant.h"
-#include "../../apps/puzzle_boards.h"
-#include "../../apps/game_manuals.h"
-#include "../../apps/recipes.h"
-#include "../../apps/chat.h"
-#include "../../apps/notifications/view.h"
-// clang-format on
+#include "../../apps/host/compose.h"
 
 static void app_leave(AppId app, void *ctx) {
     (void)ctx;
@@ -2354,18 +2323,12 @@ static void app_leave(AppId app, void *ctx) {
     companion_checkpoint16();
     if (app >= APP_2048)
         new_apps_save();
-    if (app == APP_NOTES && keyboard && (keyboard_target == 30 || keyboard_target == 60))
+    if (app == APP_NOTES && keyboard && keyboard_target == 30)
         commit_keyboard();
     if (app == APP_NOTES)
         v1_save();
-    if (app == APP_NUMSCRATCH) {
-        if (keyboard && keyboard_target == 60)
-            commit_keyboard();
-        else
-            scratch_store(scratch_text);
-    }
-    if (app == APP_DRAWING)
-        drawing_save();
+
+
     if (app == APP_BLOCKS || app == APP_SNAKE)
         apps_pause();
     if (app == APP_READER) {
@@ -2480,7 +2443,7 @@ static int app_send(const AppIntent *intent) {
         quotes_load();
     return 1;
 }
-#include "../../apps/app_dispatch.h"
+#include "../../apps/host/dispatch.h"
 
 void ui_feedback_draw(void) {
     if (pressed < 0 || pressed >= widget_count)

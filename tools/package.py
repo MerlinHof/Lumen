@@ -13,7 +13,7 @@ def validate_runtime_mapping(mapping):
         if not path.is_relative_to(ROOT):raise RuntimeError('Unsafe package source')
         relative=path.relative_to(ROOT);parts=relative.parts
         if not parts or parts[0] not in {'device','fonts','catalogs','certs','licenses','docs','build','LICENSE'}:raise RuntimeError('Non-runtime package source')
-        if parts[0]=='build' and relative.as_posix() not in {'build/kindle/lumen','build/kindle/mobitool'}:raise RuntimeError('Build/test data must never enter a release')
+        if parts[0]=='build' and relative.as_posix() not in {'build/kindle/lumen','build/kindle/mobitool','build/kindle/amazon-runtime.tar.gz'}:raise RuntimeError('Build/test data must never enter a release')
         if any(p in {'.git','.local','dist','backups','data'} for p in parts):raise RuntimeError('Unsafe package source')
 
 def validate_version(version):

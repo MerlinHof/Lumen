@@ -1,8 +1,8 @@
 #define _GNU_SOURCE
-#include "../library.h"
+#include "library.h"
 #include "defaults.h"
-#include "../engine.h"
-#include "../amazon.h"
+#include "engine.h"
+#include "amazon.h"
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
@@ -190,6 +190,7 @@ int library_supported(const Book *b) {
     char imported[2048];
     if (library_import_path(b, imported, sizeof(imported)))
         return 1;
+    if(amazon_can_prepare(b))return 1;
     if (b->protected_format)
         return 0;
     return !strcasecmp(b->format, "azw3") || !strcasecmp(b->format, "azw") ||

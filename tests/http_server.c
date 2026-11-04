@@ -1,6 +1,6 @@
-#include "../src/connect.h"
-#include "../src/engine.h"
-#include "../src/library.h"
+#include "../src/system/connect.h"
+#include "../src/system/engine.h"
+#include "../src/system/library.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/stat.h>

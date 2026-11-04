@@ -5,13 +5,12 @@ cd /mnt/us/lumen || exit 1
 mkdir /tmp/lumen-session 2>/dev/null || exit 0
 # Record ownership so unrelated processes are never signalled on cleanup.
 native_pid=
-paused_wm=
 pillow_disabled=0
 
 cleanup() {
     trap '' TERM
     if [ -n "$native_pid" ]; then kill -TERM "$native_pid" 2>/dev/null; wait "$native_pid" 2>/dev/null; fi
-    for wm_pid in $paused_wm; do kill -CONT "$wm_pid" 2>/dev/null; done
+    sh /mnt/us/lumen/ui-session.sh resume
     if [ "$pillow_disabled" = 1 ]; then lipc-set-prop com.lab126.pillow disableEnablePillow enable; fi
     lipc-set-prop -i com.lab126.powerd preventScreenSaver 0
     lipc-set-prop com.lab126.appmgrd start app://com.lab126.booklet.home >> /mnt/us/lumen/session.log 2>&1
@@ -63,14 +62,9 @@ date
 # Copy the executable to RAM so exporting USB storage cannot truncate running code.
 cp /mnt/us/lumen/bin/lumen /var/tmp/lumen-native || exit 1
 chmod 700 /var/tmp/lumen-native
-# Keep the firmware's power, network and application services alive.
-# Pause only the drawing window manager, as used by native Kindle frontends.
+# Pause only UI owners, not powerd, wifid, appmgrd, D-Bus or USB services.
 lipc-set-prop com.lab126.pillow disableEnablePillow disable && pillow_disabled=1
-for wm_pid in $(pidof awesome); do
-    if ! grep -q '^State:.*T' "/proc/$wm_pid/status"; then
-        kill -STOP "$wm_pid" && paused_wm="$paused_wm $wm_pid"
-    fi
-done
+sh /mnt/us/lumen/ui-session.sh pause
 lipc-set-prop -i com.lab126.powerd preventScreenSaver 0
 sleep 1
 /var/tmp/lumen-native &

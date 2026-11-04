@@ -1,5 +1,5 @@
 #include "preferences.h"
-#include "../library.h"
+#include "library.h"
 ReaderPreferences preferences_reader(void) {
     return (ReaderPreferences){settings.size,         settings.leading,   settings.margin,
                                options[OPT_FONT],     options[OPT_ALIGN], options[OPT_LETTERSPACE],

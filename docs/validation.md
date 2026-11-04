@@ -1,4 +1,29 @@
-# Validation · LUMEN 1.10
+# Validation · LUMEN 2.1
+
+## 2.1 scope and practical limits
+
+Host and ARM builds, focused native sanitizer/default checks, launcher identity
+mocks and package/install preservation checks cover this release. Native gallery
+images use original demo books, not personal device content. The adaptive E-Ink
+refresh algorithm is unchanged.
+
+The new ARM KFX converter has been packaged and checksum-verified, but has not yet
+been executed on this Kindle. Supported serial-based protection is attempted;
+newer or unsupported variants may need the original-reader fallback. Conversion
+is lazy on first opening, not an eager rewrite of every book. Existing imports
+remain readable. Original book files are never replaced.
+
+The firmware pause is limited to awesome/cvm and restored on exit; tests exercise
+ownership, already-stopped processes and PID reuse. Real wake behavior and API
+integrations still require hardware verification. Do not infer these from mocks.
+
+The previous **80.9% median draw-CPU reduction** compares the same native host
+views against 1.10, eight draws per view. It comes from exact glyph ink bounds,
+clipped rectangle writes, faster ring geometry and bounded reusable cover tiles.
+It is not an 81% Kindle speed or E-Ink refresh claim.
+
+## Previous baseline checks
+
 
 ## Checked locally
 
