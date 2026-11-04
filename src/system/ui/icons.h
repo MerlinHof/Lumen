@@ -56,7 +56,7 @@ static void icon_chevron(int cx, int cy, int direction) {
     stroke(cx - 4 * direction, cy - 9, cx + 5 * direction, cy, 3);
     stroke(cx + 5 * direction, cy, cx - 4 * direction, cy + 9, 3);
 }
-static void icon(int x, int y, int kind) {
+static void icon_native(int x, int y, int kind) {
     int c = x + 22, d = y + 22;
     switch (kind) {
     case IC_HOME:
@@ -70,14 +70,14 @@ static void icon(int x, int y, int kind) {
         stroke(c - 12, d, c + 12, d, 3);
         break;
     case IC_BACK:
-    case IC_PREV:
-    case IC_NEXT: {
-        int s = kind == IC_NEXT ? 1 : -1;
-        icon_chevron(c, d, s);
-        if (kind == IC_BACK)
-            stroke(c - 12, d, c + 14, d, 3);
+        stroke(c - 12, d, c + 12, d, 3);
+        stroke(c - 12, d, c - 2, d - 10, 3);
+        stroke(c - 12, d, c - 2, d + 10, 3);
         break;
-    }
+    case IC_PREV:
+    case IC_NEXT:
+        icon_chevron(c, d, kind == IC_NEXT ? 1 : -1);
+        break;
     case IC_SEARCH:
         ring(c - 3, d - 3, 10, 3);
         stroke(c + 5, d + 5, c + 14, d + 14, 3);
@@ -187,14 +187,16 @@ static void icon(int x, int y, int kind) {
     case IC_REBOOT:
     case IC_HISTORY:
     case IC_UNDO:
-        aa_arc(c, d, 14, 205, 360, 3);
-        aa_arc(c, d, 14, 0, 140, 3);
         if (kind == IC_UNDO || kind == IC_HISTORY) {
-            stroke(x + 7, y + 7, x + 7, y + 18, 3);
-            stroke(x + 7, y + 18, x + 18, y + 18, 3);
+            aa_arc(c, d, 14, 210, 360, 3);
+            aa_arc(c, d, 14, 0, 160, 3);
+            stroke(x + 9, y + 8, x + 9, y + 19, 3);
+            stroke(x + 9, y + 19, x + 20, y + 19, 3);
         } else {
-            stroke(x + 35, y + 6, x + 35, y + 17, 3);
-            stroke(x + 35, y + 17, x + 24, y + 17, 3);
+            aa_arc(c, d, 14, 45, 315, 3);
+            stroke(x + 32, y + 12, x + 35, y + 15, 3);
+            stroke(x + 35, y + 5, x + 35, y + 15, 3);
+            stroke(x + 25, y + 15, x + 35, y + 15, 3);
         }
         if (kind == IC_HISTORY) {
             stroke(c, d, c, y + 14, 3);
@@ -252,7 +254,7 @@ static void icon(int x, int y, int kind) {
         }
         break;
     case IC_MOVE:
-        icon(x, y, IC_FOLDER);
+        icon_native(x, y, IC_FOLDER);
         stroke(x + 18, y + 25, x + 29, y + 25, 3);
         stroke(x + 29, y + 25, x + 24, y + 20, 3);
         stroke(x + 29, y + 25, x + 24, y + 30, 3);
@@ -298,6 +300,34 @@ static void icon(int x, int y, int kind) {
         break;
     }
 }
+/* Canonical masks are cached once; compact actions retain 44px touch targets. */
+static void icon_sized(int x, int y, int kind, int size) {
+    static unsigned char tiles[IC_NOTE + 1][48 * 48], ready[IC_NOTE + 1];
+    if (kind < 0 || kind > IC_NOTE) return;
+    if (!ready[kind]) {
+        unsigned char saved[48 * 48];
+        int offset = ui_y_offset;
+        ui_y_offset = 0;
+        for (int j=0;j<48;j++) {
+            memcpy(saved+j*48,ui_pixels+j*WIDTH,48);
+            memset(ui_pixels+j*WIDTH,255,48);
+        }
+        icon_native(2,2,kind);
+        for (int j=0;j<48;j++) {
+            memcpy(tiles[kind]+j*48,ui_pixels+j*WIDTH,48);
+            memcpy(ui_pixels+j*WIDTH,saved+j*48,48);
+        }
+        ui_y_offset = offset;
+        ready[kind]=1;
+    }
+    for (int j=0;j<size;j++) for (int i=0;i<size;i++) {
+        int u=i*48/size,v=j*48/size,u1=(i+1)*48/size,v1=(j+1)*48/size;
+        int sum=0,n=0;
+        for(int yy=v;yy<v1;yy++) for(int xx=u;xx<u1;xx++){sum+=tiles[kind][yy*48+xx];n++;}
+        blend_pixel(x+i,y+j,(255-sum/(float)n)/255.f,0);
+    }
+}
+static void icon(int x,int y,int kind) { icon_sized(x+4,y+4,kind,36); }
 static void icon_button(int x, int y, int kind) {
     region(x, y, 44, 44);
     icon(x, y, kind);

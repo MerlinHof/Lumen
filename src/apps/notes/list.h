@@ -45,14 +45,15 @@ static void polish_notes(void) {
                 snprintf(count, sizeof(count), "%s", tr("1 direkter Eintrag"));
             else
                 snprintf(count, sizeof(count), tr("%d direkte Einträge"), children);
-            l = list_row(28, y, 544, 78, IC_FOLDER, 76, note_tree.folder[tree_id[i]].name, count,
+            l = list_row(28, y, 544, 78, -2, 76, note_tree.folder[tree_id[i]].name, count,
                          ui_font(UI_PRIMARY), 1);
         } else {
             time_t stamp = tree_id[i];
             char date[50];
             strftime(date, sizeof(date), "%d.%m.%Y", localtime(&stamp));
-            l = list_row(28, y, 544, 78, IC_NOTE, 76, note_list_title(tree_id[i]), date, ui_font(UI_PRIMARY), 1);
+            l = list_row(28, y, 544, 78, -2, 76, note_list_title(tree_id[i]), date, ui_font(UI_PRIMARY), 1);
         }
+        icon(28, l.icon_y + 5, tree_type[i] ? IC_FOLDER : IC_NOTE);
         icon_button(522, l.action_y, IC_MORE);
     }
     pager(746, &tree_page, (tree_count + 6) / 7);

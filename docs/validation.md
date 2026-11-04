@@ -1,4 +1,4 @@
-# Validation · LUMEN 2.1
+# Validation · LUMEN 2.2
 
 ## 2.1 scope and practical limits
 

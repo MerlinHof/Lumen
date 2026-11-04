@@ -319,3 +319,12 @@ ownership. Record PID and start tick, never take ownership of an existing pause,
 reassert on wake and resume on exit. Never stop powerd, wifid, USB, D-Bus or
 appmgrd; do not generalize this into a kill-all optimization. This frees UI CPU,
 not all firmware RAM. Preserve sleep, original-reader return and recovery.
+
+## Compact system actions
+
+System icons render through the cached compact mask inside unchanged 44px touch
+targets. Launcher identities use the full canonical geometry separately. Do not
+enlarge toolbar icons when changing app identities. Keep arrow shafts joined to
+arrowheads and arc endpoints coherent. Dropdowns share option icons and a separate
+right-side selection tick; new action menus must provide meaningful semantics in
+`system/ui/dropdown_icons.h`, rather than drawing private menu rows.

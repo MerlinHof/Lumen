@@ -682,6 +682,7 @@ static void ring(int x, int y, int r, int thickness) {
 }
 static void aa_soft_rect(int,int,int,int,int,int);
 #include "icons.h"
+#include "dropdown_icons.h"
 
 static void aa_disc(int cx, int cy, int r, int color) {
     for (int y = -r - 1; y <= r + 1; y++)
@@ -1961,14 +1962,14 @@ static void overlays(void) {
             int i = drop_first + row;
             int y = drop_y + 5 + row * 48;
             region(drop_x + 5, y, drop_w - 10, 47);
+            icon_sized(drop_x + 10, y + 10,
+                       dropdown_option_icon(drop_target, i, drop_labels[i]), 28);
             if (i == drop_selected) {
-                stroke(drop_x + 14, y + 24, drop_x + 20, y + 30, 2);
-                stroke(drop_x + 20, y + 30, drop_x + 31, y + 16, 2);
+                stroke(drop_x + drop_w - 29, y + 24, drop_x + drop_w - 24, y + 29, 2);
+                stroke(drop_x + drop_w - 24, y + 29, drop_x + drop_w - 15, y + 18, 2);
             }
-            if (textwidth(drop_labels[i], &small) > drop_w - 50)
-                wrapped(drop_x + 40, y + 2, drop_labels[i], &caption, drop_w - 50, 2);
-            else
-                drawtext(drop_x + 40, y + 12, drop_labels[i], &small, drop_w - 50);
+            label_ellipsis(drop_x + 46, y + 3, drop_w - 85, 42,
+                           drop_labels[i], &small, 0);
             if (row + 1 < drop_visible)
                 rect(drop_x + 10, y + 47, drop_w - 20, 2, 190);
         }

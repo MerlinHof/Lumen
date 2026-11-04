@@ -20,23 +20,23 @@ static void app_icon(int x, int y, int app) {
     case APP_LIBRARY:
     case APP_READER:
     case APP_STUDY:
-        icon(x, y, IC_BOOK);
+        icon_native(x, y, IC_BOOK);
         break;
     case APP_SETTINGS:
-        icon(x, y, IC_SETTINGS);
+        icon_native(x, y, IC_SETTINGS);
         break;
     case APP_STORE:
-        icon(x, y, IC_STORE);
+        icon_native(x, y, IC_STORE);
         break;
     case APP_LAUNCHER:
-        icon(x, y, IC_GRID);
+        icon_native(x, y, IC_GRID);
         break;
     case APP_TIMER:
-        icon(x, y, IC_CLOCK);
+        icon_native(x, y, IC_CLOCK);
         stroke(x + 16, y + 4, x + 28, y + 4, 3);
         break;
     case APP_CALENDAR:
-        icon(x, y, IC_TODAY);
+        icon_native(x, y, IC_TODAY);
         break;
     case APP_NOTES:
     case APP_JOURNAL:
@@ -96,7 +96,7 @@ static void app_icon(int x, int y, int app) {
         stroke(x + 25, y + 12, x + 37, y + 4, 3);
         break;
     case APP_TASKS:
-        icon(x, y, IC_DEVICES);
+        icon_native(x, y, IC_DEVICES);
         break;
     case APP_LLM:
         aa_soft_rect(x + 4, y + 6, 36, 29, 8, 0);
@@ -105,7 +105,7 @@ static void app_icon(int x, int y, int app) {
             disc(x + 13 + i * 9, y + 21, 2, 255);
         break;
     case APP_LANGUAGE:
-        icon(x, y, IC_TYPE);
+        icon_native(x, y, IC_TYPE);
         break;
     case APP_FLASHCARDS:
         icon_box(x + 3, y + 3, 29, 32);
@@ -246,7 +246,7 @@ static void app_icon(int x, int y, int app) {
         }
         break;
     case APP_LOCK_SCREEN:
-        icon(x, y, IC_LOCK);
+        icon_native(x, y, IC_LOCK);
         break;
     case APP_KEYBOARD:
         icon_box(x + 3, y + 7, 38, 30);
@@ -264,7 +264,7 @@ static void app_icon(int x, int y, int app) {
             disc(x + 12 + i * 10, y + 23, 3, 0);
         break;
     default:
-        icon(x, y, IC_BOOK);
+        icon_native(x, y, IC_BOOK);
         break;
     }
 }

@@ -110,6 +110,15 @@ static void quality_tests(void) {
     ui_message("Capture test");ui_draw();ui_input(&down);
     notification_dismiss();up.x=300;up.y=600;ui_input(&up);assert(screen==27);
     assert(photo_contrast(128)==128 && photo_contrast(80)<80 && photo_contrast(180)>180);
+    /* Cached compact icons must never damage the framebuffer scratch area. */
+    memset(ui_pixels,237,sizeof(ui_pixels));
+    icon(70,200,IC_BACK);memcpy(expected,ui_pixels,sizeof(expected));
+    for(int yy=0;yy<HEIGHT;yy++)for(int xx=0;xx<WIDTH;xx++)
+        if(xx<74 || xx>=110 || yy<204 || yy>=240)assert(ui_pixels[yy*WIDTH+xx]==237);
+    memset(ui_pixels,237,sizeof(ui_pixels));icon(70,200,IC_BACK);
+    assert(!memcmp(expected,ui_pixels,sizeof(expected)));
+    assert(dropdown_option_icon(932,0,"Verschieben")==IC_MOVE);
+    assert(dropdown_option_icon(932,1,"Löschen")==IC_TRASH);
     /* Native import boundary: atomic output, cached reuse and invalidation. */
     char importer[2048], source[2048], imported[2048];
     snprintf(importer,sizeof(importer),"%s/fake-converter.sh",data_root);

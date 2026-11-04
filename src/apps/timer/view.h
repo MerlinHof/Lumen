@@ -19,11 +19,10 @@ static void app_timer(void) {
         snprintf(b, sizeof(b), "%d min", timer_minutes);
         button_h(122, 472, 356, 52, b, 0);
         button_h(492, 472, 80, 52, "+", 0);
-        button_h(28, 566, 260, 64,
+        action_button(28, 566, 260, 64,
                  timer_due      ? "Pause"
                  : timer_paused ? "Fortsetzen"
-                                : "Timer starten",
-                 0);
+                                : "Timer starten");
         button_h(312, 566, 260, 64, "Zurücksetzen", 0);
     } else {
         centered(28, 225, 544, 36, "Weckzeit", ui_font(UI_SECONDARY));

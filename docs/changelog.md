@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.2
+
+- Compact cached system icons with preserved touch targets; corrected Back and reload arrow geometry.
+- Full-size launcher identities remain unchanged.
+- Shared dropdown option icons and separate selected checkmarks.
+- Lowered note/folder list icons, primary Timer action and slightly stronger photo contrast.
+
 ## 2.1
 
 - Semantic typography and restrained black/depth accents; shared rounded icons and continuous launcher squircles.

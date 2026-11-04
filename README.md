@@ -20,7 +20,14 @@
 
 ---
 
-## New in 2.1
+## New in 2.2
+
+Smaller system action icons with generous touch targets, repaired navigation
+arrows, icons in every dropdown, better Notes list alignment and a black Timer
+start action. Photos receive a slightly stronger contrast lift. Launcher icon
+sizes remain unchanged.
+
+## Design foundation in 2.1
 
 A quieter, more confident design: semantic typography, rounded shared icons,
 continuous launcher squircles, restrained black primary actions and tactile

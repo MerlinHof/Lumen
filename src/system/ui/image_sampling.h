@@ -25,6 +25,6 @@ static unsigned char image_tone(int value, int x, int y) {
 }
 
 static int photo_contrast(int value) {
-    int adjusted=128+(value-128)*112/100;
+    int adjusted=128+(value-128)*118/100;
     return adjusted<0?0:adjusted>255?255:adjusted;
 }
