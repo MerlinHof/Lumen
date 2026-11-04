@@ -3,7 +3,7 @@
 #include "../src/system/ui/ui.c"
 #include <assert.h>
 static void picture(const char *name) {
-    notice[0] = 0;
+    notification_dismiss();
     ui_draw();
     char path[256];
     snprintf(path, sizeof(path), "build/gallery/%s.pgm", name);

@@ -23,3 +23,8 @@ static unsigned char image_tone(int value, int x, int y) {
     int low = value / 17, rem = value - low * 17;
     return (low + (rem * 16 > bayer[(y & 3) * 4 + (x & 3)] * 17 + 8)) * 17;
 }
+
+static int photo_contrast(int value) {
+    int adjusted=128+(value-128)*112/100;
+    return adjusted<0?0:adjusted>255?255:adjusted;
+}

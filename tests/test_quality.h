@@ -15,7 +15,7 @@ static void reference_text(int x, int y, const char *s, const Font *f, int maxw)
                 for (int i = 0; i < f->w && x + i < WIDTH; i++)
                     if (x + i >= 0 && p[j * f->w + i] < 255) {
                         int v = p[j * f->w + i], old = ui_pixels[(y + j) * WIDTH + x + i];
-                        int color = ink_color == 0 && f == &caption ? 88
+                        int color = ink_color == 0 && f == &caption ? UI_SECONDARY_INK
                                     : ink_color < 0                 ? 0
                                                                     : ink_color;
                         ui_pixels[(y + j) * WIDTH + x + i] = old + (color - old) * (255 - v) / 255;
@@ -103,6 +103,13 @@ static void quality_tests(void) {
     assert(snapshot == weather_snapshot);
     extra_prepare(32);
     assert(!weather_snapshot_valid);
+    route_to(27);keyboard=0;alarm_ring=power_menu=0;
+    ui_message("Notification test");ui_draw();
+    Input down={.kind=INPUT_DOWN,.x=550,.y=95},up=down;up.kind=INPUT_TAP;
+    ui_input(&down);ui_input(&up);assert(screen==27 && !*notification_text());
+    ui_message("Capture test");ui_draw();ui_input(&down);
+    notification_dismiss();up.x=300;up.y=600;ui_input(&up);assert(screen==27);
+    assert(photo_contrast(128)==128 && photo_contrast(80)<80 && photo_contrast(180)>180);
     puts("PASS quality: 100 pixel-identical clipped text cases, shared row geometry, exact cover "
          "cache/invalidation, non-overlapping game actions and weather snapshot lifecycle.");
 }

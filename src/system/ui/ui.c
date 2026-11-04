@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "../../ui.h"
+#include "../../apps/notifications/api.h"
 #include "../../amazon.h"
 #include "../../apps.h"
 #include "../../calc.h"
@@ -31,6 +32,7 @@
 #ifndef LUMEN_HOST
 #include <sys/prctl.h>
 #endif
+#include "theme.h"
 unsigned char ui_pixels[WIDTH * HEIGHT];
 static int ink_color, ui_y_offset;
 static AppRuntime runtime;
@@ -58,7 +60,7 @@ static int store15_grid[4] = {-1, -1, -1, -1};
 static int reader_progress_mode;
 static pid_t job_pid16 = -1;
 static int ink_pending16(void), job_pending16(void);
-static void u16_icon(int, int, int), help_overlay16(void), companion_checkpoint16(void),
+static void help_overlay16(void), companion_checkpoint16(void),
     companion_close16(void);
 static int u17_notes_depth(void), text_editable_hit(const Input *);
 static int note_rename_x17;
@@ -137,8 +139,7 @@ static void selection_overlay(void);
 
 static int cursor_visible = 1;
 static int64_t cursor_epoch;
-static time_t notice_until;
-static char query[128] = "", notice[256] = "", battery[24] = "", wifi[32] = "";
+static char query[128] = "", battery[24] = "", wifi[32] = "";
 static time_t status_time;
 static int battery_charging;
 static time_t charging_checked;
@@ -178,6 +179,8 @@ static void system_region(int x, int y, int w, int h) {
         widgets[count].system = 1;
 }
 static int textwidth(const char *s, const Font *f);
+static void notification_draw(void);
+static int notification_visible(void);
 static void overlays(void);
 void ui_feedback_draw(void);
 static void modal_input(const Input *in);
@@ -257,7 +260,6 @@ static void app_tic(void);
 static int games_input(const Input *in);
 static int system_input(const Input *in);
 static void suit_icon(int, int, int);
-static void extra_icon(int x, int y, int which);
 static void new_apps_init(void);
 static void new_apps_open(int route);
 static void new_apps_save(void);
@@ -276,7 +278,7 @@ static void clipboard_draw(void), v1_effect(void), v1_close(void);
 static int v1_sleep_photo(void), v1_chess_tick(void);
 static void v1_note_created(int), v1_timer_ring(int), v1_timer_started(void);
 static int v1_sleep_poll(void), v1_sleep_tick(void);
-static void v1_export_drawing(void), v1_icon(int, int, int);
+static void v1_export_drawing(void), app_icon(int, int, int);
 static void polish_photos_grid(void);
 static void polish_tasks(void);
 static int polish_tasks_input(const Input *);
@@ -479,7 +481,7 @@ static int drawtext_raw(int x, int y, const char *s, const Font *f, int maxw) {
             left = -x;
         if (right > WIDTH - x)
             right = WIDTH - x;
-        int color = ink_color == 0 && f == &caption ? 88 : ink_color < 0 ? 0 : ink_color;
+        int color = ink_color == 0 && f == &caption ? UI_SECONDARY_INK : ink_color < 0 ? 0 : ink_color;
         for (int j = top; j < bottom && left < right; j++) {
             const unsigned char *source = p + j * f->w;
             unsigned char *dest = ui_pixels + (y + j) * WIDTH;
@@ -625,7 +627,7 @@ static void blend_pixel(int x, int y, float alpha, int color) {
     int old = ui_pixels[y * WIDTH + x];
     ui_pixels[y * WIDTH + x] = (unsigned char)(old + (color - old) * alpha);
 }
-static void aa_stroke(int x0, int y0, int x1, int y1, int thickness) {
+static void stroke_color(int x0, int y0, int x1, int y1, int thickness, int color) {
     if (thickness < 2)
         thickness = 2;
     float dx = x1 - x0, dy = y1 - y0, len = dx * dx + dy * dy;
@@ -648,9 +650,10 @@ static void aa_stroke(int x0, int y0, int x1, int y1, int thickness) {
             if (t > 1)
                 t = 1;
             float xx = x - x0 - t * dx, yy = y - y0 - t * dy;
-            blend_pixel(x, y, thickness / 2.f + 0.5f - sqrtf(xx * xx + yy * yy), 0);
+            blend_pixel(x, y, thickness / 2.f + 0.5f - sqrtf(xx * xx + yy * yy), color);
         }
 }
+static void aa_stroke(int x0,int y0,int x1,int y1,int thickness){stroke_color(x0,y0,x1,y1,thickness,0);}
 static void aa_arc_color(int cx, int cy, int r, int start, int end, int thickness, int color) {
     if (thickness < 2)
         thickness = 2;
@@ -695,6 +698,7 @@ static void arc(int cx, int cy, int r, int start, int end, int thickness) {
         py = y;
     }
 }
+static void aa_soft_rect(int,int,int,int,int,int);
 #include "icons.h"
 
 static void aa_disc(int cx, int cy, int r, int color) {
@@ -1015,7 +1019,9 @@ static void system_loading(int target) {
     device_present(ui_pixels, 0, 0);
 #endif
 }
+#include "squircle.h"
 #include "widgets.h"
+#include "typography.h"
 #include "text_flow.h"
 #include "list.h"
 #include "titlebar.h"
@@ -1044,8 +1050,10 @@ static void update_view(void) {
         listpage = pages - 1;
 }
 void ui_message(const char *s) {
-    snprintf(notice, sizeof(notice), "%s", tr(s));
-    notice_until = time(NULL) + 6;
+    NotificationRequest request={.duration_ms=6000};
+    snprintf(request.text,sizeof(request.text),"%s",tr(s));
+    notifications_register();
+    app_call("notifications",&request,sizeof(request),extra_millis());
 }
 void ui_set_screen(int n) {
     if (n == 0)
@@ -1184,7 +1192,7 @@ int ui_open(int index) {
     if (index < 0 || (index >= library_count && !(index == BOOK_LIMIT && reader_document_active)))
         return 0;
     selecting = selection_release = 0;
-    notice[0] = 0;
+    notification_dismiss();
     Book *b = &library[index];
     if (!library_supported(b)) {
         selected = index;
@@ -1456,14 +1464,8 @@ input_overlays18:
     clipboard_draw();
     polish_draw();
     v1_effect();
-    if (*notice && !keyboard && !extra_ringing()) {
-        rect(23, 61, 558, 91, 185);
-        rect(19, 57, 558, 91, 255);
-        key_outline(19, 57, 558, 91);
-        rect(21, 59, 552, 2, 255);
-        wrapped_raw(35, 72, notice, &small, 480, 2);
-        icon_button(525, 75, IC_CLOSE);
-    }
+    notification_draw();
+
     if (options[OPT_INVERT])
         for (size_t i = 0; i < sizeof(ui_pixels); i++)
             ui_pixels[i] = 255 - ui_pixels[i];
@@ -1517,6 +1519,8 @@ static void toggle_bookmark(void) {
     library_save_book(b);
 }
 int ui_input(const Input *in) {
+    int visible=notification_visible();
+    if(notification_input(in,visible)) { pressed=-1; return 1; }
     int pm = polish_power(in);
     if (pm)
         return pm == 2 ? 0 : pm == 3 ? 3 : 1;
@@ -1679,11 +1683,6 @@ int ui_input(const Input *in) {
     }
     if (in->kind == INPUT_TAP && !sleeping)
         device_activity();
-    if (in->kind == INPUT_TAP && *notice && in->y >= 57 && in->y < 152) {
-        if (in->x >= 515)
-            notice[0] = 0;
-        return 1;
-    }
     if (in->kind == INPUT_TAP) {
         cursor_visible = 1;
         cursor_epoch = extra_millis();
@@ -2344,6 +2343,7 @@ static int annotations_write(void) {
 #include "../../apps/game_manuals.h"
 #include "../../apps/recipes.h"
 #include "../../apps/chat.h"
+#include "../../apps/notifications/view.h"
 // clang-format on
 
 static void app_leave(AppId app, void *ctx) {

@@ -17,7 +17,7 @@ static void graph_frame(double xmin, double xmax, double ymin, double ymax, int 
             continue;
         rect(x + 2, py, w - 4, 1, 220);
         snprintf(b, sizeof(b), "%.4g", fabs(v) < dy * .001 ? 0 : v);
-        drawtext_raw(3, py - 8, b, &caption, 59);
+        drawtext_raw(3, py - 8, b, ui_font(UI_SECONDARY), 59);
     }
     if (temporal) {
         for (int i = 0; i <= 4; i++) {
@@ -25,7 +25,7 @@ static void graph_frame(double xmin, double xmax, double ymin, double ymax, int 
             struct tm tm;
             localtime_r(&t, &tm);
             strftime(b, sizeof(b), "%H:%M", &tm);
-            centered(x - 20 + i * (w - 1) / 4, y + h + 6, 64, 28, b, &caption);
+            centered(x - 20 + i * (w - 1) / 4, y + h + 6, 64, 28, b, ui_font(UI_SECONDARY));
         }
     } else {
         for (double v = ceil(xmin / dx) * dx, k = 0; k < 32 && v <= xmax + dx * .001;
@@ -35,7 +35,7 @@ static void graph_frame(double xmin, double xmax, double ymin, double ymax, int 
                 continue;
             rect(px, y + 2, 1, h - 4, 220);
             snprintf(b, sizeof(b), "%.4g", fabs(v) < dx * .001 ? 0 : v);
-            centered(px - 35, y + h + 6, 70, 28, b, &caption);
+            centered(px - 35, y + h + 6, 70, 28, b, ui_font(UI_SECONDARY));
         }
     }
     if (ymin < 0 && ymax > 0) {
@@ -114,7 +114,7 @@ static void calculator_graph(void) {
         last = ok;
     }
     if (!any)
-        centered(80, 370, 464, 70, "Ausdruck oder Wertebereich prüfen.", &small);
+        centered(80, 370, 464, 70, "Ausdruck oder Wertebereich prüfen.", ui_font(UI_BODY));
     button_h(28, 712, 150, 52, "Bereich", 0);
     button_h(194, 712, 95, 52, "−", 0);
     button_h(305, 712, 95, 52, "+", 0);
@@ -125,7 +125,7 @@ static void calculator_graph(void) {
                                   sizeof(err))) {
             char b[100];
             snprintf(b, sizeof(b), "x %.6g  ·  y %.6g", x, y);
-            drawtext_raw(30, 182, b, &caption, 540);
+            drawtext_raw(30, 182, b, ui_font(UI_SECONDARY), 540);
         }
     }
 }
@@ -159,7 +159,7 @@ static void graph_range_screen(void) {
     const char *names[] = {"X min", "X max", "Y min", "Y max"};
     char b[80];
     for (int i = 0; i < 4; i++) {
-        drawtext(30, 175 + i * 108, names[i], &body, 170);
+        drawtext(30, 175 + i * 108, names[i], ui_font(UI_PRIMARY), 170);
         snprintf(b, sizeof(b), "%.9g", plot_bounds[i]);
         button_h(220, 165 + i * 108, 352, 60, b, 0);
     }
@@ -172,20 +172,20 @@ static void sensor_graph_screen(void) {
             e = &ha_entities[i];
     heading("Sensorverlauf");
     if (!e) {
-        wrapped(30, 170, "Gerät nicht verfügbar.", &editorial, 540, 3);
+        wrapped(30, 170, "Gerät nicht verfügbar.", ui_font(UI_TITLE), 540, 3);
         return;
     }
-    drawtext_raw(30, 128, e->name, &body, 540);
+    drawtext_raw(30, 128, e->name, ui_font(UI_PRIMARY), 540);
     char b[120];
     snprintf(b, sizeof(b), "%s %s", e->state, e->unit);
-    drawtext_raw(30, 171, b, &editorial, 540);
+    drawtext_raw(30, 171, b, ui_font(UI_TITLE), 540);
     HAHistory *h = NULL;
     for (int i = 0; i < 6; i++)
         if (!strcmp(ha_history[i].id, e->id))
             h = &ha_history[i];
     if (!h || !h->count) {
         centered(28, 310, 544, 80,
-                 service_history_busy() ? "Verlauf wird geladen …" : "Kein Verlauf", &small);
+                 service_history_busy() ? "Verlauf wird geladen …" : "Kein Verlauf", ui_font(UI_BODY));
         return;
     }
     double end = time(NULL), start = end - ha_plot_hours * 3600, lo = INFINITY, hi = -INFINITY;
@@ -206,8 +206,8 @@ static void sensor_graph_screen(void) {
     lo -= pad;
     hi += pad;
     graph_frame(start, end, lo, hi, 1);
-    drawtext(454, 681, "Uhrzeit", &caption, 100);
-    drawtext_raw(3, 195, e->unit, &caption, 58);
+    drawtext(454, 681, "Uhrzeit", ui_font(UI_SECONDARY), 100);
+    drawtext_raw(3, 195, e->unit, ui_font(UI_SECONDARY), 58);
     for (int i = 1; i < h->count; i++)
         graph_segment(h->time[i - 1], h->value[i - 1], h->time[i], h->value[i], start, end, lo, hi);
     const char *labels[] = {"1 h", "6 h", "24 h"};

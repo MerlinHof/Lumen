@@ -7,7 +7,7 @@ static void tap17(int x, int y) {
     ui_draw();
 }
 static void shot17(const char *n) {
-    notice[0] = 0;
+    notification_dismiss();
     ui_draw();
     char p[256];
     snprintf(p, 256, "build/tests/%s.pgm", n);

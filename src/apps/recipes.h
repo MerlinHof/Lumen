@@ -338,7 +338,7 @@ static int recipes_draw17(void) {
     search_action();
     icon_button(468, 74, IC_HISTORY);
     drawtext(30, 140, recipe_search16 ? "Suchergebnisse" : "Zuletzt geöffnet · offline verfügbar",
-             &caption, 540);
+             ui_font(UI_SECONDARY), 540);
     int count = recipe_search16 ? recipes_count17 : recipe_recent_count16;
     for (int row = 0; row < 6 && companion_page16 * 6 + row < count; row++) {
         int i = companion_page16 * 6 + row, y = 189 + row * 80;
@@ -349,16 +349,16 @@ static int recipes_draw17(void) {
         else
             snprintf(source, sizeof(source), "%s", tr("Offline verfügbar"));
         list_row(28, y, 544, 80, IC_BOOK, 0,
-                 recipe_search16 ? recipes17[i].title : recipe_recent16[i].title, source, &small,
+                 recipe_search16 ? recipes17[i].title : recipe_recent16[i].title, source, ui_font(UI_BODY),
                  2);
     }
     pager(715, &companion_page16, (count + 5) / 6);
     if (!count)
-        wrapped(30, 260, "Über die Lupe nach einem Gericht suchen.", &body, 540, 3);
+        wrapped(30, 260, "Über die Lupe nach einem Gericht suchen.", ui_font(UI_PRIMARY), 540, 3);
     if (job_pid16 > 0 && (job_kind16 == 1 || job_kind16 == 4)) {
         rect(60, 292, 480, 146, 255);
         key_outline(60, 292, 480, 146);
-        centered(70, 315, 460, 100, "Rezepte werden geladen …", &body);
+        centered(70, 315, 460, 100, "Rezepte werden geladen …", ui_font(UI_PRIMARY));
     }
     return 1;
 }

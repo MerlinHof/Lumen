@@ -465,7 +465,7 @@ static void extra_timer_label(char *out, int cap) {
     }
 }
 static int extra_poll(void) {
-    if (keyboard || screen == 27 || *notice)
+    if (keyboard || screen == 27 || *notification_text())
         return 500;
     if (screen == 36 && *discover_lookup_image() && !wiki_image_available() &&
         wiki_image_attempts < 3)
@@ -501,10 +501,8 @@ static int extra_tick(void) {
     int changed = new_apps_tick() | v1_tick() | v1_chess_tick(), done = service_poll();
     if (done == SERVICE_WEATHER || done == -SERVICE_WEATHER)
         weather_snapshot_valid = 0;
-    if (*notice && time(NULL) >= notice_until) {
-        notice[0] = 0;
-        changed = 1;
-    }
+    changed |= notification_tick(extra_millis());
+
     if ((keyboard || screen == 27) && extra_millis() - cursor_epoch >= 600) {
         cursor_epoch = extra_millis();
         cursor_visible ^= 1;
@@ -621,15 +619,15 @@ static void extra_overlay(void) {
     char clock[40], date[64];
     strftime(clock, sizeof(clock), "%H:%M", &t);
     strftime(date, sizeof(date), "%d.%m.%Y", &t);
-    centered(28, 72, 544, 90, clock, &title);
-    centered(28, 166, 544, 40, date, &small);
-    centered(28, 240, 544, 70, alarm_ring == 1 ? "Zeit ist um" : "Wecker", &editorial);
-    drawtext(42, 338, "Heute im Kalender", &body, 516);
+    centered(28, 72, 544, 90, clock, ui_font(UI_DISPLAY));
+    centered(28, 166, 544, 40, date, ui_font(UI_BODY));
+    centered(28, 240, 544, 70, alarm_ring == 1 ? "Zeit ist um" : "Wecker", ui_font(UI_TITLE));
+    drawtext(42, 338, "Heute im Kalender", ui_font(UI_PRIMARY), 516);
     char name[80];
     snprintf(name, sizeof(name), "calendar/%04d%02d%02d.txt", t.tm_year + 1900, t.tm_mon + 1,
              t.tm_mday);
     char *agenda = service_read(name, 511);
-    wrapped_raw(42, 390, agenda && *agenda ? agenda : tr("Keine Tagesnotiz"), &small, 516, 5);
+    wrapped_raw(42, 390, agenda && *agenda ? agenda : tr("Keine Tagesnotiz"), ui_font(UI_BODY), 516, 5);
     free(agenda);
     button(80, 620, 440, "Weiterlesen", 0);
     if (pressed == 0)
@@ -762,16 +760,12 @@ static void calc_math(char *out, int cap) {
 }
 #include "math_layout.h"
 static void primary_key(int x, int y, int w, int h, const char *label) {
-    region(x, y, w, h);
-    key_outline(x, y, w, h);
-    ink_color = 0;
-    centered(x, y, w, h, label, &title);
-    ink_color = 0;
+    action_button(x,y,w,h,label);
 }
 static void calc_key(int x, int y, int w, int h, const char *label) {
     region(x, y, w, h);
     key_outline(x, y, w, h);
-    centered(x, y, w, h, label, &body);
+    centered(x, y, w, h, label, ui_font(UI_PRIMARY));
 }
 static int calc_function_left(void) {
     return calc_alt ? 66 : 28;
@@ -783,9 +777,9 @@ static void calc_function_key(int x, int y, const char *key) {
     region(x, y, 57, 44);
     key_outline(x, y, 57, 44);
     if (!strcmp(key, "1/")) {
-        centered(x, y + 3, 57, 16, "1", &caption);
+        centered(x, y + 3, 57, 16, "1", ui_font(UI_SECONDARY));
         rect(x + 18, y + 21, 21, 2, 0);
-        centered(x, y + 25, 57, 16, "x", &caption);
+        centered(x, y + 25, 57, 16, "x", ui_font(UI_SECONDARY));
         return;
     }
     const char *base = NULL, *power = NULL;
@@ -806,17 +800,17 @@ static void calc_function_key(int x, int y, const char *key) {
         power = "y";
     }
     if (base) {
-        int bw = textwidth_raw(base, &small), pw = textwidth_raw(power, &caption),
+        int bw = textwidth_raw(base, ui_font(UI_BODY)), pw = textwidth_raw(power, ui_font(UI_SECONDARY)),
             left = x + (57 - bw - pw - 2) / 2;
-        label_at(left, y + 14, bw + 2, 24, base, &small);
-        label_at(left + bw + 2, y + 4, pw + 2, 20, power, &caption);
+        label_at(left, y + 14, bw + 2, 24, base, ui_font(UI_BODY));
+        label_at(left + bw + 2, y + 4, pw + 2, 20, power, ui_font(UI_SECONDARY));
         return;
     }
-    centered(x, y, 57, 44, calc_label(key), &small);
+    centered(x, y, 57, 44, calc_label(key), ui_font(UI_BODY));
 }
 static int calc_input_start(void) {
     calc_cursor = text_boundary(calc_expr, calc_cursor < 0 ? 0 : (size_t)calc_cursor);
-    return text_visible_start(calc_expr, calc_cursor, &small, 468, 0);
+    return text_visible_start(calc_expr, calc_cursor, ui_font(UI_BODY), 468, 0);
 }
 static void app_calculator(void) {
     calc_alt = !!calc_alt;
@@ -832,24 +826,24 @@ static void app_calculator(void) {
     int start = calc_input_start();
     char shown[1024];
     snprintf(shown, sizeof(shown), "%s", calc_expr + start);
-    int ih, it = ink_top(*shown ? shown : "Ag", &small, &ih);
+    int ih, it = ink_top(*shown ? shown : "Ag", ui_font(UI_BODY), &ih);
     int input_y = 361 + (52 - ih) / 2 - it;
-    drawtext_raw(43, input_y, shown, &small, 468);
+    drawtext_raw(43, input_y, shown, ui_font(UI_BODY), 468);
     char prefix[1024];
     snprintf(prefix, sizeof(prefix), "%.*s", calc_cursor - start, calc_expr + start);
-    int cx = 43 + textwidth(prefix, &small);
+    int cx = 43 + textwidth(prefix, ui_font(UI_BODY));
     if (cx < 516 && cursor_visible) {
-        text_caret(cx, input_y, &small);
+        text_caret(cx, input_y, ui_font(UI_BODY));
     }
     if (calc_memory != 0)
-        drawtext(525, 145, "M", &caption, 30);
+        drawtext(525, 145, "M", ui_font(UI_SECONDARY), 30);
     math_formula(43, 140, 514, 150);
     if (*calc_error)
-        wrapped(43, 285, calc_error, &small, 510, 2);
+        wrapped(43, 285, calc_error, ui_font(UI_BODY), 510, 2);
     else {
         const char *value = *calc_result ? calc_result : "0";
-        int w = textwidth(value, &title);
-        drawtext_raw(w < 510 ? 557 - w : 43, 288, value, &title, 514);
+        int w = textwidth(value, ui_font(UI_DISPLAY));
+        drawtext_raw(w < 510 ? 557 - w : 43, 288, value, ui_font(UI_DISPLAY), 514);
     }
     const char **top = calc_alt ? calc_all1 : calc_all0;
     icon_button(calc_alt ? 20 : 536, 454, calc_alt ? IC_PREV : IC_NEXT);
@@ -869,7 +863,7 @@ static void app_calc_history(void) {
         if (i < 0)
             break;
         int y = 145 + r * 64;
-        list_row(28, y, 544, 64, -1, 0, calc_history[i], NULL, &small, 2);
+        list_row(28, y, 544, 64, -1, 0, calc_history[i], NULL, ui_font(UI_BODY), 2);
     }
     pager(679, &extra_page, (calc_history_count + 7) / 8);
 }
@@ -900,14 +894,14 @@ static void app_timer(void) {
                  0);
         button_h(312, 566, 260, 64, "Zurücksetzen", 0);
     } else {
-        centered(28, 225, 544, 36, "Weckzeit", &caption);
+        centered(28, 225, 544, 36, "Weckzeit", ui_font(UI_SECONDARY));
         snprintf(b, sizeof(b), "%02d:%02d", alarm_hour, alarm_minute);
         button_h(100, 292, 400, 94, b, 0);
-        label_at(30, 442, 430, 48, tr("Wecker aktiv"), &body);
+        label_at(30, 442, 430, 48, tr("Wecker aktiv"), ui_font(UI_PRIMARY));
         toggle(492, 450, alarm_enabled);
-        wrapped(30, 535, "Einmaliger Wecker zur eingestellten Uhrzeit.", &small, 540, 3);
+        wrapped(30, 535, "Einmaliger Wecker zur eingestellten Uhrzeit.", ui_font(UI_BODY), 540, 3);
     }
-    wrapped(30, 664, "Visuelles Signal beim Lesen. Im Tiefschlaf kein Wecksignal.", &caption, 540,
+    wrapped(30, 664, "Visuelles Signal beim Lesen. Im Tiefschlaf kein Wecksignal.", ui_font(UI_SECONDARY), 540,
             3);
 }
 static void app_notes(void) {
@@ -919,11 +913,11 @@ static const char *note_next_line(const char *p, int width) {
     while (*q && *q != '\n') {
         const char *old = q;
         unsigned c = glyph(&q);
-        if (w + glyph_advance(&small, c) > width) {
+        if (w + glyph_advance(ui_font(UI_BODY), c) > width) {
             q = space && space > p ? space : old;
             break;
         }
-        w += glyph_advance(&small, c);
+        w += glyph_advance(ui_font(UI_BODY), c);
         if (c == ' ')
             space = q;
     }
@@ -960,7 +954,7 @@ static void app_drawing(void) {
     icon_button(202, 58, IC_PLUS);
     button_h(257, 57, 112, 46, drawing_eraser ? "Radierer" : "Stift", drawing_eraser);
     region(384, 58, 44, 44);
-    v1_icon(384, 58, APP_PHOTOS);
+    app_icon(384, 58, APP_PHOTOS);
     icon_button(450, 58, IC_UNDO);
     icon_button(516, 58, IC_TRASH);
     for (int y = 0; y < DRAW_H; y++)
@@ -1084,12 +1078,12 @@ static void app_weather(void) {
         free(place);
         weather_snapshot_valid = 1;
     }
-    label_at(30, 128, 540, 40, *location ? location : weather_city, &body);
+    label_at(30, 128, 540, 40, *location ? location : weather_city, ui_font(UI_PRIMARY));
     if (!valid) {
         wrapped(30, 210,
                 service_busy() ? "Wetter wird geladen …"
                                : "Ort suchen oder Vorhersage aktualisieren.",
-                &editorial, 540, 4);
+                ui_font(UI_TITLE), 540, 4);
         return;
     }
     int current = json_get(&j, 0, "current"), daily = json_get(&j, 0, "daily");
@@ -1104,9 +1098,9 @@ static void app_weather(void) {
     weather_symbol(30, 180, is_day == 0 && code <= 1 ? -1 : (int)code, 130);
     char b[120];
     snprintf(b, sizeof(b), "%.0f °C", temp);
-    drawtext(200, 194, b, &title, 370);
+    drawtext(200, 194, b, ui_font(UI_DISPLAY), 370);
     snprintf(b, sizeof(b), "%s %.0f°  ·  %.0f km/h", tr("Gefühlt"), feel, wind);
-    drawtext(200, 265, b, &small, 370);
+    drawtext(200, 265, b, ui_font(UI_BODY), 370);
     int rises = json_get(&j, daily, "sunrise"), sets = json_get(&j, daily, "sunset"),
         daylight = json_get(&j, daily, "daylight_duration");
     char rise[64], set[64];
@@ -1116,10 +1110,10 @@ static void app_weather(void) {
     snprintf(b, sizeof(b), "%s %.5s  ·  %s %.5s", tr("Aufgang"),
              strlen(rise) > 11 ? rise + 11 : "--:--", tr("Untergang"),
              strlen(set) > 11 ? set + 11 : "--:--");
-    drawtext(30, 330, b, &small, 540);
+    drawtext(30, 330, b, ui_font(UI_BODY), 540);
     snprintf(b, sizeof(b), "%s %.0f h %02.0f min", tr("Tageslicht"), floor(light / 3600),
              floor(fmod(light, 3600) / 60));
-    drawtext(30, 368, b, &caption, 540);
+    drawtext(30, 368, b, ui_font(UI_SECONDARY), 540);
     int dates = json_get(&j, daily, "time"), codes = json_get(&j, daily, "weather_code"),
         high = json_get(&j, daily, "temperature_2m_max"),
         low = json_get(&j, daily, "temperature_2m_min"),
@@ -1130,33 +1124,33 @@ static void app_weather(void) {
         json_string(&j, json_at(&j, dates, i), date, sizeof(date));
         snprintf(b, sizeof(b), "%.2s.%.2s.", strlen(date) > 8 ? date + 8 : "--",
                  strlen(date) > 5 ? date + 5 : "--");
-        centered(x, 437, 100, 34, b, &caption);
+        centered(x, 437, 100, 34, b, ui_font(UI_SECONDARY));
         double c = json_number(&j, json_at(&j, codes, i));
         weather_symbol(x + 12, 478, isfinite(c) ? (int)c : 3, 80);
         snprintf(b, sizeof(b), "%.0f / %.0f°", json_number(&j, json_at(&j, high, i)),
                  json_number(&j, json_at(&j, low, i)));
-        centered(x, 579, 100, 36, b, &small);
+        centered(x, 579, 100, 36, b, ui_font(UI_BODY));
         snprintf(b, sizeof(b), "%.0f%%", json_number(&j, json_at(&j, rain, i)));
-        centered(x, 623, 100, 32, b, &caption);
+        centered(x, 623, 100, 32, b, ui_font(UI_SECONDARY));
     }
     char stamp[64];
     json_string(&j, json_get(&j, current, "time"), stamp, sizeof(stamp));
     snprintf(b, sizeof(b), "Open-Meteo · %.16s%s", stamp, service_busy() ? " …" : "");
-    drawtext(30, 697, b, &caption, 540);
+    drawtext(30, 697, b, ui_font(UI_SECONDARY), 540);
 }
 static void app_home_assistant(void) {
     ha_dashboard();
 }
 static void app_ha_setup(void) {
     heading("Home Assistant");
-    drawtext(30, 142, "Serveradresse", &small, 540);
+    drawtext(30, 142, "Serveradresse", ui_font(UI_BODY), 540);
     button_h(28, 188, 544, 52, *ha_url ? ha_url : "http://homeassistant.local:8123", 0);
-    drawtext(30, 281, "Langlebiger Zugriffstoken", &small, 540);
+    drawtext(30, 281, "Langlebiger Zugriffstoken", ui_font(UI_BODY), 540);
     button_h(28, 327, 544, 52, *ha_token ? "••••••••  ·  Ändern" : "Token eingeben", 0);
     wrapped(30, 414,
             "Am Handy: Bücher übertragen starten, die Webseite öffnen und Home Assistant wählen. "
             "Adresse und Token dort einfügen. Danach diese App erneut öffnen.",
-            &small, 540, 5);
+            ui_font(UI_BODY), 540, 5);
     button(28, 607, 544, "Verbinden", 0);
 }
 static int wiki_offsets[1024], wiki_pages;
@@ -1179,7 +1173,7 @@ static void app_wiki(void) {
         rect(80, 235, 440, 180, 255);
         key_outline(80, 235, 440, 180);
         aa_arc(300, 285, 17, 35, 310, 4);
-        centered(95, 325, 410, 60, "Artikel wird geladen …", &body);
+        centered(95, 325, 410, 60, "Artikel wird geladen …", ui_font(UI_PRIMARY));
     }
 }
 
@@ -1252,8 +1246,8 @@ static void app_quotes(void) {
             p = note_next_line(p, 532);
             lines++;
         }
-        wrapped_raw(34, y, q->text, &small, 532, 3);
-        drawtext_raw(34, y + lines * (small.h - 4) + 5, library[q->book].title, &caption, 532);
+        wrapped_raw(34, y, q->text, ui_font(UI_BODY), 532, 3);
+        drawtext_raw(34, y + lines * (small.h - 4) + 5, library[q->book].title, ui_font(UI_SECONDARY), 532);
         int bottom = y + lines * (small.h - 4) + 34;
         region(28, y, 544, bottom - y);
         quote_hit_top[quote_hit_count] = y;
@@ -1262,7 +1256,7 @@ static void app_quotes(void) {
         y = bottom + 16;
     }
     if (!global_quote_count)
-        wrapped(30, 180, "Alle markierten Zitate deiner Bücher erscheinen hier.", &editorial, 540,
+        wrapped(30, 180, "Alle markierten Zitate deiner Bücher erscheinen hier.", ui_font(UI_TITLE), 540,
                 4);
     pager(679, &global_quote_page, (global_quote_count + 3) / 4);
 }
@@ -1274,15 +1268,15 @@ static void app_time_settings(void) {
     localtime_r(&now, &t);
     strftime(b, sizeof(b), "%d.%m.%Y  %H:%M", &t);
     key_outline(28, 140, 544, 108);
-    centered(28, 140, 544, 108, b, &editorial);
-    label_at(30, 290, 430, 48, tr("Automatisch über WLAN"), &small);
+    centered(28, 140, 544, 108, b, ui_font(UI_TITLE));
+    label_at(30, 290, 430, 48, tr("Automatisch über WLAN"), ui_font(UI_BODY));
     toggle(492, 298, options[OPT_AUTO_TIME]);
     if (options[OPT_AUTO_TIME]) {
-        wrapped(30, 385, "Datum und Uhrzeit werden täglich über WLAN abgeglichen.", &small, 540, 3);
+        wrapped(30, 385, "Datum und Uhrzeit werden täglich über WLAN abgeglichen.", ui_font(UI_BODY), 540, 3);
 
     } else {
         button_h(28, 387, 544, 54, "Datum und Uhrzeit setzen", 0);
-        label_at(30, 480, 220, 52, tr("Zeitzone"), &small);
+        label_at(30, 480, 220, 52, tr("Zeitzone"), ui_font(UI_BODY));
         dropdown_button(270, 480, 302, 52, zone_names[options[OPT_ZONE] % 5]);
     }
 }
@@ -1340,12 +1334,12 @@ static void system_screen(void) {
     const char *tabs[] = {"Speicher & Version", "Verwaltung"};
     segments(28, 133, 544, 44, tabs, 2, extra_page);
     if (!extra_page) {
-        drawtext(30, 205, "LUMEN 2.0", &editorial, 540);
-        drawtext(30, 253, "Kindle KT2 · 600 × 800", &caption, 540);
+        drawtext(30, 205, "LUMEN 2.0", ui_font(UI_TITLE), 540);
+        drawtext(30, 253, "Kindle KT2 · 600 × 800", ui_font(UI_SECONDARY), 540);
         wrapped(30, 289,
                 "Diese Software wurde Ende 2026 von GPT-6.1 Sol entwickelt unter Aufsicht und "
                 "Prompting und Lizenz von Merlin Hof.",
-                &caption, 540, 3);
+                ui_font(UI_SECONDARY), 540, 3);
         uint64_t total = storage_total, free = storage_free, books = storage_books,
                  lumen = storage_system;
         if (free > total)
@@ -1362,7 +1356,7 @@ static void system_screen(void) {
         char b[100], size[40];
         storage_size(size, sizeof(size), total);
         snprintf(b, sizeof(b), "%s %s", size, tr("Gesamt"));
-        drawtext(30, 383, b, &body, 540);
+        drawtext(30, 383, b, ui_font(UI_PRIMARY), 540);
         rect(28, 438, 544, 28, 255);
         int x = 28;
         for (int i = 0; i < 5; i++) {
@@ -1380,13 +1374,13 @@ static void system_screen(void) {
             rect(xx, y + 7, 15, 15, colors[i]);
             if (i == 4)
                 key_outline(xx, y + 7, 15, 15);
-            label_at(xx + 28, y, 230, 28, tr(labels[i]), i == 2 ? &caption : &small);
+            label_at(xx + 28, y, 230, 28, tr(labels[i]), i == 2 ? ui_font(UI_SECONDARY) : ui_font(UI_BODY));
             storage_size(b, sizeof(b), sizes[i]);
-            label_at(xx + 28, y + 29, 230, 22, b, &caption);
+            label_at(xx + 28, y + 29, 230, 22, b, ui_font(UI_SECONDARY));
         }
-        wrapped(30, 695, "USB-Speicher und belegte Systempartition.", &caption, 540, 1);
+        wrapped(30, 695, "USB-Speicher und belegte Systempartition.", ui_font(UI_SECONDARY), 540, 1);
     } else {
-        label_at(30, 216, 430, 48, tr("LUMEN nach dem Booten"), &small);
+        label_at(30, 216, 430, 48, tr("LUMEN nach dem Booten"), ui_font(UI_BODY));
         toggle(492, 224, options[OPT_AUTOSTART]);
         const char *actions[] = {"Automatischer Ruhezustand", "Konfiguration exportieren",
                                  "Konfiguration importieren", "Amazon öffnen",
@@ -1458,7 +1452,7 @@ static void app_reset(void) {
     wrapped(30, 172,
             "Alle Einstellungen auf Standard zurücksetzen? Bücher, Lesestände, Notizen, "
             "Zeichnungen und Zitate bleiben erhalten.",
-            &editorial, 540, 5);
+            ui_font(UI_TITLE), 540, 5);
     button(28, 455, 544, "Einstellungen zurücksetzen", 0);
     button(28, 530, 544, "Abbrechen", 0);
 }
@@ -1466,15 +1460,15 @@ static void extra_draw(void) {
     switch (screen) {
     case 51:
         heading("Bildquelle");
-        wrapped_raw(30, 150, discover_lookup_image_name(), &body, 540, 5);
+        wrapped_raw(30, 150, discover_lookup_image_name(), ui_font(UI_PRIMARY), 540, 5);
         wrapped(30, 330,
                 "Freies Artikelbild von Wikimedia. Die genaue Lizenz und der Urheber stehen auf "
                 "der Dateiseite:",
-                &small, 540, 4);
+                ui_font(UI_BODY), 540, 4);
         char source[1024];
         snprintf(source, sizeof(source), "https://commons.wikimedia.org/wiki/File:%s",
                  discover_lookup_image_name());
-        wrapped_raw(30, 470, source, &caption, 540, 10);
+        wrapped_raw(30, 470, source, ui_font(UI_SECONDARY), 540, 10);
         break;
     case 48:
         app_chess();
@@ -1484,7 +1478,7 @@ static void extra_draw(void) {
         break;
     case 50:
         heading("Neue Partie?");
-        wrapped(30, 200, "Aktuelle Schachpartie beenden?", &editorial, 540, 4);
+        wrapped(30, 200, "Aktuelle Schachpartie beenden?", ui_font(UI_TITLE), 540, 4);
         button_h(28, 455, 544, 60, "Neue Partie", 0);
         button_h(28, 540, 544, 60, "Abbrechen", 0);
         break;
@@ -1533,10 +1527,10 @@ static void extra_draw(void) {
         button_h(320, 245, 180, 60, "+", 0);
         char b[20];
         snprintf(b, sizeof(b), "%02d", alarm_hour);
-        centered(100, 320, 180, 80, b, &title);
+        centered(100, 320, 180, 80, b, ui_font(UI_DISPLAY));
         snprintf(b, sizeof(b), "%02d", alarm_minute);
-        centered(320, 320, 180, 80, b, &title);
-        centered(280, 320, 40, 80, ":", &title);
+        centered(320, 320, 180, 80, b, ui_font(UI_DISPLAY));
+        centered(280, 320, 40, 80, ":", ui_font(UI_DISPLAY));
         button_h(100, 415, 180, 60, "−", 0);
         button_h(320, 415, 180, 60, "−", 0);
         button_h(28, 554, 544, 60, "Fertig", 0);
@@ -1549,9 +1543,9 @@ static void extra_draw(void) {
         char b[40];
         for (int i = 0; i < 5; i++) {
             int y = 170 + i * 86;
-            drawtext(30, y + 10, names[i], &small, 170);
+            drawtext(30, y + 10, names[i], ui_font(UI_BODY), 170);
             snprintf(b, sizeof(b), i == 2 ? "%04d" : "%02d", values[i]);
-            centered(200, y, 170, 54, b, &body);
+            centered(200, y, 170, 54, b, ui_font(UI_PRIMARY));
             button_h(390, y, 72, 54, "−", 0);
             button_h(480, y, 92, 54, "+", 0);
         }
@@ -1569,7 +1563,7 @@ static void extra_draw(void) {
                 screen == 43   ? "Diese Notiz endgültig löschen?"
                 : screen == 45 ? "Diese Tagesnotiz löschen?"
                                : "Dieses Zeichenblatt leeren?",
-                &editorial, 540, 4);
+                ui_font(UI_TITLE), 540, 4);
         button(28, 455, 544, "Löschen", 0);
         button(28, 530, 544, "Abbrechen", 0);
         break;
@@ -1773,7 +1767,7 @@ static int extra_input(const Input *in) {
             while (*p) {
                 const char *next = p;
                 unsigned c = glyph(&next);
-                int a = glyph_advance(&small, c);
+                int a = glyph_advance(ui_font(UI_BODY), c);
                 if (x < w + a / 2)
                     break;
                 w += a;
@@ -2218,19 +2212,19 @@ static void app_insights(void) {
         snprintf(b, sizeof(b), "%u", insights.sessions);
         stat_card(312, 326, "Lesesitzungen", b);
         progress(28, 456, 544, (int)mins, reading_goal);
-        drawtext(30, 495, "Mein Tagesziel", &small, 330);
+        drawtext(30, 495, "Mein Tagesziel", ui_font(UI_BODY), 330);
         button_h(390, 484, 182, 44, "Ändern", 0);
         if (current >= 0) {
             BookInsight *r = insight_get(library[current].id, 0);
             int remaining = engine_count() - page - 1;
             snprintf(b, sizeof(b), "%s: %d %s", tr("Aktuelles Buch"), remaining,
                      tr("Seiten übrig"));
-            drawtext(30, 562, b, &small, 540);
+            drawtext(30, 562, b, ui_font(UI_BODY), 540);
             if (r && r->pages >= 3) {
                 snprintf(b, sizeof(b), "~ %u min %s",
                          (unsigned)((double)r->seconds / r->pages * remaining / 60),
                          tr("bis zum Ende"));
-                drawtext(30, 607, b, &small, 540);
+                drawtext(30, 607, b, ui_font(UI_BODY), 540);
             }
         }
         time_t now = time(NULL);
@@ -2249,13 +2243,13 @@ static void app_insights(void) {
         char motivation[160];
         snprintf(motivation, sizeof(motivation), "%u min %s · %u / 7 %s", week, tr("diese Woche"),
                  goals, tr("Tagesziele"));
-        drawtext(30, 650, motivation, &small, 540);
+        drawtext(30, 650, motivation, ui_font(UI_BODY), 540);
         snprintf(motivation, sizeof(motivation),
                  mins >= (unsigned)reading_goal ? "%s" : "%s %u min",
                  tr(mins >= (unsigned)reading_goal ? "Tagesziel erreicht. Schön gelesen!"
                                                    : "Bis zum Tagesziel:"),
                  mins >= (unsigned)reading_goal ? 0 : (unsigned)reading_goal - mins);
-        wrapped(30, 691, motivation, &caption, 540, 2);
+        wrapped(30, 691, motivation, ui_font(UI_SECONDARY), 540, 2);
     } else if (stats_page == 1) {
         int rows[BOOK_LIMIT], n = 0;
         BookInsight *row_values[BOOK_LIMIT];
@@ -2280,15 +2274,15 @@ static void app_insights(void) {
             Book *b = &library[rows[extra_page * 5 + r]];
             BookInsight *v = insight_get(b->id, 0);
             int y = 190 + r * 91;
-            drawtext_raw(30, y, b->title, &small, 540);
+            drawtext_raw(30, y, b->title, ui_font(UI_BODY), 540);
             char line[120];
             snprintf(line, sizeof(line), "%u min  ·  %u %s  ·  %u %s", v->seconds / 60, v->pages,
                      tr("Seiten"), v->sessions, tr("Sitzungen"));
-            drawtext(30, y + 35, line, &caption, 540);
+            drawtext(30, y + 35, line, ui_font(UI_SECONDARY), 540);
             progress(30, y + 66, 540, b->page + 1, b->total);
         }
         if (!n)
-            wrapped(30, 220, "Deine Leseaktivität wird ab jetzt pro Buch erfasst.", &editorial, 540,
+            wrapped(30, 220, "Deine Leseaktivität wird ab jetzt pro Buch erfasst.", ui_font(UI_TITLE), 540,
                     4);
         pager(679, &extra_page, (n + 4) / 5);
     } else {
@@ -2312,15 +2306,15 @@ static void app_insights(void) {
         }
         char b[80];
         snprintf(b, sizeof(b), "%u %s  ·  %.1f h", active, tr("aktive Tage"), sum / 3600.0);
-        drawtext(30, 214, b, &body, 540);
+        drawtext(30, 214, b, ui_font(UI_PRIMARY), 540);
         for (int i = 0; i < 30; i++) {
             int h = (int)(240ULL * secs[i] / max);
             soft_rect(30 + i * 18, 565 - h, 12, h ? h : 2, 2, secs[i] ? 0 : 220);
         }
-        drawtext(30, 590, "Vor 30 Tagen", &caption, 260);
-        drawtext(490, 590, "Heute", &caption, 82);
+        drawtext(30, 590, "Vor 30 Tagen", ui_font(UI_SECONDARY), 260);
+        drawtext(490, 590, "Heute", ui_font(UI_SECONDARY), 82);
         snprintf(b, sizeof(b), "Ø %u min / %s", active ? sum / 60 / active : 0, tr("aktivem Tag"));
-        drawtext(30, 653, b, &small, 540);
+        drawtext(30, 653, b, ui_font(UI_BODY), 540);
     }
 }
 

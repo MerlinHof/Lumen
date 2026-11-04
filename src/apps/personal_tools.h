@@ -234,17 +234,17 @@ static void v1_launcher(void) {
     for (int r = 0; r < 12 && launcher_page * 12 + r < n; r++) {
         int id = ids[launcher_page * 12 + r], x = 53 + (r % 3) * 172, y = 137 + (r / 3) * 130;
         region(x, y, 150, 122);
-        aa_soft_rect(x + 36, y + 2, 78, 78, 19, 0);
-        aa_soft_rect(x + 38, y + 4, 74, 74, 17, 255);
-        v1_icon(x + 53, y + 17, id);
+        squircle(x+36,y+2,78,0);
+        squircle(x+38,y+4,74,255);
+        app_icon(x + 53, y + 17, id);
         const char *name = tr(app_definition(id)->name);
-        if (textwidth_raw(name, &small) <= 148)
-            centered(x, y + 78, 150, 35, name, &small);
+        if (textwidth_raw(name, ui_font(UI_BODY)) <= 148)
+            centered(x, y + 78, 150, 35, name, ui_font(UI_BODY));
         else
-            centered(x, y + 78, 150, 35, name, &caption);
+            centered(x, y + 78, 150, 35, name, ui_font(UI_SECONDARY));
     }
     if (!n)
-        wrapped(28, 210, "Apps über das Zahnrad einblenden.", &body, 544, 3);
+        wrapped(28, 210, "Apps über das Zahnrad einblenden.", ui_font(UI_PRIMARY), 544, 3);
     pager(679, &launcher_page, pages);
 }
 static void v1_launcher_input(int x, int y) {
@@ -323,7 +323,7 @@ static void v1_word_draw(void) {
     char b[80];
     snprintf(b, sizeof(b), "%02d.%02d.%04d · %s", wordle_game.date % 100,
              wordle_game.date / 100 % 100, wordle_game.date / 10000, tr("English · 6 Versuche"));
-    centered(28, 130, 544, 35, b, &caption);
+    centered(28, 130, 544, 35, b, ui_font(UI_SECONDARY));
     for (int r = 0; r < 6; r++)
         for (int c = 0; c < 5; c++) {
             int x = 90 + c * 86, y = 187 + r * 72, v = wordle_game.result[r][c];
@@ -334,19 +334,19 @@ static void v1_word_draw(void) {
             if (v == 2) {
                 ink_color = -1; /* draw inverted glyph into dark tile via temporary white tile */
                 rect(x + 2, y + 2, 72, 58, 255);
-                centered(x, y + 2, 76, 58, k, &editorial);
+                centered(x, y + 2, 76, 58, k, ui_font(UI_TITLE));
                 for (int yy = y + 2; yy < y + 60; yy++)
                     for (int xx = x + 2; xx < x + 74; xx++)
                         ui_pixels[yy * 600 + xx] = 255 - ui_pixels[yy * 600 + xx];
             } else
-                centered(x, y + 2, 76, 58, k, &editorial);
+                centered(x, y + 2, 76, 58, k, ui_font(UI_TITLE));
             ink_color = old;
         }
     if (wordle_game.over) {
         snprintf(b, sizeof(b), "%s · %s", tr(wordle_game.over == 1 ? "Gewonnen!" : "Lösung"),
                  word_secret);
-        centered(28, 652, 544, 42, b, &body);
-        centered(28, 712, 544, 35, "Morgen ein neues Wort", &caption);
+        centered(28, 652, 544, 42, b, ui_font(UI_PRIMARY));
+        centered(28, 712, 544, 35, "Morgen ein neues Wort", ui_font(UI_SECONDARY));
     } else
         button_h(90, 663, 420, 60, "Wort eingeben", 0);
 }
@@ -415,7 +415,7 @@ static void v1_nono_new(void) {
 static void v1_nono_draw(void) {
     heading_actions("Nonogramme", 1);
     icon_button(528, 74, IC_RESTART);
-    centered(28, 133, 544, 32, "5 × 5 · Ein Bild aus Logik", &caption);
+    centered(28, 133, 544, 32, "5 × 5 · Ein Bild aus Logik", ui_font(UI_SECONDARY));
     for (int r = 0; r < 5; r++) {
         unsigned mask = 0, v[5];
         for (int c = 0; c < 5; c++)
@@ -429,7 +429,7 @@ static void v1_nono_draw(void) {
         }
         if (!n)
             strcpy(b, "0");
-        centered(18, 263 + r * 76, 126, 76, b, &body);
+        centered(18, 263 + r * 76, 126, 76, b, ui_font(UI_PRIMARY));
     }
     for (int c = 0; c < 5; c++) {
         unsigned mask = 0, v[5];
@@ -439,7 +439,7 @@ static void v1_nono_draw(void) {
         for (int j = 0; j < n; j++) {
             char b[8];
             snprintf(b, 8, "%u", v[j]);
-            centered(146 + c * 76, 243 - (n - j) * 30, 76, 30, b, &small);
+            centered(146 + c * 76, 243 - (n - j) * 30, 76, 30, b, ui_font(UI_BODY));
         }
     }
     int win = 1;
@@ -458,7 +458,7 @@ static void v1_nono_draw(void) {
     const char *tabs[] = {"Füllen", "Leer markieren"};
     segments(28, 692, 544, 48, tabs, 2, nono_mark);
     if (win)
-        centered(28, 746, 544, 40, "Gelöst!", &body);
+        centered(28, 746, 544, 40, "Gelöst!", ui_font(UI_PRIMARY));
 }
 static void hex_center(int i, int *x, int *y) {
     int r = i / 11, c = i % 11;
@@ -480,7 +480,7 @@ static void v1_hex_draw(void) {
     centered(28, 128, 544, 38,
              hex_win ? (hex_win == 1 ? "Schwarz gewinnt" : "Grau gewinnt")
                      : (hex_turn == 1 ? "Schwarz · links nach rechts" : "Grau · oben nach unten"),
-             &small);
+             ui_font(UI_BODY));
     for (int i = 0; i < 121; i++) {
         int x, y;
         hex_center(i, &x, &y);
@@ -540,24 +540,24 @@ static void v1_flash_draw(void) {
         due += flashcards[i].memory.due <= time(NULL);
     char b[80];
     snprintf(b, 80, "%d · %d %s · FSRS-6", flash_count, due, tr("Fällig"));
-    centered(28, 136, 544, 36, b, &caption);
+    centered(28, 136, 544, 36, b, ui_font(UI_SECONDARY));
     if (flash_selected < 0) {
-        centered(28, 280, 544, 70, "Für heute geschafft.", &editorial);
+        centered(28, 280, 544, 70, "Für heute geschafft.", ui_font(UI_TITLE));
         wrapped(40, 385,
                 flash_count
                     ? "Die nächste Wiederholung erscheint automatisch, sobald sie fällig ist."
                     : "Mit + eine Karte erstellen. Beliebiges Thema, eigene Frage und Antwort.",
-                &body, 520, 4);
+                ui_font(UI_PRIMARY), 520, 4);
         return;
     }
     Flashcard *c = &flashcards[flash_selected];
-    drawtext_raw(32, 215, c->deck, &caption, 536);
-    wrapped_raw(32, 275, c->front, &editorial, 536, 5);
+    drawtext_raw(32, 215, c->deck, ui_font(UI_SECONDARY), 536);
+    wrapped_raw(32, 275, c->front, ui_font(UI_TITLE), 536, 5);
     if (!flash_reveal)
         button_h(28, 622, 544, 60, "Antwort zeigen", 0);
     else {
         divider(28, 440, 544);
-        wrapped_raw(32, 470, c->back, &small, 536, 6);
+        wrapped_raw(32, 470, c->back, ui_font(UI_BODY), 536, 6);
         const char *ratings[] = {"Nochmal", "Schwer", "Gut", "Leicht"};
         for (int i = 0; i < 4; i++) {
             MemoryCard m = c->memory;
@@ -570,7 +570,7 @@ static void v1_flash_draw(void) {
                      secs < 3600    ? secs / 60
                      : secs < 86400 ? secs / 3600
                                     : secs / 86400);
-            centered(28 + i * 140, 687, 124, 30, b, &caption);
+            centered(28 + i * 140, 687, 124, 30, b, ui_font(UI_SECONDARY));
             button_h(28 + i * 140, 722, 124, 54, ratings[i], 0);
         }
     }
@@ -725,10 +725,10 @@ static void v1_folder_picker_draw(void) {
         int i = folder_page * 8 + r, y = 145 + r * 62;
         region(28, y, 544, 58);
         icon(28, y + 4, IC_CONTENTS);
-        drawtext_raw(88, y + 12, i ? note_tree.folder[i - 1].name : tr("Notizen"), &body, 480);
+        drawtext_raw(88, y + 12, i ? note_tree.folder[i - 1].name : tr("Notizen"), ui_font(UI_PRIMARY), 480);
         if (i) {
             const char *p = v1_folder_name(note_tree.folder[i - 1].parent);
-            drawtext_raw(88, y + 40, p, &caption, 480);
+            drawtext_raw(88, y + 40, p, ui_font(UI_SECONDARY), 480);
         }
     }
     pager(699, &folder_page, (n + 7) / 8);
@@ -820,7 +820,7 @@ static void v1_markdown_draw(void) {
                 q += 2;
             }
         }
-        const Font *f = level ? &editorial : &small;
+        const Font *f = level ? ui_font(UI_TITLE) : ui_font(UI_BODY);
         int h = level ? 44 : 30;
         if (y + h > 731) {
             pg++;
@@ -833,7 +833,7 @@ static void v1_markdown_draw(void) {
         if (pg == markdown_page) {
             if (code) {
                 rect(27, y, 546, h, 235);
-                md_inline(34, y, b, 530, &small, 1);
+                md_inline(34, y, b, 530, ui_font(UI_BODY), 1);
             } else if (!strncmp(b, "---", 3)) {
                 rect(30, y + 14, 540, 1, 180);
             } else {
@@ -876,9 +876,9 @@ static void v1_timer_ring(int fullscreen) {
     char b[64];
     long secs = (remain + 999) / 1000;
     snprintf(b, sizeof(b), "%02ld:%02ld", secs / 60, secs % 60);
-    centered(28, cy - 45, 544, 90, b, fullscreen ? &title : &editorial);
+    centered(28, cy - 45, 544, 90, b, fullscreen ? ui_font(UI_DISPLAY) : ui_font(UI_TITLE));
     if (fullscreen) {
-        centered(28, cy + 66, 544, 36, "Verbleibende Zeit", &caption);
+        centered(28, cy + 66, 544, 36, "Verbleibende Zeit", ui_font(UI_SECONDARY));
         button_h(28, 665, 260, 60,
                  timer_due      ? "Pause"
                  : timer_paused ? "Fortsetzen"
@@ -896,13 +896,13 @@ static int launcher_manage_indices(int *indices) {
 }
 static void v1_launcher_settings(void) {
     heading("Apps verwalten");
-    drawtext(30, 127, "Sichtbarkeit & Reihenfolge", &caption, 540);
+    drawtext(30, 127, "Sichtbarkeit & Reihenfolge", ui_font(UI_SECONDARY), 540);
     int indices[APP_COUNT], count = launcher_manage_indices(indices);
     for (int r = 0; r < 7 && launcher_settings_page * 7 + r < count; r++) {
         int pos = launcher_settings_page * 7 + r, i = indices[pos], id = launcher_order[i],
             y = 174 + r * 68;
-        v1_icon(28, y + 10, id);
-        label_at(87, y + 10, 252, 44, tr(app_definition(id)->name), &small);
+        app_icon(28, y + 10, id);
+        label_at(87, y + 10, 252, 44, tr(app_definition(id)->name), ui_font(UI_BODY));
         page_arrow(354, y + 10, IC_UP, pos > 0);
         page_arrow(405, y + 10, IC_DOWN, pos + 1 < count);
         toggle(492, y + 16, launcher_visible[id]);
@@ -977,8 +977,8 @@ static void v1_draw(void) {
         for (int r = 0; r < 7 && flash_page * 7 + r < flash_count; r++) {
             int i = flash_page * 7 + r, y = 151 + r * 72;
             region(28, y, 474, 66);
-            drawtext_raw(30, y, flashcards[i].front, &small, 466);
-            drawtext_raw(30, y + 33, flashcards[i].deck, &caption, 466);
+            drawtext_raw(30, y, flashcards[i].front, ui_font(UI_BODY), 466);
+            drawtext_raw(30, y + 33, flashcards[i].deck, ui_font(UI_SECONDARY), 466);
             icon_button(522, y + 8, IC_TRASH);
             divider(28, y + 66, 544);
         }
@@ -1035,7 +1035,7 @@ static void v1_draw(void) {
         rect(21, 267, 564, 236, 190);
         rect(17, 263, 564, 236, 255);
         key_outline(17, 263, 564, 236);
-        centered(28, 285, 544, 55, "Wirklich löschen?", &editorial);
+        centered(28, 285, 544, 55, "Wirklich löschen?", ui_font(UI_TITLE));
         button_h(36, 400, 250, 58, "Abbrechen", 0);
         button_h(310, 400, 250, 58, "Löschen", 0);
     }

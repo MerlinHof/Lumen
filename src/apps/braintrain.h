@@ -203,23 +203,23 @@ static void polish_brain(void) {
             int x = 28 + (i % 2) * 282, y = 234 + (i / 2) * 135;
             key_outline(x, y, 262, 112);
             region(x, y, 262, 112);
-            label_ellipsis(x + 14, y + 14, 234, 34, tr(brain_modes[i]), &body, 0);
+            label_ellipsis(x + 14, y + 14, 234, 34, tr(brain_modes[i]), ui_font(UI_PRIMARY), 0);
             snprintf(b, 160, "%s %d", tr("Stufe"), brain_stats.levels[i]);
-            label_at(x + 14, y + 63, 234, 24, b, &caption);
+            label_at(x + 14, y + 63, 234, 24, b, ui_font(UI_SECONDARY));
         }
         snprintf(b, 160, "%d %s · %d %s", brain_stats.streak, tr("Tage in Folge"),
                  brain_stats.sessions, tr("Runden"));
-        centered(28, 677, 544, 35, b, &caption);
-        drawtext(30, 739, "Fortschritt gilt für diese Übungen.", &caption, 540);
+        centered(28, 677, 544, 35, b, ui_font(UI_SECONDARY));
+        drawtext(30, 739, "Fortschritt gilt für diese Übungen.", ui_font(UI_SECONDARY), 540);
         return;
     }
     if (brain_phase == 5) {
         for (int i = 0; i < 6; i++) {
             int y = 145 + i * 91;
-            drawtext(30, y, brain_modes[i], &body, 420);
+            drawtext(30, y, brain_modes[i], ui_font(UI_PRIMARY), 420);
             snprintf(b, 160, "%s %d · %d / %d", tr("Stufe"), brain_stats.levels[i],
                      brain_stats.correct[i], brain_stats.attempts[i]);
-            drawtext_raw(30, y + 35, b, &caption, 540);
+            drawtext_raw(30, y + 35, b, ui_font(UI_SECONDARY), 540);
             rect(30, y + 65, 540, 6, 215);
             if (brain_stats.attempts[i])
                 rect(30, y + 65, 540 * brain_stats.correct[i] / brain_stats.attempts[i], 6, 0);
@@ -228,22 +228,22 @@ static void polish_brain(void) {
     }
     if (brain_phase == 4) {
         snprintf(b, 160, "%d / %d", brain_score, brain_total);
-        centered(28, 195, 544, 90, b, &title);
-        centered(28, 301, 544, 55, "Runde geschafft!", &editorial);
+        centered(28, 195, 544, 90, b, ui_font(UI_DISPLAY));
+        centered(28, 301, 544, 55, "Runde geschafft!", ui_font(UI_TITLE));
         snprintf(b, 160, "%d %s", brain_stats.streak, tr("Tage in Folge"));
-        centered(28, 389, 544, 40, b, &body);
+        centered(28, 389, 544, 40, b, ui_font(UI_PRIMARY));
         wrapped(30, 485, "Eine kurze Pause gehört zum Training. Morgen wartet eine neue Runde.",
-                &small, 540, 4);
+                ui_font(UI_BODY), 540, 4);
         button_h(28, 657, 544, 60, "Fertig", 0);
         return;
     }
     snprintf(b, 160, "%d / %d · %s · %s %d", brain_round + 1, brain_total,
              tr(brain_modes[brain_task]), tr("Stufe"), brain_stats.levels[brain_task]);
-    drawtext_raw(30, 130, b, &caption, 540);
+    drawtext_raw(30, 130, b, ui_font(UI_SECONDARY), 540);
     rect(30, 169, 540, 5, 220);
     rect(30, 169, 540 * brain_round / brain_total, 5, 0);
     if (brain_phase == 3) {
-        centered(28, 195, 544, 60, brain_right ? "Richtig!" : "Weiter üben", &editorial);
+        centered(28, 195, 544, 60, brain_right ? "Richtig!" : "Weiter üben", ui_font(UI_TITLE));
         if (brain_task == 0) {
             for (int i = 0; i < 16; i++) {
                 int x = 166 + (i % 4) * 68, y = 277 + (i / 4) * 68;
@@ -252,8 +252,8 @@ static void polish_brain(void) {
                     key_outline(x, y, 58, 58);
             }
         } else if (brain_task != 5)
-            centered(28, 290, 544, 80, brain_answer, &title);
-        wrapped(30, 555, brain_explanation, &small, 540, 4);
+            centered(28, 290, 544, 80, brain_answer, ui_font(UI_DISPLAY));
+        wrapped(30, 555, brain_explanation, ui_font(UI_BODY), 540, 4);
         button_h(28, 708, 544, 62, "Weiter", 0);
         return;
     }
@@ -261,7 +261,7 @@ static void polish_brain(void) {
         drawtext(30, 203,
                  brain_phase == 1 ? "Merke dir die dunklen Felder."
                                   : "Stelle das Muster wieder her.",
-                 &body, 540);
+                 ui_font(UI_PRIMARY), 540);
         for (int i = 0; i < 16; i++) {
             int x = 124 + (i % 4) * 90, y = 275 + (i / 4) * 90;
             key_outline(x, y, 80, 80);
@@ -273,15 +273,15 @@ static void polish_brain(void) {
         return;
     }
     if (brain_task == 1 && brain_phase == 1) {
-        centered(28, 235, 544, 55, "Merken", &editorial);
-        centered(28, 325, 544, 90, brain_question, &title);
-        wrapped(30, 455, "Gesucht wird gleich die Ziffer zwei Stellen vor der letzten.", &small,
+        centered(28, 235, 544, 55, "Merken", ui_font(UI_TITLE));
+        centered(28, 325, 544, 90, brain_question, ui_font(UI_DISPLAY));
+        wrapped(30, 455, "Gesucht wird gleich die Ziffer zwei Stellen vor der letzten.", ui_font(UI_BODY),
                 540, 3);
         button_h(28, 705, 544, 62, "Bereit", 0);
         return;
     }
     if (brain_task == 5) {
-        drawtext(30, 211, brain_question, &body, 540);
+        drawtext(30, 211, brain_question, ui_font(UI_PRIMARY), 540);
         for (int i = 0; i < 9; i++) {
             int x = 118 + (i % 3) * 126, y = 280 + (i / 3) * 126;
             key_outline(x, y, 112, 112);
@@ -289,23 +289,23 @@ static void polish_brain(void) {
             region(x, y, 112, 112);
         }
         snprintf(b, 160, "%d %s", brain_moves, tr("Züge"));
-        centered(28, 677, 544, 34, b, &caption);
+        centered(28, 677, 544, 34, b, ui_font(UI_SECONDARY));
         button_h(28, 725, 544, 50, "Überspringen", 0);
         return;
     }
     if (brain_task == 4) {
-        drawtext(30, 201, brain_question, &body, 540);
+        drawtext(30, 201, brain_question, ui_font(UI_PRIMARY), 540);
         int cols = brain_attention_cells > 16 ? 6 : 4;
         for (int i = 0; i < brain_attention_cells; i++) {
             char c[2] = {"AHND"[brain_grid[i]], 0};
             centered((cols == 6 ? 30 : 120) + (i % cols) * 90, 248 + (i / cols) * 55, 80, 45, c,
-                     &body);
+                     ui_font(UI_PRIMARY));
         }
     } else
         wrapped_raw(30, 215,
                     brain_task == 1 ? tr("Welche Ziffer stand zwei Stellen vor der letzten?")
                                     : brain_question,
-                    &editorial, 540, 3);
+                    ui_font(UI_TITLE), 540, 3);
     int yy = brain_task == 4 ? 493 : 343;
     button_h(28, yy, 544, 58, *brain_input ? brain_input : tr("Antwort"), 0);
     icon_button(522, yy + 7, IC_DELETE);

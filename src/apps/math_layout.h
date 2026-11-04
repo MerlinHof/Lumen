@@ -99,7 +99,7 @@ static int math_expression(int level, int depth) {
     }
     return a;
 }
-static const Font *math_font(int smalltext) { return smalltext ? &small : &body; }
+static const Font *math_font(int smalltext) { return smalltext ? ui_font(UI_BODY) : ui_font(UI_PRIMARY); }
 static int math_baseline(const Font *f) {
     const unsigned char *p = glyph_pixels(f, '0');
     int b = 0;
@@ -266,7 +266,7 @@ static void math_formula_content(int x, int y, int w, int h) {
     }
     char text[2048];
     calc_math(text, sizeof(text));
-    drawtext_raw(x, y + (h - body.h) / 2, text, &body, w);
+    drawtext_raw(x, y + (h - body.h) / 2, text, ui_font(UI_PRIMARY), w);
 }
 
 static void math_formula(int x, int y, int w, int h) {

@@ -56,10 +56,10 @@ static void event_lines16(int date, int x, int y, int width, int max) {
     calendar_parse16();
     for (int i = 0; i < event_count16; i++)
         if (events16[i].date == date) {
-            wrapped_raw(x, y, events16[i].title, &caption, width, max);
+            wrapped_raw(x, y, events16[i].title, ui_font(UI_SECONDARY), width, max);
             return;
         }
-    ink_color = 140;
-    centered(x, y, width, 32, "—", &caption);
+    ink_color = UI_SECONDARY_INK;
+    centered(x, y, width, 32, "—", ui_font(UI_SECONDARY));
     ink_color = 0;
 }

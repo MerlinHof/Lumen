@@ -2,7 +2,7 @@
 static void connect_screen(void) {
     heading("Bücher übertragen");
     int active = connect_running();
-    drawtext(30, 150, "Transfer-Server", &body, 400);
+    drawtext(30, 150, "Transfer-Server", ui_font(UI_PRIMARY), 400);
     toggle(492, 150, active);
     divider(28, 207, 544);
     if (active) {
@@ -12,9 +12,9 @@ static void connect_screen(void) {
         drawtext(30, 218,
                  access(seen, F_OK) ? "Bereit · im selben WLAN öffnen"
                                     : "Verbunden · Zugriff bestätigt",
-                 &small, 542);
-        drawtext(30, 258, "ADRESSE", &caption, 542);
-        wrapped_raw(30, 291, *address ? address : tr("Keine WLAN-Adresse"), &body, 542, 2);
+                 ui_font(UI_BODY), 542);
+        drawtext(30, 258, "ADRESSE", ui_font(UI_SECONDARY), 542);
+        wrapped_raw(30, 291, *address ? address : tr("Keine WLAN-Adresse"), ui_font(UI_PRIMARY), 542, 2);
         if (*address) {
             char url[256];
             snprintf(url, sizeof(url), "%s/#%s", address, connect_code());
@@ -30,23 +30,23 @@ static void connect_screen(void) {
                             rect(x + (xx + 4) * step, 365 + (yy + 4) * step, step, step, 0);
             }
         }
-        centered(28, 596, 544, 35, "Verbindungscode", &caption);
+        centered(28, 596, 544, 35, "Verbindungscode", ui_font(UI_SECONDARY));
         char code[80];
         snprintf(code, sizeof(code), "%s", connect_code());
-        centered(28, 630, 544, 62, code, &title);
+        centered(28, 630, 544, 62, code, ui_font(UI_DISPLAY));
         char timeout[120];
         snprintf(timeout, sizeof(timeout), tr("Automatisches Ende nach %d min ohne Zugriff"),
                  options[OPT_TIMEOUT]);
-        centered(28, 696, 544, 30, timeout, &caption);
+        centered(28, 696, 544, 30, timeout, ui_font(UI_SECONDARY));
     } else {
         wrapped(30, 244,
                 "Bücher im Browser übertragen. Aktiviere den Server und scanne den QR-Code mit "
                 "einem Gerät im selben WLAN.",
-                &editorial, 542, 5);
+                ui_font(UI_TITLE), 542, 5);
         wrapped(30, 484,
                 "Der Server pausiert im Ruhemodus. Beim nächsten Start wird die aktuelle "
                 "WLAN-Adresse angezeigt.",
-                &small, 542, 4);
+                ui_font(UI_BODY), 542, 4);
     }
     icon_button(528, 76, IC_SETTINGS);
 }
@@ -120,7 +120,7 @@ static void settings_home(void) {
     for (int i = 0; i < 7; i++) {
         int y = 134 + i * 80;
         ListLayout l = list_row(28, y, 544, 80, -1, 62, tr(settings_sections[i]),
-                                tr(settings_hints[i]), &body, 1);
+                                tr(settings_hints[i]), ui_font(UI_PRIMARY), 1);
         icon(526, l.action_y, IC_NEXT);
     }
 }
@@ -145,13 +145,13 @@ static const char *sort_modes[] = {"Titel",           "Autor",      "Zuletzt gel
 static void more_settings(void) {
     heading(categories[setting_category]);
     if (setting_category == 1)
-        drawtext(30, 121, setting_page ? "Bücher & Sperrbild" : "Sprache & Statusleiste", &caption,
+        drawtext(30, 121, setting_page ? "Bücher & Sperrbild" : "Sprache & Statusleiste", ui_font(UI_SECONDARY),
                  540);
     if (setting_category == 2) {
         char b[100];
         snprintf(b, sizeof(b), tr("%d Bücher in deiner Bibliothek"), library_count);
-        drawtext(30, 145, b, &editorial, 540);
-        wrapped(30, 197, "Lesestände werden automatisch gespeichert.", &caption, 540, 2);
+        drawtext(30, 145, b, ui_font(UI_TITLE), 540);
+        wrapped(30, 197, "Lesestände werden automatisch gespeichert.", ui_font(UI_SECONDARY), 540, 2);
         select_row17(279, "Sortierung", sort_modes[settings.sort % 6]);
         divider(28, 411, 544);
         button_h(28, 449, 544, 56, "Bibliothek neu einlesen", 0);
@@ -180,7 +180,7 @@ static void more_settings(void) {
             toggle(492, y + 4, v);
         } else {
             snprintf(value, sizeof(value), tr("%d"), v);
-            label_at(350, y - 4, 70, 48, value, &body);
+            label_at(350, y - 4, 70, 48, value, ui_font(UI_PRIMARY));
             button(428, y - 4, 62, "-", 0);
             button(505, y - 4, 62, "+", 0);
         }
@@ -189,7 +189,7 @@ static void more_settings(void) {
         pager(679, &setting_page, (row + 7) / 8);
     }
     if (setting_category == 4)
-        wrapped(30, 580, "Änderungen gelten beim nächsten Serverstart.", &small, 540, 2);
+        wrapped(30, 580, "Änderungen gelten beim nächsten Serverstart.", ui_font(UI_BODY), 540, 2);
 }
 static void settings_input(const Input *in) {
     if (in->kind != INPUT_TAP)
@@ -373,7 +373,7 @@ static void discover_screen(void) {
              *store_query  ? store_query
              : store_stage ? "Mehrere Kataloge werden durchsucht …"
                            : "Gutenberg · Internet Archive",
-             &caption, 540);
+             ui_font(UI_SECONDARY), 540);
     if (store_home) {
         static int last_count = -1;
         static unsigned seed;
@@ -405,7 +405,7 @@ static void discover_screen(void) {
                 int x = 36 + (i % 2) * 284, y = 174 + (i / 2) * 250;
                 OPDSItem *b = &opds_items[selected[i]];
                 store_cover(b, x + 57, y, 130, 178);
-                wrapped_raw(x, y + 185, b->title, &small, 244, 2);
+                wrapped_raw(x, y + 185, b->title, ui_font(UI_BODY), 244, 2);
                 region(x, y, 244, 235);
             }
         return;
@@ -420,12 +420,12 @@ static void discover_screen(void) {
         region(28, y, 544, 86);
         store_cover(b, 30, y + 6, 50, 69);
         FlowLine lines[2];
-        int n = text_flow(b->title, &small, 412, lines, 2);
-        ListLayout l = list_layout(98, y, 422, 87, 0, 0, n, 1, &small);
-        list_text(100, l.title_y, 412, b->title, &small, 2);
+        int n = text_flow(b->title, ui_font(UI_BODY), 412, lines, 2);
+        ListLayout l = list_layout(98, y, 422, 87, 0, 0, n, 1, ui_font(UI_BODY));
+        list_text(100, l.title_y, 412, b->title, ui_font(UI_BODY), 2);
         int old = ink_color;
-        ink_color = 112;
-        label_ellipsis(100, l.detail_y, 412, 16, author, &caption, 0);
+        ink_color = UI_SECONDARY_INK;
+        label_ellipsis(100, l.detail_y, 412, 16, author, ui_font(UI_SECONDARY), 0);
         ink_color = old;
         icon(528, l.action_y, IC_NEXT);
         divider(28, y + 86, 544);
@@ -435,7 +435,7 @@ static void discover_screen(void) {
                 discover_busy()
                     ? "Der Katalog wird geladen …"
                     : "Kein Katalog geladen. WLAN in den Einstellungen verbinden und erneut laden.",
-                &editorial, 544, 4);
+                ui_font(UI_TITLE), 544, 4);
     pager(679, &opds_page, (opds_count + 4) / 5);
 }
 static void discover_detail(void) {
@@ -444,9 +444,9 @@ static void discover_detail(void) {
     OPDSItem *b = &opds_items[opds_selected];
     heading("Buch entdecken");
     store_cover(b, 28, 145, 120, 164);
-    wrapped_raw(176, 145, b->title, &editorial, 396, 3);
-    wrapped_raw(176, 280, b->author, &small, 396, 2);
-    wrapped_raw(28, 366, b->summary, &small, 544, 8);
+    wrapped_raw(176, 145, b->title, ui_font(UI_TITLE), 396, 3);
+    wrapped_raw(176, 280, b->author, ui_font(UI_BODY), 396, 2);
+    wrapped_raw(28, 366, b->summary, ui_font(UI_BODY), 544, 8);
     button(28, 665, 544, discover_busy() ? "Download abbrechen" : "Buch herunterladen", 0);
 }
 static void discover_input(const Input *in) {
@@ -495,10 +495,10 @@ static void discover_input(const Input *in) {
 void ui_loading(const char *message) {
     widget_count = 0;
     memset(ui_pixels, 255, sizeof(ui_pixels));
-    int w = textwidth("LUMEN", &title);
-    drawtext((600 - w) / 2, 285, "LUMEN", &title, 560);
-    w = textwidth(message, &small);
-    drawtext(w < 560 ? (600 - w) / 2 : 20, 370, message, &small, 560);
+    int w = textwidth("LUMEN", ui_font(UI_DISPLAY));
+    drawtext((600 - w) / 2, 285, "LUMEN", ui_font(UI_DISPLAY), 560);
+    w = textwidth(message, ui_font(UI_BODY));
+    drawtext(w < 560 ? (600 - w) / 2 : 20, 370, message, ui_font(UI_BODY), 560);
 }
 
 static void wifi_open(void) {
@@ -516,11 +516,11 @@ static void wifi_open(void) {
 }
 static void wifi_screen(void) {
     heading("WLAN");
-    label_at(30, 137, 430, 48, tr("WLAN"), &body);
+    label_at(30, 137, 430, 48, tr("WLAN"), ui_font(UI_PRIMARY));
     toggle(492, 145, wifi_enabled);
     divider(28, 209, 544);
     if (!wifi_enabled) {
-        wrapped(28, 258, "WLAN ist ausgeschaltet.", &editorial, 544, 2);
+        wrapped(28, 258, "WLAN ist ausgeschaltet.", ui_font(UI_TITLE), 544, 2);
         return;
     }
     for (int r = 0; r < 6 && wifi_page * 6 + r < wifi_count; r++) {
@@ -532,12 +532,12 @@ static void wifi_screen(void) {
                             : strstr(n->flags, "WPA") ? "Passwort geschützt"
                                                       : "Offenes Netz";
         ListLayout l =
-            list_row(28, y, 544, 72, connected ? IC_DONE : -2, 76, n->ssid, tr(state), &body, 1);
+            list_row(28, y, 544, 72, connected ? IC_DONE : -2, 76, n->ssid, tr(state), ui_font(UI_PRIMARY), 1);
         if (n->saved)
             icon_button(522, l.action_y, IC_TRASH);
     }
     if (!wifi_count)
-        wrapped(28, 258, wifi_scanning ? "Suche läuft …" : "Keine Netzwerke gefunden.", &editorial,
+        wrapped(28, 258, wifi_scanning ? "Suche läuft …" : "Keine Netzwerke gefunden.", ui_font(UI_TITLE),
                 544, 3);
     pager(679, &wifi_page, (wifi_count + 5) / 6);
     icon_button(528, 679, IC_RESTART);

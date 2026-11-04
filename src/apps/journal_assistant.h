@@ -222,7 +222,7 @@ static int u17_more_draw(void) {
             const char *detail =
                 tr(date == app_date_key(time(NULL)) ? "Heute · Gedanken festhalten"
                                                     : "Öffnen und weiter schreiben");
-            ListLayout l = list_row(28, y, 544, 74, -1, 62, b, detail, &body, 1);
+            ListLayout l = list_row(28, y, 544, 74, -1, 62, b, detail, ui_font(UI_PRIMARY), 1);
             icon(528, l.action_y, IC_NEXT);
         }
         pager(679, &journal_page17, (journal_count17 + 6) / 7);
@@ -239,18 +239,18 @@ static int u17_more_draw(void) {
             wrapped_raw(30, 225,
                         *journal_answers16[journal_step16] ? journal_answers16[journal_step16]
                                                            : tr("Hier tippen und schreiben …"),
-                        &body, 540, 13);
+                        ui_font(UI_PRIMARY), 540, 13);
             icon_button(528, 74, IC_EDIT);
         } else {
-            centered(28, 245, 544, 48, "Wie geht es dir heute?", &body);
+            centered(28, 245, 544, 48, "Wie geht es dir heute?", ui_font(UI_PRIMARY));
             for (int i = 1; i <= 5; i++) {
                 snprintf(b, 100, "%d", i);
                 button_h(30 + (i - 1) * 110, 335, 100, 70, b, journal_score16 == i);
             }
-            centered(28, 445, 544, 44, "1 · schwer    —    5 · sehr gut", &small);
+            centered(28, 445, 544, 44, "1 · schwer    —    5 · sehr gut", ui_font(UI_BODY));
         }
-        ink_color = 135;
-        centered(28, 702, 544, 34, "Änderungen werden gespeichert.", &caption);
+        ink_color = UI_SECONDARY_INK;
+        centered(28, 702, 544, 34, "Änderungen werden gespeichert.", ui_font(UI_SECONDARY));
         ink_color = 0;
         return 1;
     }
@@ -274,15 +274,15 @@ static int u17_more_draw(void) {
                 job_start16(3, "");
         }
         select_row17(155, "Modell", llm_model16);
-        drawtext(30, 280, "API-Schlüssel", &body, 440);
+        drawtext(30, 280, "API-Schlüssel", ui_font(UI_PRIMARY), 440);
         icon_button(528, 272, IC_EDIT);
         char key[2049] = "";
         config16("llm-key.txt", key, sizeof(key));
-        wrapped_raw(30, 335, *key ? key : tr("Noch kein Schlüssel hinterlegt."), &caption, 540, 10);
-        wrapped(30, 620, "Ein Textmodell wählen. Die Liste stammt aus deinem API-Konto.", &caption,
+        wrapped_raw(30, 335, *key ? key : tr("Noch kein Schlüssel hinterlegt."), ui_font(UI_SECONDARY), 540, 10);
+        wrapped(30, 620, "Ein Textmodell wählen. Die Liste stammt aus deinem API-Konto.", ui_font(UI_SECONDARY),
                 540, 3);
         if (job_pid16 > 0)
-            centered(28, 705, 544, 40, "Modelle werden geladen …", &caption);
+            centered(28, 705, 544, 40, "Modelle werden geladen …", ui_font(UI_SECONDARY));
         return 1;
     }
     return u17_games_draw();

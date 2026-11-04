@@ -10,7 +10,7 @@ static double audit_clock(void) {
     return t.tv_sec + t.tv_nsec / 1e9;
 }
 static void capture(const char *name) {
-    notice[0] = 0;
+    notification_dismiss();
     keyboard = dropdown = 0;
     double t = audit_clock();
     for (int i = 0; i < 8; i++)

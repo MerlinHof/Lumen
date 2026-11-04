@@ -35,3 +35,17 @@ int app_runtime_deliver(AppRuntime *rt, const AppIntent *intent) {
 }
 int app_runtime_tabs(const AppRuntime *rt) { return !app_route_fullscreen(rt->route); }
 int app_runtime_tab(const AppRuntime *rt) { return app_definition(app_for_route(rt->route))->tab; }
+
+static struct { const char *name;AppReceiver receive; } endpoints[16];
+static size_t endpoint_count;
+int app_endpoint_register(const char *name,AppReceiver receive) {
+    if(!name || !*name || strlen(name)>63 || !receive)return 0;
+    for(size_t i=0;i<endpoint_count;i++)if(!strcmp(name,endpoints[i].name)){endpoints[i].receive=receive;return 1;}
+    if(endpoint_count==16)return 0;
+    endpoints[endpoint_count].name=name;endpoints[endpoint_count++].receive=receive;return 1;
+}
+int app_call(const char *name,const void *payload,size_t bytes,int64_t now) {
+    if(!name || !payload || bytes>4096)return 0;
+    for(size_t i=0;i<endpoint_count;i++)if(!strcmp(name,endpoints[i].name))return endpoints[i].receive(payload,bytes,now);
+    return 0;
+}

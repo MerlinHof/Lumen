@@ -62,9 +62,15 @@ icons, text, controls and baselines. Center button text by visible glyph metrics
 not by guessing a baseline. Use generous touch targets without making icons
 oversized. Inspect the actual 600 × 800 render.
 
-Buttons use visible outlines on white, rather than generic gray fills. Dividers
+Use black primary actions with white text sparingly (for example calculator =),
+white outlined secondary controls, and crisp offset shadows on floating surfaces.
+Contrast and tactile depth are intentional; avoid a black tile on every control. Dividers
 are lighter and quieter than button outlines, but still survive E-Ink. Avoid
 super-thin pale lines. Gray text is for hierarchy, not an excuse for low contrast.
+
+Use semantic type roles from system/ui/theme.h and typography.h: title, heading,
+primary, body, secondary, display, control and inverse. Apps select roles, not
+independent font sizes, arbitrary greys or ad-hoc bold offsets.
 
 Most UI geometry is square for clarity and speed. Cover corners, switches and
 app-icon squircles are intentional exceptions. Preserve anti-aliasing on icons
@@ -273,3 +279,11 @@ Generated images and timings stay under `build/audit`, never in the payload.
 Host render timings are CPU measurements, not Kindle display/touch benchmarks.
 Only set `LUMEN_PROFILE=1` when per-frame session logging is actually needed.
 Do not disable power, Wi-Fi, app manager or reader services for speculative speed.
+
+## Overlay ownership
+
+Notifications are an app module with a copied request payload and bounded lifetime.
+They capture DOWN through release before app input, including release outside the
+surface or expiration during a gesture. Never dispatch a close gesture beneath
+an overlay. Named app endpoints support non-navigating component apps; navigation
+continues to use stable AppIntent IDs. An app need not be a launcher tile.

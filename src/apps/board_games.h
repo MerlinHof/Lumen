@@ -217,7 +217,7 @@ static void app_chess(void) {
                                           : "Schwarz am Zug";
     snprintf(b, sizeof(b), "%s%s", tr(label), moves && !draw && check ? tr(" · Check") : "");
     centered(28, 163, 544, 26, chess_computer && chess.turn < 0 ? tr("Computer denkt …") : b,
-             &caption);
+             ui_font(UI_SECONDARY));
     for (int v = 0; v < 64; v++) {
         int sq = v, x = 36 + (v % 8) * 66, y = 190 + (v / 8) * 66;
         rect(x, y, 66, 66, (v / 8 + v % 8) % 2 ? 180 : 242);
@@ -251,7 +251,7 @@ static void app_chess(void) {
     button_h(310, 740, 262, 48, "Figuren drehen", chess_flip);
     if (chess_promotion >= 0) {
         rect(28, 298, 544, 182, 255);
-        centered(28, 306, 544, 44, "Umwandlung", &body);
+        centered(28, 306, 544, 44, "Umwandlung", ui_font(UI_PRIMARY));
         int pieces[] = {5, 4, 3, 2};
         for (int i = 0; i < 4; i++) {
             button_h(48 + i * 132, 373, 108, 80, "", 0);
@@ -267,7 +267,7 @@ static void app_tic(void) {
              : tic_result    ? "Gewonnen!"
              : tic_turn == 1 ? "X am Zug"
                              : "O am Zug",
-             &body);
+             ui_font(UI_PRIMARY));
     for (int i = 0; i < 9; i++) {
         int x = 63 + (i % 3) * 160, y = 241 + (i / 3) * 160;
         region(x, y, 154, 154);
@@ -281,7 +281,7 @@ static void app_tic(void) {
     }
     char b[100];
     snprintf(b, sizeof(b), "X  %d     ·     O  %d", tic_score[1], tic_score[2]);
-    centered(28, 739, 544, 44, b, &small);
+    centered(28, 739, 544, 44, b, ui_font(UI_BODY));
 }
 static int games_input(const Input *in) {
     if (in->kind != INPUT_TAP)

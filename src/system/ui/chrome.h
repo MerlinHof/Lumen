@@ -4,8 +4,8 @@ static void tabbar(void) {
     divider(screen == 2 ? 0 : 28, 736, screen == 2 ? 600 : 544);
     int count = options[OPT_APPS] ? 4 : 3, width = 600 / count;
     int active = app_definition(app_for_route(screen))->tab;
-    const int kinds[] = {IC_HOME, IC_SETTINGS, IC_STORE, IC_GRID};
-    const char *labels[] = {"Home", "Einstellungen", "Store", "Apps"};
+    const int kinds[] = {IC_BOOK, IC_SETTINGS, IC_STORE, IC_GRID};
+    const char *labels[] = {"Bibliothek", "Einstellungen", "Store", "Apps"};
     for (int i = 0; i < count; i++) {
         int x = i * width;
         system_region(x, 737, width, 63);
@@ -51,14 +51,12 @@ static void header(void) {
         int gap = previous < 0 ? 0 : element == 1 ? 8 : 16;
         right -= gap;
         const char *label = element == 1 ? percent : date;
-        int width = element == 0   ? (battery_charging ? 50 : 34)
+        int width = element == 0   ? 34
                     : element == 2 ? 30
                                    : textwidth(label, &small),
             x = right - width;
         if (element == 0) {
             status_battery_x = x;
-            if (battery_charging)
-                x += 16;
             status_battery_right = right;
             aa_soft_rect(x, 15, 30, 18, 4, 0);
             aa_soft_rect(x + 2, 17, 26, 14, 2, 255);
@@ -68,14 +66,12 @@ static void header(void) {
                 fill = 22;
             if (fill > 0)
                 aa_soft_rect(x + 4, 19, fill, 10, 2, 0);
-            if (battery_charging) {
-                int bx = x - 13;
-                stroke(bx + 8, 14, bx + 1, 25, 3);
-                stroke(bx + 1, 25, bx + 9, 24, 3);
-                stroke(bx + 9, 24, bx + 3, 34, 3);
-                stroke(bx + 3, 34, bx + 6, 23, 2);
+            if(battery_charging) {
+                /* White halo separates the black bolt from every charge fill. */
+                stroke_color(x+18,16,x+11,25,5,255);stroke_color(x+11,25,x+18,24,5,255);stroke_color(x+18,24,x+13,31,5,255);
+                stroke(x+18,16,x+11,25,2);stroke(x+11,25,x+18,24,2);stroke(x+18,24,x+13,31,2);
             }
-            system_region(status_battery_x - 5, 0, battery_charging ? 60 : 44, 48);
+            system_region(status_battery_x - 5, 0, 44, 48);
         } else if (element == 2) {
             status_wifi_x = x;
             wifi_symbol(x, 2);
@@ -93,7 +89,7 @@ static void header(void) {
                 }
             }
         }
-        right = element == 0 && battery_charging ? x - 16 : x;
+        right = x;
         previous = element;
     }
     status_timer_x = -1;

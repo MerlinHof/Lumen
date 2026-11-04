@@ -7,7 +7,7 @@ static TaskRow18 task_rows18[256];
 static int task_rows_count18, task_pages18;
 static int task_height18(int index, int width) {
     FlowLine lines[16];
-    int n = text_flow(tasks[index].title, &small, width, lines, 14);
+    int n = text_flow(tasks[index].title, ui_font(UI_BODY), width, lines, 14);
     int h = n * 27 + 22;
     return h < 68 ? 68 : h;
 }
@@ -58,14 +58,14 @@ static void tasks_draw18(void) {
     if (!task_board)
         segments(28, 137, 544, 44, tabs, 2, task_tab);
     else {
-        centered(28, 139, 262, 44, "ToDo", &body);
-        centered(310, 139, 262, 44, "Erledigt", &body);
+        centered(28, 139, 262, 44, "ToDo", ui_font(UI_PRIMARY));
+        centered(310, 139, 262, 44, "Erledigt", ui_font(UI_PRIMARY));
     }
     tasks_layout18();
     if (!task_rows_count18) {
         icon(278, 290, IC_DONE);
-        centered(28, 349, 544, 40, "Hier ist alles erledigt.", &body);
-        centered(28, 395, 544, 35, "Mit + eine Aufgabe hinzufügen", &caption);
+        centered(28, 349, 544, 40, "Hier ist alles erledigt.", ui_font(UI_PRIMARY));
+        centered(28, 395, 544, 35, "Mit + eine Aufgabe hinzufügen", ui_font(UI_SECONDARY));
     }
     for (int r = 0; r < task_rows_count18; r++) {
         TaskRow18 row = task_rows18[r];
@@ -76,7 +76,7 @@ static void tasks_draw18(void) {
         else
             rect(row.x, row.y + row.h, row.w, 1, 205);
         checkbox(row.x + 1, row.y + 9, done);
-        text_flow_draw(row.x + 52, row.y + 10, task_board ? 194 : 365, tasks[i].title, &small, 27,
+        text_flow_draw(row.x + 52, row.y + 10, task_board ? 194 : 365, tasks[i].title, ui_font(UI_BODY), 27,
                        14, done);
         if (!task_board) {
             icon_button(458, row.y + 7, IC_FOLDER);

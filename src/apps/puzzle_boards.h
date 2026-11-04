@@ -242,7 +242,7 @@ static void crossword_draw17(void) {
                 region(xx, yy, 54, 46);
                 if (grid[y][x]) {
                     char b[2] = {grid[y][x], 0};
-                    centered(xx, yy + 10, 54, 36, b, &small);
+                    centered(xx, yy + 10, 54, 36, b, ui_font(UI_BODY));
                 }
             }
     for (int i = 0; i < 5; i++) {
@@ -294,7 +294,7 @@ static int u17_games_draw(void) {
         Warehouse17 *s = &warehouse17;
         char b[100];
         snprintf(b, 100, tr("Level %d · %d Züge"), s->level, s->moves);
-        centered(28, 124, 544, 40, b, &caption);
+        centered(28, 124, 544, 40, b, ui_font(UI_SECONDARY));
         int cell = (528 / s->h < 544 / s->w ? 528 / s->h : 544 / s->w);
         if (cell > 40)
             cell = 40;

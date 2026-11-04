@@ -110,23 +110,23 @@ static void polish_language(void) {
             due += c->due <= time(NULL);
         }
         snprintf(b, 180, "%d / 24", known);
-        centered(28, 272, 544, 70, b, &title);
-        centered(28, 347, 544, 40, "Ausdrücke geübt", &caption);
+        centered(28, 272, 544, 70, b, ui_font(UI_DISPLAY));
+        centered(28, 347, 544, 40, "Ausdrücke geübt", ui_font(UI_SECONDARY));
         snprintf(b, 180, "%d %s · %d %s", due, tr("Fällig"), language_progress.streak,
                  tr("Tage in Folge"));
-        centered(28, 413, 544, 42, b, &body);
+        centered(28, 413, 544, 42, b, ui_font(UI_PRIMARY));
         snprintf(b, 180, "%d / %d", language_progress.correct, language_progress.attempts);
-        centered(28, 493, 544, 42, b, &body);
-        centered(28, 538, 544, 32, "Richtige Antworten", &caption);
+        centered(28, 493, 544, 42, b, ui_font(UI_PRIMARY));
+        centered(28, 538, 544, 32, "Richtige Antworten", ui_font(UI_SECONDARY));
         button_h(28, 620, 544, 60, "Fällige Ausdrücke üben", 0);
         return;
     }
-    wrapped_raw(30, 258, v1_lessons[lang_index][language_source()], &editorial, 540, 3);
+    wrapped_raw(30, 258, v1_lessons[lang_index][language_source()], ui_font(UI_TITLE), 540, 3);
     if (language_tab == 0) {
         if (!lang_reveal) {
             button_h(28, 470, 544, 60, "Antwort zeigen", 0);
         } else {
-            wrapped_raw(30, 389, v1_lessons[lang_index][language_target()], &body, 540, 3);
+            wrapped_raw(30, 389, v1_lessons[lang_index][language_target()], ui_font(UI_PRIMARY), 540, 3);
             button_h(28, 548, 260, 58, "Noch üben", 0);
             button_h(312, 548, 260, 58, "Gewusst", 0);
         }
@@ -139,18 +139,18 @@ static void polish_language(void) {
         if (language_answered) {
             label_at(30, 642, 540, 35,
                      tr(language_answered == 1 ? "Richtig!" : "Die richtige Antwort ist markiert."),
-                     &caption);
+                     ui_font(UI_SECONDARY));
             button_h(28, 681, 544, 46, "Weiter", 0);
         }
     } else {
         button_h(28, 391, 544, 62,
                  *language_written ? language_written : tr("Übersetzung schreiben"), 0);
         if (language_answered) {
-            wrapped_raw(30, 492, v1_lessons[lang_index][language_target()], &body, 540, 3);
+            wrapped_raw(30, 492, v1_lessons[lang_index][language_target()], ui_font(UI_PRIMARY), 540, 3);
             label_at(30, 590, 540, 35,
                      tr(language_answered == 1 ? "Richtig!"
                                                : "Vergleiche deine Antwort mit der Lösung."),
-                     &caption);
+                     ui_font(UI_SECONDARY));
             button_h(28, 658, 544, 60, "Weiter", 0);
         }
     }
@@ -158,7 +158,7 @@ static void polish_language(void) {
         int count = language_progress.day == news_date() ? language_progress.count : 0;
         snprintf(b, 180, "%d / 10 · %s", count,
                  tr(count >= 10 ? "Tagesziel erreicht!" : "Tagesziel"));
-        label_at(30, 653, 540, 32, b, &caption);
+        label_at(30, 653, 540, 32, b, ui_font(UI_SECONDARY));
         rect(30, 701, 540, 5, 215);
         rect(30, 701, 54 * (count > 10 ? 10 : count), 5, 0);
     }
@@ -219,8 +219,8 @@ static void language_book(void) {
     heading("Wortschatz");
     for (int r = 0; r < 6 && language_book_page * 6 + r < 24; r++) {
         int i = language_book_page * 6 + r, y = 145 + r * 86;
-        drawtext_raw(30, y, v1_lessons[i][language_source()], &body, 540);
-        drawtext_raw(30, y + 38, v1_lessons[i][language_target()], &small, 540);
+        drawtext_raw(30, y, v1_lessons[i][language_source()], ui_font(UI_PRIMARY), 540);
+        drawtext_raw(30, y + 38, v1_lessons[i][language_target()], ui_font(UI_BODY), 540);
         divider(28, y + 76, 544);
     }
     pager(679, &language_book_page, 4);

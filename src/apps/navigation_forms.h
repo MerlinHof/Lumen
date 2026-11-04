@@ -144,7 +144,7 @@ static int calendar_layout17(void) {
         strftime(week, 12, "%V", &t);
         strftime(year, 12, "%G", &t);
         snprintf(label, sizeof(label), tr("Woche %s · %s"), week, year);
-        centered(90, 136, 420, 44, label, &body);
+        centered(90, 136, 420, 44, label, ui_font(UI_PRIMARY));
         t.tm_mday -= (t.tm_wday + 6) % 7;
         const char *days[] = {"Wochentag.Mo", "Wochentag.Di", "Wochentag.Mi", "Wochentag.Do",
                               "Wochentag.Fr", "Wochentag.Sa", "Wochentag.So"};
@@ -153,9 +153,9 @@ static int calendar_layout17(void) {
             day.tm_mday += col;
             mktime(&day);
             int x = 28 + col * 78;
-            centered(x, 200, 78, 35, days[col], &caption);
+            centered(x, 200, 78, 35, days[col], ui_font(UI_SECONDARY));
             snprintf(label, 160, "%02d.%02d.", day.tm_mday, day.tm_mon + 1);
-            centered(x, 235, 78, 38, label, &caption);
+            centered(x, 235, 78, 38, label, ui_font(UI_SECONDARY));
             if (date16(&day) == app_date_key(time(NULL)))
                 rect(x + 14, 274, 50, 3, 0);
             rect(x, 289, 1, 370, 205);
@@ -165,7 +165,7 @@ static int calendar_layout17(void) {
         rect(572, 289, 1, 370, 205);
         rect(28, 288, 544, 2, 180);
         rect(28, 658, 544, 2, 180);
-        centered(28, 683, 544, 36, "Tag antippen zum Öffnen", &caption);
+        centered(28, 683, 544, 36, "Tag antippen zum Öffnen", ui_font(UI_SECONDARY));
     } else {
         const char *months[] = {"Januar",    "Februar", "März",     "April",
                                 "Mai",       "Juni",    "Juli",     "August",
@@ -173,17 +173,17 @@ static int calendar_layout17(void) {
         const char *weekdays[] = {"Sonntag",    "Montag",  "Dienstag", "Mittwoch",
                                   "Donnerstag", "Freitag", "Samstag"};
         snprintf(label, sizeof(label), "%s %d", tr(months[calendar_month - 1]), calendar_year);
-        centered(90, 136, 420, 44, label, &small);
+        centered(90, 136, 420, 44, label, ui_font(UI_BODY));
         snprintf(label, sizeof(label), "%02d", calendar_day);
-        drawtext_raw(30, 208, label, &title, 94);
-        drawtext(132, 208, weekdays[t.tm_wday], &body, 425);
+        drawtext_raw(30, 208, label, ui_font(UI_DISPLAY), 94);
+        drawtext(132, 208, weekdays[t.tm_wday], ui_font(UI_PRIMARY), 425);
         snprintf(label, sizeof(label), "%02d.%02d.%04d", calendar_day, calendar_month,
                  calendar_year);
-        ink_color = 130;
-        drawtext_raw(134, 253, label, &caption, 400);
+        ink_color = UI_SECONDARY_INK;
+        drawtext_raw(134, 253, label, ui_font(UI_SECONDARY), 400);
         ink_color = 0;
         divider(28, 294, 544);
-        drawtext(30, 315, "Tagesnotiz", &editorial, 480);
+        drawtext(30, 315, "Tagesnotiz", ui_font(UI_TITLE), 480);
         if (*calendar_note) {
             static int date;
             int key = date16(&t);
@@ -194,7 +194,7 @@ static int calendar_layout17(void) {
             const char *p = calendar_note;
             int lines = 0;
             while (*p) {
-                p = md_next(p, 540, &body);
+                p = md_next(p, 540, ui_font(UI_PRIMARY));
                 lines++;
             }
             int pages = (lines + 7) / 8;
@@ -202,18 +202,18 @@ static int calendar_layout17(void) {
                 calendar_day_page16 = 0;
             p = calendar_note;
             for (int i = 0; i < calendar_day_page16 * 8 && *p; i++)
-                p = md_next(p, 540, &body);
+                p = md_next(p, 540, ui_font(UI_PRIMARY));
             const char *end = p;
             for (int i = 0; i < 8 && *end; i++)
-                end = md_next(end, 540, &body);
+                end = md_next(end, 540, ui_font(UI_PRIMARY));
             char text[2048];
             snprintf(text, sizeof(text), "%.*s", (int)(end - p), p);
-            wrapped_raw(30, 372, text, &body, 540, 8);
+            wrapped_raw(30, 372, text, ui_font(UI_PRIMARY), 540, 8);
             pager(679, &calendar_day_page16, pages);
         } else {
-            ink_color = 135;
-            wrapped(30, 379, "Noch keine Notiz für diesen Tag.", &small, 540, 3);
-            drawtext(30, 460, "Mit + eine Notiz hinzufügen.", &caption, 540);
+            ink_color = UI_SECONDARY_INK;
+            wrapped(30, 379, "Noch keine Notiz für diesen Tag.", ui_font(UI_BODY), 540, 3);
+            drawtext(30, 460, "Mit + eine Notiz hinzufügen.", ui_font(UI_SECONDARY), 540);
             ink_color = 0;
         }
     }

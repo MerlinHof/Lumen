@@ -26,3 +26,4 @@ system/preferences.c
 system/unicode.c
 system/fonts.c
 apps/registry.c
+apps/notifications/model.c

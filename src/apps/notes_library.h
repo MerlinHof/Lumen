@@ -192,15 +192,15 @@ static void u15_note_editor_draw(void) {
         snprintf(num, 20, "%d", note_numbers[i]);
         if (i > 0 && note_numbers[i] == note_numbers[i - 1])
             num[0] = 0;
-        ink_color = 135;
+        ink_color = UI_SECONDARY_INK;
         if (left == 48)
             small_number17(24, 54 + r * 29, num, 135);
         ink_color = 0;
-        drawtext_raw(left, 54 + r * 29, b, &small,
+        drawtext_raw(left, 54 + r * 29, b, ui_font(UI_BODY),
                      editing && keyboard_target != 30 ? 544 : (i % 23 < 2 ? 420 : 528));
         if (editing && cursor_row == i && cursor_visible) {
             snprintf(b, sizeof(b), "%.*s", note_cursor - note_offsets[i], text + note_offsets[i]);
-            text_caret(left + textwidth_raw(b, &small), 54 + r * 29, &small);
+            text_caret(left + textwidth_raw(b, ui_font(UI_BODY)), 54 + r * 29, ui_font(UI_BODY));
         }
     }
 }
@@ -216,7 +216,7 @@ static void u15_note_editor_touch(int x, int y) {
     while (p < end && *p != '\n') {
         const char *q = p;
         unsigned c = glyph(&q);
-        int w = glyph_advance(&small, c);
+        int w = glyph_advance(ui_font(UI_BODY), c);
         if (x < px + w / 2)
             break;
         px += w;
@@ -244,7 +244,7 @@ static void u15_note_overlay(void) {
         button_h(180, 58, 80, 44, ink_width == 3 ? "Fein" : "Breit", 0);
         icon_button(280, 58, IC_UNDO);
         region(518, 58, 64, 44);
-        v1_icon(528, 58, APP_PHOTOS);
+        app_icon(528, 58, APP_PHOTOS);
     } else
         u15_note_tools();
 }
@@ -334,7 +334,7 @@ static void u15_reader_progress(void) {
     ink_color = reader_progress_mode == 3 ? 130 : 0;
     if (reader_progress_mode != 6)
         centered(reader_progress_mode == 3 ? 392 : 180, 746, reader_progress_mode == 3 ? 180 : 240,
-                 35, b, &caption);
+                 35, b, ui_font(UI_SECONDARY));
     ink_color = 0;
     if (reader_progress_mode == 0 || reader_progress_mode == 6)
         progress(28, 787, 544, page + 1, total);
@@ -357,8 +357,8 @@ static int u15_draw(void) {
         icon_button(528, 74, IC_PLUS);
         for (int r = 0; r < 6 && source15_page * 6 + r < source15_count; r++) {
             int i = source15_page * 6 + r, y = 145 + r * 82;
-            drawtext_raw(30, y + 8, source15[i].name, &small, 420);
-            drawtext_raw(30, y + 39, source15[i].url, &caption, 420);
+            drawtext_raw(30, y + 8, source15[i].name, ui_font(UI_BODY), 420);
+            drawtext_raw(30, y + 39, source15[i].url, ui_font(UI_SECONDARY), 420);
             toggle(492, y + 10, source15[i].enabled);
             divider(28, y + 75, 544);
         }
@@ -368,16 +368,16 @@ static int u15_draw(void) {
     if (screen == 104) {
         heading("Reader · Optionen");
         select_row17(155, "Fortschrittsanzeige", progress15[reader_progress_mode]);
-        drawtext(30, 626, "Wischen zum Blättern", &small, 440);
+        drawtext(30, 626, "Wischen zum Blättern", ui_font(UI_BODY), 440);
         toggle(492, 622, options[OPT_SWIPE]);
-        drawtext(30, 686, "Mehr Platz vorwärts", &small, 440);
+        drawtext(30, 686, "Mehr Platz vorwärts", ui_font(UI_BODY), 440);
         toggle(492, 682, options[OPT_TAP]);
         return 1;
     }
     if (screen == 102) {
         heading("Ordner löschen?");
         wrapped(28, 170, "Alle enthaltenen Notizen und Unterordner werden ebenfalls gelöscht.",
-                &body, 540, 4);
+                ui_font(UI_PRIMARY), 540, 4);
         button_h(28, 420, 260, 54, "Abbrechen", 0);
         button_h(312, 420, 260, 54, "Löschen", 0);
         return 1;

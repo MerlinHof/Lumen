@@ -200,7 +200,7 @@ static void chat_layout(void) {
         char b[2048];
         chat_preview(i, b, sizeof(b));
         FlowLine lines[6];
-        int limit = chat_messages[i].role ? 5 : 3, n = text_flow(b, &small, 500, lines, limit);
+        int limit = chat_messages[i].role ? 5 : 3, n = text_flow(b, ui_font(UI_BODY), 500, lines, limit);
         int truncated =
             (size_t)lines[n - 1].end < strlen(b) || strlen(chat_messages[i].text) >= sizeof(b);
         int height = 27 + n * 26 + (truncated ? 44 : 12);
@@ -228,28 +228,28 @@ static void chat_draw(void) {
     icon_button(408, 74, IC_PLUS);
     icon_button(468, 74, IC_CONTENTS);
     icon_button(528, 74, IC_SETTINGS);
-    ink_color = 125;
-    drawtext_raw(30, 139, chat_count ? llm_model16 : tr("Ein Gedanke. Ein Gespräch."), &caption,
+    ink_color = UI_SECONDARY_INK;
+    drawtext_raw(30, 139, chat_count ? llm_model16 : tr("Ein Gedanke. Ein Gespräch."), ui_font(UI_SECONDARY),
                  540);
     ink_color = 0;
     chat_layout();
     if (!chat_count) {
         icon(278, 280, IC_TYPE);
-        centered(28, 350, 544, 48, "Was möchtest du verstehen?", &editorial);
+        centered(28, 350, 544, 48, "Was möchtest du verstehen?", ui_font(UI_TITLE));
         wrapped(52, 410, "Stelle eine Frage. Den nächsten Gedanken kannst du direkt anschließen.",
-                &small, 496, 3);
+                ui_font(UI_BODY), 496, 3);
     }
     for (int row = 0; row < chat_row_count; row++) {
         int i = chat_rows[row].message, y = chat_rows[row].y, bot = chat_messages[i].role;
         char b[2048];
         chat_preview(i, b, sizeof(b));
-        ink_color = 125;
-        drawtext(40, y, bot ? "OpenAI" : "Du", &caption, 510);
+        ink_color = UI_SECONDARY_INK;
+        drawtext(40, y, bot ? "OpenAI" : "Du", ui_font(UI_SECONDARY), 510);
         ink_color = 0;
-        text_flow_draw(40, y + 26, 500, b, &small, 26, bot ? 5 : 3, 0);
+        text_flow_draw(40, y + 26, 500, b, ui_font(UI_BODY), 26, bot ? 5 : 3, 0);
         if (chat_rows[row].truncated) {
             int yy = y + chat_rows[row].height - 40;
-            drawtext_raw(40, yy - 15, "…", &small, 35);
+            drawtext_raw(40, yy - 15, "…", ui_font(UI_BODY), 35);
             button_h(76, yy, 280, 36, "Weiterlesen", 0);
         }
         divider(28, y + chat_rows[row].height + 5, 544);
@@ -257,14 +257,14 @@ static void chat_draw(void) {
     key_outline(28, 634, 470, 91);
     region(28, 634, 470, 91);
     ink_color = *llm_prompt16 ? 0 : 125;
-    wrapped_raw(42, 646, *llm_prompt16 ? llm_prompt16 : tr("Nachricht schreiben …"), &small, 442,
+    wrapped_raw(42, 646, *llm_prompt16 ? llm_prompt16 : tr("Nachricht schreiben …"), ui_font(UI_BODY), 442,
                 2);
     ink_color = 0;
     icon_button(528, 655, IC_NEXT);
     pager(746, &chat_page, chat_pages);
     if (job_pid16 > 0 && job_kind16 == 2) {
         rect(28, 593, 544, 32, 255);
-        drawtext(40, 595, "Antwort wird geschrieben …", &caption, 530);
+        drawtext(40, 595, "Antwort wird geschrieben …", ui_font(UI_SECONDARY), 530);
     }
 }
 static int chat_input(const Input *in) {
@@ -326,10 +326,10 @@ static void chats_draw(void) {
         int i = chat_archive_page * 7 + r, y = 148 + r * 76;
         char date[50];
         strftime(date, sizeof(date), "%d.%m.%Y · %H:%M", localtime(&chat_archive[i].modified));
-        list_row(28, y, 544, 76, IC_TYPE, 0, chat_archive[i].title, date, &small, 1);
+        list_row(28, y, 544, 76, IC_TYPE, 0, chat_archive[i].title, date, ui_font(UI_BODY), 1);
     }
     if (!chat_archive_count)
-        wrapped(32, 240, "Deine Gespräche werden hier auf diesem Kindle gespeichert.", &editorial,
+        wrapped(32, 240, "Deine Gespräche werden hier auf diesem Kindle gespeichert.", ui_font(UI_TITLE),
                 530, 4);
     pager(746, &chat_archive_page, (chat_archive_count + 6) / 7);
 }

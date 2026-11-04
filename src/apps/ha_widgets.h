@@ -123,9 +123,9 @@ static void ha_graph(HAEntity *e, int x, int y, int w, int h) {
         if (!strcmp(e->id, ha_history[i].id))
             hist = &ha_history[i];
     if (!hist || !hist->count) {
-        ink_color = 112;
+        ink_color = UI_SECONDARY_INK;
         drawtext(x, y + h - 22, service_history_busy() ? "Verlauf wird geladen …" : "Kein Verlauf",
-                 &caption, w);
+                 ui_font(UI_SECONDARY), w);
         ink_color = 0;
         return;
     }
@@ -187,7 +187,7 @@ static void ha_graph(HAEntity *e, int x, int y, int w, int h) {
         rect(px, py, 2, 2, 110);
     }
     ink_color = 105;
-    drawtext_raw(x + w - 32, y + h - 18, "24 h", &caption, 32);
+    drawtext_raw(x + w - 32, y + h - 18, "24 h", ui_font(UI_SECONDARY), 32);
     ink_color = 0;
 }
 static void ha_dashboard(void) {
@@ -198,7 +198,7 @@ static void ha_dashboard(void) {
         wrapped(30, 170,
                 "Serveradresse und Zugriffstoken einrichten. Danach Schalter für dein Dashboard "
                 "auswählen.",
-                &editorial, 540, 5);
+                ui_font(UI_TITLE), 540, 5);
         button(30, 420, 540, "Einrichten", 0);
         return;
     }
@@ -206,7 +206,7 @@ static void ha_dashboard(void) {
     if (ha_page * 6 >= n)
         ha_page = n ? (n - 1) / 6 : 0;
     if (ha_select)
-        drawtext(30, 140, "Geräte auswählen", &caption, 540);
+        drawtext(30, 140, "Geräte auswählen", ui_font(UI_SECONDARY), 540);
     if (ha_select)
         search_field(28, 187, 544, ha_search, "Geräte suchen");
     for (int r = 0; r < 6 && ha_page * 6 + r < n; r++) {
@@ -215,7 +215,7 @@ static void ha_dashboard(void) {
             int y = 250 + r * 68;
             char b[120];
             snprintf(b, sizeof(b), "%s%s%s", e->state, *e->unit ? " " : "", e->unit);
-            list_row(28, y, 544, 68, -1, 90, e->name, b, &small, 1);
+            list_row(28, y, 544, 68, -1, 90, e->name, b, ui_font(UI_BODY), 1);
             toggle(492, y + 18, ha_favorite(e->id) >= 0);
             continue;
         }
@@ -224,7 +224,7 @@ static void ha_dashboard(void) {
         if (e->sensor)
             ha_graph(e, x + 3, y + 3, 256, 134);
         key_outline(x, y, 262, 140);
-        label_ellipsis(x + 13, y + 8, 236, 24, e->name, &caption, 0);
+        label_ellipsis(x + 13, y + 8, 236, 24, e->name, ui_font(UI_SECONDARY), 0);
         if (e->sensor) {
             char v[100], value[72];
             char *end;
@@ -237,19 +237,19 @@ static void ha_dashboard(void) {
                          : !strcmp(e->state, "off") ? tr("Aus")
                                                     : e->state);
             snprintf(v, sizeof(v), "%s%s%s", value, *e->unit ? " " : "", e->unit);
-            const Font *f = textwidth_raw(v, &editorial) > 234 ? &body : &editorial;
+            const Font *f = textwidth_raw(v, ui_font(UI_TITLE)) > 234 ? ui_font(UI_PRIMARY) : ui_font(UI_TITLE);
             label_ellipsis(x + 13, y + 38, 236, 44, v, f, 0);
         } else {
             drawtext(x + 13, y + 62,
                      !strcmp(e->state, "on")    ? "Ein"
                      : !strcmp(e->state, "off") ? "Aus"
                                                 : e->state,
-                     &small, 150);
+                     ui_font(UI_BODY), 150);
             toggle(x + 176, y + 69, !strcmp(e->state, "on"));
         }
     }
     if (!n)
         wrapped(30, 225, service_busy() ? "Geräte werden geladen …" : "Keine Geräte ausgewählt.",
-                &editorial, 540, 4);
+                ui_font(UI_TITLE), 540, 4);
     pager(679, &ha_page, (n + 5) / 6);
 }

@@ -76,22 +76,22 @@ static void scratch_editor(void) {
         char number[12];
         snprintf(number, sizeof(number), "%d", i + 1);
         ink_color = 146;
-        drawtext_raw(9, y, number, &caption, 31);
+        drawtext_raw(9, y, number, ui_font(UI_SECONDARY), 31);
         int offset = 0;
         if (editing && i == crow) {
             while (offset < note_cursor - line->start &&
-                   textwidth_raw(raw + offset, &small) > 340) {
+                   textwidth_raw(raw + offset, ui_font(UI_BODY)) > 340) {
                 const char *p = raw + offset;
                 glyph(&p);
                 offset = p - raw;
             }
         }
         ink_color = raw[0] == '#' ? 104 : 0;
-        drawtext_raw(43, y, raw + offset, &small, 350);
+        drawtext_raw(43, y, raw + offset, ui_font(UI_BODY), 350);
         ink_color = 0;
         if (line->state && !(editing && i == crow && line->state < 0)) {
             ink_color = line->state < 0 ? 118 : 0;
-            drawtext_raw(419, y, line->result, &small, 170);
+            drawtext_raw(419, y, line->result, ui_font(UI_BODY), 170);
             ink_color = 0;
         }
         if (editing && i == crow && cursor_visible) {
@@ -102,7 +102,7 @@ static void scratch_editor(void) {
                 len = 1023;
             char prefix[1024];
             snprintf(prefix, sizeof(prefix), "%.*s", len, raw + offset);
-            text_caret(43 + textwidth_raw(prefix, &small), y, &small);
+            text_caret(43 + textwidth_raw(prefix, ui_font(UI_BODY)), y, ui_font(UI_BODY));
         }
     }
     if (!editing) {
@@ -123,7 +123,7 @@ static void scratch_touch(int x, int y) {
     while (*p && *p != '\n') {
         const char *n = p;
         unsigned g = glyph(&n);
-        int w = glyph_advance(&small, g);
+        int w = glyph_advance(ui_font(UI_BODY), g);
         if (x < px + w / 2)
             break;
         px += w;

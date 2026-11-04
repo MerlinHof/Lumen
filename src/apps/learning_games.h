@@ -225,7 +225,7 @@ static void app_tiles(void) {
     icon_button(528, 74, IC_RESTART);
     char b[100];
     snprintf(b, sizeof(b), "%s  %llu", tr("Punkte"), (unsigned long long)tile_game.state.score);
-    drawtext_raw(30, 130, b, &body, 540);
+    drawtext_raw(30, 130, b, ui_font(UI_PRIMARY), 540);
     for (int i = 0; i < 16; i++) {
         int x = 56 + i % 4 * 124, y = 184 + i / 4 * 124, v = tile_game.state.cell[i];
         int colors[] = {250, 240, 200, 184, 168, 152, 136, 120, 104, 88, 72, 56};
@@ -236,7 +236,7 @@ static void app_tiles(void) {
         if (v) {
             snprintf(b, sizeof(b), "%u", 1u << v);
             ink_color = color < 140 ? 255 : 0;
-            centered(x, y, 116, 116, b, v >= 20 ? &small : v >= 10 ? &editorial : &title);
+            centered(x, y, 116, 116, b, v >= 20 ? ui_font(UI_BODY) : v >= 10 ? ui_font(UI_TITLE) : ui_font(UI_DISPLAY));
             ink_color = 0;
         }
     }
@@ -249,7 +249,7 @@ static void app_tiles(void) {
         drawtext(30, 682,
                  tiles_over(&tile_game) ? "Keine Züge mehr. Undo oder neu starten."
                                         : "2048 erreicht! Du kannst weiterspielen.",
-                 &caption, 540);
+                 ui_font(UI_SECONDARY), 540);
 }
 static void suit_icon(int x, int y, int suit) {
     if (suit == 0) {
@@ -296,7 +296,7 @@ static void card(int x, int y, int id, int hidden, int selected) {
                           : "%d",
              rank);
     ink_color = suit < 2 ? 85 : 0;
-    drawtext_raw(x + 6, y + 4, b, &small, 40);
+    drawtext_raw(x + 6, y + 4, b, ui_font(UI_BODY), 40);
     ink_color = 0;
     suit_icon(x + 54, y + 17, suit);
     suit_icon(x + 36, y + 58, suit);
@@ -342,11 +342,11 @@ static void app_solitaire(void) {
     }
     char b[100];
     snprintf(b, sizeof(b), "%s %u · %s %d", tr("Züge"), s->moves, tr("Stapel"), s->ns);
-    drawtext_raw(28, 736, b, &caption, 544);
+    drawtext_raw(28, 736, b, ui_font(UI_SECONDARY), 544);
     if (patience_won(&solitaire))
-        centered(28, 680, 544, 50, "Geschafft!", &editorial);
+        centered(28, 680, 544, 50, "Geschafft!", ui_font(UI_TITLE));
     else
-        drawtext(28, 768, "Karte wählen, dann Ziel antippen. Haken: automatisch ablegen.", &caption,
+        drawtext(28, 768, "Karte wählen, dann Ziel antippen. Haken: automatisch ablegen.", ui_font(UI_SECONDARY),
                  544);
 }
 static void app_sudoku(void) {
@@ -368,9 +368,9 @@ static void app_sudoku(void) {
         if (sudoku.board.cell[i]) {
             snprintf(b, sizeof(b), "%d", sudoku.board.cell[i]);
             ink_color = sudoku.given[i] ? 0 : 70;
-            centered(x, y, 58, 58, b, &body);
+            centered(x, y, 58, 58, b, ui_font(UI_PRIMARY));
             if (sudoku.given[i])
-                centered(x + 1, y, 58, 58, b, &body);
+                centered(x + 1, y, 58, 58, b, ui_font(UI_PRIMARY));
             ink_color = 0;
             if (sudoku_conflict(&sudoku, i))
                 rect(x + 15, y + 48, 28, 3, 0);
@@ -378,7 +378,7 @@ static void app_sudoku(void) {
             for (int k = 0; k < 9; k++)
                 if (sudoku.board.notes[i] & (1 << k)) {
                     snprintf(b, sizeof(b), "%d", k + 1);
-                    centered(x + k % 3 * 19, y + k / 3 * 19, 20, 20, b, &caption);
+                    centered(x + k % 3 * 19, y + k / 3 * 19, 20, 20, b, ui_font(UI_SECONDARY));
                 }
     }
     for (int i = 0; i <= 9; i++) {
@@ -391,7 +391,7 @@ static void app_sudoku(void) {
         button_h(28 + (v - 1) * 61, 725, 56, 52, b, 0);
     }
     if (sudoku_won(&sudoku))
-        centered(28, 692, 544, 28, "Geschafft!", &small);
+        centered(28, 692, 544, 28, "Geschafft!", ui_font(UI_BODY));
 }
 
 static void app_focus(void) {
@@ -409,13 +409,13 @@ static void app_newspaper(void) {
 static void app_news_settings(void) {
     heading("Zeitung · Themen");
     for (int i = 0; i < 6; i++) {
-        drawtext_raw(30, 150 + i * 74, news_category(i), &body, 425);
+        drawtext_raw(30, 150 + i * 74, news_category(i), ui_font(UI_PRIMARY), 425);
         toggle(492, 150 + i * 74, (news_topics >> i) & 1);
     }
     wrapped(
         30, 620,
         "Die Themen gelten für die nächste Ausgabe. Meldungen bleiben in der Sprache der Quelle.",
-        &caption, 540, 3);
+        ui_font(UI_SECONDARY), 540, 3);
     button_h(28, 706, 544, 52, "Fertig", 0);
 }
 static void app_news_source(void) {
@@ -423,10 +423,10 @@ static void app_news_source(void) {
     if (news_source_page < 0 || news_source_page >= newspaper.count)
         return;
     NewsArticle *a = &newspaper.article[news_source_page];
-    drawtext_raw(28, 143, a->publisher, &editorial, 544);
-    wrapped_raw(28, 210, a->title, &body, 544, 4);
-    wrapped_raw(28, 350, a->published, &caption, 544, 2);
-    wrapped_raw(28, 412, a->url, &small, 544, 7);
+    drawtext_raw(28, 143, a->publisher, ui_font(UI_TITLE), 544);
+    wrapped_raw(28, 210, a->title, ui_font(UI_PRIMARY), 544, 4);
+    wrapped_raw(28, 350, a->published, ui_font(UI_SECONDARY), 544, 2);
+    wrapped_raw(28, 412, a->url, ui_font(UI_BODY), 544, 7);
     if (*a->url) {
         uint8_t temp[qrcodegen_BUFFER_LEN_MAX], qr[qrcodegen_BUFFER_LEN_MAX];
         if (qrcodegen_encodeText(a->url, temp, qr, qrcodegen_Ecc_LOW, qrcodegen_VERSION_MIN, 12,

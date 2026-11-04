@@ -58,8 +58,8 @@ static void tree_build(void) {
 static void polish_notes(void) {
     u16_notes_defaults();
     const char *name = note_tree.current ? v1_folder_name(note_tree.current) : tr("Notizen");
-    label_ellipsis(28, 74, note_tree.current ? 350 : 410, 44, name, &editorial, 0);
-    note_rename_x17 = 36 + (int)fmin(350, textwidth_raw(name, &editorial));
+    label_ellipsis(28, 74, note_tree.current ? 350 : 410, 44, name, ui_font(UI_TITLE), 0);
+    note_rename_x17 = 36 + (int)fmin(350, textwidth_raw(name, ui_font(UI_TITLE)));
     if (note_tree.current) {
         icon_button(note_rename_x17, 74, IC_EDIT);
         u17_gray_icon(note_rename_x17, 74);
@@ -68,8 +68,8 @@ static void polish_notes(void) {
     icon_button(528, 74, IC_NOTE_PLUS);
     tree_build();
     if (!tree_count) {
-        ink_color = 140;
-        drawtext(30, 170, "Dieser Ordner ist leer.", &small, 540);
+        ink_color = UI_SECONDARY_INK;
+        drawtext(30, 170, "Dieser Ordner ist leer.", ui_font(UI_BODY), 540);
         ink_color = 0;
     }
     for (int r = 0; r < 7 && tree_page * 7 + r < tree_count; r++) {
@@ -87,12 +87,12 @@ static void polish_notes(void) {
             else
                 snprintf(count, sizeof(count), tr("%d direkte Einträge"), children);
             l = list_row(28, y, 544, 78, IC_FOLDER, 76, note_tree.folder[tree_id[i]].name, count,
-                         &body, 1);
+                         ui_font(UI_PRIMARY), 1);
         } else {
             time_t stamp = tree_id[i];
             char date[50];
             strftime(date, sizeof(date), "%d.%m.%Y", localtime(&stamp));
-            l = list_row(28, y, 544, 78, IC_NOTE, 76, note_list_title(tree_id[i]), date, &body, 1);
+            l = list_row(28, y, 544, 78, IC_NOTE, 76, note_list_title(tree_id[i]), date, ui_font(UI_PRIMARY), 1);
         }
         icon_button(522, l.action_y, IC_MORE);
     }
@@ -376,18 +376,18 @@ static void polish_wiki_history(void) {
         time_t stamp = wiki_entries[i].seen;
         char b[100];
         strftime(b, sizeof(b), "%d.%m.%Y · %H:%M", localtime(&stamp));
-        ListLayout l = list_row(28, y, 544, 78, -1, 76, wiki_entries[i].title, b, &body, 1);
+        ListLayout l = list_row(28, y, 544, 78, -1, 76, wiki_entries[i].title, b, ui_font(UI_PRIMARY), 1);
         icon_button(522, l.action_y, IC_TRASH);
     }
     if (!wiki_entry_count)
         wrapped(30, 180, "Gelesene Artikel bleiben hier offline gespeichert, bis du sie löschst.",
-                &editorial, 540, 5);
+                ui_font(UI_TITLE), 540, 5);
     pager(746, &wiki_history_page, (wiki_entry_count + 6) / 7);
     if (wiki_delete >= 0) {
         pagination = (Pagination){0};
         rect(20, 270, 560, 220, 255);
         key_outline(20, 270, 560, 220);
-        centered(28, 290, 544, 70, "Artikel löschen?", &body);
+        centered(28, 290, 544, 70, "Artikel löschen?", ui_font(UI_PRIMARY));
         button_h(35, 405, 250, 55, "Abbrechen", 0);
         button_h(310, 405, 250, 55, "Löschen", 0);
     }
@@ -591,13 +591,13 @@ static void polish_photos_grid(void) {
         for (int yy = 0; yy < 136; yy++)
             for (int xx = 0; xx < 136; xx++)
                 ui_pixels[(y + yy) * 600 + x + xx] =
-                    image_tone(photo_grid[r][yy * 136 + xx], x + xx, y + yy);
+                    image_tone(photo_contrast(photo_grid[r][yy * 136 + xx]), x + xx, y + yy);
     }
     if (!photo_count)
         wrapped(30, 180,
                 "Fotos vom Handy über LUMEN Connect hochladen. Auch Zeichnungen lassen sich als "
                 "Foto speichern.",
-                &editorial, 540, 5);
+                ui_font(UI_TITLE), 540, 5);
     pager(746, &photo_page, (photo_count + 15) / 16);
 }
 static int polish_photo_full(void) {
@@ -652,7 +652,7 @@ static void polish_photo(void) {
             }
             int value = image_bilinear(photo_pixels + photo_by * 600 + photo_bx, 600, photo_bw,
                                        photo_bh, a, b);
-            ui_pixels[y * 600 + x] = image_tone(value, x, y);
+            ui_pixels[y * 600 + x] = image_tone(photo_contrast(value), x, y);
         }
     if (photo_controls || !photo_fill) {
         rect(0, 0, 600, 50, 255);
@@ -752,7 +752,7 @@ static void polish_draw(void) {
     rect(27, 209, 558, 425, 175);
     rect(21, 203, 558, 425, 255);
     key_outline(21, 203, 558, 425);
-    centered(28, 224, 544, 44, "Kindle", &editorial);
+    centered(28, 224, 544, 44, "Kindle", ui_font(UI_TITLE));
     icon_button(58, 298, IC_LOCK);
     button_h(116, 292, 416, 58, "Sperren", 0);
     icon_button(58, 376, IC_REBOOT);
@@ -872,7 +872,7 @@ static void press_paginate(void) {
     int title_lines = 0;
     const char *t = press_article.title;
     while (*t && title_lines < 4) {
-        t = md_next(t, 540, &editorial);
+        t = md_next(t, 540, ui_font(UI_TITLE));
         title_lines++;
     }
     press_initial_y = 119 + title_lines * 36 + 47 + (press_has_image ? 292 : 0);
@@ -911,28 +911,28 @@ static void press_paginate(void) {
 static void press_reader_draw(void) {
     if (!*press_article.body) {
         icon_button(528, 58, IC_MORE);
-        wrapped_raw(30, 140, press_article.title, &editorial, 540, 4);
+        wrapped_raw(30, 140, press_article.title, ui_font(UI_TITLE), 540, 4);
         wrapped(30, 380, "Artikel wird geladen …", &paper_text, 540, 3);
         return;
     }
     press_paginate();
-    label_at(30, 59, 472, 32, press_article.publisher, &caption);
+    label_at(30, 59, 472, 32, press_article.publisher, ui_font(UI_SECONDARY));
     icon_button(528, 58, IC_MORE);
     rect(28, 97, 544, 2, 0);
     int y = 100;
     if (!press_reader_page) {
-        wrapped_raw(30, 119, press_article.title, &editorial, 540, 4);
+        wrapped_raw(30, 119, press_article.title, ui_font(UI_TITLE), 540, 4);
         int lines = 0;
         const char *t = press_article.title;
         while (*t && lines < 4) {
-            t = md_next(t, 540, &editorial);
+            t = md_next(t, 540, ui_font(UI_TITLE));
             lines++;
         }
         int sub = 119 + lines * 36 + 8;
         drawtext(30, sub,
                  press_article.complete ? "Aus der Quelle · offline gespeichert"
                                         : "Nur Kurzfassung verfügbar",
-                 &caption, 540);
+                 ui_font(UI_SECONDARY), 540);
         if (press_has_image)
             press_image_draw(sub + 37);
         y = press_initial_y;
@@ -946,7 +946,7 @@ static void press_reader_draw(void) {
         if (!press_reader_page && row == 0) {
             glyph(&p);
             snprintf(initial, sizeof(initial), "%.*s", (int)(p - start), start);
-            drawtext_raw(30, y - 8, initial, &title, 60);
+            drawtext_raw(30, y - 8, initial, ui_font(UI_DISPLAY), 60);
         }
         if (!press_reader_page && row < 2)
             inset = 48;
@@ -974,17 +974,17 @@ static void press_list_draw(void) {
                  press_list.date / 100 % 100, press_list.date / 10000);
     heading_actions("News", 1);
     search_action();
-    label_at(30, 120, 540, 28, press_busy() ? tr("Nachrichten werden geladen …") : date, &caption);
+    label_at(30, 120, 540, 28, press_busy() ? tr("Nachrichten werden geladen …") : date, ui_font(UI_SECONDARY));
     for (int r = 0; r < 5 && press_list_page * 5 + r < press_list.count; r++) {
         int i = press_list_page * 5 + r, y = 151 + r * 113;
         PressItem *a = &press_list.item[i];
         char b[180];
         snprintf(b, sizeof(b), "%s · %s", tr(a->category), a->publisher);
-        list_row(28, y, 544, 113, -1, 0, a->title, b, &body, 2);
+        list_row(28, y, 544, 113, -1, 0, a->title, b, ui_font(UI_PRIMARY), 2);
     }
     if (!press_list.count && !press_busy())
         wrapped(30, 180, "Keine Nachrichten verfügbar. Gespeicherte Ausgaben bleiben erhalten.",
-                &editorial, 540, 5);
+                ui_font(UI_TITLE), 540, 5);
     pager(746, &press_list_page, (press_list.count + 4) / 5);
 }
 static void polish_news_draw(void) {
@@ -998,9 +998,9 @@ static void polish_news_draw(void) {
     }
     if (screen == 97) {
         heading("Quelle");
-        drawtext_raw(30, 145, press_article.publisher, &body, 540);
-        wrapped_raw(30, 207, press_article.title, &editorial, 540, 3);
-        wrapped_raw(30, 370, press_article.url, &small, 540, 7);
+        drawtext_raw(30, 145, press_article.publisher, ui_font(UI_PRIMARY), 540);
+        wrapped_raw(30, 207, press_article.title, ui_font(UI_TITLE), 540, 3);
+        wrapped_raw(30, 370, press_article.url, ui_font(UI_BODY), 540, 7);
         uint8_t temp[qrcodegen_BUFFER_LEN_MAX], qr[qrcodegen_BUFFER_LEN_MAX];
         if (qrcodegen_encodeText(press_article.url, temp, qr, qrcodegen_Ecc_LOW, 1, 12,
                                  qrcodegen_Mask_AUTO, true)) {
@@ -1014,7 +1014,7 @@ static void polish_news_draw(void) {
     }
     heading_actions("News", 1);
     search_action();
-    label_at(30, 132, 540, 35, tr("Kuratierte Ausgaben"), &caption);
+    label_at(30, 132, 540, 35, tr("Kuratierte Ausgaben"), ui_font(UI_SECONDARY));
     for (int r = 0; r < 7 && press_date_page * 7 + r < press_dates_count; r++) {
         int date = press_dates[press_date_page * 7 + r], y = 181 + r * 75;
         char b[80];
@@ -1022,7 +1022,7 @@ static void polish_news_draw(void) {
                  date == news_date() ? tr(" · Heute") : "");
         const char *detail =
             tr(date == news_date() ? "Nachrichten des Tages" : "Gespeicherte Ausgabe");
-        ListLayout l = list_row(28, y, 544, 75, -1, 62, b, detail, &body, 1);
+        ListLayout l = list_row(28, y, 544, 75, -1, 62, b, detail, ui_font(UI_PRIMARY), 1);
         icon(528, l.action_y, IC_NEXT);
     }
     pager(746, &press_date_page, (press_dates_count + 6) / 7);
@@ -1259,3 +1259,12 @@ static int wiki_refresh_failed(void) {
     wiki_refresh_id = 0;
     return ok && article_wiki_open();
 }
+
+static void extra_wiki_cache(void) {
+    char *xml = service_read("opds-feed.xml", 2097152);
+    if (xml) {
+        extra_write_text("wiki-last.xml", xml);
+        free(xml);
+    }
+}
+

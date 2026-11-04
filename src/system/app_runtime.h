@@ -96,4 +96,8 @@ int app_runtime_route(AppRuntime *rt, int route);
 int app_runtime_deliver(AppRuntime *rt, const AppIntent *intent);
 int app_runtime_tabs(const AppRuntime *rt);
 int app_runtime_tab(const AppRuntime *rt);
+/* Named, non-navigating app endpoints (overlays and component apps). */
+typedef int (*AppReceiver)(const void *payload,size_t bytes,int64_t now);
+int app_endpoint_register(const char *name,AppReceiver receive);
+int app_call(const char *name,const void *payload,size_t bytes,int64_t now);
 #endif

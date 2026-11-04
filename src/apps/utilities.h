@@ -348,7 +348,7 @@ static int calendar_draw16(void) {
     dropdown_button(250, 74, 145, 44, names[calendar_view16]);
     char b[100];
     snprintf(b, 100, "%02d.%02d.%04d", calendar_day, calendar_month, calendar_year);
-    centered(90, 135, 420, 46, b, &body);
+    centered(90, 135, 420, 46, b, ui_font(UI_PRIMARY));
     icon_button(28, 135, IC_PREV);
     icon_button(528, 135, IC_NEXT);
     if (calendar_view16 == 0) {
@@ -371,13 +371,13 @@ static int calendar_draw16(void) {
                 snprintf(text, sizeof(text), "%02d:%02d  %s", e->hour, e->minute, e->title);
             else
                 snprintf(text, sizeof(text), "• %s", e->title);
-            drawtext_raw(30, 208 + row * 29, text, &caption, 540);
+            drawtext_raw(30, 208 + row * 29, text, ui_font(UI_SECONDARY), 540);
         }
         if (!count)
             event_lines16(date, 30, 208, 540, 1);
         divider(28, 470, 544);
-        drawtext(30, 490, "Tagesnotiz", &body, 540);
-        wrapped_raw(30, 535, calendar_note, &small, 540, 3);
+        drawtext(30, 490, "Tagesnotiz", ui_font(UI_PRIMARY), 540);
+        wrapped_raw(30, 535, calendar_note, ui_font(UI_BODY), 540, 3);
         pager(679, &calendar_day_page16, (count + 7) / 8);
     }
     if (calendar_view16 == 1) {
@@ -391,7 +391,7 @@ static int calendar_draw16(void) {
             mktime(&day);
             int y = 200 + n * 70;
             snprintf(b, 100, "%02d.%02d.", day.tm_mday, day.tm_mon + 1);
-            drawtext_raw(30, y, b, &small, 95);
+            drawtext_raw(30, y, b, ui_font(UI_BODY), 95);
             event_lines16(date16(&day), 140, y, 430, 2);
             rect(28, y + 63, 544, 1, 215);
         }
@@ -401,7 +401,7 @@ static int calendar_draw16(void) {
             int x = 28 + (m - 1) % 3 * 185, y = 205 + (m - 1) / 3 * 123;
             region(x, y, 174, 112);
             snprintf(b, 100, "%02d / %d", m, calendar_year);
-            centered(x, y, 174, 30, b, &small);
+            centered(x, y, 174, 30, b, ui_font(UI_BODY));
             struct tm t = {
                 .tm_year = calendar_year - 1900, .tm_mon = m - 1, .tm_mday = 1, .tm_hour = 12};
             mktime(&t);
@@ -423,7 +423,7 @@ static void solar16(void) {
     astro_time_t t = sky_time();
     char label[120];
     sky_time_label(t, label, sizeof(label));
-    centered(28, 133, 544, 40, label, &caption);
+    centered(28, 133, 544, 40, label, ui_font(UI_SECONDARY));
     const astro_body_t ids[] = {BODY_MERCURY, BODY_VENUS,  BODY_EARTH,  BODY_MARS,
                                 BODY_JUPITER, BODY_SATURN, BODY_URANUS, BODY_NEPTUNE};
     const char *names[] = {"Merkur",  "Venus",  "Erde",   "Mars",
@@ -441,10 +441,10 @@ static void solar16(void) {
         int x = 300 + r * cos(a), y = 407 - r * sin(a);
         aa_disc(x, y, i < 4 ? 4 : 6, 0);
         char shortname[4] = {names[i][0], names[i][1], 0};
-        drawtext_raw(x + 8, y - 10, shortname, &caption, 40);
+        drawtext_raw(x + 8, y - 10, shortname, ui_font(UI_SECONDARY), 40);
     }
     for (int i = 0; i < 8; i++)
-        drawtext(28 + (i % 4) * 140, 650 + (i / 4) * 25, names[i], &caption, 135);
+        drawtext(28 + (i % 4) * 140, 650 + (i / 4) * 25, names[i], ui_font(UI_SECONDARY), 135);
     button_h(28, 714, 125, 48, "−1 Tag", 0);
     button_h(165, 714, 125, 48, "+1 Tag", 0);
     button_h(302, 714, 125, 48, "−1 Jahr", 0);
@@ -745,7 +745,7 @@ static void help_overlay16(void) {
         int xx = game_help_x();
         region(xx, 74, 44, 44);
         ring(xx + 22, 96, 15, 2);
-        centered(xx, 74, 44, 44, "?", &small);
+        centered(xx, 74, 44, 44, "?", ui_font(UI_BODY));
     }
 }
 #include "periodic_table.h"
@@ -918,7 +918,7 @@ static void crossword_draw16(void) {
                 key_outline(xx, yy, 54, 46);
                 if (grid[y][x]) {
                     char b[2] = {grid[y][x], 0};
-                    centered(xx, yy, 54, 46, b, &small);
+                    centered(xx, yy, 54, 46, b, ui_font(UI_BODY));
                 }
             }
     for (int i = 0; i < 5; i++) {
@@ -941,7 +941,7 @@ static void game_draw16(void) {
     if (screen == 118 || screen == 119 || screen == 121)
         icon_button(468, 74, IC_UNDO);
     if (screen == 112) {
-        centered(28, 136, 544, 46, "B   I   N   G   O", &body);
+        centered(28, 136, 544, 46, "B   I   N   G   O", ui_font(UI_PRIMARY));
         for (int y = 0; y < 5; y++)
             for (int x = 0; x < 5; x++) {
                 int v = game_board16[y * 5 + x], xx = 35 + x * 106, yy = 200 + y * 100;
@@ -951,11 +951,11 @@ static void game_draw16(void) {
                     aa_disc(xx + 50, yy + 47, 37, 0);
                 snprintf(b, 100, v == -1 && x == 2 && y == 2 ? "★" : "%d", abs(v));
                 ink_color = v < 0 ? 255 : 0;
-                centered(xx, yy, 100, 94, b, &body);
+                centered(xx, yy, 100, 94, b, ui_font(UI_PRIMARY));
                 ink_color = 0;
             }
         if (game_won16)
-            centered(28, 718, 544, 45, "BINGO!", &editorial);
+            centered(28, 718, 544, 45, "BINGO!", ui_font(UI_TITLE));
         return;
     }
     if (screen == 113) {
@@ -964,7 +964,7 @@ static void game_draw16(void) {
                     : game_won16    ? "Spieler %d gewinnt"
                                     : "Spieler %d ist dran"),
                  game_won16 ? game_won16 : game_turn16);
-        centered(28, 137, 544, 46, b, &body);
+        centered(28, 137, 544, 46, b, ui_font(UI_PRIMARY));
         for (int y = 0; y < 6; y++)
             for (int x = 0; x < 7; x++) {
                 int xx = 40 + x * 75, yy = 210 + y * 77, v = game_board16[y * 7 + x];
@@ -977,7 +977,7 @@ static void game_draw16(void) {
     }
     if (screen == 117) {
         snprintf(b, 100, "%d / 64%s", game_moves16, game_moves16 == 64 ? " · Geschafft!" : "");
-        centered(28, 132, 544, 45, b, &body);
+        centered(28, 132, 544, 45, b, ui_font(UI_PRIMARY));
         for (int y = 0; y < 8; y++)
             for (int x = 0; x < 8; x++) {
                 int xx = 28 + x * 68, yy = 190 + y * 64, v = game_board16[y * 8 + x];
@@ -986,7 +986,7 @@ static void game_draw16(void) {
                 if (v) {
                     snprintf(b, 100, "%d", v);
                     ink_color = 110;
-                    centered(xx, yy, 68, 64, b, &caption);
+                    centered(xx, yy, 68, 64, b, ui_font(UI_SECONDARY));
                     ink_color = 0;
                 }
                 int dx = abs(x - game_px16), dy = abs(y - game_py16);
@@ -1040,93 +1040,8 @@ static void game_draw16(void) {
                 : game_won16  ? "Geschafft · %d Züge"
                               : "%d Züge"),
              screen == 121 ? game_level16 : game_moves16, game_hp16, game_gold16);
-    centered(28, 680, 544, 42, b, &small);
+    centered(28, 680, 544, 42, b, ui_font(UI_BODY));
     direction_keys16();
-}
-static void u16_icon(int x, int y, int app) {
-    if (app == APP_JOURNAL) {
-        aa_soft_rect(x + 5, y + 3, 34, 39, 5, 0);
-        for (int i = 0; i < 3; i++)
-            rect(x + 12, y + 13 + i * 8, 20, 2, 255);
-        return;
-    }
-    if (app == APP_STUDY) {
-        stroke(x + 3, y + 16, x + 22, y + 6, 5);
-        stroke(x + 22, y + 6, x + 41, y + 16, 5);
-        stroke(x + 3, y + 16, x + 22, y + 26, 5);
-        stroke(x + 22, y + 26, x + 41, y + 16, 5);
-        stroke(x + 12, y + 25, x + 12, y + 35, 4);
-        stroke(x + 12, y + 35, x + 32, y + 35, 4);
-        stroke(x + 32, y + 35, x + 32, y + 25, 4);
-        return;
-    }
-    if (app == APP_BINGO || app == APP_CONNECT4) {
-        for (int yy = 0; yy < 3; yy++)
-            for (int xx = 0; xx < 3; xx++) {
-                if (app == APP_CONNECT4)
-                    aa_disc(x + 8 + xx * 14, y + 8 + yy * 14, 5, xx == yy ? 0 : 160);
-                else {
-                    key_outline(x + 2 + xx * 14, y + 2 + yy * 14, 12, 12);
-                    if (xx == yy)
-                        disc(x + 8 + xx * 14, y + 8 + yy * 14, 3, 0);
-                }
-            }
-        return;
-    }
-    if (app == APP_RECIPES) {
-        ring(x + 24, y + 24, 15, 3);
-        ring(x + 24, y + 24, 9, 2);
-        stroke(x + 3, y + 4, x + 3, y + 38, 3);
-        for (int i = 0; i < 3; i++)
-            stroke(x + i * 3, y + 3, x + i * 3, y + 14, 2);
-        return;
-    }
-    if (app == APP_PERIODIC) {
-        aa_soft_rect(x + 3, y + 3, 38, 38, 4, 0);
-        ink_color = 255;
-        centered(x + 3, y + 7, 38, 30, "Fe", &small);
-        ink_color = 0;
-        return;
-    }
-    if (app == APP_FILES) {
-        icon(x, y, IC_FOLDER);
-        return;
-    }
-    if (app == APP_KNIGHTS) {
-        chess_piece(x, y, 2);
-        return;
-    }
-    if (app == APP_SOKOBAN) {
-        paper_tile17(x + 4, y + 3, 36, 3);
-        return;
-    }
-    if (app == APP_MAZE) {
-        for (int i = 0; i < 3; i++) {
-            stroke(x + 3 + i * 10, y + 3 + i * 6, x + 40 - i * 5, y + 3 + i * 6, 3);
-            stroke(x + 3 + i * 10, y + 3 + i * 6, x + 3 + i * 10, y + 40 - i * 5, 3);
-        }
-        return;
-    }
-    if (app == APP_CROSSWORD) {
-        for (int i = 0; i < 3; i++)
-            for (int k = 0; k < 3; k++)
-                if (i == 1 || k == 1)
-                    rect(x + 3 + i * 13, y + 3 + k * 13, 11, 11, 0);
-        return;
-    }
-    if (app == APP_RPG) {
-        stroke(x + 8, y + 37, x + 35, y + 6, 6);
-        stroke(x + 7, y + 27, x + 19, y + 39, 4);
-        stroke(x + 7, y + 38, x + 12, y + 33, 6);
-        return;
-    }
-    if (app == APP_LLM) {
-        aa_soft_rect(x + 3, y + 5, 38, 30, 7, 0);
-        stroke(x + 10, y + 35, x + 9, y + 42, 5);
-        for (int i = 0; i < 3; i++)
-            aa_disc(x + 12 + i * 10, y + 20, 2, 255);
-        return;
-    }
 }
 static int u16_apps_commit(int target, const char *text) {
     if (target == 171) {
@@ -1286,18 +1201,18 @@ static int u16_apps_draw(void) {
         wrapped(30, 140,
                 "Lesen → Material schließen → aus dem Gedächtnis erklären → vergleichen. Lade dein "
                 "Material über Connect hoch.",
-                &small, 540, 3);
+                ui_font(UI_BODY), 540, 3);
         button_h(28, 255, 260, 48, "25 min Fokus", 0);
         button_h(312, 255, 260, 48, "Abrufübung", 0);
         for (int r = 0; r < 5 && companion_page16 * 5 + r < files_count16; r++) {
             int i = companion_page16 * 5 + r, y = 332 + r * 67;
             region(28, y, 544, 62);
             icon(30, y + 8, IC_BOOK);
-            drawtext_raw(90, y + 14, file_names16[i], &small, 470);
+            drawtext_raw(90, y + 14, file_names16[i], ui_font(UI_BODY), 470);
             divider(28, y + 61, 544);
         }
         if (!files_count16)
-            wrapped(30, 375, "Noch kein Material. Connect → Lernen → Dateien hochladen.", &body,
+            wrapped(30, 375, "Noch kein Material. Connect → Lernen → Dateien hochladen.", ui_font(UI_PRIMARY),
                     540, 4);
         pager(679, &companion_page16, (files_count16 + 4) / 5);
         return 1;
@@ -1325,8 +1240,8 @@ static int u16_apps_draw(void) {
                 if (n == element_selected16)
                     rect(xx + 2, yy + 2, 28, 45, 0);
                 ink_color = n == element_selected16 ? 255 : 0;
-                drawtext_raw(xx + (32 - textwidth_raw(elements16[n - 1][0], &caption)) / 2, yy + 13,
-                             elements16[n - 1][0], &caption, 32);
+                drawtext_raw(xx + (32 - textwidth_raw(elements16[n - 1][0], ui_font(UI_SECONDARY))) / 2, yy + 13,
+                             elements16[n - 1][0], ui_font(UI_SECONDARY), 32);
                 ink_color = 0;
             }
         return 1;
@@ -1335,13 +1250,13 @@ static int u16_apps_draw(void) {
         heading_actions("Dateien", 1);
         icon_button(528, 74, IC_UP);
         ink_color = 120;
-        drawtext_raw(30, 136, files_dir16, &caption, 540);
+        drawtext_raw(30, 136, files_dir16, ui_font(UI_SECONDARY), 540);
         ink_color = 0;
         for (int r = 0; r < 8 && companion_page16 * 8 + r < files_count16; r++) {
             int i = companion_page16 * 8 + r, y = 182 + r * 62;
             region(28, y, 544, 58);
             icon(30, y + 7, file_dirs16[i] ? IC_FOLDER : IC_NOTE);
-            drawtext_raw(90, y + 13, file_names16[i], &small, 474);
+            drawtext_raw(90, y + 13, file_names16[i], ui_font(UI_BODY), 474);
             divider(28, y + 57, 544);
         }
         pager(715, &companion_page16, (files_count16 + 7) / 8);

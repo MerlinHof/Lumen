@@ -199,7 +199,7 @@ static void app_calendar(void) {
     char label[80];
     snprintf(label, sizeof(label), "%s %d", tr(months[calendar_month - 1]), calendar_year);
     region(92, 130, 416, 44);
-    centered(92, 130, 416, 44, label, &editorial);
+    centered(92, 130, 416, 44, label, ui_font(UI_TITLE));
     stroke(477, 149, 483, 155, 2);
     stroke(483, 155, 489, 149, 2);
     icon_button(28, 130, IC_PREV);
@@ -207,7 +207,7 @@ static void app_calendar(void) {
     const char *weekdays[] = {"Wochentag.Mo", "Wochentag.Di", "Wochentag.Mi", "Wochentag.Do",
                               "Wochentag.Fr", "Wochentag.Sa", "Wochentag.So"};
     for (int i = 0; i < 7; i++)
-        centered(27 + i * 78, 194, 78, 34, weekdays[i], &caption);
+        centered(27 + i * 78, 194, 78, 34, weekdays[i], ui_font(UI_SECONDARY));
     divider(28, 227, 544);
     struct tm first = {
         .tm_year = calendar_year - 1900, .tm_mon = calendar_month - 1, .tm_mday = 1, .tm_hour = 12};
@@ -224,7 +224,7 @@ static void app_calendar(void) {
         else if (calendar_year * 10000 + calendar_month * 100 + d == today)
             ring(x + 39, y + 24, 22, 2);
         ink_color = d == calendar_day ? 255 : (cell % 7 >= 5 ? 112 : 0);
-        centered(x, y, 78, 48, b, &small);
+        centered(x, y, 78, 48, b, ui_font(UI_BODY));
         ink_color = 0;
         int key = calendar_year * 10000 + calendar_month * 100 + d;
         if ((calendar_note_days & (1u << (d - 1))) || event_on16(key))
@@ -241,18 +241,18 @@ static void app_calendar(void) {
         char activity_label[100];
         snprintf(activity_label, sizeof(activity_label), "%s  ·  %u min", label,
                  activity->seconds / 60);
-        drawtext(30, 601, activity_label, &body, 375);
+        drawtext(30, 601, activity_label, ui_font(UI_PRIMARY), 375);
     } else
-        drawtext(30, 601, label, &body, 375);
-    wrapped_raw(30, 642, *calendar_note ? calendar_note : tr("Keine Tagesnotiz"), &caption, 370, 2);
+        drawtext(30, 601, label, ui_font(UI_PRIMARY), 375);
+    wrapped_raw(30, 642, *calendar_note ? calendar_note : tr("Keine Tagesnotiz"), ui_font(UI_SECONDARY), 370, 2);
 
     if (*calendar_note)
         icon_button(28, 681, IC_TRASH);
 }
 static void stat_card(int x, int y, const char *label, const char *value) {
     key_outline(x, y, 260, 108);
-    label_at(x + 15, y + 12, 230, 24, tr(label), &caption);
-    label_ellipsis(x + 15, y + 44, 230, 44, tr(value), &editorial, 0);
+    label_at(x + 15, y + 12, 230, 24, tr(label), ui_font(UI_SECONDARY));
+    label_ellipsis(x + 15, y + 44, 230, 44, tr(value), ui_font(UI_TITLE), 0);
 }
 static void app_restart(void) {
     icon_button(528, 74, IC_RESTART);
@@ -262,7 +262,7 @@ static void app_mines(void) {
     app_restart();
     char b[80];
     snprintf(b, sizeof(b), "%d / 12", mine_game.flags);
-    drawtext(30, 129, b, &small, 300);
+    drawtext(30, 129, b, ui_font(UI_BODY), 300);
     button_h(414, 122, 158, 36, mine_flags ? "Aufdecken" : "Fahne", mine_flags);
     for (int i = 0; i < 90; i++) {
         int x = 30 + (i % 9) * 60, y = 170 + (i / 9) * 58;
@@ -284,14 +284,14 @@ static void app_mines(void) {
             int n = mines_adjacent(&mine_game, i);
             if (n) {
                 snprintf(b, sizeof(b), "%d", n);
-                centered(x, y, 58, 56, b, &small);
+                centered(x, y, 58, 56, b, ui_font(UI_BODY));
             }
         }
     }
     centered(28, 755, 544, 42,
              mine_game.over ? (mine_game.won ? "Gewonnen!" : "Leider eine Mine.")
                             : "Tippen: aufdecken · Halten: markieren",
-             &caption);
+             ui_font(UI_SECONDARY));
 }
 static void app_hangman(void) {
     heading("Wortraten");
@@ -317,7 +317,7 @@ static void app_hangman(void) {
     for (int i = 0; i < len; i++) {
         char ch[2] = {word_game.word[i], 0};
         if (word_game.over || (word_game.guesses & (1u << (ch[0] - 'A'))))
-            centered(x + i * w, 365, w, 44, ch, &body);
+            centered(x + i * w, 365, w, 44, ch, ui_font(UI_PRIMARY));
         rect(x + i * w + 4, 414, w - 8, 2, 0);
     }
     for (int i = 0; i < 26; i++) {
@@ -326,21 +326,21 @@ static void app_hangman(void) {
         char key[2] = {(char)('A' + i), 0};
         if (word_game.guesses & (1u << i)) {
             rect(xx, y, 48, 48, 220);
-            centered(xx, y, 48, 48, key, &small);
+            centered(xx, y, 48, 48, key, ui_font(UI_BODY));
         } else
             button_h(xx, y, 48, 48, key, 0);
     }
     if (word_game.over && !word_game.won) {
         char solution[80];
         snprintf(solution, sizeof(solution), "%s: %s", tr("Das Wort war"), word_game.word);
-        centered(28, 626, 544, 40, solution, &body);
+        centered(28, 626, 544, 40, solution, ui_font(UI_PRIMARY));
     }
     centered(28, 690, 544, 48,
              word_game.over
                  ? (word_game.won ? "Gewonnen!" : "Neues Spiel über das Neustart-Symbol.")
              : options[OPT_LANGUAGE] == 3 ? "Ein Wort, sechs Versuche (Pinyin)"
                                           : "Ein Wort, sechs Versuche",
-             &small);
+             ui_font(UI_BODY));
 }
 static void board_tile(int x, int y, int size, int color) {
     rect(x + 1, y + 1, size - 2, size - 2, color);
@@ -372,21 +372,21 @@ static void app_blocks(void) {
                 }
     }
     char b[40];
-    drawtext(410, 211, "Punkte", &caption, 162);
+    drawtext(410, 211, "Punkte", ui_font(UI_SECONDARY), 162);
     snprintf(b, sizeof(b), "%d", block_game.score);
-    drawtext(410, 246, b, &body, 162);
-    drawtext(410, 309, "Linien", &caption, 162);
+    drawtext(410, 246, b, ui_font(UI_PRIMARY), 162);
+    drawtext(410, 309, "Linien", ui_font(UI_SECONDARY), 162);
     snprintf(b, sizeof(b), "%d", block_game.lines);
-    drawtext(410, 344, b, &body, 162);
-    drawtext(410, 407, "Als Nächstes", &caption, 162);
+    drawtext(410, 344, b, ui_font(UI_PRIMARY), 162);
+    drawtext(410, 407, "Als Nächstes", ui_font(UI_SECONDARY), 162);
     for (int y = 0; y < 4; y++)
         for (int x = 0; x < 4; x++)
             if (blocks_cell(block_game.next, 0, x, y))
                 board_tile(408 + x * 22, 452 + y * 22, 22, 0);
     if (block_game.paused || block_game.over) {
         rect(75, 334, 238, 100, 255);
-        centered(75, 345, 238, 50, block_game.over ? "Spiel beendet" : "Bereit?", &body);
-        centered(75, 395, 238, 30, "Start oben antippen", &caption);
+        centered(75, 345, 238, 50, block_game.over ? "Spiel beendet" : "Bereit?", ui_font(UI_PRIMARY));
+        centered(75, 395, 238, 30, "Start oben antippen", ui_font(UI_SECONDARY));
     }
     int kinds[] = {IC_PREV, IC_ROTATE, IC_NEXT, IC_DOWN};
     for (int i = 0; i < 4; i++) {
@@ -401,7 +401,7 @@ static void app_snake(void) {
     app_restart();
     char b[60];
     snprintf(b, sizeof(b), "%d  ·  %s %u", snake_game.score, tr("Rekord"), app_data.best_snake);
-    drawtext(30, 132, b, &small, 360);
+    drawtext(30, 132, b, ui_font(UI_BODY), 360);
     button_h(414, 124, 158, 40,
              snake_game.over     ? "Neu starten"
              : snake_game.paused ? "Start"
@@ -426,8 +426,8 @@ static void app_snake(void) {
     }
     if (snake_game.paused || snake_game.over) {
         rect(166, 329, 268, 98, 255);
-        centered(166, 337, 268, 44, snake_game.over ? "Spiel beendet" : "Bereit?", &body);
-        centered(166, 383, 268, 36, "Wischen oder Pfeile", &caption);
+        centered(166, 337, 268, 44, snake_game.over ? "Spiel beendet" : "Bereit?", ui_font(UI_PRIMARY));
+        centered(166, 383, 268, 36, "Wischen oder Pfeile", ui_font(UI_SECONDARY));
     }
     int x[] = {258, 153, 258, 363}, y[] = {677, 735, 735, 735},
         kind[] = {IC_UP, IC_PREV, IC_DOWN, IC_NEXT};

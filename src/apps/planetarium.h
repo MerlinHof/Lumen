@@ -91,7 +91,7 @@ static void sky_map(void) {
                 sky_py[i] = y;
                 disc(x, y, sky_stars[i].mag < 1 ? 3 : sky_stars[i].mag < 3 ? 2 : 1, 0);
                 if (sky_stars[i].mag < 1.1 && *sky_stars[i].name)
-                    drawtext_raw(x + 6, y - 8, sky_stars[i].name, &caption, 140);
+                    drawtext_raw(x + 6, y - 8, sky_stars[i].name, ui_font(UI_SECONDARY), 140);
             }
         }
         for (int i = 0; i < 535; i++)
@@ -113,13 +113,13 @@ static void sky_map(void) {
             int x = 300 - r * sin(a), y = 425 - r * cos(a);
             disc(x, y, 6, 255);
             ring(x, y, 6, 2);
-            drawtext_raw(x + 8, y - 11, tr(names[i]), &small, 130);
+            drawtext_raw(x + 8, y - 11, tr(names[i]), ui_font(UI_BODY), 130);
         }
     }
-    centered(280, 158, 40, 28, "N", &caption);
-    centered(280, 666, 40, 28, "S", &caption);
-    drawtext_raw(18, 413, "E", &caption, 30);
-    drawtext_raw(563, 413, "W", &caption, 30);
+    centered(280, 158, 40, 28, "N", ui_font(UI_SECONDARY));
+    centered(280, 666, 40, 28, "S", ui_font(UI_SECONDARY));
+    drawtext_raw(18, 413, "E", ui_font(UI_SECONDARY), 30);
+    drawtext_raw(563, 413, "W", ui_font(UI_SECONDARY), 30);
     if (sky_selected >= 0) {
         rect(45, 588, 510, 80, 255);
         key_outline(45, 588, 510, 80);
@@ -128,10 +128,10 @@ static void sky_map(void) {
             Astronomy_Constellation(sky_stars[sky_selected].ra, sky_stars[sky_selected].dec);
         char b[200];
         snprintf(b, 200, "%s · %s", *n ? n : "Star", c.status == ASTRO_SUCCESS ? c.name : "");
-        drawtext_raw(58, 599, b, &small, 484);
+        drawtext_raw(58, 599, b, ui_font(UI_BODY), 484);
         snprintf(b, 200, "RA %.2fh · Dec %.1f° · %.1f mag", sky_stars[sky_selected].ra,
                  sky_stars[sky_selected].dec, sky_stars[sky_selected].mag);
-        drawtext_raw(58, 631, b, &caption, 484);
+        drawtext_raw(58, 631, b, ui_font(UI_SECONDARY), 484);
     }
 }
 static void sky_draw(void) {
@@ -141,7 +141,7 @@ static void sky_draw(void) {
     snprintf(b, sizeof(b), "%02d.%02d.%04d %02d:%02d UTC · %.2f°, %.2f°", sky_config.day,
              sky_config.month, sky_config.year, sky_config.hour, sky_config.minute, sky_config.lat,
              sky_config.lon);
-    centered(20, 124, 560, 31, b, &caption);
+    centered(20, 124, 560, 31, b, ui_font(UI_SECONDARY));
     sky_map();
     const char *steps[] = {"+1 h", "+1 d", "+1 y", "+1000 y"};
     segments(83, 696, 434, 38, steps, 4, sky_step);
@@ -163,31 +163,31 @@ static void sky_settings_draw(void) {
     if (sky_panel == 0) {
         snprintf(b, sizeof(b), "%.4f, %.4f", sky_config.lat, sky_config.lon);
         button_h(28, 228, 544, 56, b, 0);
-        drawtext(30, 194, "Breitengrad, Längengrad", &caption, 540);
-        drawtext(30, 330, "Sternbild-Linien", &body, 450);
+        drawtext(30, 194, "Breitengrad, Längengrad", ui_font(UI_SECONDARY), 540);
+        drawtext(30, 330, "Sternbild-Linien", ui_font(UI_PRIMARY), 450);
         toggle(492, 330, sky_show_lines);
         wrapped(30, 430,
                 "Tippe einen Stern an, um Namen, Sternbild und Koordinaten zu sehen. Datum und "
                 "Uhrzeit sind UTC. Die Karte wird vollständig lokal berechnet.",
-                &small, 540, 5);
+                ui_font(UI_BODY), 540, 5);
         wrapped(30, 610,
                 "Zeitreise: 1 bis 12026. In ferner Zukunft ist die Sternkarte eine Näherung ohne "
                 "Eigenbewegung der Sterne.",
-                &caption, 540, 4);
+                ui_font(UI_SECONDARY), 540, 4);
     } else if (sky_panel == 1) {
         astro_time_t t = sky_time();
         astro_angle_result_t phase = Astronomy_MoonPhase(t);
         snprintf(b, sizeof(b), "%s: %.0f%%", tr("Mondbeleuchtung"),
                  phase.status == ASTRO_SUCCESS ? 50 * (1 - cos(phase.angle * .01745329252)) : 0);
-        drawtext_raw(30, 219, b, &body, 540);
+        drawtext_raw(30, 219, b, ui_font(UI_PRIMARY), 540);
         for (int i = 0; i < 4; i++) {
             double angle = i * 90;
             astro_search_result_t r = Astronomy_SearchMoonPhase(angle, t, 40);
             const char *name[] = {"Neumond", "Erstes Viertel", "Vollmond", "Letztes Viertel"};
-            drawtext(30, 290 + i * 87, name[i], &body, 540);
+            drawtext(30, 290 + i * 87, name[i], ui_font(UI_PRIMARY), 540);
             if (r.status == ASTRO_SUCCESS) {
                 sky_time_label(r.time, b, sizeof(b));
-                drawtext_raw(30, 326 + i * 87, b, &small, 540);
+                drawtext_raw(30, 326 + i * 87, b, ui_font(UI_BODY), 540);
             }
         }
         astro_search_result_t rise = Astronomy_SearchRiseSet(
@@ -195,8 +195,8 @@ static void sky_settings_draw(void) {
             t, 2);
         if (rise.status == ASTRO_SUCCESS) {
             sky_time_label(rise.time, b, sizeof(b));
-            drawtext(30, 650, "Nächster Sonnenaufgang", &caption, 540);
-            drawtext_raw(30, 682, b, &small, 540);
+            drawtext(30, 650, "Nächster Sonnenaufgang", ui_font(UI_SECONDARY), 540);
+            drawtext_raw(30, 682, b, ui_font(UI_BODY), 540);
         }
     } else {
         static const char *history[] = {
@@ -210,7 +210,7 @@ static void sky_settings_draw(void) {
             "including Mercury's orbital precession.",
             "1995 · 51 Pegasi b\nMayor and Queloz announce a planet orbiting a Sun-like star. "
             "Thousands of exoplanets follow."};
-        wrapped_raw(30, 230, history[v1_page % 5], &editorial, 540, 9);
+        wrapped_raw(30, 230, history[v1_page % 5], ui_font(UI_TITLE), 540, 9);
         pager(708, &v1_page, 5);
     }
 }
