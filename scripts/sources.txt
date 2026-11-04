@@ -26,3 +26,4 @@ system/unicode.c
 system/fonts.c
 apps/catalog.c
 apps/notifications/model.c
+apps/signal/engine.c

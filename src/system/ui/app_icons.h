@@ -258,6 +258,12 @@ static void app_icon(int x, int y, int app) {
         icon_box(x + 3, y + 8, 38, 28);
         rect(x + 6, y + 11, 32, 5, 0);
         break;
+    case APP_SIGNAL:
+        icon_box(x+14,y+15,16,25);
+        stroke(x+11,y+15,x+22,y+4,3);stroke(x+22,y+4,x+33,y+15,3);
+        disc(x+22,y+22,4,0);
+        stroke(x+6,y+21,x+2,y+18,3);stroke(x+38,y+21,x+42,y+18,3);
+        stroke(x+18,y+36,x+26,y+36,3);break;
     case APP_TAB_BAR:
         icon_box(x + 3, y + 8, 38, 28);
         for (int i = 0; i < 3; i++)

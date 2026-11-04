@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.3
+
+- Signal: an original local 3D exploration game with three beacons and a lighthouse objective.
+- Custom CPU triangle rasterizer, near clipping, depth buffer, directional light, projected shadows, material hatching and contour outlines.
+- Lightweight spatial antialiasing and filtered presentation; event-driven rendering with a cached display image.
+- Touch/swipe movement, collision, orientation map, instructions in DE/EN/FR and persistent progress.
+- Existing launcher order and visibility preserved when adding the app.
+
 ## 2.2
 
 - Compact cached system icons with preserved touch targets; corrected Back and reload arrow geometry.

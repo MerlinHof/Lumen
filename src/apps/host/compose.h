@@ -96,4 +96,5 @@
 #include "../recipes/app.h"
 #include "../openai/conversation.h"
 #include "../notifications/view.h"
+#include "../signal/view.h"
 // clang-format on

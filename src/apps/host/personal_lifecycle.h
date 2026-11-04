@@ -11,6 +11,14 @@ static void v1_init(void) {
     }
     launcher_count = APP_COUNT;
     int config[APP_COUNT * 2];
+    int previous[(APP_COUNT-1)*2];
+    if(load_blob("launcher-16.bin",previous,sizeof(previous))){
+        int good=1,seen[APP_COUNT]={0};
+        for(int i=0;i<APP_COUNT-1;i++)if(previous[i]<0||previous[i]>=APP_COUNT-1||seen[previous[i]]++)good=0;
+        if(good)for(int i=0;i<APP_COUNT-1;i++){
+            launcher_order[i]=previous[i];launcher_visible[i]=previous[i+APP_COUNT-1]!=0;
+        }
+    }
     if (load_blob("launcher-16.bin", config, sizeof(config))) {
         int good = 1, seen[APP_COUNT] = {0};
         for (int i = 0; i < APP_COUNT; i++)

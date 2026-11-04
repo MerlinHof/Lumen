@@ -1,5 +1,6 @@
 /* App view and event dispatch. System chrome stays in system/ui/chrome.h. */
 static void app_render(void) {
+    if(screen==129){signal_draw();return;}
     if (screen >= 60) {
         new_apps_draw();
         return;
@@ -70,6 +71,7 @@ static void app_render(void) {
 }
 static int app_handle_input(const Input *in) {
     int x = in->x, y = in->y, old = screen;
+    if(screen==129)return signal_input(in);
     if (screen >= 60)
         return new_apps_input(in);
 

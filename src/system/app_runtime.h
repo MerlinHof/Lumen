@@ -58,6 +58,7 @@ typedef enum {
     APP_CROSSWORD,
     APP_RPG,
     APP_LLM,
+    APP_SIGNAL,
     APP_COUNT
 } AppId;
 typedef enum { INTENT_OPEN, INTENT_BOOK, INTENT_SEARCH, INTENT_SETTINGS } IntentKind;

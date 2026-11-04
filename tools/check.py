@@ -17,6 +17,7 @@ def run(http=False,native_only=False):
     shutil.rmtree(OUT/'test-data',ignore_errors=True)
     binary=compile_test('integration','tests/test_integration.c',True);subprocess.run([str(binary)],check=True)
     binary=compile_test('fresh-settings','tests/test_fresh_settings.c');subprocess.run([str(binary)],check=True)
+    signal=OUT/'signal';subprocess.run(['clang','-O1','-g','-fsanitize=address,undefined','tests/test_signal.c','src/apps/signal/engine.c','-lm','-o',str(signal)],check=True);subprocess.run([str(signal)],check=True)
     if not native_only: subprocess.run([sys.executable,'tests/test_installation.py'],check=True)
     if http:
         binary=compile_test('http','tests/http_server.c');subprocess.run([sys.executable,'tests/test_http.py',str(binary)],check=True)

@@ -20,7 +20,19 @@
 
 ---
 
-## New in 2.2
+## New in 2.3 · Signal
+
+An original little 3D exploration game: relight three signal fires on a stone
+island and return to its lighthouse. A custom CPU triangle renderer gives the
+world an ink-and-paper style, with perspective, depth, directional light,
+projected shadows, outlines and lightweight post-process antialiasing. Move at
+your own pace; frames update only after an action and progress is saved locally.
+
+<img src="docs/images/signal.png" width="300" alt="Signal: an original monochrome 3D island game rendered natively">
+
+Includes the compact controls and dropdown corrections from 2.2.
+
+## UI refinement in 2.2
 
 Smaller system action icons with generous touch targets, repaired navigation
 arrows, icons in every dropdown, better Notes list alignment and a black Timer

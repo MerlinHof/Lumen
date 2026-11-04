@@ -328,3 +328,13 @@ enlarge toolbar icons when changing app identities. Keep arrow shafts joined to
 arrowheads and arc endpoints coherent. Dropdowns share option icons and a separate
 right-side selection tick; new action menus must provide meaningful semantics in
 `system/ui/dropdown_icons.h`, rather than drawing private menu rows.
+
+## Signal 3D game
+
+`apps/signal` owns its engine, model and view. Preserve event-driven rendering:
+no animation timer, permanent repaint loop or refresh-engine changes. Geometry
+uses near-plane clipping and perspective inverse depth; outlines and spatial AA
+are bounded post-processes. Cache the presented frame between actions. Game
+state is local personal data; launcher IDs stay append-only and old order files
+must remain readable when adding apps. Never describe host render timing as
+Kindle touch/display latency.

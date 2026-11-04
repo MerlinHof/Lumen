@@ -258,6 +258,7 @@ static void suit_icon(int, int, int);
 static void new_apps_init(void);
 static void new_apps_open(int route);
 static void new_apps_save(void);
+static void signal_save(void);
 static void new_apps_draw(void);
 static int new_apps_input(const Input *);
 static int new_apps_commit(int, const char *);
@@ -1129,6 +1130,7 @@ static int restore_anchor(const Book *book, int fallback, int bookmark) {
 }
 
 void ui_save(void) {
+    signal_save();
     games_save17();
     if (screen == 126)
         journal_store17();
@@ -2317,6 +2319,7 @@ static int annotations_write(void) {
 #include "../../apps/host/compose.h"
 
 static void app_leave(AppId app, void *ctx) {
+    if(app==APP_SIGNAL)signal_save();
     (void)ctx;
     games_save17();
     if (app == APP_JOURNAL)

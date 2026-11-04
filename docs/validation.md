@@ -1,4 +1,12 @@
-# Validation · LUMEN 2.2
+# Validation · LUMEN 2.3
+
+## Signal checks
+
+Focused ASan/UBSan tests cover deterministic rendering, all camera headings,
+movement, blocked boundaries/buildings, beacon activation and the victory state.
+A native demo render is included. Antialiasing is lightweight spatial edge
+filtering plus bilinear presentation, not temporal AA or full-scene supersampling.
+Physical input latency and E-Ink appearance still need on-device review.
 
 ## 2.1 scope and practical limits
 
