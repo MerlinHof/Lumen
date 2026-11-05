@@ -178,7 +178,7 @@ static void app_calculator(void) {
     char prefix[1024];
     snprintf(prefix, sizeof(prefix), "%.*s", calc_cursor - start, calc_expr + start);
     int cx = 43 + textwidth(prefix, ui_font(UI_BODY));
-    if (cx < 516 && cursor_visible) {
+    if (cx < 516 && editor_ui.cursor_visible) {
         text_caret(cx, input_y, ui_font(UI_BODY));
     }
     if (calc_memory != 0)

@@ -11,7 +11,7 @@ static double audit_clock(void) {
 }
 static void capture(const char *name) {
     notification_dismiss();
-    keyboard = dropdown = 0;
+    editor_ui.keyboard = dropdown = 0;
     double t = audit_clock();
     for (int i = 0; i < 8; i++)
         ui_draw();
@@ -63,9 +63,9 @@ int main(int argc, char **argv) {
         capture(name);
     }
     route_to(12);
-    wifi_enabled = 1;
+    wifi_ui.wifi_enabled = 1;
     wifi_count = 3;
-    snprintf(wifi_ssid, sizeof(wifi_ssid), "Home network");
+    snprintf(wifi_ui.wifi_ssid, sizeof(wifi_ui.wifi_ssid), "Home network");
     snprintf(wifi_networks[0].ssid, 128, "Home network");
     wifi_networks[0].saved = 1;
     snprintf(wifi_networks[1].ssid, 128, "A saved network");
@@ -83,7 +83,7 @@ int main(int argc, char **argv) {
             setting_category = cat;
             route_to(9);
             for (int pg = 0; pg < (cat == 1 ? 2 : 1); pg++) {
-                setting_page = pg;
+                settings_ui.setting_page = pg;
                 snprintf(name, 80, "settings-%d-%d-%d", lang, cat, pg);
                 capture(name);
             }
@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
     options[OPT_LANGUAGE] = 1;
     route_to(3);
     for (int p = 0; p < 2; p++) {
-        reading_page = p;
+        settings_ui.reading_page = p;
         char name[40];
         snprintf(name, 40, "reading-%d", p);
         capture(name);
@@ -131,9 +131,9 @@ int main(int argc, char **argv) {
     }
     capture("filled-news");
     route_to(10);
-    store_home = 0;
+    store_ui.store_home = 0;
     opds_count = 5;
-    opds_page = 0;
+    store_ui.opds_page = 0;
     for (int i = 0; i < 5; i++) {
         snprintf(opds_items[i].title, 256, "%s",
                  i % 2 ? "The Quiet Hours"
@@ -187,7 +187,7 @@ int main(int argc, char **argv) {
     capture("empty-folder");
     if (library_count) {
         ui_open(0);
-        reader_chrome = 1;
+        reader_ui.reader_chrome = 1;
         capture("reader-controls");
     }
     ui_close();

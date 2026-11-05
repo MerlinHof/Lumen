@@ -1,6 +1,6 @@
 static void improvements_tests(void) {
-    clip_active = 0;
-    keyboard = 0;
+    editor_ui.clip_active = 0;
+    editor_ui.keyboard = 0;
     route_to(27);
     memset(calc_expr, 'i', 70);
     calc_expr[70] = 0;
@@ -39,18 +39,18 @@ static void improvements_tests(void) {
     ui_draw();
     Input h = {.kind = INPUT_HOLD, .x = 28 + textwidth_raw("select ", &body), .y = 476};
     ui_input(&h);
-    assert(clip_active == 1);
+    assert(editor_ui.clip_active == 1);
     Input m = {.kind = INPUT_MOVE, .x = 28 + textwidth_raw("select these", &body), .y = 476};
     ui_input(&m);
-    assert(clip_active == 1 && clip_e > clip_s);
+    assert(editor_ui.clip_active == 1 && clip_e > clip_s);
     Input release = m;
     release.kind = INPUT_TAP;
     ui_input(&release);
-    assert(clip_active == 2);
+    assert(editor_ui.clip_active == 2);
     Input copy = {.kind = INPUT_TAP, .x = 100, .y = 380};
     ui_input(&copy);
     assert(!strcmp(clipboard_text, "these"));
-    keyboard = 0;
+    editor_ui.keyboard = 0;
     chat_clear();
     assert(chat_append(0, "Why read?") && chat_append(1, "A quiet place to think.") &&
            chat_append(0, "How do I start?"));

@@ -115,12 +115,12 @@ static int document_open(const char *title, const char *author, const char *sour
     snprintf(b->author, sizeof(b->author), "%s", author);
     snprintf(b->format, sizeof(b->format), "html");
     library_restore_state(b);
-    reader_document_active = 1;
+    reader_ui.reader_document_active = 1;
 
     if (history_count < 64 && (!history_count || history[history_count - 1] != origin))
         history[history_count++] = origin;
     if (!ui_open(BOOK_LIMIT)) {
-        reader_document_active = 0;
+        reader_ui.reader_document_active = 0;
         return 0;
     }
     return 1;
@@ -131,7 +131,7 @@ static int article_wiki_open(void) {
     const char *language[] = {"de", "en", "fr", "zh"};
     snprintf(
         source, sizeof(source), "https://%s.wikipedia.org/wiki/%s",
-        language[(wiki_article_language < 0 ? options[OPT_LANGUAGE] : wiki_article_language) % 4],
+        language[(wiki_ui.wiki_article_language < 0 ? options[OPT_LANGUAGE] : wiki_ui.wiki_article_language) % 4],
         discover_lookup_title());
     int ok=document_open(discover_lookup_title(), "Wikipedia", source, discover_lookup_text(),
                          wiki_image_available() ? image : NULL, 36, 1);

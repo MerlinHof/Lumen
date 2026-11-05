@@ -1,5 +1,5 @@
 static int calendar_draw16(void) {
-    if (screen != 21)
+    if (ui_route() != 21)
         return 0;
     calendar_parse16();
     if (calendar_view16 == 2) {

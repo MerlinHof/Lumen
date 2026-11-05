@@ -18,10 +18,10 @@ static void polish_notes(void) {
     u16_notes_defaults();
     const char *name = note_tree.current ? v1_folder_name(note_tree.current) : tr("Notizen");
     label_ellipsis(28, 74, note_tree.current ? 350 : 410, 44, name, ui_font(UI_TITLE), 0);
-    note_rename_x17 = 36 + (int)fmin(350, textwidth_raw(name, ui_font(UI_TITLE)));
+    notes_ui.note_rename_x17 = 36 + (int)fmin(350, textwidth_raw(name, ui_font(UI_TITLE)));
     if (note_tree.current) {
-        icon_button(note_rename_x17, 74, IC_EDIT);
-        u17_gray_icon(note_rename_x17, 74);
+        icon_button(notes_ui.note_rename_x17, 74, IC_EDIT);
+        u17_gray_icon(notes_ui.note_rename_x17, 74);
     }
     icon_button(468, 74, IC_FOLDER_PLUS);
     icon_button(528, 74, IC_NOTE_PLUS);
@@ -69,10 +69,10 @@ static int polish_notes_input(const Input *in) {
             extra_page = 0;
             extra_open(30);
             open_keyboard(30, "Notiz", "");
-            note_cursor = note_view_start = 0;
+            editor_ui.note_cursor = editor_ui.note_view_start = 0;
         } else if (x >= 456)
             open_keyboard(120, "Neuer Ordner", "");
-        else if (note_tree.current && x >= note_rename_x17 && x < note_rename_x17 + 44)
+        else if (note_tree.current && x >= notes_ui.note_rename_x17 && x < notes_ui.note_rename_x17 + 44)
             open_keyboard(162, "Ordner umbenennen", v1_folder_name(note_tree.current));
         return 1;
     }

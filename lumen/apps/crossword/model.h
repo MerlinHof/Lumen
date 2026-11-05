@@ -111,7 +111,7 @@ static void crossword_new16(unsigned seed) {
     char b[40];
     snprintf(b, 40, "%u", cross_seed16);
     extra_write_text("crossword-seed16.txt", b);
-    save_blob("crossword16.bin", crossword_answer16, sizeof(crossword_answer16));
+    app_state_save("crossword16.bin", crossword_answer16, sizeof(crossword_answer16));
 }
 static void crossword_draw16(void) {
     heading_actions("Kreuzworträtsel", 1);

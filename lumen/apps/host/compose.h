@@ -34,7 +34,7 @@
 #include "../chess/rules.h"
 #include "game_state.h"
 #include "../news/schedule.h"
-#include "blob_storage.h"
+#include "game_random.h"
 #include "game_lifecycle.h"
 #include "../2048/view.h"
 #include "../solitaire/view.h"
@@ -96,6 +96,4 @@
 #include "../recipes/app.h"
 #include "../openai/conversation.h"
 #include "../notifications/view.h"
-#include "../slide_3d/view.h"
-#include "../frog/view.h"
 // clang-format on

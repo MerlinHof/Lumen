@@ -19,12 +19,12 @@ static void type_centered(int x, int y, int w, int h, const char *text, TextRole
 }
 /* Crisp offset edges add depth without gradients or screen animation. */
 static void raised_surface(int x, int y, int w, int h) {
-    rect(x + 3, y + 4, w, h, UI_SHADOW);
-    rect(x, y, w, h, UI_PAPER);
-    key_outline(x, y, w, h);
+    control_surface(x + 3, y + 4, w, h, 15, UI_SHADOW);
+    control_surface(x, y, w, h, 15, UI_INK);
+    control_surface(x + 2, y + 2, w - 4, h - 4, 13, UI_PAPER);
 }
 static void action_button(int x, int y, int w, int h, const char *text) {
     region(x, y, w, h);
-    aa_soft_rect(x, y, w, h, 9, UI_INK);
+    control_surface(x, y, w, h, 12, UI_INK);
     type_centered(x, y, w, h, text, UI_INVERSE);
 }

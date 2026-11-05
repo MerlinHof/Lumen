@@ -5,10 +5,10 @@ static void clock_face(int fullscreen) {
     localtime_r(&now, &t);
     int cy = fullscreen ? 390 : 355;
     int r = fullscreen ? 220 : 168;
-    if (clock_style < 2) {
-        if (!clock_style) ring(300, cy, r, 3);
+    if (clock_ui.clock_style < 2) {
+        if (!clock_ui.clock_style) ring(300, cy, r, 3);
         for (int i = 0; i < 60; i++) {
-            if (clock_style && i % 5) continue;
+            if (clock_ui.clock_style && i % 5) continue;
             double a = i * 6 * .01745329252;
             int inner = r - (i % 5 ? 13 : 25);
             stroke(300 + sin(a)*inner, cy - cos(a)*inner,
@@ -21,7 +21,7 @@ static void clock_face(int fullscreen) {
     } else {
         char text[24];
         strftime(text, sizeof(text), "%H:%M", &t);
-        if (clock_style == 3) {
+        if (clock_ui.clock_style == 3) {
             aa_soft_rect(60, cy-83, 480, 166, 20, 0);
             int ink = ink_color;
             ink_color = 255;
@@ -42,7 +42,7 @@ static void app_timer(void) {
     char b[80];
     if (!timer_panel) {
         static const char *styles[] = {"Klassisch", "Minimal", "Digital", "Digital · Dunkel"};
-        dropdown_button(28, 137, 250, 44, styles[clock_style]);
+        dropdown_button(28, 137, 250, 44, styles[clock_ui.clock_style]);
         icon_button(528, 137, IC_FULLSCREEN);
         clock_face(0);
         return;

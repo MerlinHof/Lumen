@@ -1,28 +1,28 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 static void chapters_screen(void) {
-    heading(chaptertab ? "Lesezeichen" : "Inhalt");
+    heading(reader_ui.chaptertab ? "Lesezeichen" : "Inhalt");
     const char *tabs[] = {"Kapitel", "Lesezeichen"};
-    segments(28, 145, 544, 48, tabs, 2, chaptertab);
-    int count = chaptertab ? library[selected].bookmark_count : chapter_count;
-    for (int r = 0; r < 8 && chapterpage * 8 + r < count; r++) {
-        int i = chapterpage * 8 + r;
+    segments(28, 145, 544, 48, tabs, 2, reader_ui.chaptertab);
+    int count = reader_ui.chaptertab ? library[selected].bookmark_count : reader_ui.chapter_count;
+    for (int r = 0; r < 8 && reader_ui.chapterpage * 8 + r < count; r++) {
+        int i = reader_ui.chapterpage * 8 + r;
         char b[280];
-        if (chaptertab)
+        if (reader_ui.chaptertab)
             snprintf(b, sizeof(b), tr("Seite %d"), library[selected].bookmarks[i] + 1);
         else
-            snprintf(b, sizeof(b), tr("%s"), chapters[i].title);
+            snprintf(b, sizeof(b), tr("%s"), reader_ui.chapters[i].title);
         region(28, 213 + r * 57, 544, 56);
-        drawtext(30 + (chaptertab ? 0 : chapters[i].depth * 12), 218 + r * 57, b, ui_font(UI_PRIMARY), 530);
+        drawtext(30 + (reader_ui.chaptertab ? 0 : reader_ui.chapters[i].depth * 12), 218 + r * 57, b, ui_font(UI_PRIMARY), 530);
         rect(28, 265 + r * 57, 544, 1, 210);
     }
     if (!count)
         drawtext(30, 260,
-                 chaptertab ? "Noch keine Lesezeichen." : "Kein Inhaltsverzeichnis vorhanden.",
+                 reader_ui.chaptertab ? "Noch keine Lesezeichen." : "Kein Inhaltsverzeichnis vorhanden.",
                  ui_font(UI_PRIMARY), 540);
     button(28, 678, 150, "Lesen", 0);
-    if (chapterpage > 0)
+    if (reader_ui.chapterpage > 0)
         button(205, 678, 165, "Zurück", 0);
-    if ((chapterpage + 1) * 8 < count)
+    if ((reader_ui.chapterpage + 1) * 8 < count)
         button(398, 678, 174, "Weiter", 0);
 }
 static void menu(void) {

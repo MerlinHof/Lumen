@@ -1,10 +1,10 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 static void new_apps_draw(void) {
-    if (screen >= 70) {
+    if (ui_route() >= 70) {
         v1_draw();
         return;
     }
-    switch (screen) {
+    switch (ui_route()) {
     case 60:
         sensor_graph_screen();
         break;
@@ -66,10 +66,10 @@ static int new_apps_commit(int target, const char *text) {
     return 0;
 }
 static int new_apps_input(const Input *in) {
-    if (screen >= 70)
+    if (ui_route() >= 70)
         return v1_input(in);
     int x = in->x, y = in->y;
-    if (screen == 63 && in->kind == INPUT_SWIPE) {
+    if (ui_route() == 63 && in->kind == INPUT_SWIPE) {
         int dir = abs(in->dx) > abs(in->dy) ? (in->dx < 0 ? 0 : 1) : (in->dy < 0 ? 2 : 3);
         if (tiles_move(&tile_game, dir)) {
             new_dirty |= 1;
@@ -77,7 +77,7 @@ static int new_apps_input(const Input *in) {
         }
         return 1;
     }
-    if (screen == 67 && in->kind == INPUT_SWIPE) {
+    if (ui_route() == 67 && in->kind == INPUT_SWIPE) {
         int total = newspaper.count + 2;
         if (in->dx < 0 && news_page + 1 < total)
             news_page++;
@@ -87,13 +87,13 @@ static int new_apps_input(const Input *in) {
     }
     if (in->kind != INPUT_TAP)
         return 2;
-    if (screen == 60) {
+    if (ui_route() == 60) {
         if (y >= 716 && y < 764) {
             ha_plot_hours = x < 210 ? 1 : x < 390 ? 6 : 24;
         }
         return 1;
     }
-    if (screen == 61) {
+    if (ui_route() == 61) {
         if (y >= 128 && y < 178)
             open_keyboard(80, "y = f(x)", calc_expr);
         else if (y >= 220 && y < 647 && x >= 66 && x < 558)
@@ -118,7 +118,7 @@ static int new_apps_input(const Input *in) {
         }
         return 1;
     }
-    if (screen == 62) {
+    if (ui_route() == 62) {
         if (y >= 165 && y < 549) {
             int i = (y - 165) / 108;
             if (i < 4) {
@@ -130,7 +130,7 @@ static int new_apps_input(const Input *in) {
             extra_return(61);
         return 1;
     }
-    if (screen == 63) {
+    if (ui_route() == 63) {
         new_dirty |= 1;
         if (y >= 74 && y < 118) {
             if (x >= 516)
@@ -148,7 +148,7 @@ static int new_apps_input(const Input *in) {
         new_apps_save();
         return 1;
     }
-    if (screen == 64) {
+    if (ui_route() == 64) {
         new_dirty |= 2;
         if (y >= 74 && y < 118) {
             if (x >= 516)
@@ -193,7 +193,7 @@ static int new_apps_input(const Input *in) {
         new_apps_save();
         return 1;
     }
-    if (screen == 65) {
+    if (ui_route() == 65) {
         new_dirty |= 4;
         if (y >= 74 && y < 118 && x >= 516) {
             sudoku_new(&sudoku, pro_random(), sudoku.difficulty);
@@ -217,13 +217,13 @@ static int new_apps_input(const Input *in) {
         new_apps_save();
         return 1;
     }
-    if (screen == 66) {
+    if (ui_route() == 66) {
         return polish_brain_input(in);
     }
-    if (screen == 67) {
+    if (ui_route() == 67) {
         return polish_news_input(in);
     }
-    if (screen == 68) {
+    if (ui_route() == 68) {
         if (y >= 142 && y < 142 + 6 * 74 && x >= 460) {
             int i = (y - 142) / 74;
             if (i < 6) {

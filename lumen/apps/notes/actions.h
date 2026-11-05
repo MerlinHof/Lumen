@@ -18,8 +18,8 @@ static void u17_notes_up(void) {
     tree_page = 0;
 }
 static void u17_notes_menu(int kind, int id, int y) {
-    notes_kind17 = kind;
-    notes_id17 = id;
+    notes_ui.notes_kind17 = kind;
+    notes_ui.notes_id17 = id;
     static const char *actions[] = {"Verschieben", "Löschen"};
     open_dropdown(932, actions, 2, -1, 328, y + 46, 244);
 }

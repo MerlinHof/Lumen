@@ -103,6 +103,12 @@ int app_runtime_tab(const AppRuntime *rt);
 void app_view_register(AppId id, void (*draw)(void), int (*input)(const Input *));
 int app_view_draw(AppId id);
 int app_view_input(AppId id, const Input *input);
+void app_page_register(AppId id, void (*draw)(void), int (*input)(const Input *),
+                       void (*checkpoint)(void));
+int app_page_draw(int route);
+int app_page_input(int route, const Input *input);
+void app_page_checkpoint(AppId id);
+void app_pages_checkpoint(void);
 /* Named, non-navigating app endpoints (overlays and component apps). */
 typedef int (*AppReceiver)(const void *payload,size_t bytes,int64_t now);
 int app_endpoint_register(const char *name,AppReceiver receive);

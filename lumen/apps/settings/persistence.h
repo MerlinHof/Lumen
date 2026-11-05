@@ -21,9 +21,9 @@ static void u16_load(void) {
                 auto_sleep_minutes = n;
         free(s);
     }
-    load_blob("task-categories16.bin", task_categories16, sizeof(task_categories16));
+    app_state_load("task-categories16.bin", todo_ui.task_categories16, sizeof(todo_ui.task_categories16));
     for (int i = 0; i < 256; i++)
-        task_categories16[i][63] = 0;
+        todo_ui.task_categories16[i][63] = 0;
     s = service_read("calc-precision16.txt", 20);
     if (s) {
         int n = atoi(s);

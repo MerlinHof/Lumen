@@ -323,7 +323,7 @@ static int recipes_fetch17(const char *unused) {
 }
 static void recipes_open_ready17(void) {
     recipe_archive16();
-    if (screen != 114)
+    if (ui_route() != 114)
         return;
     char path[4096];
     snprintf(path, sizeof(path), "%s/recipe-archive16/%s.html", data_root, selected_recipe17.id);
@@ -332,7 +332,7 @@ static void recipes_open_ready17(void) {
                  selected_recipe17.title);
 }
 static int recipes_draw17(void) {
-    if (screen != 114)
+    if (ui_route() != 114)
         return 0;
     heading_actions("Rezepte", 2);
     search_action();
@@ -363,7 +363,7 @@ static int recipes_draw17(void) {
     return 1;
 }
 static int recipes_input17(const Input *in) {
-    if (screen != 114 || in->kind != INPUT_TAP)
+    if (ui_route() != 114 || in->kind != INPUT_TAP)
         return -1;
     int x = in->x, y = in->y;
     if (search_action_hit(x, y)) {
@@ -408,7 +408,7 @@ static int recipes_input17(const Input *in) {
 }
 
 static int recipes_back(void) {
-    if (screen != 114 || !recipe_search16)
+    if (ui_route() != 114 || !recipe_search16)
         return 0;
     recipe_search16 = 0;
     companion_page16 = 0;

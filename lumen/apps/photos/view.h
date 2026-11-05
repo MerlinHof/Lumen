@@ -109,7 +109,7 @@ static void polish_photos_grid(void) {
     pager(746, &photo_page, (photo_count + 15) / 16);
 }
 static int polish_photo_full(void) {
-    return screen == 72 && photo_fill && !photo_controls && !v1_delete && !power_menu;
+    return ui_route() == 72 && photo_fill && !photo_controls && !v1_delete && !power_menu;
 }
 static void photo_page_move(int delta) {
     photo_selected += delta;

@@ -103,12 +103,12 @@ static void quality_tests(void) {
     assert(snapshot == weather_snapshot);
     extra_prepare(32);
     assert(!weather_snapshot_valid);
-    route_to(27);keyboard=0;alarm_ring=power_menu=0;
+    route_to(27);editor_ui.keyboard=0;alarm_ring=power_menu=0;
     ui_message("Notification test");ui_draw();
     Input down={.kind=INPUT_DOWN,.x=550,.y=95},up=down;up.kind=INPUT_TAP;
-    ui_input(&down);ui_input(&up);assert(screen==27 && !*notification_text());
+    ui_input(&down);ui_input(&up);assert(ui_route()==27 && !*notification_text());
     ui_message("Capture test");ui_draw();ui_input(&down);
-    notification_dismiss();up.x=300;up.y=600;ui_input(&up);assert(screen==27);
+    notification_dismiss();up.x=300;up.y=600;ui_input(&up);assert(ui_route()==27);
     assert(image_contrast(128)==128 && image_contrast(80)<80 && image_contrast(180)>180);
     /* Cached compact icons must never damage the framebuffer scratch area. */
     memset(ui_pixels,237,sizeof(ui_pixels));

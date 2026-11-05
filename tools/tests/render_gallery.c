@@ -46,7 +46,7 @@ int main(void) {
     if (library_count) {
         ui_open(0);
         page = engine_count() > 1 ? 1 : 0;
-        reader_chrome = 0;
+        reader_ui.reader_chrome = 0;
         picture("reader");
     }
     route_to(29);
@@ -57,10 +57,10 @@ int main(void) {
     route_to(30);
     picture("notes");
     open_keyboard(30, "Note", note_text);
-    note_cursor = strlen(edit);
+    editor_ui.note_cursor = strlen(editor_ui.edit);
     picture("keyboard");
-    keyboard = 0;
-    keyboard = 0;
+    editor_ui.keyboard = 0;
+    editor_ui.keyboard = 0;
     note_selected = -1;
     extra_commit(30, "Small things worth keeping\n\nA page. A walk. An unhurried morning.");
     note_tree.current = 0;
@@ -68,7 +68,7 @@ int main(void) {
     picture("notes-list");
     task_count = 3;
     task_tab = task_board = task_page = 0;
-    task_context16[0] = 0;
+    todo_ui.task_context16[0] = 0;
     snprintf(tasks[0].title, 200, "Read one chapter\nLeave a sentence in the journal");
     tasks[0].state = 0;
     snprintf(tasks[1].title, 200, "Try a recipe for the weekend");
@@ -88,10 +88,10 @@ int main(void) {
     chat_page = 0;
     picture("chat");
     route_to(12);
-    wifi_enabled = 1;
+    wifi_ui.wifi_enabled = 1;
     wifi_count = 3;
-    wifi_page = 0;
-    snprintf(wifi_ssid, sizeof(wifi_ssid), "Home network");
+    wifi_ui.wifi_page = 0;
+    snprintf(wifi_ui.wifi_ssid, sizeof(wifi_ui.wifi_ssid), "Home network");
     snprintf(wifi_networks[0].ssid, sizeof(wifi_networks[0].ssid), "Home network");
     wifi_networks[0].saved = 1;
     snprintf(wifi_networks[1].ssid, sizeof(wifi_networks[1].ssid), "A saved network");

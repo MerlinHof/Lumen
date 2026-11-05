@@ -12,7 +12,7 @@ static void v1_init(void) {
     launcher_count = APP_COUNT;
     int config[APP_COUNT * 2];
     for (int old_count = APP_FROG; old_count >= APP_SIGNAL; old_count--) {
-        if (!load_blob("launcher-16.bin", config, sizeof(int) * old_count * 2))
+        if (!app_state_load("launcher-16.bin", config, sizeof(int) * old_count * 2))
             continue;
         int good = 1, seen[APP_COUNT] = {0};
         for (int i = 0; i < old_count; i++)
@@ -25,7 +25,7 @@ static void v1_init(void) {
             }
         break;
     }
-    if (load_blob("launcher-16.bin", config, sizeof(config))) {
+    if (app_state_load("launcher-16.bin", config, sizeof(config))) {
         int good = 1, seen[APP_COUNT] = {0};
         for (int i = 0; i < APP_COUNT; i++)
             if (config[i] < 0 || config[i] >= APP_COUNT || seen[config[i]]++)
@@ -50,7 +50,7 @@ static void v1_init(void) {
             launcher_order[APP_COUNT - 2] = APP_DRAWING;
             break;
         }
-    load_blob("note-tree-1.bin", &note_tree, sizeof(note_tree));
+    app_state_load("note-tree-1.bin", &note_tree, sizeof(note_tree));
     if (note_tree.nf < 0 || note_tree.nf > 512 || note_tree.np < 0 || note_tree.np > 1024)
         memset(&note_tree, 0, sizeof(note_tree));
     note_tree.current = 0;
@@ -59,14 +59,14 @@ static void v1_init(void) {
         if (note_tree.folder[i].parent == note_tree.folder[i].id)
             note_tree.folder[i].parent = 0;
     }
-    if (load_blob("tasks-1.bin", tasks, sizeof(tasks)))
+    if (app_state_load("tasks-1.bin", tasks, sizeof(tasks)))
         for (int i = 0; i < 256; i++) {
             tasks[i].title[199] = 0;
             if (*tasks[i].title)
                 task_count = i + 1;
             tasks[i].state = tasks[i].state >= 0 && tasks[i].state < 3 ? tasks[i].state : 0;
         }
-    if (load_blob("flashcards-1.bin", flashcards, sizeof(flashcards)))
+    if (app_state_load("flashcards-1.bin", flashcards, sizeof(flashcards)))
         for (int i = 0; i < 512; i++) {
             flashcards[i].front[511] = flashcards[i].back[1023] = flashcards[i].deck[63] = 0;
             if (*flashcards[i].front)
@@ -76,11 +76,11 @@ static void v1_init(void) {
                 m->stability > 36500 || m->difficulty < 0 || m->difficulty > 10 || m->due < 0)
                 memset(m, 0, sizeof(*m));
         }
-    load_blob("wordle-1.bin", &wordle_game, sizeof(wordle_game));
+    app_state_load("wordle-1.bin", &wordle_game, sizeof(wordle_game));
     if (wordle_game.row < 0 || wordle_game.row > 6)
         memset(&wordle_game, 0, sizeof(wordle_game));
     unsigned char hex_saved[123];
-    if (load_blob("hex-1.bin", hex_saved, sizeof(hex_saved))) {
+    if (app_state_load("hex-1.bin", hex_saved, sizeof(hex_saved))) {
         int good = 1;
         for (int i = 0; i < 121; i++)
             if (hex_saved[i] > 2)
@@ -100,7 +100,7 @@ static void v1_init(void) {
         free(duration);
     }
     unsigned char nono[51];
-    if (load_blob("nonogram-1.bin", nono, sizeof(nono))) {
+    if (app_state_load("nonogram-1.bin", nono, sizeof(nono))) {
         int valid = nono[50] < 2;
         for (int i = 0; i < 25; i++)
             if (nono[i] > 1 || nono[i + 25] > 2)
@@ -113,7 +113,7 @@ static void v1_init(void) {
         }
     }
     int lp[5];
-    if (load_blob("language-1.bin", lp, sizeof(lp)) && lp[0] >= 0 && lp[0] < 3 && lp[1] >= 0 &&
+    if (app_state_load("language-1.bin", lp, sizeof(lp)) && lp[0] >= 0 && lp[0] < 3 && lp[1] >= 0 &&
         lp[1] < 24 && lp[2] >= 0 && lp[3] >= lp[2]) {
         lang_pair = lp[0];
         lang_index = lp[1];
@@ -130,25 +130,25 @@ static void v1_save(void) {
         cfg[i] = launcher_order[i];
         cfg[i + APP_COUNT] = launcher_visible[i];
     }
-    save_blob("launcher-16.bin", cfg, sizeof(cfg));
-    save_blob("note-tree-1.bin", &note_tree, sizeof(note_tree));
-    save_blob("tasks-1.bin", tasks, sizeof(tasks));
-    save_blob("flashcards-1.bin", flashcards, sizeof(flashcards));
-    save_blob("wordle-1.bin", &wordle_game, sizeof(wordle_game));
+    app_state_save("launcher-16.bin", cfg, sizeof(cfg));
+    app_state_save("note-tree-1.bin", &note_tree, sizeof(note_tree));
+    app_state_save("tasks-1.bin", tasks, sizeof(tasks));
+    app_state_save("flashcards-1.bin", flashcards, sizeof(flashcards));
+    app_state_save("wordle-1.bin", &wordle_game, sizeof(wordle_game));
     unsigned char h[123];
     memcpy(h, hex_board, 121);
     h[121] = hex_turn;
     h[122] = hex_swap;
-    save_blob("hex-1.bin", h, sizeof(h));
+    app_state_save("hex-1.bin", h, sizeof(h));
     if (nono_ready) {
         unsigned char n[51];
         memcpy(n, nono_solution, 25);
         memcpy(n + 25, nono_cells, 25);
         n[50] = nono_mark;
-        save_blob("nonogram-1.bin", n, sizeof(n));
+        app_state_save("nonogram-1.bin", n, sizeof(n));
     }
     int lp[5] = {lang_pair, lang_index, lang_correct, lang_total, 0};
-    save_blob("language-1.bin", lp, sizeof(lp));
+    app_state_save("language-1.bin", lp, sizeof(lp));
     v1_dirty = 0;
 }
 #include "../../system/ui/app_icons.h"

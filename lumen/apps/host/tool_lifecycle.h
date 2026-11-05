@@ -30,8 +30,8 @@ static void extra_init(void) {
     extra_load_text("tools-settings.txt", b, sizeof(b));
     long long due = 0;
     sscanf(b, "%d %d %d %d %lld %d %d", &alarm_hour, &alarm_minute, &alarm_enabled, &timer_minutes,
-           &due, &reading_goal, &clock_style);
-    if (clock_style < 0 || clock_style > 3) clock_style = 0;
+           &due, &reading_goal, &clock_ui.clock_style);
+    if (clock_ui.clock_style < 0 || clock_ui.clock_style > 3) clock_ui.clock_style = 0;
     if (alarm_hour < 0 || alarm_hour > 23)
         alarm_hour = 7;
     if (alarm_minute < 0 || alarm_minute > 59)
@@ -92,15 +92,15 @@ static void extra_save(void) {
     long long due =
         timer_due ? (long long)time(NULL) + (timer_due - extra_millis() + 999) / 1000 : 0;
     snprintf(b, sizeof(b), "%d %d %d %d %lld %d %d\n", alarm_hour, alarm_minute, alarm_enabled,
-             timer_minutes, due, reading_goal, clock_style);
+             timer_minutes, due, reading_goal, clock_ui.clock_style);
     extra_write_text("tools-settings.txt", b);
     snprintf(b, sizeof(b), "%lld", (long long)timer_paused);
     extra_write_text("timer-paused.txt", b);
 }
 static void storage_scan(void);
 static void extra_open(int target) {
-    if (history_count < 64 && (!history_count || history[history_count - 1] != screen))
-        history[history_count++] = screen;
+    if (history_count < 64 && (!history_count || history[history_count - 1] != ui_route()))
+        history[history_count++] = ui_route();
     route_to(target);
     extra_prepare(target);
 }
@@ -174,18 +174,18 @@ static void extra_timer_label(char *out, int cap) {
     }
 }
 static int extra_poll(void) {
-    if (keyboard || screen == 27 || *notification_text())
+    if (editor_ui.keyboard || ui_route() == 27 || *notification_text())
         return 500;
-    if (screen == 36 && *discover_lookup_image() && !wiki_image_available() &&
+    if (ui_route() == 36 && *discover_lookup_image() && !wiki_image_available() &&
         wiki_image_attempts < 3)
         return 1000;
     if (service_busy() || service_history_busy() || discover_busy())
         return 250;
-    if (screen == 33 || screen == 60)
+    if (ui_route() == 33 || ui_route() == 60)
         return 500;
     if (timer_due || alarm_enabled)
         return 1000;
-    if (screen == 28)
+    if (ui_route() == 28)
         return 1000;
     int wait = -1;
     if (options[OPT_AUTO_TIME]) {
@@ -196,7 +196,7 @@ static int extra_poll(void) {
             seconds = 86401;
         wait = (int)seconds * 1000;
     }
-    if (options[OPT_CLOCK] && (screen != 2 || reader_chrome)) {
+    if (options[OPT_CLOCK] && (ui_route() != 2 || reader_ui.reader_chrome)) {
         time_t now = time(NULL);
         struct tm t;
         localtime_r(&now, &t);
@@ -212,12 +212,12 @@ static int extra_tick(void) {
         weather_snapshot_valid = 0;
     changed |= notification_tick(extra_millis());
 
-    if ((keyboard || screen == 27) && extra_millis() - cursor_epoch >= 600) {
-        cursor_epoch = extra_millis();
-        cursor_visible ^= 1;
+    if ((editor_ui.keyboard || ui_route() == 27) && extra_millis() - editor_ui.cursor_epoch >= 600) {
+        editor_ui.cursor_epoch = extra_millis();
+        editor_ui.cursor_visible ^= 1;
         changed = 1;
     }
-    if (screen == 36 && !discover_busy() && !service_busy() && *discover_lookup_image() &&
+    if (ui_route() == 36 && !discover_busy() && !service_busy() && *discover_lookup_image() &&
         (strcmp(wiki_image_requested, discover_lookup_image()) ||
          (!wiki_image_available() && wiki_image_attempts < 3 &&
           time(NULL) >= wiki_image_retry_at))) {
@@ -235,7 +235,7 @@ static int extra_tick(void) {
     if (wiki_reader_pending &&
         (done == SERVICE_WIKI_IMAGE || done == -SERVICE_WIKI_IMAGE || !service_busy())) {
         wiki_reader_pending = 0;
-        if (screen == 36)
+        if (ui_route() == 36)
             article_wiki_open();
     }
     polish_wiki_archive();
@@ -256,11 +256,11 @@ static int extra_tick(void) {
             service_start(SERVICE_HA, ha_url, ha_token, "");
         else if (done == SERVICE_TIME) {
             last_sync = time(NULL);
-            status_time = 0;
+            status_ui.status_time = 0;
             ui_message("Uhrzeit synchronisiert.");
         }
     }
-    if ((screen == 33 || screen == 60) && !ha_select && !service_busy()) {
+    if ((ui_route() == 33 || ui_route() == 60) && !ha_select && !service_busy()) {
         if (ha_refresh_at > time(NULL) + 5)
             ha_refresh_at = time(NULL);
         if (time(NULL) >= ha_refresh_at && *ha_url && *ha_token) {
@@ -298,7 +298,7 @@ static int extra_tick(void) {
             last_sync = now - 86340;
     }
     static time_t hud_minute;
-    if (options[OPT_CLOCK] && (screen != 2 || reader_chrome) && now / 60 != hud_minute) {
+    if (options[OPT_CLOCK] && (ui_route() != 2 || reader_ui.reader_chrome) && now / 60 != hud_minute) {
         hud_minute = now / 60;
         changed = 1;
     }
@@ -307,13 +307,13 @@ static int extra_tick(void) {
     if (changed)
         return 1;
     if (timer_due || alarm_enabled) {
-        if (screen == 28 || minute != previous_minute) {
+        if (ui_route() == 28 || minute != previous_minute) {
             previous_minute = minute;
-            return screen == 2 && !reader_chrome ? 2 : 1;
+            return ui_route() == 2 && !reader_ui.reader_chrome ? 2 : 1;
         }
         return 2;
     }
-    if (screen == 33 || screen == 60)
+    if (ui_route() == 33 || ui_route() == 60)
         return 2;
     return 0;
 }

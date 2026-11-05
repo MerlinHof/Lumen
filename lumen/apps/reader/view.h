@@ -7,9 +7,9 @@ static void reader(void) {
         ui_message("Dieses Buch konnte nicht geöffnet oder dargestellt werden.");
     annotations_draw();
     rect(0, 744, 600, 56, 255);
-    if (!reader_chrome)
+    if (!reader_ui.reader_chrome)
         u15_reader_progress();
-    if (reader_chrome) {
+    if (reader_ui.reader_chrome) {
         rect(0, 48, 600, 116, 255);
         label_ellipsis(28, 56, 544, 36, library[selected].title, ui_font(UI_PRIMARY), 0);
         label_ellipsis(29, 56, 543, 36, library[selected].title, ui_font(UI_PRIMARY), 0);

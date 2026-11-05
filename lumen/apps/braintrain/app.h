@@ -13,7 +13,7 @@ static void brain_init(void) {
     if (brain_ready)
         return;
     brain_ready = 1;
-    if (!load_blob("braintrain-1.1.bin", &brain_stats, sizeof(brain_stats))) {
+    if (!app_state_load("braintrain-1.1.bin", &brain_stats, sizeof(brain_stats))) {
         memset(&brain_stats, 0, sizeof(brain_stats));
         brain_stats.sessions = focus_stats.sessions;
         for (int i = 0; i < 30; i++) {
@@ -163,7 +163,7 @@ static void brain_feedback(int correct) {
     if (!correct && brain_stats.levels[t] > 1)
         brain_stats.levels[t]--;
     brain_phase = 3;
-    save_blob("braintrain-1.1.bin", &brain_stats, sizeof(brain_stats));
+    app_state_save("braintrain-1.1.bin", &brain_stats, sizeof(brain_stats));
 }
 static void brain_check(void) {
     if (brain_task == 0) {
@@ -189,7 +189,7 @@ static void brain_finish(void) {
         brain_stats.streak = brain_stats.lastday == y ? brain_stats.streak + 1 : 1;
         brain_stats.lastday = today;
     }
-    save_blob("braintrain-1.1.bin", &brain_stats, sizeof(brain_stats));
+    app_state_save("braintrain-1.1.bin", &brain_stats, sizeof(brain_stats));
     brain_phase = 4;
 }
 static void polish_brain(void) {

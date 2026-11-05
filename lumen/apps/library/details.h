@@ -1,7 +1,7 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 static void search_screen(void) {
     heading("Bücher suchen");
-    search_field(28, 165, 544, query, "Titel oder Autor eingeben");
+    search_field(28, 165, 544, library_ui.query, "Titel oder Autor eingeben");
     drawtext(30, 245, "Umlaute funktionieren auch als a, o oder u.", ui_font(UI_BODY), 540);
     for (int i = 0; i < 30; i++) {
         int x = 28 + (i % 10) * 55, y = 320 + (i / 10) * 65;

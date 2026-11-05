@@ -1,6 +1,6 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 static void apps_draw(void) {
-    switch (screen) {
+    switch (ui_route()) {
     case 20:
         app_launcher();
         break;
@@ -27,8 +27,8 @@ static void apps_draw(void) {
 static int apps_poll_interval(void) {
     if (sleeping)
         return -1;
-    int active = screen == 25   ? !block_game.paused && !block_game.over
-                 : screen == 26 ? !snake_game.paused && !snake_game.over
+    int active = ui_route() == 25   ? !block_game.paused && !block_game.over
+                 : ui_route() == 26 ? !snake_game.paused && !snake_game.over
                                 : 0;
     if (!active)
         return -1;
@@ -38,44 +38,44 @@ static int apps_poll_interval(void) {
 static int apps_input(const Input *in) {
     int x = in->x, y = in->y;
     if (in->kind == INPUT_STATUS) {
-        if (screen == 25 && !block_game.paused && !block_game.over) {
+        if (ui_route() == 25 && !block_game.paused && !block_game.over) {
             blocks_tick(&block_game);
             app_next_tick = app_millis() + 650;
         }
-        if (screen == 26 && !snake_game.paused && !snake_game.over) {
+        if (ui_route() == 26 && !snake_game.paused && !snake_game.over) {
             snake_tick(&snake_game);
             app_next_tick = app_millis() + 550;
         }
         app_records();
         return 1;
     }
-    if (screen == 23 && in->kind == INPUT_HOLD && y >= 170 && y < 750 && x >= 30 && x < 570) {
+    if (ui_route() == 23 && in->kind == INPUT_HOLD && y >= 170 && y < 750 && x >= 30 && x < 570) {
         mines_flag(&mine_game, ((y - 170) / 58) * 9 + (x - 30) / 60);
         mine_release = 1;
         return 1;
     }
-    if (screen == 26 && in->kind == INPUT_SWIPE) {
+    if (ui_route() == 26 && in->kind == INPUT_SWIPE) {
         if (abs(in->dx) > abs(in->dy))
             snake_direction(&snake_game, in->dx > 0 ? 1 : -1, 0);
         else
             snake_direction(&snake_game, 0, in->dy > 0 ? 1 : -1);
         return 1;
     }
-    if (screen == 23 && mine_release && in->kind == INPUT_SWIPE) {
+    if (ui_route() == 23 && mine_release && in->kind == INPUT_SWIPE) {
         mine_release = 0;
         return 1;
     }
     if (in->kind != INPUT_TAP)
         return 2;
-    if (screen == 20) {
+    if (ui_route() == 20) {
         v1_launcher_input(x, y);
         return 1;
     }
-    if (screen >= 23 && x >= 516 && y >= 74 && y < 118) {
-        app_new(screen);
+    if (ui_route() >= 23 && x >= 516 && y >= 74 && y < 118) {
+        app_new(ui_route());
         return 1;
     }
-    if (screen == 21) {
+    if (ui_route() == 21) {
         if (y >= 74 && y < 118 && x >= 468) {
             if (x >= 522) {
                 static char date_title[80];
@@ -148,7 +148,7 @@ static int apps_input(const Input *in) {
         }
         return 1;
     }
-    if (screen == 23) {
+    if (ui_route() == 23) {
         if (mine_release) {
             mine_release = 0;
             return 1;
@@ -165,7 +165,7 @@ static int apps_input(const Input *in) {
         app_records();
         return 1;
     }
-    if (screen == 24 && y >= 455 && y < 629) {
+    if (ui_route() == 24 && y >= 455 && y < 629) {
         int row = (y - 455) / 58, cols = row == 2 ? 6 : 10, start = (600 - cols * 54) / 2,
             col = (x - start) / 54;
         if (x >= start && col < cols && row < 3 && y < 455 + row * 58 + 48)
@@ -173,7 +173,7 @@ static int apps_input(const Input *in) {
         app_records();
         return 1;
     }
-    if (screen == 25) {
+    if (ui_route() == 25) {
         if (x >= 414 && y >= 124 && y < 164) {
             if (block_game.over)
                 blocks_new(&block_game);
@@ -195,7 +195,7 @@ static int apps_input(const Input *in) {
         app_records();
         return 1;
     }
-    if (screen == 26) {
+    if (ui_route() == 26) {
         if (x >= 414 && y >= 124 && y < 164) {
             if (snake_game.over)
                 snake_new(&snake_game);

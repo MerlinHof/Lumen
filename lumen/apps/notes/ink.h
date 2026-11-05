@@ -24,7 +24,7 @@ static void note15_layout(const char *text) {
         note_offsets[note_rows] = p - text;
         note_numbers[note_rows] = line;
         const char *q = note_next_line(
-            p, keyboard && keyboard_target != 30 ? 544 : (note_rows % 23 < 2 ? 420 : 528));
+            p, editor_ui.keyboard && editor_ui.keyboard_target != 30 ? 544 : (note_rows % 23 < 2 ? 420 : 528));
         if (q <= p)
             break;
         if (q[-1] == '\n')
@@ -48,23 +48,23 @@ static int u15_note_page_count(void) {
     return (note_rows + 22) / 23;
 }
 static void u15_note_editor_draw(void) {
-    const char *text = keyboard && keyboard_multiline() ? edit : note_text;
+    const char *text = editor_ui.keyboard && keyboard_multiline() ? editor_ui.edit : note_text;
     note15_layout(text);
-    int editing = keyboard && keyboard_multiline(), rows = editing ? 15 : 23, cursor_row = 0;
+    int editing = editor_ui.keyboard && keyboard_multiline(), rows = editing ? 15 : 23, cursor_row = 0;
     for (int i = 0; i < note_rows; i++)
-        if (note_cursor >= note_offsets[i])
+        if (editor_ui.note_cursor >= note_offsets[i])
             cursor_row = i;
-    if (editing && !note_scroll_lock) {
-        if (cursor_row < note_view_start)
-            note_view_start = cursor_row;
-        if (cursor_row >= note_view_start + rows)
-            note_view_start = cursor_row - rows + 1;
+    if (editing && !editor_ui.note_scroll_lock) {
+        if (cursor_row < editor_ui.note_view_start)
+            editor_ui.note_view_start = cursor_row;
+        if (cursor_row >= editor_ui.note_view_start + rows)
+            editor_ui.note_view_start = cursor_row - rows + 1;
     }
     if (!editing)
-        note_view_start = extra_page * 23;
-    int left = editing && keyboard_target != 30 ? 28 : 48;
-    for (int r = 0; r < rows && note_view_start + r < note_rows; r++) {
-        int i = note_view_start + r;
+        editor_ui.note_view_start = extra_page * 23;
+    int left = editing && editor_ui.keyboard_target != 30 ? 28 : 48;
+    for (int r = 0; r < rows && editor_ui.note_view_start + r < note_rows; r++) {
+        int i = editor_ui.note_view_start + r;
         char b[1024];
         int n = note_offsets[i + 1] - note_offsets[i];
         if (n > 1023)
@@ -80,22 +80,22 @@ static void u15_note_editor_draw(void) {
             small_number17(24, 54 + r * 29, num, 135);
         ink_color = 0;
         drawtext_raw(left, 54 + r * 29, b, ui_font(UI_BODY),
-                     editing && keyboard_target != 30 ? 544 : (i % 23 < 2 ? 420 : 528));
-        if (editing && cursor_row == i && cursor_visible) {
-            snprintf(b, sizeof(b), "%.*s", note_cursor - note_offsets[i], text + note_offsets[i]);
+                     editing && editor_ui.keyboard_target != 30 ? 544 : (i % 23 < 2 ? 420 : 528));
+        if (editing && cursor_row == i && editor_ui.cursor_visible) {
+            snprintf(b, sizeof(b), "%.*s", editor_ui.note_cursor - note_offsets[i], text + note_offsets[i]);
             text_caret(left + textwidth_raw(b, ui_font(UI_BODY)), 54 + r * 29, ui_font(UI_BODY));
         }
     }
 }
 static void u15_note_editor_touch(int x, int y) {
-    note15_layout(edit);
-    int row = note_view_start + (y - 54) / 29;
+    note15_layout(editor_ui.edit);
+    int row = editor_ui.note_view_start + (y - 54) / 29;
     if (row < 0)
         row = 0;
     if (row >= note_rows)
         row = note_rows - 1;
-    const char *p = edit + note_offsets[row], *end = edit + note_offsets[row + 1];
-    int px = keyboard && keyboard_target != 30 ? 28 : 48;
+    const char *p = editor_ui.edit + note_offsets[row], *end = editor_ui.edit + note_offsets[row + 1];
+    int px = editor_ui.keyboard && editor_ui.keyboard_target != 30 ? 28 : 48;
     while (p < end && *p != '\n') {
         const char *q = p;
         unsigned c = glyph(&q);
@@ -105,7 +105,7 @@ static void u15_note_editor_touch(int x, int y) {
         px += w;
         p = q;
     }
-    note_cursor = p - edit;
+    editor_ui.note_cursor = p - editor_ui.edit;
 }
 static void u15_note_tools(void) {
     icon_button(470, 54, IC_EDIT);

@@ -8,4 +8,5 @@ int signal_slide(SignalGame *, int index);
 int signal_won(const SignalGame *);
 void signal_project(int index, int *x, int *y);
 void signal_render(const SignalGame *, unsigned char *);
+void slide_3d_register(void);
 #endif

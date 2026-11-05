@@ -53,11 +53,13 @@ int app_call(const char *name,const void *payload,size_t bytes,int64_t now) {
 typedef struct {
     void (*draw)(void);
     int (*input)(const Input *);
+    void (*checkpoint)(void);
+    int standalone;
 } AppView;
 static AppView views[APP_COUNT];
 
 void app_view_register(AppId id, void (*draw)(void), int (*input)(const Input *)) {
-    if (app_definition(id)) views[id] = (AppView){draw, input};
+    if (app_definition(id)) views[id] = (AppView){.draw = draw, .input = input};
 }
 int app_view_draw(AppId id) {
     if (!app_definition(id) || !views[id].draw) return 0;
@@ -67,4 +69,28 @@ int app_view_draw(AppId id) {
 int app_view_input(AppId id, const Input *input) {
     if (!app_definition(id) || !views[id].input) return -1;
     return views[id].input(input);
+}
+
+/* Standalone pages dispatch by catalog entry, without route-specific shell code. */
+void app_page_register(AppId id, void (*draw)(void), int (*input)(const Input *),
+                       void (*checkpoint)(void)) {
+    if (!app_definition(id)) return;
+    app_view_register(id, draw, input);
+    views[id].standalone = 1;
+    views[id].checkpoint = checkpoint;
+}
+int app_page_draw(int route) {
+    AppId id = app_for_route(route);
+    return views[id].standalone && app_definition(id)->entry == route && app_view_draw(id);
+}
+int app_page_input(int route, const Input *input) {
+    AppId id = app_for_route(route);
+    if (!views[id].standalone || app_definition(id)->entry != route) return -1;
+    return app_view_input(id, input);
+}
+void app_page_checkpoint(AppId id) {
+    if (app_definition(id) && views[id].checkpoint) views[id].checkpoint();
+}
+void app_pages_checkpoint(void) {
+    for (int i = 0; i < APP_COUNT; i++) app_page_checkpoint((AppId)i);
 }

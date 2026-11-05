@@ -28,14 +28,14 @@ static void apps_checkpoint(void) {
         delta = 0;
     if (delta > 300)
         delta = 300;
-    if (screen == 2 && !sleeping && delta > 0) {
+    if (ui_route() == 2 && !sleeping && delta > 0) {
         ReadingDay *d = app_day(app_date_key(time(NULL)), 1);
         d->seconds += (unsigned)delta;
         app_data.seconds += (unsigned)delta;
         apps_dirty = 1;
         extra_track((unsigned)delta, 0, current >= 0 ? library[current].id : 0);
     }
-    if (delta > 0 || screen != 2 || sleeping)
+    if (delta > 0 || ui_route() != 2 || sleeping)
         app_last_time = now;
 }
 static void apps_page_turned(void) {

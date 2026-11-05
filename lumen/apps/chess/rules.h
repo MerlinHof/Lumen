@@ -287,7 +287,7 @@ static int games_input(const Input *in) {
     if (in->kind != INPUT_TAP)
         return 2;
     int x = in->x, y = in->y;
-    if (screen == 48) {
+    if (ui_route() == 48) {
         if (y >= 125 && y < 161) {
             chess_computer = x < 300;
             chess_selected = -1;
@@ -346,7 +346,7 @@ static int games_input(const Input *in) {
             chess_selected = side(chess.b[sq]) == chess.turn ? sq : -1;
         return 1;
     }
-    if (screen == 50) {
+    if (ui_route() == 50) {
         if (y >= 455 && y < 515) {
             chess_reset();
             chess_store();

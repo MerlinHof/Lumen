@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.5
+
+- Superellipse corners for shared buttons, segmented controls, dropdowns, switches and floating surfaces.
+- Segmented controls with one continuous outline and full-width active segments.
+- Grayscale frog pieces, reflective eyes and shaded lily pads.
+- Frog Solitaire and Slide 3D compile independently against the public drawing and app runtime APIs.
+- App-owned state for reader, library, store, Wi-Fi, settings, Clock, editor, notes, tasks, status bar and Wikipedia. The app runtime is the sole owner of the active route.
+- Existing save files use a dedicated system app-state storage service.
+
 ## 2.4
 
 - Slide 3D uses the existing engine at native resolution. Frog Solitaire adds a 33-pad jumping puzzle with undo.

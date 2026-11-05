@@ -1,6 +1,9 @@
 #include "../dictionary.h"
 #define _GNU_SOURCE
 #include "api.h"
+#include "paint.h"
+#include "../../apps/frog/app.h"
+#include "../../apps/slide_3d/api.h"
 #include "../../apps/notifications/api.h"
 #include "../amazon.h"
 #include "../../apps/games/api.h"
@@ -16,6 +19,7 @@
 #include "../qrcodegen.h"
 #include "../services.h"
 #include "../app_runtime.h"
+#include "../app_storage.h"
 #include "../paper_font.h"
 #include "../unicode.h"
 #include "../text_edit.h"
@@ -36,7 +40,19 @@
 #include "theme.h"
 unsigned char ui_pixels[WIDTH * HEIGHT];
 static int ink_color, ui_y_offset;
+#include "../../apps/wifi/shell_state.h"
+#include "../../apps/store/shell_state.h"
+#include "../../apps/notes/shell_state.h"
+#include "../../apps/todo/shell_state.h"
+#include "../../apps/wikipedia/shell_state.h"
+#include "../../apps/settings/shell_state.h"
+#include "../../apps/timer/shell_state.h"
+#include "../../apps/keyboard/shell_state.h"
+#include "../../apps/status_bar/shell_state.h"
+#include "../../apps/library/state.h"
+#include "../../apps/reader/state.h"
 static AppRuntime runtime;
+static int ui_route(void) { return runtime.route; }
 static void app_leave(AppId app, void *ctx);
 static void route_to(int route);
 static int app_send(const AppIntent *intent);
@@ -44,27 +60,14 @@ static int app_read_book(int index);
 static void extra_prepare(int target);
 static int app_handle_input(const Input *in);
 static void app_render(void);
-static int reader_document_active;
-static int wiki_article_language = -1;
-static int screen = 1, selected = -1, current = -1, view[BOOK_LIMIT], view_count, listpage,
-           chapterpage, chapter_count, chaptertab;
-static int battery_popup, wifi_enabled = 1, setting_page, reading_page;
-static int status_wifi_x = -1, status_battery_x = -1, status_battery_right, status_timer_x = -1,
-           status_timer_width;
-static int wifi_page, wifi_selected = -1, wifi_scanning, wifi_exit;
-static char wifi_ssid[128];
-static int store_stage, store_total, store_federated;
-static OPDSItem store_results[OPDS_LIMIT];
-static char store_urls[12][2048];
-static int store_home = 1;
-static int store15_grid[4] = {-1, -1, -1, -1};
-static int reader_progress_mode;
+static int selected = -1, current = -1;
+static int battery_popup;
+
 static pid_t job_pid16 = -1;
 static int ink_pending16(void), job_pending16(void);
 static void help_overlay16(void), companion_checkpoint16(void),
     companion_close16(void);
 static int u17_notes_depth(void), text_editable_hit(const Input *);
-static int note_rename_x17;
 static void u17_calendar_dirty(void);
 static void small_number17(int, int, const char *, int);
 static void u17_gray_icon(int, int);
@@ -86,7 +89,6 @@ static void u17_notes_up(void), u17_sleep_row(int), u17_sleep_select(int);
 static void u17_choice(int, int), u17_notes_menu(int, int, int), checkbox(int, int, int),
     select_row17(int, const char *, const char *);
 static int u17_commit(int, const char *), u17_input(const Input *), u17_draw(void);
-static int task_edit17 = -1, notes_kind17, notes_id17;
 static int u16_apps_commit(int, const char *), event_on16(int);
 static void u16_calendar_choice(int);
 static int keyboard_multiline(void);
@@ -97,8 +99,7 @@ static int keyboard_intercept18(const Input *in);
 static int u16_apps_draw(void), u16_apps_input(const Input *), u16_jobs_tick(void);
 static int task_matches16(int);
 static void note_delete16(int);
-static char task_categories16[256][64], task_context16[64];
-static int category_task16 = -1, calc_precision16 = 10;
+static int calc_precision16 = 10;
 static int u16_input(const Input *), u16_draw(void), u16_commit(int, const char *), u16_tick(void);
 static void u16_dropdown(int, int), u16_notes_defaults(void);
 static int u15_input(const Input *), u15_draw(void);
@@ -109,59 +110,31 @@ static void u15_note_editor_draw(void), u15_note_editor_touch(int, int), u15_not
     u16_notes_defaults(void);
 static void u15_sources_prepare(const char *);
 static void u15_init(void), u15_note_overlay(void), u15_note_tools(void), u15_reader_progress(void);
-static int store_provider_count = 2;
 static int store_complete(int done);
 static void store_restore(void);
-static char store_query[256];
-static int opds_page, opds_selected, opds_depth, library_dirty;
-static char opds_history[16][2048];
-static char opds_source[2048] =
-    "https://www.gutenberg.org/ebooks/search.opds/?query=l.de&sort_order=downloads";
-static int page, full = 1, sleeping, reader_chrome;
+
+static int page, full = 1, sleeping;
 static float zoom = 1, panx, pany;
-static Chapter chapters[256];
-typedef struct {
-    ReaderPosition position;
-    char text[2048];
-} Annotation;
-static Annotation annotations[128];
-static int annotation_count, annotation_page, selecting, selection_x, selection_y,
-    annotation_delete, selection_last_x, selection_last_y, selection_release;
+static int selection_release;
 static int annotations_write(void);
-static TextSelection selection;
-static TextSelection saved_shading;
-static int shading_page = -1, shading_notes = -1, layout_epoch, shading_epoch = -1;
-static float shading_zoom, shading_panx, shading_pany;
 static void annotations_load(void);
 static void annotations_draw(void);
 static void annotations_screen(void);
 static void wikipedia_screen(void);
 static void selection_overlay(void);
 
-static int cursor_visible = 1;
-static int64_t cursor_epoch;
-static char query[128] = "", battery[24] = "", wifi[32] = "";
-static time_t status_time;
-static int battery_charging;
-static time_t charging_checked;
+
 typedef struct {
     int x, y, w, h, system;
 } Widget;
 static Widget widgets[1024], press_bounds;
 static int widget_count, pressed = -1, press_canceled, down_y, history[64], history_count;
-static int keyboard, keyboard_target, keyboard_shift, keyboard_symbols, dropdown, drop_target,
+static int dropdown, drop_target,
     drop_count, drop_selected, drop_first, drop_visible;
 static unsigned drop_generation;
 static int drop_x, drop_y, drop_w, setting_category, confirm_delete;
 static const char **drop_labels;
-static char edit[8192] = "";
-static int note_cursor, note_view_start, note_scroll_lock;
-static int keyboard_view18, accent_count18, accent_x18, clip_active;
-static int keyboard_background_valid18;
-static unsigned char keyboard_background18[WIDTH * HEIGHT];
-static char accent_keys18[10][8];
 static size_t keyboard_capacity(void);
-static const char *keyboard_title = "Suchen";
 static int hit(int x, int y) {
     for (int i = widget_count - 1; i >= 0; i--)
         if (x >= widgets[i].x && x < widgets[i].x + widgets[i].w && y >= widgets[i].y &&
@@ -209,7 +182,7 @@ static void open_store(void);
 static void store_search(void);
 static int tasks_fullscreen;
 static int has_tabs(void) {
-    return (screen == 2 && reader_chrome) || !app_route_fullscreen(screen);
+    return (ui_route() == 2 && reader_ui.reader_chrome) || !app_route_fullscreen(ui_route());
 }
 static void turn(int);
 static void system_loading(int);
@@ -242,6 +215,8 @@ static void app_insights(void);
 static void key_outline(int x, int y, int w, int h);
 static void soft_rect(int x, int y, int w, int h, int r, int color);
 static void aa_soft_rect(int x, int y, int w, int h, int r, int color);
+static void control_surface(int x, int y, int w, int h, int r, int color);
+static void segment_fill(int x, int y, int w, int h, int r, int color, int sides);
 static void stroke(int x0, int y0, int x1, int y1, int thickness);
 static void commit_keyboard(void);
 static void note_editor_draw(void);
@@ -259,8 +234,6 @@ static void suit_icon(int, int, int);
 static void new_apps_init(void);
 static void new_apps_open(int route);
 static void new_apps_save(void);
-static void signal_save(void);
-static int clock_style, clock_fullscreen;
 static void clock_face(int fullscreen);
 static void new_apps_draw(void);
 static int new_apps_input(const Input *);
@@ -307,7 +280,7 @@ static void open_dropdown(int target, const char **labels, int count, int select
                           int w) {
     dropdown = 1;
     drop_generation++;
-    keyboard = 0;
+    editor_ui.keyboard = 0;
     drop_target = target;
     drop_labels = labels;
     drop_count = count;
@@ -567,38 +540,43 @@ static void centered(int x, int y, int w, int h, const char *label, const Font *
 }
 static void button_h(int x, int y, int w, int h, const char *label, int chosen) {
     region(x, y, w, h);
-    aa_soft_rect(x, y, w, h, 9, 0);
-    aa_soft_rect(x + 2, y + 2, w - 4, h - 4, 7, 255);
+    control_surface(x, y, w, h, 12, 0);
+    control_surface(x + 2, y + 2, w - 4, h - 4, 10, 255);
     if (chosen)
         rect(x + 8, y + h - 5, w - 16, 3, 0);
     centered(x, y, w, h, label, &small);
 }
 static void dropdown_button(int x, int y, int w, int h, const char *label) {
     region(x, y, w, h);
-    aa_soft_rect(x, y, w, h, 9, 0);
-    aa_soft_rect(x + 2, y + 2, w - 4, h - 4, 7, 255);
+    control_surface(x, y, w, h, 12, 0);
+    control_surface(x + 2, y + 2, w - 4, h - 4, 10, 255);
     centered(x + 2, y, w - 34, h, label, &small);
     stroke(x + w - 27, y + h / 2 - 3, x + w - 20, y + h / 2 + 4, 2);
     stroke(x + w - 20, y + h / 2 + 4, x + w - 13, y + h / 2 - 3, 2);
 }
 static void segments(int x, int y, int w, int h, const char *const *labels, int count,
                      int selected) {
-    aa_soft_rect(x, y, w, h, 9, 0);
-    aa_soft_rect(x + 2, y + 2, w - 4, h - 4, 7, 255);
+    if (count < 1) return;
+    control_surface(x, y, w, h, 13, UI_INK);
     for (int i = 0; i < count; i++) {
-        int left = x + w * i / count, right = x + w * (i + 1) / count;
+        int left = x + w * i / count;
+        int right = x + w * (i + 1) / count;
         region(left, y, right - left, h);
-        if (i)
-            rect(left, y + 2, 2, h - 4, 96);
-        int ink = ink_color;
-        if (i == selected) {
-            aa_soft_rect(left + 2, y + 2, right - left - 4, h - 4, 7, 0);
-            ink_color = 255;
+        if (i != selected) {
+            int edge_left = i == 0 ? 2 : 0;
+            int edge_right = i == count - 1 ? 2 : 0;
+            int sides = (i == 0 ? 1 : 0) | (i == count - 1 ? 2 : 0);
+            segment_fill(left + edge_left, y + 2, right - left - edge_left - edge_right,
+                         h - 4, 11, UI_PAPER, sides);
+            if (i > 0 && i - 1 != selected)
+                rect(left, y + 10, 1, h - 20, UI_RULE);
         }
-        centered(left + 2, y, right - left - 4, h, labels[i], &small);
+        int saved_ink = ink_color;
+        ink_color = i == selected ? UI_PAPER : UI_INK;
+        centered(left, y, right - left, h, labels[i], &small);
         if (i == selected)
-            centered(left + 3, y, right - left - 4, h, labels[i], &small);
-        ink_color = ink;
+            centered(left + 1, y, right - left, h, labels[i], &small);
+        ink_color = saved_ink;
     }
 }
 static void disc(int x, int y, int r, int color);
@@ -694,61 +672,16 @@ static void aa_disc(int cx, int cy, int r, int color) {
 static void disc(int x, int y, int r, int color) {
     aa_disc(x, y, r, color);
 }
-/* Shared 4x4 coverage masks for all rounded surfaces and image clips.
-   Computed once per radius, reused for every button, card and cover. */
-static unsigned char corner_masks[33][1024], corner_ready[33];
-static float corner_inside(int r, int x, int y) {
-    if (r < 1 || x >= r || y >= r)
-        return 1;
-    if (r > 32)
-        r = 32;
-    if (!corner_ready[r]) {
-        for (int j = 0; j < r; j++) {
-            for (int i = 0; i < r; i++) {
-                int n = 0;
-                for (int sy = 0; sy < 4; sy++) {
-                    for (int sx = 0; sx < 4; sx++) {
-                        float dx = r - i - (sx + .5f) / 4, dy = r - j - (sy + .5f) / 4;
-                        n += dx * dx + dy * dy <= r * r;
-                    }
-                }
-                corner_masks[r][j * 32 + i] = n;
-            }
-        }
-        corner_ready[r] = 1;
-    }
-    return corner_masks[r][y * 32 + x] / 16.f;
-}
-static void aa_soft_rect(int x, int y, int w, int h, int r, int color) {
-    if (r < 1) {
-        rect(x, y, w, h, color);
-        return;
-    }
-    if (r > w / 2)
-        r = w / 2;
-    if (r > h / 2)
-        r = h / 2;
-    rect(x + r, y, w - 2 * r, h, color);
-    rect(x, y + r, r, h - 2 * r, color);
-    rect(x + w - r, y + r, r, h - 2 * r, color);
-    for (int j = 0; j < r; j++)
-        for (int i = 0; i < r; i++) {
-            float a = corner_inside(r, i, j);
-            blend_pixel(x + i, y + j, a, color);
-            blend_pixel(x + w - 1 - i, y + j, a, color);
-            blend_pixel(x + i, y + h - 1 - j, a, color);
-            blend_pixel(x + w - 1 - i, y + h - 1 - j, a, color);
-        }
-}
+#include "corners.h"
 static void soft_rect(int x, int y, int w, int h, int r, int color) {
     (void)r;
     rect(x, y, w, h, color);
 }
 static void toggle(int x, int y, int on) {
     region(x - 10, y - 8, 90, 48);
-    aa_soft_rect(x, y, 68, 32, 16, 0);
+    control_surface(x, y, 68, 32, 16, 0);
     if (!on)
-        aa_soft_rect(x + 2, y + 2, 64, 28, 14, 255);
+        control_surface(x + 2, y + 2, 64, 28, 14, 255);
     aa_disc(x + (on ? 52 : 16), y + 16, 12, on ? 255 : 0);
 }
 static void key_outline(int x, int y, int w, int h) {
@@ -760,9 +693,9 @@ static void key_outline(int x, int y, int w, int h) {
     rect(x + w - 2, y + 2, 2, h - 4, 48);
 }
 static int can_back(void) {
-    return keyboard || dropdown || confirm_delete || battery_popup ||
-           (screen == 29 && u17_notes_depth()) || (screen == 10 && opds_depth) ||
-           (screen != 1 && screen != 13 && screen != 10 && screen != 20);
+    return editor_ui.keyboard || dropdown || confirm_delete || battery_popup ||
+           (ui_route() == 29 && u17_notes_depth()) || (ui_route() == 10 && store_ui.opds_depth) ||
+           (ui_route() != 1 && ui_route() != 13 && ui_route() != 10 && ui_route() != 20);
 }
 static void progress(int x, int y, int w, int n, int total) {
     rect(x, y, w, 4, 180);
@@ -928,22 +861,7 @@ static void cover_size(Book *b, int x, int y, int w, int h) {
 static void cover(Book *b, int x, int y, int scale) {
     cover_size(b, x, y, scale == 2 ? 52 : 120 / scale, scale == 2 ? 72 : 164 / scale);
 }
-static int featured(void) {
-    return library_last();
-}
-static int library_per(void) {
-    return featured() >= 0 && listpage == 0 ? 3 : 6;
-}
-static int library_top(void) {
-    return featured() >= 0 && listpage == 0 ? 365 : 115;
-}
-static int library_begin(void) {
-    return featured() >= 0 ? (listpage ? 3 + (listpage - 1) * 6 : 0) : listpage * 6;
-}
-static int library_pages(void) {
-    return featured() >= 0 ? 1 + (view_count > 3 ? (view_count - 3 + 5) / 6 : 0)
-                           : (view_count ? (view_count + 5) / 6 : 1);
-}
+#include "../../apps/library/layout.h"
 static void page_arrow(int x, int y, int kind, int enabled) {
     if (enabled) {
         icon_button(x, y, kind);
@@ -1014,38 +932,7 @@ static void system_loading(int target) {
 #include "text_flow.h"
 #include "list.h"
 #include "titlebar.h"
-static void update_view(void) {
-    view_count = library_view(view, query, 0, settings.sort);
-    /* Keep installer fixtures and our welcome note out of the personal shelves. */
-    for (int i = 0; i < view_count;) {
-        const char *name = strrchr(library[view[i]].path, '/');
-        name = name ? name + 1 : library[view[i]].path;
-        if (!strcmp(name, "LUMEN Lesetest.epub") || !strcmp(name, "LUMEN – Willkommen.txt")) {
-            memmove(view + i, view + i + 1, (size_t)(view_count - i - 1) * sizeof(int));
-            view_count--;
-        } else
-            i++;
-    }
-    int last = featured();
-    if (last >= 0)
-        for (int i = 0; i < view_count; i++)
-            if (view[i] == last) {
-                memmove(view + i, view + i + 1, (size_t)(view_count - i - 1) * sizeof(int));
-                view_count--;
-                break;
-            }
-    int pinned = 0;
-    for (int i = 0; i < view_count; i++) {
-        if (!library[view[i]].favorite)
-            continue;
-        int index = view[i];
-        memmove(view + pinned + 1, view + pinned, (size_t)(i - pinned) * sizeof(*view));
-        view[pinned++] = index;
-    }
-    int pages = library_pages();
-    if (listpage >= pages)
-        listpage = pages - 1;
-}
+#include "../../apps/library/shelf.h"
 void ui_message(const char *s) {
     NotificationRequest request={.duration_ms=6000};
     snprintf(request.text,sizeof(request.text),"%s",tr(s));
@@ -1058,7 +945,7 @@ void ui_set_screen(int n) {
         n = 3;
     if (n == 6) {
         route_to(1);
-        open_keyboard(0, "Bibliothek durchsuchen", query);
+        open_keyboard(0, "Bibliothek durchsuchen", library_ui.query);
     } else
         route_to(n);
     full = 1;
@@ -1078,7 +965,7 @@ void ui_init(void) {
     settings.grid = 1;
     settings.filter = 0;
 
-    query[0] = 0;
+    library_ui.query[0] = 0;
     route_to(1);
     update_view();
     if (options[OPT_STARTPAGE])
@@ -1087,13 +974,13 @@ void ui_init(void) {
     snprintf(sourcepath, sizeof(sourcepath), tr("%s/opds-source.txt"), data_root);
     FILE *source = fopen(sourcepath, "r");
     if (source) {
-        if (fgets(opds_source, sizeof(opds_source), source))
-            opds_source[strcspn(opds_source, "\r\n")] = 0;
+        if (fgets(store_ui.opds_source, sizeof(store_ui.opds_source), source))
+            store_ui.opds_source[strcspn(store_ui.opds_source, "\r\n")] = 0;
         fclose(source);
     }
-    device_status(battery, sizeof(battery), wifi, sizeof(wifi));
-    battery_charging = device_charging();
-    status_time = charging_checked = time(NULL);
+    device_status(status_ui.battery, sizeof(status_ui.battery), status_ui.wifi, sizeof(status_ui.wifi));
+    status_ui.battery_charging = device_charging();
+    status_ui.status_time = status_ui.charging_checked = time(NULL);
 }
 static void position_signature(int *v) {
     v[0] = settings.size;
@@ -1147,15 +1034,15 @@ static int restore_anchor(const Book *book, int fallback, int bookmark) {
 }
 
 void ui_save(void) {
-    signal_save();
+    app_pages_checkpoint();
     games_save17();
-    if (screen == 126)
+    if (ui_route() == 126)
         journal_store17();
     companion_checkpoint16();
     u15_flush();
-    if (keyboard && (keyboard_target == 30 || keyboard_target == 60 || keyboard_target == 171 ||
-                     keyboard_target == 174))
-        extra_commit(keyboard_target, edit);
+    if (editor_ui.keyboard && (editor_ui.keyboard_target == 30 || editor_ui.keyboard_target == 60 || editor_ui.keyboard_target == 171 ||
+                     editor_ui.keyboard_target == 174))
+        extra_commit(editor_ui.keyboard_target, editor_ui.edit);
     apps_checkpoint();
     apps_save();
     extra_save();
@@ -1180,20 +1067,20 @@ static void apply_reading_settings(void) {
     current_layout(next);
     if (reader_layout_valid && !memcmp(reader_layout, next, sizeof(next)))
         return;
-    layout_epoch++;
+    reader_ui.layout_epoch++;
     ReaderPreferences p = preferences_reader();
     engine_options(p.font, p.alignment, p.letterspace, p.paragraph);
     page = engine_relayout(p.size, p.leading, p.margin, page);
     memcpy(reader_layout, next, sizeof(next));
     reader_layout_valid = 1;
-    chapter_count = engine_outline(chapters, 256);
+    reader_ui.chapter_count = engine_outline(reader_ui.chapters, 256);
     library_progress(&library[current], page, engine_count());
 }
 int ui_open(int index) {
-    layout_epoch++;
-    if (index < 0 || (index >= library_count && !(index == BOOK_LIMIT && reader_document_active)))
+    reader_ui.layout_epoch++;
+    if (index < 0 || (index >= library_count && !(index == BOOK_LIMIT && reader_ui.reader_document_active)))
         return 0;
-    selecting = selection_release = 0;
+    reader_ui.selecting = selection_release = 0;
     notification_dismiss();
     Book *b = &library[index];
     if (!library_supported(b)) {
@@ -1210,7 +1097,7 @@ int ui_open(int index) {
     system_loading(2);
     engine_close();
     if (index != BOOK_LIMIT)
-        reader_document_active = 0;
+        reader_ui.reader_document_active = 0;
     current = -1;
     engine_options(options[OPT_FONT], options[OPT_ALIGN], options[OPT_LETTERSPACE],
                    options[OPT_PARAGRAPH]);
@@ -1255,32 +1142,32 @@ int ui_open(int index) {
         page = engine_count() - 1;
     if (page < 0)
         page = 0;
-    chapter_count = engine_outline(chapters, 256);
-    chapterpage = chaptertab = 0;
+    reader_ui.chapter_count = engine_outline(reader_ui.chapters, 256);
+    reader_ui.chapterpage = reader_ui.chaptertab = 0;
     zoom = 1;
     panx = pany = 0;
     route_to(2);
-    reader_chrome = 0;
+    reader_ui.reader_chrome = 0;
     full = 1;
     library_progress(b, page, engine_count());
     annotations_load();
-    selecting = 0;
+    reader_ui.selecting = 0;
     return 1;
 }
 static int refresh_status(int force) {
     time_t now = time(NULL);
-    if (force || !status_time || now < status_time || now - status_time >= 30) {
-        device_status(battery, sizeof(battery), wifi, sizeof(wifi));
-        int before = battery_charging;
-        battery_charging = device_charging();
-        status_time = charging_checked = now;
-        return before != battery_charging;
+    if (force || !status_ui.status_time || now < status_ui.status_time || now - status_ui.status_time >= 30) {
+        device_status(status_ui.battery, sizeof(status_ui.battery), status_ui.wifi, sizeof(status_ui.wifi));
+        int before = status_ui.battery_charging;
+        status_ui.battery_charging = device_charging();
+        status_ui.status_time = status_ui.charging_checked = now;
+        return before != status_ui.battery_charging;
     }
-    if (now < charging_checked || now - charging_checked >= (battery_charging ? 5 : 30)) {
-        int before = battery_charging;
-        battery_charging = device_charging();
-        charging_checked = now;
-        return before != battery_charging;
+    if (now < status_ui.charging_checked || now - status_ui.charging_checked >= (status_ui.battery_charging ? 5 : 30)) {
+        int before = status_ui.battery_charging;
+        status_ui.battery_charging = device_charging();
+        status_ui.charging_checked = now;
+        return before != status_ui.battery_charging;
     }
     return 0;
 }
@@ -1403,9 +1290,9 @@ static void lock_backdrop(Book *b) {
 void ui_draw(void) {
     widget_count = 0;
     pagination = (Pagination){0};
-    if (keyboard && keyboard_background_valid18 && !sleeping) {
-        memcpy(ui_pixels, keyboard_background18, sizeof(ui_pixels));
-        if (screen != 2)
+    if (editor_ui.keyboard && editor_ui.keyboard_background_valid18 && !sleeping) {
+        memcpy(ui_pixels, editor_ui.keyboard_background18, sizeof(ui_pixels));
+        if (ui_route() != 2)
             app_view_draw(APP_STATUS_BAR);
         goto input_overlays18;
     }
@@ -1414,7 +1301,7 @@ void ui_draw(void) {
         app_view_draw(APP_LOCK_SCREEN);
         return;
     }
-    if (screen == 28 && clock_fullscreen) {
+    if (ui_route() == 28 && clock_ui.clock_fullscreen) {
         clock_face(1);
         return;
     }
@@ -1422,24 +1309,24 @@ void ui_draw(void) {
         polish_photo();
         return;
     }
-    if (screen != 2)
+    if (ui_route() != 2)
         app_view_draw(APP_STATUS_BAR);
     if (!u17_draw() && !u16_draw() && !u15_draw())
         app_render();
     help_overlay16();
-    if (screen == 79 || screen == 125) {
+    if (ui_route() == 79 || ui_route() == 125) {
         rect(250, 72, 266, 48, 255);
-        dropdown_button(270, 74, 246, 44, screen == 79 ? "Sternhimmel" : "Sonnensystem");
+        dropdown_button(270, 74, 246, 44, ui_route() == 79 ? "Sternhimmel" : "Sonnensystem");
     }
-    if (screen == 2 && reader_chrome)
+    if (ui_route() == 2 && reader_ui.reader_chrome)
         app_view_draw(APP_STATUS_BAR);
     if (has_tabs())
         app_view_draw(APP_TAB_BAR);
-    if (screen == 2 && selecting == 2)
+    if (ui_route() == 2 && reader_ui.selecting == 2)
         selection_overlay();
-    if (keyboard) {
-        memcpy(keyboard_background18, ui_pixels, sizeof(ui_pixels));
-        keyboard_background_valid18 = 1;
+    if (editor_ui.keyboard) {
+        memcpy(editor_ui.keyboard_background18, ui_pixels, sizeof(ui_pixels));
+        editor_ui.keyboard_background_valid18 = 1;
     }
 input_overlays18:
     overlays();
@@ -1531,7 +1418,7 @@ int ui_input(const Input *in) {
         return 1;
     int network_poll = 0;
     Input normalized;
-    if (!keyboard && in->kind == INPUT_TAP)
+    if (!editor_ui.keyboard && in->kind == INPUT_TAP)
         apps_checkpoint();
     if (in->kind == INPUT_STATUS && sleeping)
         return v1_sleep_tick() ? 1 : 2;
@@ -1550,25 +1437,25 @@ int ui_input(const Input *in) {
             in = &normalized;
             network_poll = 1;
         } else {
-            int needs_status = screen == 12 || screen == 8 ||
-                               ((screen == 25 || screen == 26) && apps_poll_interval() >= 0);
+            int needs_status = ui_route() == 12 || ui_route() == 8 ||
+                               ((ui_route() == 25 || ui_route() == 26) && apps_poll_interval() >= 0);
             if (action && !needs_status)
                 return action;
             if (service_busy() && !needs_status)
                 return 2;
         }
     }
-    if (!sleeping && screen == 28 && clock_fullscreen && in->kind == INPUT_TAP) {
-        clock_fullscreen = 0;
+    if (!sleeping && ui_route() == 28 && clock_ui.clock_fullscreen && in->kind == INPUT_TAP) {
+        clock_ui.clock_fullscreen = 0;
         return 1;
     }
     int intercepted = extra_intercept(in);
     if (intercepted >= 0)
         return intercepted;
 
-    if (!sleeping && !dropdown && (screen == 0 || screen == 1) && in->kind == INPUT_HOLD) {
+    if (!sleeping && !dropdown && (ui_route() == 0 || ui_route() == 1) && in->kind == INPUT_HOLD) {
         int index = -1, top = library_top(), begin = library_begin();
-        if (featured() >= 0 && listpage == 0 && in->x >= 28 && in->x < 572 &&
+        if (featured() >= 0 && library_ui.listpage == 0 && in->x >= 28 && in->x < 572 &&
             in->y >= 80 && in->y < 312)
             index = featured();
         else if (in->x >= 28 && in->y >= top) {
@@ -1576,8 +1463,8 @@ int ui_input(const Input *in) {
             int row = (in->y - top) / 278;
             int cell = row * 3 + col;
             if (col < 3 && (in->x - 28) % 188 < 168 && (in->y - top) % 278 < 274 &&
-                cell < library_per() && begin + cell < view_count)
-                index = view[begin + cell];
+                cell < library_per() && begin + cell < library_ui.view_count)
+                index = library_ui.view[begin + cell];
         }
         if (index >= 0) {
             static const char *pin[] = {"Anheften", "Löschen"};
@@ -1589,15 +1476,15 @@ int ui_input(const Input *in) {
             return 1;
         }
     }
-    if (screen == 23 && in->kind == INPUT_HOLD && !sleeping)
+    if (ui_route() == 23 && in->kind == INPUT_HOLD && !sleeping)
         return apps_input(in);
-    if (!sleeping && screen == 2 && in->kind == INPUT_HOLD && !reader_chrome && in->y > 60 &&
+    if (!sleeping && ui_route() == 2 && in->kind == INPUT_HOLD && !reader_ui.reader_chrome && in->y > 60 &&
         in->y < 735) {
-        selection_last_x = selection_x = in->x;
-        selection_last_y = selection_y = in->y;
+        reader_ui.selection_last_x = reader_ui.selection_x = in->x;
+        reader_ui.selection_last_y = reader_ui.selection_y = in->y;
         if (engine_select(page, in->x - 28, in->y - 12, in->x - 27, in->y - 11, 544, 728, zoom,
-                          panx, pany, &selection))
-            selecting = 1;
+                          panx, pany, &reader_ui.selection))
+            reader_ui.selecting = 1;
         else {
             selection_release = 1;
             ui_message("Kein auswählbarer Text an dieser Stelle.");
@@ -1609,17 +1496,17 @@ int ui_input(const Input *in) {
         selection_release = 0;
         return 1;
     }
-    if (screen == 2 && selecting == 1 &&
+    if (ui_route() == 2 && reader_ui.selecting == 1 &&
         (in->kind == INPUT_MOVE || in->kind == INPUT_TAP || in->kind == INPUT_SWIPE)) {
-        if (in->kind == INPUT_MOVE && abs(in->x - selection_last_x) < 7 &&
-            abs(in->y - selection_last_y) < 7)
+        if (in->kind == INPUT_MOVE && abs(in->x - reader_ui.selection_last_x) < 7 &&
+            abs(in->y - reader_ui.selection_last_y) < 7)
             return 2;
-        selection_last_x = in->x;
-        selection_last_y = in->y;
-        engine_select(page, selection_x - 28, selection_y - 12, in->x - 28, in->y - 12, 544, 728,
-                      zoom, panx, pany, &selection);
+        reader_ui.selection_last_x = in->x;
+        reader_ui.selection_last_y = in->y;
+        engine_select(page, reader_ui.selection_x - 28, reader_ui.selection_y - 12, in->x - 28, in->y - 12, 544, 728,
+                      zoom, panx, pany, &reader_ui.selection);
         if (in->kind != INPUT_MOVE)
-            selecting = selection.count ? 2 : 0;
+            reader_ui.selecting = reader_ui.selection.count ? 2 : 0;
         pressed = -1;
         return 1;
     }
@@ -1666,13 +1553,13 @@ int ui_input(const Input *in) {
         }
     } else if (in->kind == INPUT_SWIPE) {
         pressed = -1;
-        if (screen == 2 ? (down_y < 48 || down_y >= 752) : (down_y < 130 || down_y >= 700))
+        if (ui_route() == 2 ? (down_y < 48 || down_y >= 752) : (down_y < 130 || down_y >= 700))
             return 1;
     }
-    if (!sleeping && !keyboard && !dropdown && !confirm_delete && !battery_popup &&
+    if (!sleeping && !editor_ui.keyboard && !dropdown && !confirm_delete && !battery_popup &&
         pagination.state) {
         if (in->kind == INPUT_SWIPE && abs(in->dx) > abs(in->dy) &&
-            (screen != 2 || (options[OPT_SWIPE] && zoom <= 1))) {
+            (ui_route() != 2 || (options[OPT_SWIPE] && zoom <= 1))) {
             pagination_move(in->dx < 0 ? 1 : -1);
             return 1;
         }
@@ -1686,19 +1573,19 @@ int ui_input(const Input *in) {
     if (in->kind == INPUT_TAP && !sleeping)
         device_activity();
     if (in->kind == INPUT_TAP) {
-        cursor_visible = 1;
-        cursor_epoch = extra_millis();
+        editor_ui.cursor_visible = 1;
+        editor_ui.cursor_epoch = extra_millis();
     }
     if (in->kind == INPUT_STATUS) {
-        if (screen >= 20 && screen <= 26 && !sleeping)
+        if (ui_route() >= 20 && ui_route() <= 26 && !sleeping)
             return apps_input(in);
-        if (screen == 12 && wifi_enabled) {
+        if (ui_route() == 12 && wifi_ui.wifi_enabled) {
             char old[128];
-            snprintf(old, sizeof(old), "%s", wifi_ssid);
-            network_status(wifi_ssid, sizeof(wifi_ssid));
-            if (wifi_scanning || strcmp(old, wifi_ssid))
+            snprintf(old, sizeof(old), "%s", wifi_ui.wifi_ssid);
+            network_status(wifi_ui.wifi_ssid, sizeof(wifi_ui.wifi_ssid));
+            if (wifi_ui.wifi_scanning || strcmp(old, wifi_ui.wifi_ssid))
                 network_results();
-            wifi_scanning = 0;
+            wifi_ui.wifi_scanning = 0;
         }
         refresh_status(0);
         return 1;
@@ -1707,37 +1594,37 @@ int ui_input(const Input *in) {
         int done = discover_complete();
         if (network_poll && !done)
             return 2;
-        if (screen == 10 && store_stage && done && store_complete(done))
+        if (ui_route() == 10 && store_ui.store_stage && done && store_complete(done))
             return 1;
         if (done == 3) {
             polish_wiki_refetched();
             extra_wiki_cache();
-            if (screen == 36)
+            if (ui_route() == 36)
                 article_wiki_request();
             return 1;
         }
         if (done < 0) {
             char message[256];
             snprintf(message, sizeof(message), "%s", discover_error());
-            if (screen == 36 && wiki_refresh_failed())
+            if (ui_route() == 36 && wiki_refresh_failed())
                 return 1;
-            if (screen == 36)
+            if (ui_route() == 36)
                 extra_wiki_restore();
             ui_message(message);
         } else if (done == 2) {
-            if (screen == 2)
-                library_dirty = 1;
+            if (ui_route() == 2)
+                library_ui.library_dirty = 1;
             else
                 refresh_library();
             ui_message("Buch zur Bibliothek hinzugefügt.");
         } else if (done == 1) {
-            opds_page = 0;
-            if (screen == 10 && opds_count == 1 && opds_items[0].acquisition) {
-                opds_selected = 0;
+            store_ui.opds_page = 0;
+            if (ui_route() == 10 && opds_count == 1 && opds_items[0].acquisition) {
+                store_ui.opds_selected = 0;
                 route_to(11);
                 return 1;
             }
-            if (screen == 10 || screen == 11)
+            if (ui_route() == 10 || ui_route() == 11)
                 route_to(10);
             else
                 ui_message("Katalog geladen. Unter Bücher entdecken öffnen.");
@@ -1755,7 +1642,7 @@ int ui_input(const Input *in) {
         apps_pause();
         extra_save();
         service_cancel();
-        selecting = 0;
+        reader_ui.selecting = 0;
         battery_popup = 0;
         if (!sleeping) {
             connect_stop();
@@ -1785,9 +1672,9 @@ int ui_input(const Input *in) {
         if (sleeping) {
             sleeping = 0;
             full = 1;
-            device_status(battery, sizeof(battery), wifi, sizeof(wifi));
-            battery_charging = device_charging();
-            status_time = charging_checked = time(NULL);
+            device_status(status_ui.battery, sizeof(status_ui.battery), status_ui.wifi, sizeof(status_ui.wifi));
+            status_ui.battery_charging = device_charging();
+            status_ui.status_time = status_ui.charging_checked = time(NULL);
             extra_tick();
         }
         return 1;
@@ -1795,85 +1682,85 @@ int ui_input(const Input *in) {
     if (sleeping)
         return 2;
     int x = in->x, y = in->y;
-    if (screen == 2 && selecting == 2 && in->kind == INPUT_TAP) {
+    if (ui_route() == 2 && reader_ui.selecting == 2 && in->kind == INPUT_TAP) {
         int action = selection_menu_action(READER_SELECTION_Y, x, y);
         if (action > 0 && action < 4) {
             if (action == 3) {
-                if (annotation_count >= 128)
+                if (reader_ui.annotation_count >= 128)
                     ui_message("Maximal 128 Markierungen pro Buch.");
                 else {
-                    Annotation *a = &annotations[annotation_count++];
+                    Annotation *a = &reader_ui.annotations[reader_ui.annotation_count++];
                     memset(a, 0, sizeof(*a));
                     engine_position(page, &a->position);
-                    snprintf(a->text, sizeof(a->text), "%s", selection.text);
-                    snprintf(a->position.quote, sizeof(a->position.quote), "%s", selection.text);
+                    snprintf(a->text, sizeof(a->text), "%s", reader_ui.selection.text);
+                    snprintf(a->position.quote, sizeof(a->position.quote), "%s", reader_ui.selection.text);
                     if (!annotations_write()) {
-                        annotation_count--;
+                        reader_ui.annotation_count--;
                         ui_message("Speichern fehlgeschlagen.");
                     } else
                         ui_message("Markierung gespeichert.");
                 }
             } else if (action == 1) {
                 AppIntent request = {.app = APP_WIKIPEDIA, .kind = INTENT_SEARCH};
-                snprintf(request.text, sizeof(request.text), "%s", selection.text);
+                snprintf(request.text, sizeof(request.text), "%s", reader_ui.selection.text);
                 app_send(&request);
             } else {
-                const char *definition = dictionary_lookup(selection.text, options[OPT_LANGUAGE], NULL);
+                const char *definition = dictionary_lookup(reader_ui.selection.text, options[OPT_LANGUAGE], NULL);
                 char translation[420];
                 if (definition) ui_message(definition);
-                else if (dictionary_translate(selection.text, options[OPT_LANGUAGE], translation,
+                else if (dictionary_translate(reader_ui.selection.text, options[OPT_LANGUAGE], translation,
                                               sizeof(translation))) ui_message(translation);
                 else ui_message("Kein Eintrag im Offline-Wörterbuch.");
             }
         }
-        selecting = 0;
+        reader_ui.selecting = 0;
         pressed = -1;
         return 1;
     }
-    if (screen == 14 && !confirm_delete && in->kind == INPUT_TAP && y >= 155 && y < 655) {
-        int i = annotation_page * 5 + (y - 155) / 100;
-        if (i < annotation_count) {
+    if (ui_route() == 14 && !confirm_delete && in->kind == INPUT_TAP && y >= 155 && y < 655) {
+        int i = reader_ui.annotation_page * 5 + (y - 155) / 100;
+        if (i < reader_ui.annotation_count) {
             if (x >= 510) {
                 confirm_delete = 2;
-                annotation_delete = i;
+                reader_ui.annotation_delete = i;
             } else {
-                page = engine_restore(&annotations[i].position);
+                page = engine_restore(&reader_ui.annotations[i].position);
                 route_to(2);
-                reader_chrome = 0;
+                reader_ui.reader_chrome = 0;
             }
         }
         return 1;
     }
-    if (screen == 14 && !confirm_delete && in->kind == INPUT_TAP && y >= 679 && y < 723) {
-        if (x < 300 && annotation_page)
-            annotation_page--;
-        else if (x >= 300 && (annotation_page + 1) * 5 < annotation_count)
-            annotation_page++;
+    if (ui_route() == 14 && !confirm_delete && in->kind == INPUT_TAP && y >= 679 && y < 723) {
+        if (x < 300 && reader_ui.annotation_page)
+            reader_ui.annotation_page--;
+        else if (x >= 300 && (reader_ui.annotation_page + 1) * 5 < reader_ui.annotation_count)
+            reader_ui.annotation_page++;
         return 1;
     }
 
-    if (in->kind == INPUT_TAP && screen == 2 && reader_chrome && y >= 164 && y < 736) {
-        reader_chrome = 0;
+    if (in->kind == INPUT_TAP && ui_route() == 2 && reader_ui.reader_chrome && y >= 164 && y < 736) {
+        reader_ui.reader_chrome = 0;
         return 1;
     }
-    if (in->kind == INPUT_TAP && screen == 2 && !reader_chrome && (y < 78 || y >= 722)) {
-        reader_chrome = 1;
+    if (in->kind == INPUT_TAP && ui_route() == 2 && !reader_ui.reader_chrome && (y < 78 || y >= 722)) {
+        reader_ui.reader_chrome = 1;
         return 1;
     }
-    if (in->kind == INPUT_TAP && y < 48 && (screen != 2 || reader_chrome) && status_timer_x >= 0 &&
-        x >= status_timer_x && x < status_timer_x + status_timer_width) {
+    if (in->kind == INPUT_TAP && y < 48 && (ui_route() != 2 || reader_ui.reader_chrome) && status_ui.status_timer_x >= 0 &&
+        x >= status_ui.status_timer_x && x < status_ui.status_timer_x + status_ui.status_timer_width) {
         AppIntent request = {.app = APP_TIMER, .kind = INTENT_OPEN};
         app_send(&request);
         return 1;
     }
-    if (in->kind == INPUT_TAP && y < 48 && (screen != 2 || reader_chrome)) {
-        if (x < 62 && (screen == 3 || screen == 9) && !keyboard && !dropdown && !confirm_delete)
+    if (in->kind == INPUT_TAP && y < 48 && (ui_route() != 2 || reader_ui.reader_chrome)) {
+        if (x < 62 && (ui_route() == 3 || ui_route() == 9) && !editor_ui.keyboard && !dropdown && !confirm_delete)
             apply_reading_settings();
-        if (x < 62 && screen == 29 && u17_notes_depth() && !keyboard && !dropdown) {
+        if (x < 62 && ui_route() == 29 && u17_notes_depth() && !editor_ui.keyboard && !dropdown) {
             u17_notes_up();
             return 1;
         }
-        if (x < 62 && !keyboard && !dropdown && recipes_back())
+        if (x < 62 && !editor_ui.keyboard && !dropdown && recipes_back())
             return 1;
         if (x < 62 && can_back()) {
             apps_pause();
@@ -1881,41 +1768,41 @@ int ui_input(const Input *in) {
                 battery_popup = 0;
                 return 1;
             }
-            if (keyboard || dropdown || confirm_delete) {
-                if (keyboard && keyboard_multiline())
+            if (editor_ui.keyboard || dropdown || confirm_delete) {
+                if (editor_ui.keyboard && keyboard_multiline())
                     commit_keyboard();
-                keyboard = dropdown = confirm_delete = 0;
+                editor_ui.keyboard = dropdown = confirm_delete = 0;
                 return 1;
             }
-            if (screen == 10 && opds_depth) {
+            if (ui_route() == 10 && store_ui.opds_depth) {
                 discover_cancel();
-                if (!strcmp(opds_history[--opds_depth], "lumen:search"))
+                if (!strcmp(store_ui.opds_history[--store_ui.opds_depth], "lumen:search"))
                     store_restore();
                 else
-                    discover_start(opds_history[opds_depth], NULL);
+                    discover_start(store_ui.opds_history[store_ui.opds_depth], NULL);
                 return 1;
             }
             int target = 1;
             while (history_count) {
                 int candidate = history[--history_count];
-                if (candidate != screen && app_route_valid(candidate)) {
+                if (candidate != ui_route() && app_route_valid(candidate)) {
                     target = candidate;
                     break;
                 }
             }
             route_to(target);
-            if (screen == 0)
+            if (ui_route() == 0)
                 route_to(1);
-            if ((screen == 2 || screen == 4 || screen == 5) && current < 0)
+            if ((ui_route() == 2 || ui_route() == 4 || ui_route() == 5) && current < 0)
                 route_to(1);
-            if (screen == 1)
+            if (ui_route() == 1)
                 update_view();
             return 1;
         }
-        if (status_wifi_x >= 0 && x >= status_wifi_x - 5 && x < status_wifi_x + 39 &&
-            screen != 12) {
+        if (status_ui.status_wifi_x >= 0 && x >= status_ui.status_wifi_x - 5 && x < status_ui.status_wifi_x + 39 &&
+            ui_route() != 12) {
             if (history_count < 64)
-                history[history_count++] = screen;
+                history[history_count++] = ui_route();
             apps_pause();
             route_to(12);
             wifi_open();
@@ -1923,8 +1810,8 @@ int ui_input(const Input *in) {
         }
     }
     if (in->kind == INPUT_TAP && y < 48 && (options[OPT_BATTERY] || options[OPT_BATTERY_PERCENT]) &&
-        status_battery_x >= 0 && x >= status_battery_x - 6 && x < status_battery_right + 6 &&
-        (screen != 2 || reader_chrome)) {
+        status_ui.status_battery_x >= 0 && x >= status_ui.status_battery_x - 6 && x < status_ui.status_battery_right + 6 &&
+        (ui_route() != 2 || reader_ui.reader_chrome)) {
         battery_popup = !battery_popup;
         return 1;
     }
@@ -1933,19 +1820,19 @@ int ui_input(const Input *in) {
         return 1;
     }
     if (in->kind == INPUT_TAP && has_tabs() && y >= 736 &&
-        (keyboard || dropdown || confirm_delete)) {
-        keyboard = dropdown = confirm_delete = 0;
-        memset(edit, 0, sizeof(edit));
+        (editor_ui.keyboard || dropdown || confirm_delete)) {
+        editor_ui.keyboard = dropdown = confirm_delete = 0;
+        memset(editor_ui.edit, 0, sizeof(editor_ui.edit));
     }
-    if (keyboard || dropdown || confirm_delete) {
+    if (editor_ui.keyboard || dropdown || confirm_delete) {
         modal_input(in);
         return 1;
     }
-    if (screen == 0)
+    if (ui_route() == 0)
         route_to(1);
     if (in->kind == INPUT_TAP && has_tabs() && y >= 736) {
         apps_pause();
-        if (screen == 3 || screen == 9)
+        if (ui_route() == 3 || ui_route() == 9)
             apply_reading_settings();
         history_count = 0;
         int tab = x / (options[OPT_APPS] ? 150 : 200);
@@ -1963,14 +1850,14 @@ int ui_input(const Input *in) {
 #include "text_editor.h"
 #include "../../apps/keyboard/view.h"
 static void overlays(void) {
-    if (keyboard || dropdown || confirm_delete) {
+    if (editor_ui.keyboard || dropdown || confirm_delete) {
         int keep = 0;
         for (int i = 0; i < widget_count; i++)
             if (widgets[i].system)
                 widgets[keep++] = widgets[i];
         widget_count = keep;
     }
-    if (keyboard) {
+    if (editor_ui.keyboard) {
         app_view_draw(APP_KEYBOARD);
     }
     ui_y_offset = 0;
@@ -1978,8 +1865,8 @@ static void overlays(void) {
         int height = drop_visible * 48 + 10 + (drop_count > 5 ? 44 : 0);
         if (drop_y + height > (has_tabs() ? 728 : 790))
             drop_y = (has_tabs() ? 728 : 790) - height;
-        aa_soft_rect(drop_x, drop_y, drop_w, height, 10, 0);
-        aa_soft_rect(drop_x + 2, drop_y + 2, drop_w - 4, height - 4, 8, 255);
+        control_surface(drop_x, drop_y, drop_w, height, 10, 0);
+        control_surface(drop_x + 2, drop_y + 2, drop_w - 4, height - 4, 8, 255);
         for (int row = 0; row < drop_visible && drop_first + row < drop_count; row++) {
             int i = drop_first + row;
             int y = drop_y + 5 + row * 48;
@@ -2006,7 +1893,7 @@ static void overlays(void) {
         drawtext(42, 292, confirm_delete == 2 ? "Markierung löschen?" : "Buch wirklich löschen?",
                  &body, 510);
         wrapped(42, 340,
-                confirm_delete == 2 ? annotations[annotation_delete].text : library[selected].title,
+                confirm_delete == 2 ? reader_ui.annotations[reader_ui.annotation_delete].text : library[selected].title,
                 &small, 500, 2);
         button(42, 446, 235, "Abbrechen", 0);
         button(309, 446, 235, "Löschen", 0);
@@ -2015,7 +1902,7 @@ static void overlays(void) {
         soft_rect(428, 50, 148, 84, 9, 0);
         soft_rect(430, 52, 144, 80, 0, 255);
         char b[32];
-        snprintf(b, sizeof(b), "%s%%", battery);
+        snprintf(b, sizeof(b), "%s%%", status_ui.battery);
         centered(430, 58, 144, 64, b, &body);
     }
     if (pressed >= 0 && pressed < widget_count)
@@ -2030,65 +1917,65 @@ static void refresh_library(void) {
     update_view();
 }
 static void commit_keyboard(void) {
-    if (keyboard_target >= 30) {
-        int previous_target = keyboard_target;
-        extra_commit(keyboard_target, edit);
-        if (keyboard_target == previous_target) {
-            memset(edit, 0, sizeof(edit));
-            keyboard = 0;
+    if (editor_ui.keyboard_target >= 30) {
+        int previous_target = editor_ui.keyboard_target;
+        extra_commit(editor_ui.keyboard_target, editor_ui.edit);
+        if (editor_ui.keyboard_target == previous_target) {
+            memset(editor_ui.edit, 0, sizeof(editor_ui.edit));
+            editor_ui.keyboard = 0;
         }
         pressed = -1;
         return;
     }
-    if (keyboard_target == 8) {
-        apps_note_commit(edit);
-        keyboard = 0;
+    if (editor_ui.keyboard_target == 8) {
+        apps_note_commit(editor_ui.edit);
+        editor_ui.keyboard = 0;
         pressed = -1;
         return;
     }
-    if (keyboard_target == 6) {
-        snprintf(store_query, sizeof(store_query), "%s", edit);
+    if (editor_ui.keyboard_target == 6) {
+        snprintf(store_ui.store_query, sizeof(store_ui.store_query), "%s", editor_ui.edit);
         store_search();
-    } else if (keyboard_target == 5 || keyboard_target == 32) {
-        if (network_connect(wifi_selected, edit))
+    } else if (editor_ui.keyboard_target == 5 || editor_ui.keyboard_target == 32) {
+        if (network_connect(wifi_ui.wifi_selected, editor_ui.edit))
             ui_message("Verbindung wird hergestellt …");
         else
             ui_message(network_error());
-        memset(edit, 0, sizeof(edit));
-    } else if (keyboard_target == 4) {
-        snprintf(opds_source, sizeof(opds_source), tr("%s"), edit);
+        memset(editor_ui.edit, 0, sizeof(editor_ui.edit));
+    } else if (editor_ui.keyboard_target == 4) {
+        snprintf(store_ui.opds_source, sizeof(store_ui.opds_source), tr("%s"), editor_ui.edit);
         char p[2048];
         snprintf(p, sizeof(p), tr("%s/opds-source.txt"), data_root);
-        atomic_write(p, opds_source, strlen(opds_source));
-    } else if (keyboard_target == 0) {
-        snprintf(query, sizeof(query), tr("%s"), edit);
-        listpage = 0;
+        atomic_write(p, store_ui.opds_source, strlen(store_ui.opds_source));
+    } else if (editor_ui.keyboard_target == 0) {
+        snprintf(library_ui.query, sizeof(library_ui.query), tr("%s"), editor_ui.edit);
+        library_ui.listpage = 0;
         update_view();
     } else if (selected >= 0) {
-        if (keyboard_target == 1) {
+        if (editor_ui.keyboard_target == 1) {
             if (current == selected) {
                 ui_save();
                 engine_close();
                 current = -1;
             }
-            if (!library_rename(selected, edit))
+            if (!library_rename(selected, editor_ui.edit))
                 ui_message("Umbenennen fehlgeschlagen. Name muss frei sein.");
-        } else if (keyboard_target == 2) {
-            if (!library_metadata(selected, edit, library[selected].author))
+        } else if (editor_ui.keyboard_target == 2) {
+            if (!library_metadata(selected, editor_ui.edit, library[selected].author))
                 ui_message("Titel konnte nicht gespeichert werden.");
-        } else if (keyboard_target == 3) {
-            if (!library_metadata(selected, library[selected].title, edit))
+        } else if (editor_ui.keyboard_target == 3) {
+            if (!library_metadata(selected, library[selected].title, editor_ui.edit))
                 ui_message("Autor konnte nicht gespeichert werden.");
         }
     }
-    keyboard = 0;
+    editor_ui.keyboard = 0;
     pressed = -1;
 }
 static size_t keyboard_capacity(void) {
-    return text_input_spec(keyboard_target).capacity;
+    return text_input_spec(editor_ui.keyboard_target).capacity;
 }
 static void modal_input(const Input *in) {
-    if (in->kind == INPUT_SWIPE && keyboard && keyboard_multiline() && down_y >= 54 &&
+    if (in->kind == INPUT_SWIPE && editor_ui.keyboard && keyboard_multiline() && down_y >= 54 &&
         down_y < 502) {
         editor_scroll18(in->dy > 0 ? -8 : 8);
         return;
@@ -2098,20 +1985,20 @@ static void modal_input(const Input *in) {
     int x = in->x, y = in->y;
     if (confirm_delete == 2) {
         if (y >= 446 && y < 494) {
-            if (x >= 309 && annotation_delete < annotation_count) {
-                Annotation backup = annotations[annotation_delete];
-                memmove(annotations + annotation_delete, annotations + annotation_delete + 1,
-                        (size_t)(annotation_count - annotation_delete - 1) * sizeof(Annotation));
-                annotation_count--;
+            if (x >= 309 && reader_ui.annotation_delete < reader_ui.annotation_count) {
+                Annotation backup = reader_ui.annotations[reader_ui.annotation_delete];
+                memmove(reader_ui.annotations + reader_ui.annotation_delete, reader_ui.annotations + reader_ui.annotation_delete + 1,
+                        (size_t)(reader_ui.annotation_count - reader_ui.annotation_delete - 1) * sizeof(Annotation));
+                reader_ui.annotation_count--;
                 if (!annotations_write()) {
-                    memmove(annotations + annotation_delete + 1, annotations + annotation_delete,
-                            (size_t)(annotation_count - annotation_delete) * sizeof(Annotation));
-                    annotations[annotation_delete] = backup;
-                    annotation_count++;
+                    memmove(reader_ui.annotations + reader_ui.annotation_delete + 1, reader_ui.annotations + reader_ui.annotation_delete,
+                            (size_t)(reader_ui.annotation_count - reader_ui.annotation_delete) * sizeof(Annotation));
+                    reader_ui.annotations[reader_ui.annotation_delete] = backup;
+                    reader_ui.annotation_count++;
                     ui_message("Speichern fehlgeschlagen.");
                 }
-                if (annotation_page && annotation_page * 5 >= annotation_count)
-                    annotation_page--;
+                if (reader_ui.annotation_page && reader_ui.annotation_page * 5 >= reader_ui.annotation_count)
+                    reader_ui.annotation_page--;
             }
             confirm_delete = 0;
         }
@@ -2157,7 +2044,7 @@ static void modal_input(const Input *in) {
             } else if (drop_target >= 910 && drop_target <= 930) {
                 u16_dropdown(drop_target, choice);
             } else if (drop_target == 902) {
-                clock_style = choice;
+                clock_ui.clock_style = choice;
                 extra_save();
             } else if (drop_target == 901 && selected >= 0 && selected < library_count) {
                 if (choice == 0) {
@@ -2186,7 +2073,7 @@ static void modal_input(const Input *in) {
                 engine_options(options[OPT_FONT], options[OPT_ALIGN], options[OPT_LETTERSPACE],
                                options[OPT_PARAGRAPH]);
             }
-            listpage = 0;
+            library_ui.listpage = 0;
             update_view();
             library_settings_save();
         }
@@ -2194,7 +2081,7 @@ static void modal_input(const Input *in) {
             dropdown = 0;
         return;
     }
-    if (keyboard) {
+    if (editor_ui.keyboard) {
         keyboard_tap18(x, y);
         return;
     }
@@ -2208,7 +2095,7 @@ static void modal_input(const Input *in) {
 int ui_poll_interval(void) {
     if (sleeping)
         return v1_sleep_poll();
-    int wait = screen >= 20 ? apps_poll_interval() : (screen == 12 || screen == 8 ? 2000 : -1),
+    int wait = ui_route() >= 20 ? apps_poll_interval() : (ui_route() == 12 || ui_route() == 8 ? 2000 : -1),
         other = extra_poll();
     int np = new_apps_poll();
     int pp = polish_poll();
@@ -2219,7 +2106,7 @@ int ui_poll_interval(void) {
         np = vp;
     if (np >= 0 && (other < 0 || np < other))
         other = np;
-    int status_wait = battery_charging ? 5000 : 30000;
+    int status_wait = status_ui.battery_charging ? 5000 : 30000;
     if (job_pending16())
         status_wait = 100;
     else if (ink_pending16())
@@ -2229,96 +2116,7 @@ int ui_poll_interval(void) {
     return other >= 0 && (wait < 0 || other < wait) ? other : wait;
 }
 
-static void annotations_load(void) {
-    annotation_count = annotation_page = 0;
-    if (current < 0)
-        return;
-    char path[2048];
-    snprintf(path, sizeof(path), "%s/books/%016llx.notes-v1", data_root,
-             (unsigned long long)library[current].id);
-    FILE *f = fopen(path, "rb");
-    if (!f)
-        return;
-    annotation_count = (int)fread(annotations, sizeof(Annotation), 128, f);
-    fclose(f);
-    for (int i = 0; i < annotation_count; i++) {
-        annotations[i].text[2047] = 0;
-        annotations[i].position.quote[127] = 0;
-        if (annotations[i].position.chapter < 0 || annotations[i].position.chapter > 100000)
-            annotations[i].position.chapter = 0;
-    }
-}
-static void shade_selection(const TextSelection *s, int shade) {
-    for (int i = 0; i < s->count; i++) {
-        TextRect r = s->rects[i];
-        int x0 = (int)r.x0 + 28, y0 = (int)r.y0 + 12, x1 = (int)ceilf(r.x1) + 28,
-            y1 = (int)ceilf(r.y1) + 12;
-        if (x0 < 28)
-            x0 = 28;
-        if (x1 > 572)
-            x1 = 572;
-        if (y0 < 12)
-            y0 = 12;
-        if (y1 > 740)
-            y1 = 740;
-        for (int y = y0; y < y1; y++)
-            for (int x = x0; x < x1; x++)
-                if (ui_pixels[y * WIDTH + x] > shade)
-                    ui_pixels[y * WIDTH + x] = shade;
-    }
-}
-static void annotations_draw(void) {
-    if (!annotation_count) {
-        if (selecting)
-            shade_selection(&selection, 180);
-        return;
-    }
-    if (shading_page != page || shading_notes != annotation_count ||
-        shading_epoch != layout_epoch || shading_zoom != zoom || shading_panx != panx ||
-        shading_pany != pany) {
-        saved_shading.count = 0;
-        ReaderPosition pos;
-        if (current >= 0 && engine_position(page, &pos)) {
-            for (int i = 0; i < annotation_count && saved_shading.count < 64; i++)
-                if (annotations[i].position.chapter == pos.chapter) {
-                    TextSelection found;
-                    if (engine_find_text(page, annotations[i].text, 544, 728, zoom, panx, pany,
-                                         &found))
-                        for (int j = 0; j < found.count && saved_shading.count < 64; j++)
-                            saved_shading.rects[saved_shading.count++] = found.rects[j];
-                }
-        }
-        shading_page = page;
-        shading_notes = annotation_count;
-        shading_epoch = layout_epoch;
-        shading_zoom = zoom;
-        shading_panx = panx;
-        shading_pany = pany;
-    }
-    shade_selection(&saved_shading, 215);
-    if (selecting)
-        shade_selection(&selection, 180);
-}
-static void selection_overlay(void) {
-    const char *actions[] = {"Kopieren", "Wikipedia", "Wörterbuch", "Markieren", "Schließen"};
-    selection_menu_draw(READER_SELECTION_Y, selection.text, actions);
-}
-static void annotations_screen(void) {
-    heading("Markierungen");
-    if (!annotation_count)
-        wrapped(28, 180,
-                "Text im Buch lange berühren und ziehen. Danach markieren oder in Wikipedia "
-                "nachschlagen.",
-                &editorial, 544, 5);
-    for (int r = 0; r < 5 && annotation_page * 5 + r < annotation_count; r++) {
-        int y = 155 + r * 100;
-        region(28, y, 544, 98);
-        wrapped_raw(30, y + 2, annotations[annotation_page * 5 + r].text, &small, 470, 3);
-        icon_button(522, y + 25, IC_TRASH);
-        rect(28, y + 98, 544, 2, 190);
-    }
-    pager(679, &annotation_page, (annotation_count + 4) / 5);
-}
+#include "../../apps/reader/annotations_view.h"
 static void wikipedia_screen(void) {
     heading("Wikipedia");
     if (discover_busy())
@@ -2331,28 +2129,51 @@ static void wikipedia_screen(void) {
         wrapped(28, 180, "Kein Wikipedia-Eintrag gefunden.", &editorial, 544, 3);
 }
 
-static int annotations_write(void) {
-    if (current < 0)
-        return 0;
-    char path[2048];
-    snprintf(path, sizeof(path), "%s/books/%016llx.notes-v1", data_root,
-             (unsigned long long)library[current].id);
-    return atomic_write(path, annotations, sizeof(Annotation) * (size_t)annotation_count);
-}
-
+#include "../../apps/reader/annotations_store.h"
 #include "../../apps/host/compose.h"
+void ui_paint_heading(const char *text, int actions) { heading_actions(text, actions); }
+void ui_paint_icon_button(int x, int y, int id) { icon_button(x, y, id); }
+void ui_paint_hitbox(int x, int y, int w, int h) { region(x, y, w, h); }
+void ui_paint_text(int x, int y, int w, int h, const char *text, PaintText role) {
+    static const TextRole roles[] = {UI_BODY, UI_HEADING, UI_DISPLAY, UI_SECONDARY};
+    if ((unsigned)role < sizeof(roles)/sizeof(roles[0]))
+        type_centered(x, y, w, h, text, roles[role]);
+}
+void ui_paint_line(int x0, int y0, int x1, int y1, int weight, int gray) {
+    stroke_color(x0, y0, x1, y1, weight, gray);
+}
+void ui_paint_ellipse(int x, int y, int rx, int ry, int gray) {
+    if (rx < 1 || ry < 1) return;
+    int edge = rx < ry ? rx : ry;
+    for (int dy = -ry-1; dy <= ry+1; dy++) {
+        float v = (float)dy / ry;
+        float v2 = v*v;
+        for (int dx = -rx-1; dx <= rx+1; dx++) {
+            float u = (float)dx / rx;
+            float alpha = (1 - u*u - v2) * edge * .5f + .5f;
+            if (alpha > 0) blend_pixel(x+dx, y+dy, alpha, gray);
+        }
+    }
+}
+void ui_paint_ring(int x, int y, int radius, int weight) { ring(x, y, radius, weight); }
+void ui_paint_image(int x, int y, int w, int h, const unsigned char *gray) {
+    if (x < 0 || y < 0 || w <= 0 || h <= 0 || x+w > WIDTH || y+h > HEIGHT) return;
+    for (int row = 0; row < h; row++)
+        memcpy(ui_pixels+(y+row)*WIDTH+x, gray+row*w, (size_t)w);
+}
+int64_t ui_clock_millis(void) { return extra_millis(); }
 static void register_builtin_views(void) {
     app_view_register(APP_STATUS_BAR, header, NULL);
     app_view_register(APP_TAB_BAR, tabbar, NULL);
     app_view_register(APP_LOCK_SCREEN, lock_screen_draw, NULL);
     app_view_register(APP_KEYBOARD, keyboard_draw18, NULL);
-    app_view_register(APP_SIGNAL, signal_draw, signal_input);
-    app_view_register(APP_FROG, frog_draw, frog_input);
+    slide_3d_register();
+    frog_register();
 }
 
 
 static void app_leave(AppId app, void *ctx) {
-    if(app==APP_SIGNAL)signal_save();
+    app_page_checkpoint(app);
     (void)ctx;
     games_save17();
     if (app == APP_JOURNAL)
@@ -2360,7 +2181,7 @@ static void app_leave(AppId app, void *ctx) {
     companion_checkpoint16();
     if (app >= APP_2048)
         new_apps_save();
-    if (app == APP_NOTES && keyboard && keyboard_target == 30)
+    if (app == APP_NOTES && editor_ui.keyboard && editor_ui.keyboard_target == 30)
         commit_keyboard();
     if (app == APP_NOTES)
         v1_save();
@@ -2372,9 +2193,9 @@ static void app_leave(AppId app, void *ctx) {
         apps_checkpoint();
         ui_save();
     }
-    if (app == APP_STORE && store_stage) {
+    if (app == APP_STORE && store_ui.store_stage) {
         discover_cancel();
-        store_stage = 0;
+        store_ui.store_stage = 0;
     }
     if (app == APP_SETTINGS)
         apply_reading_settings();
@@ -2382,19 +2203,18 @@ static void app_leave(AppId app, void *ctx) {
 static void route_to(int route) {
     if (!app_route_valid(route))
         return;
-    if (reader_document_active && current == BOOK_LIMIT && route != 2 && route != 3 && route != 4 &&
+    if (reader_ui.reader_document_active && current == BOOK_LIMIT && route != 2 && route != 3 && route != 4 &&
         route != 14 && route != 104) {
         library_progress(&library[current], page, engine_count());
         save_anchor(&library[current], page, -1);
         engine_close();
         current = selected = -1;
-        reader_document_active = 0;
+        reader_ui.reader_document_active = 0;
     }
-    if (app_for_route(route) != app_for_route(screen))
+    if (app_for_route(route) != app_for_route(ui_route()))
         system_loading(route);
     /* Legacy route IDs remain stable for persisted navigation and native tests. */
-    if (app_runtime_route(&runtime, route))
-        screen = route;
+    app_runtime_route(&runtime, route);
 }
 static int app_send(const AppIntent *intent) {
     if (!intent || !app_definition(intent->app) || intent->kind < INTENT_OPEN ||
@@ -2416,7 +2236,7 @@ static int app_send(const AppIntent *intent) {
     if (intent->kind == INTENT_BOOK) {
         for (int i = 0; i < library_count; i++)
             if (library[i].id == intent->object_id) {
-                int old = screen;
+                int old = ui_route();
                 if (!ui_open(i))
                     return 0;
                 if (old != 2 && history_count < 64)
@@ -2432,46 +2252,45 @@ static int app_send(const AppIntent *intent) {
     }
     if ((intent->app == APP_NUMSCRATCH || intent->app == APP_DRAWING))
         return 0;
-    if (intent->app != app_for_route(screen))
+    if (intent->app != app_for_route(ui_route()))
         system_loading(app_definition(intent->app)->entry);
-    AppId previous = app_for_route(screen);
-    int old = screen;
+    AppId previous = app_for_route(ui_route());
+    int old = ui_route();
     if (!app_runtime_deliver(&runtime, intent))
         return 0;
     if (previous != intent->app && history_count < 64)
         history[history_count++] = old;
-    screen = runtime.route;
     if (intent->app == APP_STORE) {
-        snprintf(store_query, sizeof(store_query), "%s", runtime.intent.text);
+        snprintf(store_ui.store_query, sizeof(store_ui.store_query), "%s", runtime.intent.text);
         open_store();
     } else if (intent->app == APP_WIKIPEDIA) {
         snprintf(wiki_query, sizeof(wiki_query), "%s", runtime.intent.text);
         wiki_page = 0;
         wiki_history_scan();
         if (*wiki_query) {
-            wiki_article_language = options[OPT_LANGUAGE];
+            wiki_ui.wiki_article_language = options[OPT_LANGUAGE];
             discover_lookup(wiki_query, options[OPT_LANGUAGE]);
         }
     } else if (intent->app == APP_LIBRARY) {
-        snprintf(query, sizeof(query), "%s",
+        snprintf(library_ui.query, sizeof(library_ui.query), "%s",
                  intent->kind == INTENT_SEARCH ? runtime.intent.text : "");
-        listpage = 0;
+        library_ui.listpage = 0;
         update_view();
     } else if (intent->app == APP_SETTINGS && intent->kind == INTENT_SETTINGS) {
         if (app_route_valid(intent->section) && app_for_route(intent->section) == APP_SETTINGS)
             route_to(intent->section);
-        if (screen == 12)
+        if (ui_route() == 12)
             wifi_open();
-        if (screen == 40)
+        if (ui_route() == 40)
             storage_scan();
-        if (screen == 39)
+        if (ui_route() == 39)
             extra_prepare(39);
     } else if (app_definition(intent->app)->entry >= 27)
-        extra_prepare(screen);
+        extra_prepare(ui_route());
     else if (intent->app == APP_CALENDAR)
         app_calendar_load();
-    else if (screen >= 23 && screen <= 26)
-        app_open(screen);
+    else if (ui_route() >= 23 && ui_route() <= 26)
+        app_open(ui_route());
     if (intent->app == APP_NOTES && intent->object_id) {
         note_load((int)intent->object_id);
         route_to(30);
@@ -2526,5 +2345,5 @@ void ui_power_screen(int restart) {
 }
 
 int ui_batch_input(void) {
-    return keyboard || (screen == 30 && note_ink_mode);
+    return editor_ui.keyboard || (ui_route() == 30 && note_ink_mode);
 }

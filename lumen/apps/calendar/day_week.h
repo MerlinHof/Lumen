@@ -1,6 +1,6 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 static int calendar_layout17(void) {
-    if (screen != 21 || calendar_view16 == 2 || calendar_view16 == 3)
+    if (ui_route() != 21 || calendar_view16 == 2 || calendar_view16 == 3)
         return 0;
     heading_width("Kalender", 194);
     const char *views[] = {"Tag", "Woche", "Monat", "Jahr"};

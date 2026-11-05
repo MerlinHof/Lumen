@@ -20,7 +20,7 @@ static void journal_store17(void) {
     snprintf(p, sizeof(p), "%s/%08d.bin", dir, journal_date17);
     char name[80];
     snprintf(name, 80, "journals17/%08d.bin", journal_date17);
-    save_blob(name, d, sizeof(*d));
+    app_state_save(name, d, sizeof(*d));
     free(d);
 }
 static int journal_legacy17(int date) {
@@ -74,7 +74,7 @@ static void journal_open17(int date) {
     char name[80];
     snprintf(name, 80, "journals17/%08d.bin", date);
     Journal17 *d = malloc(sizeof(*d));
-    if (d && load_blob(name, d, sizeof(*d)) && d->version == 1 && d->date == date) {
+    if (d && app_state_load(name, d, sizeof(*d)) && d->version == 1 && d->date == date) {
         memcpy(journal_answers16, d->answers, sizeof(d->answers));
         journal_score16 = d->score;
         for (int i = 0; i < 6; i++)

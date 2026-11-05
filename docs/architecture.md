@@ -126,3 +126,17 @@ still share shell state and build in the same translation unit.
 The common contrast transfer lives in `lumen/system/image.h`. It runs during
 image sampling and when producing reader-page and lock-screen rasters. UI icons
 have their own deliberately drawn ink coverage.
+
+## View ownership in 2.5
+
+The runtime owns the active route. The legacy view host reads it through a
+single accessor, and standalone app pages register draw, input and optional
+checkpoint callbacks against their catalog IDs. Frog Solitaire and Slide 3D
+compile as separate modules and use the shared drawing interface. The
+app-state service handles binary saves for standalone and legacy apps and
+retains the existing file format and paths.
+
+Reader, library, store, Wi-Fi, settings, Clock, editor, notes, tasks, status bar
+and Wikipedia each declare their view state in their app directories. Their
+legacy adapters still compile together and can access one another's state.
+Reader document lifecycle and legacy route dispatch still run in the shell.

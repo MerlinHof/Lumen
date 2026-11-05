@@ -10,6 +10,10 @@ def compile_test(name,source,ui=False):
     mupdf,_,libs=build.dependencies('host');obj=OUT/(name+'.o');binary=OUT/name
     subprocess.run(['clang','-DLUMEN_HOST','-g','-fsanitize=address,undefined','-I'+str(mupdf/'include'),'-c',str(ROOT/source),'-o',str(obj)],check=True)
     objects=[build.object_path('host',s) for s in build.sources() if s not in ('main.c','system/ui/ui.c')]
+    if not ui:
+        ui_objects = {build.object_path('host', name) for name in
+                      ('apps/frog/app.c', 'apps/slide_3d/app.c')}
+        objects = [obj for obj in objects if obj not in ui_objects]
     subprocess.run(['clang++','-fsanitize=address,undefined',str(obj)]+[str(p) for p in objects+libs]+['-lm','-lpthread','-o',str(binary)],check=True)
     return binary
 def run(http=False,native_only=False):

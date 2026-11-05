@@ -28,3 +28,6 @@ apps/catalog.c
 apps/notifications/model.c
 apps/slide_3d/engine.c
 system/dictionary.c
+apps/frog/app.c
+apps/slide_3d/app.c
+system/app_storage.c

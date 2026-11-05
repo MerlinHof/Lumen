@@ -1,6 +1,6 @@
 /* Notifications own their floating surface; input is captured before app dispatch. */
 static int notification_visible(void) {
-    return *notification_text() && !keyboard && !sleeping && !extra_ringing() && !power_menu;
+    return *notification_text() && !editor_ui.keyboard && !sleeping && !extra_ringing() && !power_menu;
 }
 static void notification_draw(void) {
     if (!notification_visible())

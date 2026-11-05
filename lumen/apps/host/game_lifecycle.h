@@ -2,7 +2,7 @@
 static void new_apps_init(void) {
     v1_init();
     pro_rng = (uint32_t)time(NULL) ^ (uint32_t)extra_millis();
-    if (!load_blob("focus-v1.bin", &focus_stats, sizeof(focus_stats)) || focus_stats.span < 2 ||
+    if (!app_state_load("focus-v1.bin", &focus_stats, sizeof(focus_stats)) || focus_stats.span < 2 ||
         focus_stats.span > 8 || focus_stats.level < 1 || focus_stats.level > 5) {
         memset(&focus_stats, 0, sizeof(focus_stats));
         focus_stats.span = 3;
@@ -34,14 +34,14 @@ static void news_save_settings(void) {
 }
 static void new_apps_save(void) {
     v1_save();
-    if ((new_dirty & 1) && new_ready[0] && save_blob("2048-v1.bin", &tile_game, sizeof(tile_game)))
+    if ((new_dirty & 1) && new_ready[0] && app_state_save("2048-v1.bin", &tile_game, sizeof(tile_game)))
         new_dirty &= ~1u;
     if ((new_dirty & 2) && new_ready[1] &&
-        save_blob("solitaire-v1.bin", &solitaire, sizeof(solitaire)))
+        app_state_save("solitaire-v1.bin", &solitaire, sizeof(solitaire)))
         new_dirty &= ~2u;
-    if ((new_dirty & 4) && new_ready[2] && save_blob("sudoku-v1.bin", &sudoku, sizeof(sudoku)))
+    if ((new_dirty & 4) && new_ready[2] && app_state_save("sudoku-v1.bin", &sudoku, sizeof(sudoku)))
         new_dirty &= ~4u;
-    if ((new_dirty & 8) && save_blob("focus-v1.bin", &focus_stats, sizeof(focus_stats)))
+    if ((new_dirty & 8) && app_state_save("focus-v1.bin", &focus_stats, sizeof(focus_stats)))
         new_dirty &= ~8u;
 }
 static int valid_patience(void) {
@@ -71,7 +71,7 @@ static void new_apps_open(int route) {
         return;
     }
     if (route == 63 && !new_ready[0]) {
-        if (!load_blob("2048-v1.bin", &tile_game, sizeof(tile_game)))
+        if (!app_state_load("2048-v1.bin", &tile_game, sizeof(tile_game)))
             tiles_new(&tile_game, pro_random());
         for (int i = 0; i < 16; i++)
             if (tile_game.state.cell[i] > 30)
@@ -80,13 +80,13 @@ static void new_apps_open(int route) {
         new_dirty |= 1;
     }
     if (route == 64 && !new_ready[1]) {
-        if (!load_blob("solitaire-v1.bin", &solitaire, sizeof(solitaire)) || !valid_patience())
+        if (!app_state_load("solitaire-v1.bin", &solitaire, sizeof(solitaire)) || !valid_patience())
             patience_new(&solitaire, pro_random());
         new_ready[1] = 1;
         new_dirty |= 2;
     }
     if (route == 65 && !new_ready[2]) {
-        int valid = load_blob("sudoku-v1.bin", &sudoku, sizeof(sudoku));
+        int valid = app_state_load("sudoku-v1.bin", &sudoku, sizeof(sudoku));
         for (int i = 0; i < 81; i++)
             if (sudoku.board.cell[i] > 9 || sudoku.solution[i] < 1 || sudoku.solution[i] > 9 ||
                 sudoku.given[i] > 9)
@@ -130,15 +130,15 @@ static int new_apps_tick(void) {
     if (done) {
         news_retry = time(NULL) + 3600;
         if (done > 0) {
-            if (screen == 67 && olddate && olddate != news_date()) {
+            if (ui_route() == 67 && olddate && olddate != news_date()) {
                 news_load(olddate);
                 news_page = oldpage;
             } else
                 news_page = 0;
             news_puzzle_revealed = 0;
-            if (screen == 67)
+            if (ui_route() == 67)
                 changed = 1;
-        } else if (screen == 67) {
+        } else if (ui_route() == 67) {
             ui_message("Neue Ausgabe nicht geladen. Gespeicherte Ausgabe bleibt verfügbar.");
             changed = 1;
         }
@@ -152,7 +152,7 @@ static int new_apps_tick(void) {
             news_retry = time(NULL) + 3600;
             int before = newspaper.date;
             news_start(options[OPT_LANGUAGE], news_topics);
-            if (screen == 67 && before != (int)newspaper.date)
+            if (ui_route() == 67 && before != (int)newspaper.date)
                 changed = 1;
         }
 #endif

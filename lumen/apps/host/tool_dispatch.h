@@ -1,6 +1,6 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 static void extra_draw(void) {
-    switch (screen) {
+    switch (ui_route()) {
     case 51:
         heading("Bildquelle");
         wrapped_raw(30, 150, discover_lookup_image_name(), ui_font(UI_PRIMARY), 540, 5);
@@ -100,8 +100,8 @@ static void extra_draw(void) {
     case 45:
         heading("Löschen?");
         wrapped(30, 180,
-                screen == 43   ? "Diese Notiz endgültig löschen?"
-                : screen == 45 ? "Diese Tagesnotiz löschen?"
+                ui_route() == 43   ? "Diese Notiz endgültig löschen?"
+                : ui_route() == 45 ? "Diese Tagesnotiz löschen?"
                                : "Dieses Zeichenblatt leeren?",
                 ui_font(UI_TITLE), 540, 4);
         button(28, 455, 544, "Löschen", 0);
@@ -148,7 +148,7 @@ static void extra_commit(int target, const char *text) {
         snprintf(path, sizeof(path), "notes/%d.txt", note_selected);
         extra_write_text(path, note_text);
         notes_scan();
-        if (screen == 29 && history_count < 64 &&
+        if (ui_route() == 29 && history_count < 64 &&
             (!history_count || history[history_count - 1] != 29))
             history[history_count++] = 29;
         extra_return(30);
@@ -168,7 +168,7 @@ static void extra_commit(int target, const char *text) {
         if (!service_start(SERVICE_WEATHER, weather_city, "", ""))
             ui_message("Anfrage läuft bereits.");
     } else if (target == 34) {
-        wiki_article_language = options[OPT_LANGUAGE];
+        wiki_ui.wiki_article_language = options[OPT_LANGUAGE];
         snprintf(wiki_query, sizeof(wiki_query), "%s", text);
         wiki_page = 0;
         extra_write_text("wiki-query.txt", wiki_query);
@@ -180,7 +180,7 @@ static void extra_commit(int target, const char *text) {
             !system_set_time(y, m, d, h, minute))
             ui_message("Ungültiges Datum / Uhrzeit.");
         else {
-            status_time = 0;
+            status_ui.status_time = 0;
             ui_message("Datum und Uhrzeit gesetzt.");
         }
     } else if (target == 36) {
@@ -223,12 +223,12 @@ static void extra_commit(int target, const char *text) {
 #include "../timer/input.h"
 static int extra_input(const Input *in) {
     int x = in->x, y = in->y;
-    if (screen == 48 || screen == 49 || screen == 50)
+    if (ui_route() == 48 || ui_route() == 49 || ui_route() == 50)
         return games_input(in);
 
     if (in->kind != INPUT_TAP)
         return 2;
-    if (screen == 22) {
+    if (ui_route() == 22) {
         if (y >= 128 && y < 166) {
             stats_page = (x - 28) / 186;
             if (stats_page < 0)
@@ -257,7 +257,7 @@ static int extra_input(const Input *in) {
         return 1;
     }
 
-    if (screen == 27) {
+    if (ui_route() == 27) {
         if (y >= 74 && y < 118 && x >= 408 && x < 460) {
             if (!*calc_expr)
                 snprintf(calc_expr, sizeof(calc_expr), "sin(x)");
@@ -343,7 +343,7 @@ static int extra_input(const Input *in) {
         }
         return 1;
     }
-    if (screen == 42) {
+    if (ui_route() == 42) {
         if (y >= 145 && y < 657) {
             int i = calc_history_count - 1 - (extra_page * 8 + (y - 145) / 64);
             if (i >= 0) {
@@ -361,18 +361,18 @@ static int extra_input(const Input *in) {
         }
         return 1;
     }
-    if (screen == 28 || screen == 46) return clock_input(x, y);
-    if (screen == 29)
+    if (ui_route() == 28 || ui_route() == 46) return clock_input(x, y);
+    if (ui_route() == 29)
         return v1_notes_input(in);
-    if (screen == 30) {
+    if (ui_route() == 30) {
         if (y >= 54 && y < 98 && x >= 524) {
             extra_open(85);
             return 1;
         }
         if (y >= 54 && y < 740) {
             open_keyboard(30, "Notiz", note_text);
-            note_cursor = strlen(edit);
-            note_view_start = extra_page * 23;
+            editor_ui.note_cursor = strlen(editor_ui.edit);
+            editor_ui.note_view_start = extra_page * 23;
             note_editor_touch(x, y);
         } else if (y >= 748) {
             if (x < 300 && extra_page)
@@ -388,7 +388,7 @@ static int extra_input(const Input *in) {
         return 1;
     }
 
-    if (screen == 32) {
+    if (ui_route() == 32) {
         if (y >= 74 && y < 118) {
             if (x >= 516) {
                 if (!service_start(SERVICE_WEATHER, weather_city, "", ""))
@@ -398,7 +398,7 @@ static int extra_input(const Input *in) {
         }
         return 1;
     }
-    if (screen == 33) {
+    if (ui_route() == 33) {
         if (y >= 74 && y < 118) {
             if (x >= 516) {
                 ha_select ^= 1;
@@ -452,7 +452,7 @@ static int extra_input(const Input *in) {
         }
         return 1;
     }
-    if (screen == 34) {
+    if (ui_route() == 34) {
         if (y >= 188 && y < 240)
             open_keyboard(31, "Home Assistant: URL", ha_url);
         else if (y >= 327 && y < 379)
@@ -467,12 +467,12 @@ static int extra_input(const Input *in) {
         }
         return 1;
     }
-    if (screen == 51) {
+    if (ui_route() == 51) {
         return 1;
     }
-    if (screen == 36)
+    if (ui_route() == 36)
         return wiki_history_input(in);
-    if (screen == 38) {
+    if (ui_route() == 38) {
         if (y >= 146 && y < 650) {
             int row = -1;
             for (int r = 0; r < quote_hit_count; r++)
@@ -500,7 +500,7 @@ static int extra_input(const Input *in) {
         }
         return 1;
     }
-    if (screen == 39) {
+    if (ui_route() == 39) {
         if (y >= 286 && y < 348) {
             options[OPT_AUTO_TIME] ^= 1;
             library_settings_save();
@@ -513,7 +513,7 @@ static int extra_input(const Input *in) {
             open_dropdown(100 + OPT_ZONE, zone_names, 5, options[OPT_ZONE], 220, 540, 350);
         return 1;
     }
-    if (screen == 47) {
+    if (ui_route() == 47) {
         if (y >= 170 && y < 568) {
             int row = (y - 170) / 86, delta = x >= 480 ? 1 : x >= 390 ? -1 : 0;
             if (row == 0) {
@@ -547,14 +547,14 @@ static int extra_input(const Input *in) {
                 time_day = max;
         } else if (y >= 650 && y < 706) {
             if (system_set_time(time_year, time_month, time_day, time_hour, time_minute)) {
-                status_time = 0;
+                status_ui.status_time = 0;
                 extra_return(39);
             } else
                 ui_message("Ungültiges Datum / Uhrzeit.");
         }
         return 1;
     }
-    if (screen == 41) {
+    if (ui_route() == 41) {
         if (y >= 455 && y < 503) {
             library_defaults();
             extra_zone();
@@ -569,7 +569,7 @@ static int extra_input(const Input *in) {
             extra_return(40);
         return 1;
     }
-    if (screen == 45) {
+    if (ui_route() == 45) {
         if (y >= 455 && y < 503) {
             apps_note_commit("");
             extra_return(21);
@@ -577,7 +577,7 @@ static int extra_input(const Input *in) {
             extra_return(21);
         return 1;
     }
-    if(screen==43){
+    if(ui_route()==43){
         if(y>=455 && y<503){note_delete16(note_selected);notes_scan();extra_return(29);}
         else if(y>=530 && y<578)extra_return(29);
         return 1;

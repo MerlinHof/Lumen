@@ -29,9 +29,9 @@ static void note_editor_touch(int x, int y) {
     u15_note_editor_touch(x, y);
 }
 static void app_note(void) {
-    if (!keyboard)
+    if (!editor_ui.keyboard)
         v1_note_tools();
-    if (!keyboard) {
+    if (!editor_ui.keyboard) {
         note_editor_draw();
         pager(748, &extra_page, u15_note_page_count());
         u15_note_overlay();

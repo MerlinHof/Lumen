@@ -17,41 +17,41 @@ static void store_cover(OPDSItem *item, int x, int y, int w, int h) {
     cover_size(&b, x, y, w, h);
 }
 static void store_restore(void) {
-    memcpy(opds_items, store_results, store_total * sizeof(*opds_items));
-    opds_count = store_total;
-    opds_page = 0;
-    store_federated = 1;
+    memcpy(opds_items, store_ui.store_results, store_ui.store_total * sizeof(*opds_items));
+    opds_count = store_ui.store_total;
+    store_ui.opds_page = 0;
+    store_ui.store_federated = 1;
 }
 static int store_complete(int done) {
     if (done > 0) {
-        int added = 0, budget = OPDS_LIMIT / (store_provider_count ? store_provider_count : 1);
-        for (int i = 0; i < opds_count && store_total < OPDS_LIMIT && added < budget; i++) {
+        int added = 0, budget = OPDS_LIMIT / (store_ui.store_provider_count ? store_ui.store_provider_count : 1);
+        for (int i = 0; i < opds_count && store_ui.store_total < OPDS_LIMIT && added < budget; i++) {
             OPDSItem *item = &opds_items[i];
-            if (store_stage >= 3 && *store_query && !strcasestr(item->title, store_query) &&
-                !strcasestr(item->author, store_query))
+            if (store_ui.store_stage >= 3 && *store_ui.store_query && !strcasestr(item->title, store_ui.store_query) &&
+                !strcasestr(item->author, store_ui.store_query))
                 continue;
             int duplicate = 0;
-            for (int k = 0; k < store_total; k++)
-                if (!strcmp(store_results[k].url, item->url) ||
-                    (!strcmp(store_results[k].title, item->title) &&
-                     !strcmp(store_results[k].author, item->author))) {
+            for (int k = 0; k < store_ui.store_total; k++)
+                if (!strcmp(store_ui.store_results[k].url, item->url) ||
+                    (!strcmp(store_ui.store_results[k].title, item->title) &&
+                     !strcmp(store_ui.store_results[k].author, item->author))) {
                     duplicate = 1;
                     break;
                 }
             if (!duplicate) {
-                store_results[store_total++] = *item;
+                store_ui.store_results[store_ui.store_total++] = *item;
                 added++;
             }
         }
     }
-    store_stage++;
-    if (store_stage <= store_provider_count) {
+    store_ui.store_stage++;
+    if (store_ui.store_stage <= store_ui.store_provider_count) {
         store_restore();
-        if (discover_start(store_urls[store_stage - 1], NULL))
+        if (discover_start(store_ui.store_urls[store_ui.store_stage - 1], NULL))
             return 1;
         return store_complete(-1);
     }
-    store_stage = 0;
+    store_ui.store_stage = 0;
     store_restore();
     if (!opds_count)
         ui_message("Keine Treffer. Suche oder Verbindung prüfen.");
@@ -60,8 +60,8 @@ static int store_complete(int done) {
 static void store_search(void) {
     char encoded[1200];
     size_t n = 0;
-    store_home = !*store_query;
-    const char *term = *store_query ? store_query : "books";
+    store_ui.store_home = !*store_ui.store_query;
+    const char *term = *store_ui.store_query ? store_ui.store_query : "books";
     for (const unsigned char *p = (const unsigned char *)term; *p && n + 4 < sizeof(encoded); p++) {
         if (isalnum(*p) && *p < 128)
             encoded[n++] = *p;
@@ -71,12 +71,12 @@ static void store_search(void) {
         }
     }
     encoded[n] = 0;
-    snprintf(store_urls[0], sizeof(store_urls[0]),
+    snprintf(store_ui.store_urls[0], sizeof(store_ui.store_urls[0]),
              "https://www.gutenberg.org/ebooks/search.opds/?query=%s&sort_order=downloads",
-             *store_query                 ? encoded
+             *store_ui.store_query                 ? encoded
              : options[OPT_LANGUAGE] == 0 ? "l.de"
                                           : "");
-    snprintf(store_urls[1], sizeof(store_urls[1]),
+    snprintf(store_ui.store_urls[1], sizeof(store_ui.store_urls[1]),
              "https://archive.org/"
              "advancedsearch.php?q=mediatype%%3Atexts%%20AND%%20%%28licenseurl%%3A%%"
              "28creativecommons.org%%2A%%29%%20OR%%20collection%%3Agutenberg%%29%%20AND%%20%%28%s%%"
@@ -84,17 +84,17 @@ static void store_search(void) {
              encoded);
     u15_sources_prepare(encoded);
     discover_cancel();
-    store_total = 0;
-    store_federated = 1;
-    store_stage = 1;
-    opds_page = opds_depth = 0;
+    store_ui.store_total = 0;
+    store_ui.store_federated = 1;
+    store_ui.store_stage = 1;
+    store_ui.opds_page = store_ui.opds_depth = 0;
     opds_count = 0;
-    if (!store_provider_count) {
-        store_stage = 0;
+    if (!store_ui.store_provider_count) {
+        store_ui.store_stage = 0;
         ui_message("Quellen in den Store-Einstellungen aktivieren.");
         return;
     }
-    if (!discover_start(store_urls[0], NULL))
+    if (!discover_start(store_ui.store_urls[0], NULL))
         store_complete(-1);
 }
 static void discover_screen(void) {
@@ -102,15 +102,15 @@ static void discover_screen(void) {
     icon_button(468, 74, IC_SETTINGS);
     search_action();
     drawtext(30, 133,
-             *store_query  ? store_query
-             : store_stage ? "Mehrere Kataloge werden durchsucht …"
+             *store_ui.store_query  ? store_ui.store_query
+             : store_ui.store_stage ? "Mehrere Kataloge werden durchsucht …"
                            : "Gutenberg · Internet Archive",
              ui_font(UI_SECONDARY), 540);
-    if (store_home) {
+    if (store_ui.store_home) {
         static int last_count = -1;
         static unsigned seed;
         static int visit = -1;
-        int *selected = store15_grid;
+        int *selected = store_ui.store15_grid;
         if (last_count != opds_count || (unsigned)visit != runtime.generation) {
             last_count = opds_count;
             visit = runtime.generation;
@@ -142,8 +142,8 @@ static void discover_screen(void) {
             }
         return;
     }
-    for (int row = 0; row < 5 && opds_page * 5 + row < opds_count; row++) {
-        OPDSItem *b = &opds_items[opds_page * 5 + row];
+    for (int row = 0; row < 5 && store_ui.opds_page * 5 + row < opds_count; row++) {
+        OPDSItem *b = &opds_items[store_ui.opds_page * 5 + row];
         int y = 174 + row * 87;
         char authorbuf[256];
         const char *author = *b->author
@@ -168,12 +168,12 @@ static void discover_screen(void) {
                     ? "Der Katalog wird geladen …"
                     : "Kein Katalog geladen. WLAN in den Einstellungen verbinden und erneut laden.",
                 ui_font(UI_TITLE), 544, 4);
-    pager(679, &opds_page, (opds_count + 4) / 5);
+    pager(679, &store_ui.opds_page, (opds_count + 4) / 5);
 }
 static void discover_detail(void) {
-    if (opds_selected < 0 || opds_selected >= opds_count)
+    if (store_ui.opds_selected < 0 || store_ui.opds_selected >= opds_count)
         return;
-    OPDSItem *b = &opds_items[opds_selected];
+    OPDSItem *b = &opds_items[store_ui.opds_selected];
     heading("Buch entdecken");
     store_cover(b, 28, 145, 120, 164);
     wrapped_raw(176, 145, b->title, ui_font(UI_TITLE), 396, 3);
@@ -185,41 +185,41 @@ static void discover_input(const Input *in) {
     if (in->kind != INPUT_TAP)
         return;
     int x = in->x, y = in->y;
-    if (screen == 10) {
+    if (ui_route() == 10) {
         if (search_action_hit(x, y)) {
-            open_keyboard(6, "Bücher im Store suchen", store_query);
+            open_keyboard(6, "Bücher im Store suchen", store_ui.store_query);
 
-        } else if ((store_home && y >= 174 && y < 659) || (!store_home && y >= 174 && y < 609)) {
-            int i = store_home ? store15_grid[((y - 174) / 250) * 2 + (x >= 300)]
-                               : opds_page * 5 + (y - 174) / 87;
+        } else if ((store_ui.store_home && y >= 174 && y < 659) || (!store_ui.store_home && y >= 174 && y < 609)) {
+            int i = store_ui.store_home ? store_ui.store15_grid[((y - 174) / 250) * 2 + (x >= 300)]
+                               : store_ui.opds_page * 5 + (y - 174) / 87;
             if (i >= 0 && i < opds_count) {
                 discover_cancel();
-                store_stage = 0;
+                store_ui.store_stage = 0;
                 if (opds_items[i].acquisition) {
-                    opds_selected = i;
+                    store_ui.opds_selected = i;
                     if (history_count < 64)
                         history[history_count++] = 10;
                     route_to(11);
                 } else {
-                    if (opds_depth < 16)
-                        snprintf(opds_history[opds_depth++], 2048, "%s",
-                                 store_federated ? "lumen:search" : discover_url());
-                    store_federated = 0;
+                    if (store_ui.opds_depth < 16)
+                        snprintf(store_ui.opds_history[store_ui.opds_depth++], 2048, "%s",
+                                 store_ui.store_federated ? "lumen:search" : discover_url());
+                    store_ui.store_federated = 0;
                     if (!discover_start(opds_items[i].url, NULL))
                         ui_message(discover_error());
                 }
             }
         } else if (y >= 679 && y < 723) {
-            if (x < 300 && opds_page)
-                opds_page--;
-            else if (x >= 300 && (opds_page + 1) * 5 < opds_count)
-                opds_page++;
+            if (x < 300 && store_ui.opds_page)
+                store_ui.opds_page--;
+            else if (x >= 300 && (store_ui.opds_page + 1) * 5 < opds_count)
+                store_ui.opds_page++;
         }
     } else if (y >= 665 && y < 713) {
         if (discover_busy())
             discover_cancel();
-        else if (opds_selected >= 0 && opds_selected < opds_count &&
-                 !discover_start(opds_items[opds_selected].url, &opds_items[opds_selected]))
+        else if (store_ui.opds_selected >= 0 && store_ui.opds_selected < opds_count &&
+                 !discover_start(opds_items[store_ui.opds_selected].url, &opds_items[store_ui.opds_selected]))
             ui_message(discover_error());
     }
 }

@@ -46,7 +46,7 @@ static void tasks_draw18(void) {
     heading_actions("ToDo", 2);
     icon_button(528, 74, IC_PLUS);
     icon_button(468, 74, IC_GRID);
-    dropdown_button(175, 74, 275, 44, *task_context16 ? task_context16 : "Alle Kontexte");
+    dropdown_button(175, 74, 275, 44, *todo_ui.task_context16 ? todo_ui.task_context16 : "Alle Kontexte");
     for (int i = 0; i < task_count; i++)
         if (tasks[i].state == 1) {
             tasks[i].state = 0;
@@ -120,10 +120,10 @@ static int tasks_input18(const Input *in) {
         } else if (!task_board && x >= 510)
             v1_delete = 1000 + i;
         else if (!task_board && x >= 450) {
-            category_task16 = i;
-            open_keyboard(170, "Kategorie (leer = keine)", task_categories16[i]);
+            todo_ui.category_task16 = i;
+            open_keyboard(170, "Kategorie (leer = keine)", todo_ui.task_categories16[i]);
         } else {
-            task_edit17 = i;
+            todo_ui.task_edit17 = i;
             open_keyboard(180, "Aufgabe bearbeiten", tasks[i].title);
         }
         return 1;

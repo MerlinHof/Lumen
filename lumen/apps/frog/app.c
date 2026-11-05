@@ -1,3 +1,8 @@
+#include "app.h"
+#include "../../system/app_runtime.h"
+#include "../../system/ui/paint.h"
+#include <stdlib.h>
+
 /* English-style peg solitaire, using a cross of lily pads. */
 static unsigned long long frog_board, frog_undo[32];
 static int frog_selected = -1, frog_moves, frog_ready;
@@ -22,30 +27,56 @@ static int frog_jump(int from, int to) {
            (frog_board & (1ULL << from)) && (frog_board & (1ULL << ((from + to)/2))) &&
            !(frog_board & (1ULL << to));
 }
+/* A crouching frog with a shaded belly, folded feet and reflective eyes. */
+static void frog_piece(int x, int y, int selected, int look) {
+    ui_paint_ellipse(x, y+17, 24, 6, 175);
+    ui_paint_ellipse(x-15, y+9, 10, 12, 38);
+    ui_paint_ellipse(x+15, y+9, 10, 12, 38);
+    ui_paint_ellipse(x-15, y+8, 8, 10, 118);
+    ui_paint_ellipse(x+15, y+8, 8, 10, 118);
+    ui_paint_ellipse(x, y+6, 19, 15, 36);
+    ui_paint_ellipse(x, y+5, 17, 13, 102);
+    ui_paint_ellipse(x, y+11, 11, 7, 201);
+    for (int side = -1; side <= 1; side += 2) {
+        ui_paint_ellipse(x+side*11, y-11, 8, 8, 37);
+        ui_paint_ellipse(x+side*11, y-11, 6, 6, 222);
+        ui_paint_ellipse(x+side*11+look, y-10, 3, 4, 16);
+        ui_paint_ellipse(x+side*11+look-1, y-12, 1, 1, 255);
+        ui_paint_line(x+side*8, y+16, x+side*17, y+19, 3, 58);
+    }
+    ui_paint_ellipse(x, y-3, 17, 8, selected ? 163 : 138);
+    ui_paint_line(x-8, y-1, x-4, y+2, 2, 42);
+    ui_paint_line(x-4, y+2, x+4, y+2, 2, 42);
+    ui_paint_line(x+4, y+2, x+8, y-1, 2, 42);
+    ui_paint_ellipse(x-4, y-5, 1, 1, 73);
+    ui_paint_ellipse(x+4, y-5, 1, 1, 73);
+}
+
 static void frog_draw(void) {
     if (!frog_ready) frog_reset();
-    heading_actions("Frosch-Solitär", 2);
-    icon_button(468, 74, IC_UNDO);
-    icon_button(528, 74, IC_RESTART);
+    ui_paint_heading("Frosch-Solitär", 2);
+    ui_paint_icon_button(468, 74, IC_UNDO);
+    ui_paint_icon_button(528, 74, IC_RESTART);
     int can_move = 0;
     for (int i = 0; i < 49; i++) {
         if (!frog_pad(i/7,i%7)) continue;
         int x = 68 + i%7*77, y = 174 + i/7*77;
-        region(x-34,y-34,68,68);
-        ring(x,y,29,2);
-        if (i == 24) ring(x,y,24,2);
-        if (frog_jump(frog_selected,i)) disc(x,y,5,0);
-        if (!(frog_board & (1ULL<<i))) continue;
+        ui_paint_hitbox(x-34,y-34,68,68);
+        int target = frog_jump(frog_selected, i);
+        ui_paint_ellipse(x, y+4, 28, 25, 198);
+        ui_paint_ellipse(x, y+1, 28, 25, target ? 94 : 139);
+        ui_paint_ellipse(x, y, 26, 23, target ? 211 : 239);
+        ui_paint_line(x+7, y+5, x+27, y+16, 4, 255);
+        if (i == 24) ui_paint_ring(x, y+3, 10, 2);
+        if (target) ui_paint_ellipse(x, y+2, 6, 6, 43);
+        if (!(frog_board & (1ULL << i))) continue;
         if (frog_jump(i,i-14)||frog_jump(i,i+14)||frog_jump(i,i-2)||frog_jump(i,i+2)) can_move=1;
-        if (i == frog_selected) ring(x,y,33,4);
-        aa_disc(x,y+4,17,0);
-        aa_disc(x-11,y-10,8,0); aa_disc(x+11,y-10,8,0);
-        aa_disc(x-11,y-10,3,255); aa_disc(x+11,y-10,3,255);
-        stroke_color(x-6,y+8,x+6,y+8,2,255);
+        if (i == frog_selected) ui_paint_ring(x, y+1, 32, 3);
+        frog_piece(x, y-3, i == frog_selected, i == frog_selected ? 0 : i%3-1);
     }
-    type_centered(28, 715, 544, 48, frog_board == (1ULL<<24) ? "Gewonnen!" :
+    ui_paint_text(28, 715, 544, 48, frog_board == (1ULL<<24) ? "Gewonnen!" :
                   can_move ? "Springe über einen Frosch auf ein freies Feld." :
-                  "Keine Sprünge mehr. Rückgängig oder neu starten.", UI_BODY);
+                  "Keine Sprünge mehr. Rückgängig oder neu starten.", PAINT_BODY);
 }
 static int frog_input(const Input *in) {
     if (in->kind != INPUT_TAP) return 1;
@@ -68,4 +99,8 @@ static int frog_input(const Input *in) {
         }
     }
     return 1;
+}
+
+void frog_register(void) {
+    app_page_register(APP_FROG, frog_draw, frog_input, NULL);
 }

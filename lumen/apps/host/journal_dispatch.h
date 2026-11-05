@@ -25,7 +25,7 @@ static int u17_more_commit(int target, const char *text) {
 static int u17_more_draw(void) {
     if (calendar_layout17())
         return 1;
-    if (screen == 110) {
+    if (ui_route() == 110) {
         static unsigned generation;
         heading("Journal");
         if (generation != runtime.generation) {
@@ -45,7 +45,7 @@ static int u17_more_draw(void) {
         pager(679, &journal_page17, (journal_count17 + 6) / 7);
         return 1;
     }
-    if (screen == 126) {
+    if (ui_route() == 126) {
         char b[100];
         snprintf(b, 100, "%02d.%02d.%04d", journal_date17 % 100, journal_date17 / 100 % 100,
                  journal_date17 / 10000);
@@ -71,15 +71,15 @@ static int u17_more_draw(void) {
         ink_color = 0;
         return 1;
     }
-    if (screen == 128) {
+    if (ui_route() == 128) {
         chats_draw();
         return 1;
     }
-    if (screen == 122) {
+    if (ui_route() == 122) {
         chat_draw();
         return 1;
     }
-    if (screen == 123) {
+    if (ui_route() == 123) {
         heading_actions("OpenAI", 1);
         icon_button(528, 74, IC_RESTART);
         if (!models_loaded17) {
@@ -108,7 +108,7 @@ static int u17_more_input(const Input *in) {
     if (in->kind != INPUT_TAP)
         return u17_games_input(in);
     int x = in->x, y = in->y;
-    if (screen == 21 && calendar_view16 == 1 && y >= 200 && y < 660 && x >= 28 && x < 574) {
+    if (ui_route() == 21 && calendar_view16 == 1 && y >= 200 && y < 660 && x >= 28 && x < 574) {
         time_t stamp = calendar_time16(calendar_year, calendar_month, calendar_day);
         struct tm t;
         localtime_r(&stamp, &t);
@@ -122,13 +122,13 @@ static int u17_more_input(const Input *in) {
         app_calendar_load();
         return 1;
     }
-    if (screen == 110 && y >= 145 && y < 663) {
+    if (ui_route() == 110 && y >= 145 && y < 663) {
         int i = journal_page17 * 7 + (y - 145) / 74;
         if (i < journal_count17)
             journal_open17(journal_dates17[i]);
         return 1;
     }
-    if (screen == 126) {
+    if (ui_route() == 126) {
         if (y < 48 && x < 62) {
             journal_store17();
             extra_return(110);
@@ -142,8 +142,8 @@ static int u17_more_input(const Input *in) {
         if (journal_step16 < 6 && ((y >= 218 && y < 698) || (y >= 74 && y < 118 && x >= 516))) {
             open_keyboard(171, journal_prompts16[journal_step16],
                           journal_answers16[journal_step16]);
-            note_cursor = strlen(edit);
-            note_view_start = 0;
+            editor_ui.note_cursor = strlen(editor_ui.edit);
+            editor_ui.note_view_start = 0;
             return 1;
         }
         if (journal_step16 == 6 && y >= 335 && y < 405) {
@@ -157,11 +157,11 @@ static int u17_more_input(const Input *in) {
         }
         return y < 48 ? -1 : 1;
     }
-    if (screen == 128)
+    if (ui_route() == 128)
         return chats_input(in);
-    if (screen == 122)
+    if (ui_route() == 122)
         return chat_input(in);
-    if (screen == 123) {
+    if (ui_route() == 123) {
         if (y >= 74 && y < 118 && x >= 516) {
             job_start16(3, "");
             return 1;

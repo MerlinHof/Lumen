@@ -44,10 +44,10 @@ static int v1_chess_tick(void) {
         if (done == 0)
             return 0;
         chess_worker = -1;
-        if (done > 0 && WIFEXITED(status) && !WEXITSTATUS(status) && screen == 48 &&
+        if (done > 0 && WIFEXITED(status) && !WEXITSTATUS(status) && ui_route() == 48 &&
             chess_computer && !memcmp(&chess, &chess_job, sizeof(chess))) {
             int move[2];
-            if (load_blob("chess-ai-result.bin", move, sizeof(move)) &&
+            if (app_state_load("chess-ai-result.bin", move, sizeof(move)) &&
                 chess_legal(&chess, move[0], move[1])) {
                 if (chess_history < 256)
                     chess_undo[chess_history++] = chess;
@@ -57,7 +57,7 @@ static int v1_chess_tick(void) {
             }
         }
     }
-    if (screen != 48 || !chess_computer || chess.turn != -1 || chess_drawn() || !chess_moves())
+    if (ui_route() != 48 || !chess_computer || chess.turn != -1 || chess_drawn() || !chess_moves())
         return 0;
     chess_job = chess;
     chess_worker = fork();
@@ -77,7 +77,7 @@ static int v1_chess_tick(void) {
                             move[1] = t;
                         }
                     }
-        int ok = save_blob("chess-ai-result.bin", move, sizeof(move));
+        int ok = app_state_save("chess-ai-result.bin", move, sizeof(move));
         _exit(ok ? 0 : 1);
     }
     return 1;

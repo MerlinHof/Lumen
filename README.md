@@ -20,6 +20,14 @@
 
 ---
 
+## New in 2.5
+
+The shared controls use antialiased superellipse corners. Segmented tabs share
+one continuous outline and Frog Solitaire has newly illustrated grayscale pieces.
+The [render benchmark](docs/validation.md#25-control-corners) compares all three
+corner profiles. Standalone game pages use the app runtime, shared drawing API
+and app-state storage service.
+
 ## New in 2.4
 
 Slide 3D replaces Signal with a sliding-tile puzzle rendered at the Kindle's

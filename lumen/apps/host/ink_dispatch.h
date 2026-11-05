@@ -26,31 +26,31 @@ static int u15_commit(int target, const char *text) {
     return 0;
 }
 static void u15_reader_progress(void) {
-    if (!options[OPT_PROGRESS] || reader_progress_mode == 5)
+    if (!options[OPT_PROGRESS] || reader_ui.reader_progress_mode == 5)
         return;
     int total = engine_count();
     char b[80];
-    if (reader_progress_mode == 1) {
+    if (reader_ui.reader_progress_mode == 1) {
         pager(746, &page, total);
         pagination_bind(&page, total, 746, 1, turn);
         return;
     }
-    if (reader_progress_mode == 2)
+    if (reader_ui.reader_progress_mode == 2)
         snprintf(b, 80, "%d%%", total > 1 ? page * 100 / (total - 1) : 100);
-    else if (reader_progress_mode == 4)
+    else if (reader_ui.reader_progress_mode == 4)
         snprintf(b, 80, "~ %d min", (total - page - 1) * 2);
     else
         snprintf(b, 80, "%d / %d", page + 1, total);
-    ink_color = reader_progress_mode == 3 ? 130 : 0;
-    if (reader_progress_mode != 6)
-        centered(reader_progress_mode == 3 ? 392 : 180, 746, reader_progress_mode == 3 ? 180 : 240,
+    ink_color = reader_ui.reader_progress_mode == 3 ? 130 : 0;
+    if (reader_ui.reader_progress_mode != 6)
+        centered(reader_ui.reader_progress_mode == 3 ? 392 : 180, 746, reader_ui.reader_progress_mode == 3 ? 180 : 240,
                  35, b, ui_font(UI_SECONDARY));
     ink_color = 0;
-    if (reader_progress_mode == 0 || reader_progress_mode == 6)
+    if (reader_ui.reader_progress_mode == 0 || reader_ui.reader_progress_mode == 6)
         progress(28, 787, 544, page + 1, total);
 }
 static int u15_draw(void) {
-    if (screen == 100) {
+    if (ui_route() == 100) {
         heading("Rechner · Einstellungen");
         select_row17(155, "Winkelmaß", calc_degrees ? "DEG" : "RAD");
         select_row17(245, "Ergebnisstellen",
@@ -62,7 +62,7 @@ static int u15_draw(void) {
         button_h(28, 600, 544, 52, "Speicher löschen", 0);
         return 1;
     }
-    if (screen == 101) {
+    if (ui_route() == 101) {
         heading_actions("Store · Quellen", 1);
         icon_button(528, 74, IC_PLUS);
         for (int r = 0; r < 6 && source15_page * 6 + r < source15_count; r++) {
@@ -75,7 +75,7 @@ static int u15_draw(void) {
         pager(679, &source15_page, (source15_count + 5) / 6);
         return 1;
     }
-    if (screen == 102) {
+    if (ui_route() == 102) {
         heading("Ordner löschen?");
         wrapped(28, 170, "Alle enthaltenen Notizen und Unterordner werden ebenfalls gelöscht.",
                 ui_font(UI_PRIMARY), 540, 4);
@@ -86,11 +86,11 @@ static int u15_draw(void) {
     return 0;
 }
 static int u15_input(const Input *in) {
-    if (keyboard || dropdown)
+    if (editor_ui.keyboard || dropdown)
         return -1;
     if (sleeping)
         return -1;
-    if (screen != 30 && ink_note >= 0) {
+    if (ui_route() != 30 && ink_note >= 0) {
         ink_save();
         note_ink_mode = 0;
     }
@@ -99,7 +99,7 @@ static int u15_input(const Input *in) {
         ink_save();
         ink_drag = 0;
     }
-    if (screen == 30 && !keyboard) {
+    if (ui_route() == 30 && !editor_ui.keyboard) {
         if (in->kind == INPUT_TAP && y >= 54 && y < 108 && x >= 460 && !note_ink_mode) {
             if (x < 524) {
                 if (note_selected < 0)
@@ -158,16 +158,16 @@ static int u15_input(const Input *in) {
             }
         }
     }
-    if (screen == 36 && (discover_busy() || wiki_reader_pending) && in->kind == INPUT_TAP &&
+    if (ui_route() == 36 && (discover_busy() || wiki_reader_pending) && in->kind == INPUT_TAP &&
         y >= 120)
         return 1;
     if (in->kind != INPUT_TAP)
         return -1;
-    if (screen == 27 && search_action_hit(x, y)) {
+    if (ui_route() == 27 && search_action_hit(x, y)) {
         extra_open(100);
         return 1;
     }
-    if (screen == 100) {
+    if (ui_route() == 100) {
         if (y >= 155 && y < 203 && x >= 300) {
             static const char *t[] = {"DEG", "RAD"};
             open_dropdown(931, t, 2, !calc_degrees, 300, 208, 272);
@@ -188,7 +188,7 @@ static int u15_input(const Input *in) {
             calc_memory = 0;
         return y >= 120 ? 1 : -1;
     }
-    if (screen == 101 && !keyboard && !dropdown && y < 48 && x < 62) {
+    if (ui_route() == 101 && !editor_ui.keyboard && !dropdown && y < 48 && x < 62) {
         extra_return(10);
 #ifndef LUMEN_HOST
         if (sources15_dirty)
@@ -197,7 +197,7 @@ static int u15_input(const Input *in) {
         sources15_dirty = 0;
         return 1;
     }
-    if (screen == 101) {
+    if (ui_route() == 101) {
         if (y >= 74 && y < 118 && x >= 516) {
             open_keyboard(160, "Katalog-URL ({q} = Suche)", "");
             return 1;
@@ -212,11 +212,11 @@ static int u15_input(const Input *in) {
         }
         return -1;
     }
-    if (screen == 10 && y >= 74 && y < 118 && x >= 460 && x < 516) {
+    if (ui_route() == 10 && y >= 74 && y < 118 && x >= 460 && x < 516) {
         extra_open(101);
         return 1;
     }
-    if (screen == 102 && y >= 420 && y < 474) {
+    if (ui_route() == 102 && y >= 420 && y < 474) {
         if (x >= 300 && notes_delete_folder >= 0) {
             int id = notes_delete_folder;
             for (int i = 0; i < note_count; i++)
@@ -241,7 +241,7 @@ static int u15_input(const Input *in) {
         extra_return(29);
         return 1;
     }
-    if (screen == 84 && y >= 145 && y < 641) {
+    if (ui_route() == 84 && y >= 145 && y < 641) {
         int i = folder_page * 8 + (y - 145) / 62;
         if (i <= note_tree.nf) {
             int dest = i ? note_tree.folder[i - 1].id : 0;

@@ -1,8 +1,8 @@
 static void tabbar(void) {
     rect(0, 736, 600, 64, 255);
-    divider(screen == 2 ? 0 : 28, 736, screen == 2 ? 600 : 544);
+    divider(ui_route() == 2 ? 0 : 28, 736, ui_route() == 2 ? 600 : 544);
     int count = options[OPT_APPS] ? 4 : 3, width = 600 / count;
-    int active = app_definition(app_for_route(screen))->tab;
+    int active = app_definition(app_for_route(ui_route()))->tab;
     const int kinds[] = {IC_BOOK, IC_SETTINGS, IC_STORE, IC_GRID};
     const char *labels[] = {"Bibliothek", "Einstellungen", "Store", "Apps"};
     for (int i = 0; i < count; i++) {

@@ -15,7 +15,7 @@ static void language_init(void) {
     if (language_ready)
         return;
     language_ready = 1;
-    if (!load_blob("language-plus-1.1.bin", &language_progress, sizeof(language_progress)))
+    if (!app_state_load("language-plus-1.1.bin", &language_progress, sizeof(language_progress)))
         memset(&language_progress, 0, sizeof(language_progress));
 }
 static void language_new(void) {
@@ -69,7 +69,7 @@ static void language_grade(int good) {
         language_progress.lastday = today;
     }
     fsrs_review(&language_progress.cards[lang_pair][lang_index], good ? 3 : 1, time(NULL));
-    save_blob("language-plus-1.1.bin", &language_progress, sizeof(language_progress));
+    app_state_save("language-plus-1.1.bin", &language_progress, sizeof(language_progress));
     language_answered = good ? 1 : 2;
 }
 static void language_normalize(const char *s, char *out, int n) {

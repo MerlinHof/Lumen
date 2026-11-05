@@ -4,7 +4,7 @@ static void u16_dropdown(int target, int choice) {
         u16_calendar_choice(choice);
     }
     if (target == 916) {
-        reader_progress_mode = choice;
+        reader_ui.reader_progress_mode = choice;
         options[OPT_PROGRESS] = choice != 5;
         library_options_save();
         char b[16];
@@ -18,7 +18,7 @@ static void u16_dropdown(int target, int choice) {
         extra_write_text("auto-sleep16.txt", b);
     }
     if (target == 918 && choice >= 0 && choice < context_count16) {
-        snprintf(task_context16, 64, "%s", choice ? context_names16[choice] : "");
+        snprintf(todo_ui.task_context16, 64, "%s", choice ? context_names16[choice] : "");
         task_page = 0;
     }
     if (target == 919) {
@@ -34,9 +34,9 @@ static int u16_commit(int target, const char *text) {
     if (u16_apps_commit(target, text))
         return 1;
     if (target == 170) {
-        if (category_task16 >= 0 && category_task16 < task_count) {
-            snprintf(task_categories16[category_task16], 64, "%s", text);
-            save_blob("task-categories16.bin", task_categories16, sizeof(task_categories16));
+        if (todo_ui.category_task16 >= 0 && todo_ui.category_task16 < task_count) {
+            snprintf(todo_ui.task_categories16[todo_ui.category_task16], 64, "%s", text);
+            app_state_save("task-categories16.bin", todo_ui.task_categories16, sizeof(todo_ui.task_categories16));
         }
         return 1;
     }
@@ -67,21 +67,21 @@ static int u16_input(const Input *in) {
     if (in->kind == INPUT_DOWN || in->kind == INPUT_TAP || in->kind == INPUT_SWIPE ||
         in->kind == INPUT_WAKE)
         activity16 = extra_millis();
-    if (sleeping || keyboard || dropdown)
+    if (sleeping || editor_ui.keyboard || dropdown)
         return -1;
     if (in->kind == INPUT_TAP) {
         int x = in->x, y = in->y;
 
-        if (screen == 9 && setting_category == 3 && y >= 590 && y < 642) {
+        if (ui_route() == 9 && setting_category == 3 && y >= 590 && y < 642) {
             u17_sleep_select(590);
             return 1;
         }
 
-        if (screen == 74 && y >= 74 && y < 118 && x >= 175 && x < 450) {
+        if (ui_route() == 74 && y >= 74 && y < 118 && x >= 175 && x < 450) {
             contexts16();
             int selected = 0;
             for (int i = 1; i < context_count16; i++)
-                if (!strcmp(context_names16[i], task_context16))
+                if (!strcmp(context_names16[i], todo_ui.task_context16))
                     selected = i;
             open_dropdown(918, context_labels16, context_count16, selected, 175, 123, 275);
             return 1;

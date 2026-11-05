@@ -37,20 +37,20 @@ static void u15_init(void) {
     local_path(p, sizeof(p), "reader-progress15.txt");
     f = fopen(p, "r");
     if (f) {
-        fscanf(f, "%d", &reader_progress_mode);
+        fscanf(f, "%d", &reader_ui.reader_progress_mode);
         fclose(f);
     }
-    if (reader_progress_mode < 0 || reader_progress_mode > 6)
-        reader_progress_mode = 0;
+    if (reader_ui.reader_progress_mode < 0 || reader_ui.reader_progress_mode > 6)
+        reader_ui.reader_progress_mode = 0;
 }
 static void u15_sources_prepare(const char *encoded) {
     u15_init();
     char first[2][2048];
-    memcpy(first, store_urls, sizeof(first));
-    store_provider_count = 0;
-    for (int i = 0; i < source15_count && store_provider_count < 12; i++)
+    memcpy(first, store_ui.store_urls, sizeof(first));
+    store_ui.store_provider_count = 0;
+    for (int i = 0; i < source15_count && store_ui.store_provider_count < 12; i++)
         if (source15[i].enabled) {
-            char *dest = store_urls[store_provider_count];
+            char *dest = store_ui.store_urls[store_ui.store_provider_count];
             if (i < 2)
                 snprintf(dest, 2048, "%s", first[i]);
             else {
@@ -61,6 +61,6 @@ static void u15_sources_prepare(const char *encoded) {
                 else
                     snprintf(dest, 2048, "%s", source15[i].url);
             }
-            store_provider_count++;
+            store_ui.store_provider_count++;
         }
 }

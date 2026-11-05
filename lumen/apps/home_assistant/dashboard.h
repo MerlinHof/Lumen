@@ -91,7 +91,7 @@ static int ha_visible(int *out) {
     return n;
 }
 static int ha_request_history(void) {
-    if ((screen != 33 && screen != 60) || ha_select || service_history_busy() || !*ha_url ||
+    if ((ui_route() != 33 && ui_route() != 60) || ha_select || service_history_busy() || !*ha_url ||
         !*ha_token)
         return 0;
     int view[512], n = ha_visible(view);
@@ -104,7 +104,7 @@ static int ha_request_history(void) {
             strcat(ids, ",");
         strncat(ids, e->id, sizeof(ids) - strlen(ids) - 1);
     }
-    if (screen == 60)
+    if (ui_route() == 60)
         snprintf(ids, sizeof(ids), "%s", ha_plot_id);
     if (!*ids)
         return 0;

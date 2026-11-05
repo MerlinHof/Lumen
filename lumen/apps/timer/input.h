@@ -1,15 +1,15 @@
 static int clock_input(int x, int y) {
-    if (screen == 28) {
+    if (ui_route() == 28) {
         if (y >= 74 && y < 118 && x >= 166 && x < 572) {
             timer_panel = (x - 166) * 3 / 406;
             return 1;
         }
         if (!timer_panel) {
             if (y >= 137 && y < 181) {
-                if (x >= 528) clock_fullscreen = 1;
+                if (x >= 528) clock_ui.clock_fullscreen = 1;
                 else if (x >= 28 && x < 278) {
                     static const char *styles[] = {"Klassisch", "Minimal", "Digital", "Digital · Dunkel"};
-                    open_dropdown(902, styles, 4, clock_style, 28, 185, 250);
+                    open_dropdown(902, styles, 4, clock_ui.clock_style, 28, 185, 250);
                 }
             }
             return 1;
@@ -46,7 +46,7 @@ static int clock_input(int x, int y) {
         extra_save();
         return 1;
     }
-    if (screen == 46) {
+    if (ui_route() == 46) {
         if (y >= 245 && y < 305) {
             if (x < 300)
                 alarm_hour = (alarm_hour + 1) % 24;

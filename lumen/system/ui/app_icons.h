@@ -262,10 +262,17 @@ static void app_icon(int x, int y, int app) {
         for(int i=0;i<3;i++) icon_box(x+5+(i%2)*18,y+5+(i/2)*18,16,16);
         break;
     case APP_FROG:
-        aa_disc(x+22,y+25,15,0);
-        aa_disc(x+12,y+12,7,0); aa_disc(x+32,y+12,7,0);
-        aa_disc(x+12,y+12,3,255); aa_disc(x+32,y+12,3,255);
-        stroke_color(x+16,y+28,x+28,y+28,2,255);
+        ui_paint_ellipse(x+22, y+34, 18, 5, 176);
+        ui_paint_ellipse(x+22, y+26, 17, 12, 48);
+        ui_paint_ellipse(x+22, y+26, 14, 10, 126);
+        ui_paint_ellipse(x+22, y+30, 9, 5, 205);
+        for (int side = -1; side <= 1; side += 2) {
+            ui_paint_ellipse(x+22+side*8, y+15, 6, 6, 39);
+            ui_paint_ellipse(x+22+side*8, y+15, 4, 4, 218);
+            ui_paint_ellipse(x+22+side*8, y+16, 2, 2, 21);
+        }
+        stroke_color(x+16, y+22, x+22, y+25, 2, 39);
+        stroke_color(x+22, y+25, x+28, y+22, 2, 39);
         break;
     case APP_TAB_BAR:
         icon_box(x + 3, y + 8, 38, 28);

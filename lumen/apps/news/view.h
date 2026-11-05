@@ -226,15 +226,15 @@ static void press_list_draw(void) {
     pager(746, &press_list_page, (press_list.count + 4) / 5);
 }
 static void polish_news_draw(void) {
-    if (screen == 96) {
+    if (ui_route() == 96) {
         press_reader_draw();
         return;
     }
-    if (screen == 95) {
+    if (ui_route() == 95) {
         press_list_draw();
         return;
     }
-    if (screen == 97) {
+    if (ui_route() == 97) {
         heading("Quelle");
         drawtext_raw(30, 145, press_article.publisher, ui_font(UI_PRIMARY), 540);
         wrapped_raw(30, 207, press_article.title, ui_font(UI_TITLE), 540, 3);
@@ -266,7 +266,7 @@ static void polish_news_draw(void) {
     pager(746, &press_date_page, (press_dates_count + 6) / 7);
 }
 static int polish_news_input(const Input *in) {
-    if (in->kind == INPUT_SWIPE && screen == 96) {
+    if (in->kind == INPUT_SWIPE && ui_route() == 96) {
         if (in->dx < 0 && press_reader_page + 1 < press_reader_pages)
             press_reader_page++;
         else if (in->dx > 0 && press_reader_page)
@@ -276,7 +276,7 @@ static int polish_news_input(const Input *in) {
     if (in->kind != INPUT_TAP)
         return 2;
     int x = in->x, y = in->y;
-    if (screen == 96) {
+    if (ui_route() == 96) {
         if (search_action_hit(x, y))
             extra_open(97);
         else if (y >= 746 && y < 790) {
@@ -287,7 +287,7 @@ static int polish_news_input(const Input *in) {
         }
         return 1;
     }
-    if (screen == 95) {
+    if (ui_route() == 95) {
         if (search_action_hit(x, y))
             open_keyboard(150, "News suchen", press_query);
         else if (y >= 151 && y < 716) {

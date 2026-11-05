@@ -31,17 +31,17 @@ static void v1_open(int target) {
         timer_total_seconds = timer_minutes * 60;
     if (target == 90 || target == 91) { /* registered shell components open their configuration */
         setting_category = 1;
-        setting_page = target == 90 ? 0 : 1;
+        settings_ui.setting_page = target == 90 ? 0 : 1;
     }
     if (target == 93)
         open_keyboard(130, "Tastatur", "");
 }
 static void v1_draw(void) {
-    if (screen >= 94) {
+    if (ui_route() >= 94) {
         polish_view();
         return;
     }
-    switch (screen) {
+    switch (ui_route()) {
     case 70:
         v1_word_draw();
         break;
@@ -165,8 +165,8 @@ static int v1_commit(int target, const char *text) {
     if (target == 110) {
         if (*text && task_count < 256) {
             snprintf(tasks[task_count].title, 200, "%s", text);
-            snprintf(task_categories16[task_count], 64, "%s", task_context16);
-            save_blob("task-categories16.bin", task_categories16, sizeof(task_categories16));
+            snprintf(todo_ui.task_categories16[task_count], 64, "%s", todo_ui.task_context16);
+            app_state_save("task-categories16.bin", todo_ui.task_categories16, sizeof(todo_ui.task_categories16));
             tasks[task_count].created = time(NULL);
             tasks[task_count++].state = 0;
             v1_dirty = 1;
@@ -231,7 +231,7 @@ static int v1_commit(int target, const char *text) {
             sky_config.lat = lat;
             sky_config.lon = lon;
             double p[2] = {lat, lon};
-            save_blob("sky-location-1.bin", p, sizeof(p));
+            app_state_save("sky-location-1.bin", p, sizeof(p));
             sky_key[0] = 0;
         } else
             ui_message("Breitengrad, Längengrad prüfen.");
@@ -274,18 +274,18 @@ static int v1_tick(void) {
         timer_flash_started = 0;
     static int lastsecond;
     int sec = timer_due ? (timer_due - extra_millis()) / 1000 : 0;
-    if ((screen == 87 || screen == 28) && sec != lastsecond) {
+    if ((ui_route() == 87 || ui_route() == 28) && sec != lastsecond) {
         lastsecond = sec;
         return 1;
     }
     return 0;
 }
 static int v1_poll(void) {
-    if (screen == 48 && chess_computer && chess.turn < 0)
+    if (ui_route() == 48 && chess_computer && chess.turn < 0)
         return 250;
     if (alarm_ring && timer_flash_started && extra_millis() - timer_flash_started < 60000)
         return 500;
-    if (screen == 87)
+    if (ui_route() == 87)
         return 1000;
     return -1;
 }
@@ -296,13 +296,13 @@ static void v1_effect(void) {
             ui_pixels[i] = 255 - ui_pixels[i];
 }
 static int v1_input(const Input *in) {
-    if (screen >= 94)
+    if (ui_route() >= 94)
         return polish_input(in);
-    if (screen == 86 || screen == 67)
+    if (ui_route() == 86 || ui_route() == 67)
         return polish_news_input(in);
-    if (screen == 72 && !v1_delete)
+    if (ui_route() == 72 && !v1_delete)
         return polish_photo_input(in);
-    if (screen == 73)
+    if (ui_route() == 73)
         return polish_language_input(in);
     if (in->kind != INPUT_TAP)
         return 2;
@@ -332,11 +332,11 @@ static int v1_input(const Input *in) {
                 if (v1_delete >= 1000) {
                     int i = v1_delete - 1000;
                     if (i < task_count) {
-                        memmove(task_categories16 + i, task_categories16 + i + 1,
+                        memmove(todo_ui.task_categories16 + i, todo_ui.task_categories16 + i + 1,
                                 (task_count - i - 1) * 64);
-                        memset(task_categories16[task_count - 1], 0, 64);
-                        save_blob("task-categories16.bin", task_categories16,
-                                  sizeof(task_categories16));
+                        memset(todo_ui.task_categories16[task_count - 1], 0, 64);
+                        app_state_save("task-categories16.bin", todo_ui.task_categories16,
+                                  sizeof(todo_ui.task_categories16));
                         memmove(&tasks[i], &tasks[i + 1], (task_count - i - 1) * sizeof(tasks[0]));
                         memset(&tasks[--task_count], 0, sizeof(tasks[0]));
                         v1_dirty = 1;
@@ -347,7 +347,7 @@ static int v1_input(const Input *in) {
         }
         return 1;
     }
-    switch (screen) {
+    switch (ui_route()) {
     case 70:
         if (!wordle_game.over && y >= 663 && y < 723)
             open_keyboard(100, "Wordle · English", "");

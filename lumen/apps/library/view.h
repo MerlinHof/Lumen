@@ -14,7 +14,7 @@ static const char *author_label(const char *author, char *buf, size_t size) {
 static void library_screen(void) {
     char b[128];
     int last = featured(), per = library_per(), top = library_top(), begin = library_begin();
-    if (last >= 0 && listpage == 0) {
+    if (last >= 0 && library_ui.listpage == 0) {
         Book *book = &library[last];
         region(28, 80, 544, 232);
         cover_size(book, 28, 80, 152, 208);
@@ -28,9 +28,9 @@ static void library_screen(void) {
         snprintf(b, sizeof(b), tr("%d%%"), book->total ? 100 * (book->page + 1) / book->total : 0);
         drawtext(506, 268, b, ui_font(UI_BODY), 65);
     }
-    drawtext(28, last >= 0 && listpage == 0 ? 326 : 76, "M E I N E  B Ü C H E R", ui_font(UI_SECONDARY), 420);
-    for (int r = 0; r < per && begin + r < view_count; r++) {
-        Book *book = &library[view[begin + r]];
+    drawtext(28, last >= 0 && library_ui.listpage == 0 ? 326 : 76, "M E I N E  B Ü C H E R", ui_font(UI_SECONDARY), 420);
+    for (int r = 0; r < per && begin + r < library_ui.view_count; r++) {
+        Book *book = &library[library_ui.view[begin + r]];
         int x = 28 + (r % 3) * 188, y = top + (r / 3) * 278;
         region(x, y, 168, 274);
         cover_size(book, x + 8, y, 140, 191);
@@ -45,8 +45,8 @@ static void library_screen(void) {
                          ui_font(UI_SECONDARY), 164);
         }
     }
-    if (!view_count && last < 0)
+    if (!library_ui.view_count && last < 0)
         wrapped(28, 180, "Deine Bücher erscheinen hier. Im Store kannst du neue Bücher entdecken.",
                 ui_font(UI_TITLE), 544, 3);
-    pager(679, &listpage, library_pages());
+    pager(679, &library_ui.listpage, library_pages());
 }

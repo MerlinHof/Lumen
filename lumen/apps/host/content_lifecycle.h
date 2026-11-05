@@ -20,7 +20,7 @@ static void polish_open(int route) {
         language_book_page = 0;
 }
 static void polish_view(void) {
-    switch (screen) {
+    switch (ui_route()) {
     case 94:
         polish_wiki_history();
         break;
@@ -35,11 +35,11 @@ static void polish_view(void) {
     }
 }
 static int polish_input(const Input *in) {
-    if (screen == 94)
+    if (ui_route() == 94)
         return wiki_history_input(in);
-    if (screen == 95 || screen == 96 || screen == 97)
+    if (ui_route() == 95 || ui_route() == 96 || ui_route() == 97)
         return polish_news_input(in);
-    if (screen == 99 && in->kind == INPUT_TAP && in->y >= 679 && in->y < 723) {
+    if (ui_route() == 99 && in->kind == INPUT_TAP && in->y >= 679 && in->y < 723) {
         if (in->x < 300 && language_book_page)
             language_book_page--;
         else if (in->x >= 300 && language_book_page < 3)
@@ -53,23 +53,23 @@ static int polish_tick(void) {
     if (done) {
         if (done > 0) {
             press_reader_hash = 0;
-            if (screen == 96 && press_loading_kind == 2) {
+            if (ui_route() == 96 && press_loading_kind == 2) {
                 article_news_open();
                 changed = 1;
             }
-            if (screen == 86)
+            if (ui_route() == 86)
                 press_archive_scan();
-            if (screen == 95 || screen == 96 || screen == 86)
+            if (ui_route() == 95 || ui_route() == 96 || ui_route() == 86)
                 changed = 1;
         } else {
-            if (screen == 95 || screen == 96) {
+            if (ui_route() == 95 || ui_route() == 96) {
                 ui_message("Nicht geladen. Gespeicherte Inhalte bleiben verfügbar.");
                 changed = 1;
             }
             press_retry_at = time(NULL) + 3600;
         }
     }
-    if (screen == 70 && wordle_game.date != news_date()) {
+    if (ui_route() == 70 && wordle_game.date != news_date()) {
         wordle_game.date = news_date();
         wordle_game.row = wordle_game.over = 0;
         memset(wordle_game.guesses, 0, sizeof(wordle_game.guesses));
@@ -94,8 +94,8 @@ static int polish_tick(void) {
             free(s);
         }
     }
-    if (press_daily_enabled && !press_busy() && time(NULL) >= press_retry_at && screen != 95 &&
-        screen != 96) {
+    if (press_daily_enabled && !press_busy() && time(NULL) >= press_retry_at && ui_route() != 95 &&
+        ui_route() != 96) {
         press_retry_at = time(NULL) + 60;
         char n[100], p[2048];
         snprintf(n, sizeof(n), "press/edition-%08d.bin", news_date());
@@ -164,7 +164,7 @@ static int wiki_refresh_failed(void) {
         fclose(f);
     if (ok) {
         a->title[255] = a->text[524287] = a->image[2047] = a->name[511] = 0;
-        wiki_article_language = a->language >= 0 && a->language < 4 ? a->language : 0;
+        wiki_ui.wiki_article_language = a->language >= 0 && a->language < 4 ? a->language : 0;
         discover_restore_lookup(a->title, a->text, a->image, a->name);
         wiki_saved_hash = press_id(a->text) ^ wiki_key();
         wiki_cache_path(path, sizeof(path), wiki_refresh_id, "pgm");

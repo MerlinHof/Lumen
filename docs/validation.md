@@ -1,4 +1,4 @@
-# Validation · LUMEN 2.4
+# Validation · LUMEN 2.5
 
 ## 3D puzzle checks
 
@@ -125,3 +125,23 @@ Caches are bounded RAM allocations; they do not add persistent backups or
 resampled cover files. The package remains an explicit runtime allowlist.
 Physical usability, sleep/wake and account integrations still need user testing;
 paid/private services were not exercised for this quality-only update.
+
+
+## 2.5 control corners
+
+Run `python3 tools/benchmark-corners.py` from the repository root. The tool
+compiles an optimized host build, warms each corner mask and alternates the
+three profiles across nine runs. Each run draws 280 frames per profile across
+Calculator, Timer, Clock and a paginated dropdown, then draws 10,000 outlined
+controls in a separate sample. The table reports medians of thread CPU time.
+
+| Profile | UI frame | Relative to square | Outlined control |
+| --- | ---: | ---: | ---: |
+| Square | 0.123 ms | baseline | 0.21 µs |
+| Circular | 0.127 ms | +2.9% | 1.05 µs |
+| Superellipse | 0.125 ms | +1.7% | 1.08 µs |
+
+The two round profiles share the same cached coverage raster path. The small
+frame-level difference between them is within the spread of the samples.
+The measurements cover raster CPU time on the Mac. Physical E-Ink refresh
+and Kindle input latency require hardware measurements.

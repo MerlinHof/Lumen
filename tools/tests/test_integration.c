@@ -74,8 +74,8 @@ int main(int argc, char **argv) {
     route_to(74);
     ui_draw();
     tap17(160, 230);
-    assert(keyboard && keyboard_target == 180 && tasks[0].state == 0);
-    strcpy(edit, "Edited task");
+    assert(editor_ui.keyboard && editor_ui.keyboard_target == 180 && tasks[0].state == 0);
+    strcpy(editor_ui.edit, "Edited task");
     commit_keyboard();
     ui_draw();
     tap17(42, 235);
@@ -83,7 +83,7 @@ int main(int argc, char **argv) {
     shot17("todo");
     for (int i = 0; i < 12; i++) {
         strcpy(tasks[i].title, "Task");
-        snprintf(task_categories16[i], 64, "Context %d", i);
+        snprintf(todo_ui.task_categories16[i], 64, "Context %d", i);
     }
     task_count = 12;
     contexts16();
@@ -96,8 +96,8 @@ int main(int argc, char **argv) {
     tap17(drop_x + (drop_w - 189) / 2 + 166, drop_y + 5 + 5 * 48 + 15);
     assert(drop_first == 5);
     tap17(drop_x + 80, drop_y + 25);
-    assert(!strcmp(task_context16, context_names16[5]));
-    task_context16[0] = 0;
+    assert(!strcmp(todo_ui.task_context16, context_names16[5]));
+    todo_ui.task_context16[0] = 0;
     route_to(100);
     ui_draw();
     shot17("calc-settings");
@@ -109,7 +109,7 @@ int main(int argc, char **argv) {
     extra_page = 1;
     ui_draw();
     tap17(450, 325);
-    assert(dropdown && screen == 40 && drop_target == 917);
+    assert(dropdown && ui_route() == 40 && drop_target == 917);
     dropdown = 0;
     note_load(id);
     extra_page = 0;
@@ -120,14 +120,14 @@ int main(int argc, char **argv) {
     route_to(27);
     ui_draw();
     ui_input(&hold);
-    assert(!clip_active);
+    assert(!editor_ui.clip_active);
     open_keyboard(180, "Task", "some text");
     ui_draw();
     hold.x = 100;
     hold.y = 540;
     ui_input(&hold);
-    assert(!clip_active);
-    keyboard = 0;
+    assert(!editor_ui.clip_active);
+    editor_ui.keyboard = 0;
     for (int level = 1; level <= 20; level++) {
         warehouse_new17(level);
         int goals = 0, boxes = 0;
@@ -193,24 +193,24 @@ int main(int argc, char **argv) {
     ui_draw();
     shot17("llm");
     reader_markdown17("Markdown test", "# Heading\n\nA **bold** paragraph.\n\n- One\n- Two\n", 122);
-    assert(screen == 2 && reader_document_active);
-    reader_chrome = 1;
+    assert(ui_route() == 2 && reader_ui.reader_document_active);
+    reader_ui.reader_chrome = 1;
     ui_draw();
     shot17("reader");
     int page_before = page;
     tap17(300, 300);
-    assert(!reader_chrome && page == page_before);
+    assert(!reader_ui.reader_chrome && page == page_before);
     tap17(300, 55);
-    assert(reader_chrome);
+    assert(reader_ui.reader_chrome);
     tap17(100, 128);
-    assert(screen == 3);
+    assert(ui_route() == 3);
     route_to(2);
-    reader_chrome = 1;
+    reader_ui.reader_chrome = 1;
     ui_draw();
     tap17(510, 128);
-    assert(screen == 3);
+    assert(ui_route() == 3);
     tap17(375, 700);
-    assert(reading_page == 1);
+    assert(settings_ui.reading_page == 1);
     tap17(480, 425);
     assert(dropdown && drop_target == 916);
     dropdown = 0;
@@ -228,7 +228,7 @@ int main(int argc, char **argv) {
     tap17(400, 90);
     assert(dropdown && drop_target == 933);
     tap17(drop_x + 90, drop_y + 5 + 48 + 20);
-    assert(screen == 125);
+    assert(ui_route() == 125);
     ui_draw();
     shot17("solar");
     for (int lang = 0; lang < 3; lang++) {
@@ -245,19 +245,20 @@ int main(int argc, char **argv) {
     quality_tests();
     route_to(130);
     ui_draw();
-    unsigned long long frogs = frog_board;
+    static unsigned char frog_preview[540 * WIDTH];
+    memcpy(frog_preview, ui_pixels + 135 * WIDTH, sizeof(frog_preview));
     tap17(145, 405);
     tap17(299, 405);
-    assert(frog_moves == 1 && frog_board != frogs);
+    assert(memcmp(frog_preview, ui_pixels + 135 * WIDTH, sizeof(frog_preview)));
     tap17(490, 96);
-    assert(frog_board == frogs);
+    assert(!memcmp(frog_preview, ui_pixels + 135 * WIDTH, sizeof(frog_preview)));
     route_to(28);
     timer_panel = 0;
     ui_draw();
     tap17(550, 159);
-    assert(clock_fullscreen);
+    assert(clock_ui.clock_fullscreen);
     tap17(300, 400);
-    assert(!clock_fullscreen);
+    assert(!clock_ui.clock_fullscreen);
     char translation[420];
     assert(dictionary_translate("bonjour", 2, translation, sizeof(translation)));
     assert(!strncmp(translation, "fra-eng", 7));

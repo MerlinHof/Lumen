@@ -4,7 +4,7 @@ static const char *sort_modes[] = {"Titel",           "Autor",      "Zuletzt gel
 static void more_settings(void) {
     heading(categories[setting_category]);
     if (setting_category == 1)
-        drawtext(30, 121, setting_page ? "Bücher & Sperrbild" : "Sprache & Statusleiste", ui_font(UI_SECONDARY),
+        drawtext(30, 121, settings_ui.setting_page ? "Bücher & Sperrbild" : "Sprache & Statusleiste", ui_font(UI_SECONDARY),
                  540);
     if (setting_category == 2) {
         char b[100];
@@ -25,7 +25,7 @@ static void more_settings(void) {
         if (r->category != setting_category)
             continue;
         int index = row++;
-        if (setting_category == 1 && index / 8 != setting_page)
+        if (setting_category == 1 && index / 8 != settings_ui.setting_page)
             continue;
         int y = (setting_category == 1 ? 155 : 235) +
                 (setting_category == 1 ? index % 8 : index) * (setting_category == 1 ? 62 : 91);
@@ -45,7 +45,7 @@ static void more_settings(void) {
         }
     }
     if (setting_category == 1) {
-        pager(679, &setting_page, (row + 7) / 8);
+        pager(679, &settings_ui.setting_page, (row + 7) / 8);
     }
     if (setting_category == 4)
         wrapped(30, 580, "Änderungen gelten beim nächsten Serverstart.", ui_font(UI_BODY), 540, 2);
@@ -59,14 +59,14 @@ static void settings_input(const Input *in) {
         for (size_t i = 0; i < sizeof(setting_rows) / sizeof(*setting_rows); i++)
             if (setting_rows[i].category == 1)
                 count++;
-        if (x < 300 && setting_page > 0)
-            setting_page--;
-        else if (x >= 300 && (setting_page + 1) * 8 < count)
-            setting_page++;
+        if (x < 300 && settings_ui.setting_page > 0)
+            settings_ui.setting_page--;
+        else if (x >= 300 && (settings_ui.setting_page + 1) * 8 < count)
+            settings_ui.setting_page++;
         return;
     }
     if (setting_category == 5 && y >= 145 && y < 193) {
-        open_keyboard(4, "Store-Katalogadresse", opds_source);
+        open_keyboard(4, "Store-Katalogadresse", store_ui.opds_source);
         return;
     }
     int row = 0;
@@ -75,7 +75,7 @@ static void settings_input(const Input *in) {
         if (r->category != setting_category)
             continue;
         int index = row++;
-        if (setting_category == 1 && index / 8 != setting_page)
+        if (setting_category == 1 && index / 8 != settings_ui.setting_page)
             continue;
         int top = (setting_category == 1 ? 151 : 231) +
                   (setting_category == 1 ? index % 8 : index) * (setting_category == 1 ? 62 : 91);

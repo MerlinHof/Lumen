@@ -2,17 +2,17 @@
 static void u17_choice(int target, int choice) {
     if (target == 936 && choice >= 0 && choice < folder_count17) {
         int dest = folder_ids17[choice];
-        if (notes_kind17) {
-            if (folder15_inside(dest, notes_id17)) {
+        if (notes_ui.notes_kind17) {
+            if (folder15_inside(dest, notes_ui.notes_id17)) {
                 ui_message("Ziel liegt im selben Ordner.");
                 return;
             }
-            int f = folder15_index(notes_id17);
+            int f = folder15_index(notes_ui.notes_id17);
             if (f >= 0)
                 note_tree.folder[f].parent = dest;
             v1_dirty = 1;
         } else
-            v1_place(notes_id17, dest);
+            v1_place(notes_ui.notes_id17, dest);
         v1_save();
         return;
     }
@@ -24,10 +24,10 @@ static void u17_choice(int target, int choice) {
     if (target == 932) {
         if (!choice)
             folder_menu17();
-        else if (notes_kind17)
-            u15_notes_action(2, notes_id17);
+        else if (notes_ui.notes_kind17)
+            u15_notes_action(2, notes_ui.notes_id17);
         else {
-            note_load(notes_id17);
+            note_load(notes_ui.notes_id17);
             extra_open(43);
         }
     }
@@ -42,8 +42,8 @@ static void u17_choice(int target, int choice) {
 }
 static int u17_commit(int target, const char *text) {
     if (target == 180) {
-        if (task_edit17 >= 0 && task_edit17 < task_count && *text) {
-            snprintf(tasks[task_edit17].title, 200, "%s", text);
+        if (todo_ui.task_edit17 >= 0 && todo_ui.task_edit17 < task_count && *text) {
+            snprintf(tasks[todo_ui.task_edit17].title, 200, "%s", text);
             v1_dirty = 1;
             v1_save();
         }
@@ -52,17 +52,17 @@ static int u17_commit(int target, const char *text) {
     return u17_more_commit(target, text);
 }
 static int u17_input(const Input *in) {
-    if (sleeping || keyboard || dropdown)
+    if (sleeping || editor_ui.keyboard || dropdown)
         return -1;
-    if (in->kind == INPUT_TAP && screen == 40 && extra_page == 1 && in->y >= 304 && in->y < 364 &&
+    if (in->kind == INPUT_TAP && ui_route() == 40 && extra_page == 1 && in->y >= 304 && in->y < 364 &&
         in->x >= 300) {
         u17_sleep_select(304);
         return 1;
     }
-    if (in->kind == INPUT_TAP && (screen == 79 || screen == 125) && in->y >= 74 && in->y < 118 &&
+    if (in->kind == INPUT_TAP && (ui_route() == 79 || ui_route() == 125) && in->y >= 74 && in->y < 118 &&
         in->x >= 300 && in->x < 516) {
         static const char *t[] = {"Sternhimmel", "Sonnensystem"};
-        open_dropdown(933, t, 2, screen == 125, 300, 123, 216);
+        open_dropdown(933, t, 2, ui_route() == 125, 300, 123, 216);
         return 1;
     }
     return u17_more_input(in);

@@ -20,7 +20,7 @@ static void wiki_cache_path(char *out, int n, uint64_t id, const char *ext) {
 static uint64_t wiki_key(void) {
     char b[512];
     snprintf(b, sizeof(b), "%d:%s",
-             wiki_article_language < 0 ? options[OPT_LANGUAGE] : wiki_article_language,
+             wiki_ui.wiki_article_language < 0 ? options[OPT_LANGUAGE] : wiki_ui.wiki_article_language,
              discover_lookup_title());
     return press_id(b);
 }
@@ -78,7 +78,7 @@ static void polish_wiki_archive(void) {
     if (!a)
         return;
     a->magic = 0x574b3131;
-    a->language = wiki_article_language < 0 ? options[OPT_LANGUAGE] : wiki_article_language;
+    a->language = wiki_ui.wiki_article_language < 0 ? options[OPT_LANGUAGE] : wiki_ui.wiki_article_language;
     a->seen = time(NULL);
     snprintf(a->title, 256, "%s", discover_lookup_title());
     snprintf(a->text, sizeof(a->text), "%s", discover_lookup_text());
@@ -318,7 +318,7 @@ static int wiki_history_input(const Input *in) {
             if (ok) {
                 a->title[255] = a->image[2047] = a->name[511] = a->text[524287] = 0;
                 discover_cancel();
-                wiki_article_language = a->language >= 0 && a->language < 4 ? a->language : 0;
+                wiki_ui.wiki_article_language = a->language >= 0 && a->language < 4 ? a->language : 0;
                 discover_restore_lookup(a->title, a->text, a->image, a->name);
                 wiki_saved_hash = press_id(a->text) ^ wiki_key();
                 wiki_cache_path(p, sizeof(p), wiki_entries[i].id, "pgm");
@@ -334,7 +334,7 @@ static int wiki_history_input(const Input *in) {
                 if (device_wifi_enabled() && *state && strcmp(state, "Offline")) {
                     snprintf(wiki_query, sizeof(wiki_query), "%s", a->title);
                     wiki_refresh_id = wiki_entries[i].id;
-                    if (!discover_lookup(wiki_query, wiki_article_language))
+                    if (!discover_lookup(wiki_query, wiki_ui.wiki_article_language))
                         wiki_refresh_failed();
                 } else
                     article_wiki_open();

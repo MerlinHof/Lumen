@@ -14,7 +14,7 @@ static int cross_selected17, cross_checked17;
 static int cross_commit17(const char *text) {
     if (!*text) {
         crossword_answer16[crossword_pick16][0] = 0;
-        save_blob("crossword16.bin", crossword_answer16, sizeof(crossword_answer16));
+        app_state_save("crossword16.bin", crossword_answer16, sizeof(crossword_answer16));
         ui_message("Antwort gelöscht.");
         return 1;
     }
@@ -47,7 +47,7 @@ static int cross_commit17(const char *text) {
     snprintf(crossword_answer16[word], 16, "%s", answer);
     cross_selected17 = word;
     cross_checked17 = 0;
-    save_blob("crossword16.bin", crossword_answer16, sizeof(crossword_answer16));
+    app_state_save("crossword16.bin", crossword_answer16, sizeof(crossword_answer16));
     return 1;
 }
 static void crossword_draw17(void) {
@@ -58,7 +58,7 @@ static void crossword_draw17(void) {
         char seed[40] = "";
         config16("crossword-seed16.txt", seed, sizeof(seed));
         char answers[5][16];
-        int exists = load_blob("crossword16.bin", answers, sizeof(answers));
+        int exists = app_state_load("crossword16.bin", answers, sizeof(answers));
         crossword_new16((unsigned)strtoul(seed, NULL, 10));
         if (exists && *seed) {
             memcpy(crossword_answer16, answers, sizeof(answers));
@@ -104,21 +104,21 @@ static void crossword_draw17(void) {
 static void games_save17(void) {
     if (warehouse_ready17) {
         Warehouse17 states[2] = {warehouse17, initial_warehouse17};
-        save_blob("sokoban17.bin", states, sizeof(states));
+        app_state_save("sokoban17.bin", states, sizeof(states));
     }
     if (maze_ready17) {
         unsigned char b[33 * 35 + 12];
         memcpy(b, maze17, sizeof(maze17));
         int state[] = {maze_x17, maze_y17, maze_moves17};
         memcpy(b + sizeof(maze17), state, 12);
-        save_blob("maze17.bin", b, sizeof(b));
+        app_state_save("maze17.bin", b, sizeof(b));
     }
 }
 static int u17_games_draw(void) {
-    if (screen == 118) {
+    if (ui_route() == 118) {
         if (!warehouse_ready17) {
             Warehouse17 states[2];
-            int loaded = load_blob("sokoban17.bin", states, sizeof(states));
+            int loaded = app_state_load("sokoban17.bin", states, sizeof(states));
             if (loaded) {
                 warehouse17 = states[0];
                 initial_warehouse17 = states[1];
@@ -151,7 +151,7 @@ static int u17_games_draw(void) {
         direction_keys16();
         return 1;
     }
-    if (screen == 119) {
+    if (ui_route() == 119) {
         if (!maze_ready17)
             maze_new17();
         heading_actions("Labyrinth", 1);
@@ -165,7 +165,7 @@ static int u17_games_draw(void) {
         direction_keys16();
         return 1;
     }
-    if (screen == 120) {
+    if (ui_route() == 120) {
         crossword_draw17();
         return 1;
     }
@@ -173,33 +173,33 @@ static int u17_games_draw(void) {
 }
 static int u17_games_input(const Input *in) {
     int x = in->x, y = in->y;
-    if (screen != 118 && screen != 119 && screen != 120)
+    if (ui_route() != 118 && ui_route() != 119 && ui_route() != 120)
         return recipes_input17(in);
     if (in->kind == INPUT_TAP && y >= 74 && y < 118) {
-        int helpx = (screen == 118 || screen == 120) ? 408 : 468;
+        int helpx = (ui_route() == 118 || ui_route() == 120) ? 408 : 468;
         if (x >= helpx && x < helpx + 44) {
-            game_help16(screen);
+            game_help16(ui_route());
             return 1;
         }
         if (x >= 516) {
-            if (screen == 118) {
+            if (ui_route() == 118) {
                 warehouse17 = initial_warehouse17;
                 warehouse_undo17 = 0;
             }
-            if (screen == 119)
+            if (ui_route() == 119)
                 maze_new17();
-            if (screen == 120) {
+            if (ui_route() == 120) {
                 crossword_new16(random16());
                 cross_checked17 = 0;
             }
             return 1;
         }
         if (x >= 460 && x < 512) {
-            if (screen == 118 && warehouse_undo17) {
+            if (ui_route() == 118 && warehouse_undo17) {
                 warehouse17 = undo_warehouse17;
                 warehouse_undo17 = 0;
             }
-            if (screen == 120) {
+            if (ui_route() == 120) {
                 cross_checked17 = 1;
                 int good = 1;
                 for (int i = 0; i < 5; i++)
@@ -210,7 +210,7 @@ static int u17_games_input(const Input *in) {
             return 1;
         }
     }
-    if (in->kind == INPUT_TAP && screen == 120) {
+    if (in->kind == INPUT_TAP && ui_route() == 120) {
         int pick = -1;
         if (y >= 520 && y < 765)
             pick = (y - 520) / 49;
@@ -233,7 +233,7 @@ static int u17_games_input(const Input *in) {
     if (in->kind == INPUT_SWIPE) {
         dx = abs(in->dx) > abs(in->dy) ? (in->dx > 0 ? 1 : -1) : 0;
         dy = dx ? 0 : (in->dy > 0 ? 1 : -1);
-        steps = screen == 119 ? 4 : 1;
+        steps = ui_route() == 119 ? 4 : 1;
     } else if (in->kind == INPUT_TAP && y >= 728 && y < 772) {
         if (x >= 150 && x < 210)
             dx = -1;
@@ -245,7 +245,7 @@ static int u17_games_input(const Input *in) {
             dx = 1;
     } else if (in->kind == INPUT_TAP && y >= 140 && y < 710) {
         int xx, yy, px, py;
-        if (screen == 118) {
+        if (ui_route() == 118) {
             int cell = 528 / warehouse17.h;
             if (cell > 544 / warehouse17.w)
                 cell = 544 / warehouse17.w;
@@ -263,16 +263,16 @@ static int u17_games_input(const Input *in) {
         }
         if (abs(xx - px) > abs(yy - py)) {
             dx = xx > px ? 1 : -1;
-            if (screen == 119)
+            if (ui_route() == 119)
                 steps = abs(xx - px);
         } else if (yy != py) {
             dy = yy > py ? 1 : -1;
-            if (screen == 119)
+            if (ui_route() == 119)
                 steps = abs(yy - py);
         }
     }
     if (dx || dy) {
-        if (screen == 118)
+        if (ui_route() == 118)
             warehouse_step17(dx, dy);
         else
             maze_step17(dx, dy, steps);

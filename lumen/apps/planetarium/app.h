@@ -41,7 +41,7 @@ static void sky_init(void) {
     sky_config.lon = 12.128;
     sky_now();
     double p[2];
-    if (load_blob("sky-location-1.bin", p, sizeof(p)) && isfinite(p[0]) && isfinite(p[1]) &&
+    if (app_state_load("sky-location-1.bin", p, sizeof(p)) && isfinite(p[0]) && isfinite(p[1]) &&
         fabs(p[0]) <= 90 && fabs(p[1]) <= 180) {
         sky_config.lat = p[0];
         sky_config.lon = p[1];

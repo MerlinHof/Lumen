@@ -67,7 +67,7 @@ static int file_open16(const char *path, int origin) {
     snprintf(b->title, sizeof(b->title), "%s", n ? n + 1 : path);
     library_restore_state(b);
     snprintf(b->format, sizeof(b->format), "%s", ext + 1);
-    reader_document_active = 1;
+    reader_ui.reader_document_active = 1;
     if (history_count < 64)
         history[history_count++] = origin;
     return ui_open(BOOK_LIMIT);
@@ -77,7 +77,7 @@ static void files_scan16(const char *path) {
     if (!realpath(path, canonical))
         return;
     snprintf(files_dir16, sizeof(files_dir16), "%s", canonical);
-    if (screen == 116)
+    if (ui_route() == 116)
         snprintf(explorer_dir16, sizeof(explorer_dir16), "%s", canonical);
     files_count16 = 0;
     DIR *d = opendir(canonical);
@@ -419,11 +419,11 @@ static void game_new16(int route) {
     }
 }
 static void move_game16(int dx, int dy) {
-    int cols = screen == 118   ? 8
-               : screen == 119 ? 11
+    int cols = ui_route() == 118   ? 8
+               : ui_route() == 119 ? 11
                                : 9,
-        rows = screen == 118   ? 7
-               : screen == 119 ? 13
+        rows = ui_route() == 118   ? 7
+               : ui_route() == 119 ? 13
                                : 12;
     int nx = game_px16 + dx, ny = game_py16 + dy;
     if (nx < 0 || nx >= cols || ny < 0 || ny >= rows || game_won16)
@@ -431,7 +431,7 @@ static void move_game16(int dx, int dy) {
     int at = ny * cols + nx, v = game_board16[at];
     if (v == 1)
         return;
-    if (screen == 118 && (v == 3 || v == 5)) {
+    if (ui_route() == 118 && (v == 3 || v == 5)) {
         int bx = nx + dx, by = ny + dy;
         if (bx < 0 || bx >= 8 || by < 0 || by >= 7)
             return;
@@ -447,7 +447,7 @@ static void move_game16(int dx, int dy) {
     game_undo16[3] = game_hp16;
     game_undo16[4] = game_gold16;
     game_undo16[5] = game_level16;
-    if (screen == 118 && (v == 3 || v == 5)) {
+    if (ui_route() == 118 && (v == 3 || v == 5)) {
         int bx = nx + dx, by = ny + dy;
         if (bx < 0 || bx >= 8 || by < 0 || by >= 7)
             return;
@@ -457,7 +457,7 @@ static void move_game16(int dx, int dy) {
         game_board16[to] = game_board16[to] == 2 ? 5 : 3;
         game_board16[at] = v == 5 ? 2 : 0;
     }
-    if (screen == 121) {
+    if (ui_route() == 121) {
         if (v == 3) {
             game_hp16 -= 2;
             game_board16[at] = 0;
@@ -484,9 +484,9 @@ static void move_game16(int dx, int dy) {
     game_px16 = nx;
     game_py16 = ny;
     game_moves16++;
-    if (screen == 119 && nx == 9 && ny == 11)
+    if (ui_route() == 119 && nx == 9 && ny == 11)
         game_won16 = 1;
-    if (screen == 118) {
+    if (ui_route() == 118) {
         int left = 0;
         for (int i = 0; i < 56; i++)
             if (game_board16[i] == 3)
@@ -606,13 +606,13 @@ static void game_help16(int route) {
         u17_game_manual(route, title, text);
 }
 static int game_help_x(void) {
-    return screen == 64 ? 348
-           : (screen == 63 || screen == 119 || screen == 118 || screen == 120 || screen == 121)
+    return ui_route() == 64 ? 348
+           : (ui_route() == 63 || ui_route() == 119 || ui_route() == 118 || ui_route() == 120 || ui_route() == 121)
                ? 408
                : 468;
 }
 static void help_overlay16(void) {
-    AppId id = app_for_route(screen);
+    AppId id = app_for_route(ui_route());
     if ((id >= APP_MINES && id <= APP_SNAKE) || id == APP_CHESS || id == APP_TIC_TAC_TOE ||
         (id >= APP_2048 && id <= APP_SUDOKU) || id == APP_WORDLE || id == APP_NONOGRAMS ||
         id == APP_HEX || id == APP_BINGO || id == APP_CONNECT4 ||
@@ -636,12 +636,12 @@ static void direction_keys16(void) {
     icon_button(397, 728, IC_NEXT);
 }
 static void game_draw16(void) {
-    heading(app_definition(app_for_route(screen))->name);
+    heading(app_definition(app_for_route(ui_route()))->name);
     icon_button(528, 74, IC_RESTART);
     char b[100];
-    if (screen == 118 || screen == 119 || screen == 121)
+    if (ui_route() == 118 || ui_route() == 119 || ui_route() == 121)
         icon_button(468, 74, IC_UNDO);
-    if (screen == 112) {
+    if (ui_route() == 112) {
         centered(28, 136, 544, 46, "B   I   N   G   O", ui_font(UI_PRIMARY));
         for (int y = 0; y < 5; y++)
             for (int x = 0; x < 5; x++) {
@@ -659,7 +659,7 @@ static void game_draw16(void) {
             centered(28, 718, 544, 45, "BINGO!", ui_font(UI_TITLE));
         return;
     }
-    if (screen == 113) {
+    if (ui_route() == 113) {
         snprintf(b, 100,
                  tr(game_won16 == 3 ? "Unentschieden"
                     : game_won16    ? "Spieler %d gewinnt"
@@ -676,7 +676,7 @@ static void game_draw16(void) {
             }
         return;
     }
-    if (screen == 117) {
+    if (ui_route() == 117) {
         snprintf(b, 100, "%d / 64%s", game_moves16, game_moves16 == 64 ? " · Geschafft!" : "");
         centered(28, 132, 544, 45, b, ui_font(UI_PRIMARY));
         for (int y = 0; y < 8; y++)
@@ -698,30 +698,30 @@ static void game_draw16(void) {
             }
         return;
     }
-    int cols = screen == 118   ? 8
-               : screen == 119 ? 11
+    int cols = ui_route() == 118   ? 8
+               : ui_route() == 119 ? 11
                                : 9,
-        rows = screen == 118   ? 7
-               : screen == 119 ? 13
+        rows = ui_route() == 118   ? 7
+               : ui_route() == 119 ? 13
                                : 12;
-    int cell = screen == 118   ? 68
-               : screen == 119 ? 40
+    int cell = ui_route() == 118   ? 68
+               : ui_route() == 119 ? 40
                                : 44,
-        ox = 300 - cols * cell / 2, oy = screen == 118 ? 205 : 150;
+        ox = 300 - cols * cell / 2, oy = ui_route() == 118 ? 205 : 150;
     for (int y = 0; y < rows; y++)
         for (int x = 0; x < cols; x++) {
             int xx = ox + x * cell, yy = oy + y * cell, v = game_board16[y * cols + x];
             region(xx, yy, cell, cell);
             if (v == 1)
                 rect(xx + 1, yy + 1, cell - 2, cell - 2, 65);
-            else if (screen == 118) {
+            else if (ui_route() == 118) {
                 if (v == 2 || v == 5)
                     ring(xx + cell / 2, yy + cell / 2, 10, 2);
                 if (v == 3 || v == 5) {
                     key_outline(xx + 9, yy + 9, cell - 18, cell - 18);
                     stroke(xx + 9, yy + 9, xx + cell - 9, yy + cell - 9, 2);
                 }
-            } else if (screen == 121) {
+            } else if (ui_route() == 121) {
                 if (v == 2)
                     ring(xx + cell / 2, yy + cell / 2, 6, 3);
                 if (v == 3) {
@@ -734,13 +734,13 @@ static void game_draw16(void) {
             }
         }
     aa_disc(ox + game_px16 * cell + cell / 2, oy + game_py16 * cell + cell / 2, cell / 4, 0);
-    if (screen == 119)
+    if (ui_route() == 119)
         ring(ox + 9 * cell + cell / 2, oy + 11 * cell + cell / 2, cell / 3, 2);
     snprintf(b, 100,
-             tr(screen == 121 ? "Ebene %d · Leben %d · Gold %d"
+             tr(ui_route() == 121 ? "Ebene %d · Leben %d · Gold %d"
                 : game_won16  ? "Geschafft · %d Züge"
                               : "%d Züge"),
-             screen == 121 ? game_level16 : game_moves16, game_hp16, game_gold16);
+             ui_route() == 121 ? game_level16 : game_moves16, game_hp16, game_gold16);
     centered(28, 680, 544, 42, b, ui_font(UI_BODY));
     direction_keys16();
 }
@@ -799,17 +799,17 @@ static int u16_apps_commit(int target, const char *text) {
         snprintf(crossword_answer16[crossword_pick16], 16, "%s", text);
         for (char *p = crossword_answer16[crossword_pick16]; *p; p++)
             *p = toupper((unsigned char)*p);
-        save_blob("crossword16.bin", crossword_answer16, sizeof(crossword_answer16));
+        app_state_save("crossword16.bin", crossword_answer16, sizeof(crossword_answer16));
         return 1;
     }
     return 0;
 }
 static void companion_enter16(void) {
-    if (companion_route16 == screen)
+    if (companion_route16 == ui_route())
         return;
-    companion_route16 = screen;
+    companion_route16 = ui_route();
     companion_page16 = 0;
-    if (screen == 116) {
+    if (ui_route() == 116) {
         char p[4096];
         snprintf(p, sizeof(p), "%s", *explorer_dir16 ? explorer_dir16 : library_root);
         files_scan16(p);
@@ -819,33 +819,33 @@ static void companion_enter16(void) {
         if (companion_page16 * 8 >= files_count16)
             companion_page16 = 0;
     }
-    if (screen == 111) {
+    if (ui_route() == 111) {
         char p[4096];
         local_path(p, sizeof(p), "study");
         mkdir(p, 0700);
         files_scan16(p);
     }
-    if (screen == 114) {
+    if (ui_route() == 114) {
         recipe_search16 = 0;
         recipe_archive16();
         recipes_parse17();
     }
-    if (screen == 110) {
+    if (ui_route() == 110) {
         for (int i = 0; i < 6; i++) {
             char n[80];
             snprintf(n, 80, "journal-draft16-%d.txt", i);
             config16(n, journal_answers16[i], 8192);
         }
     }
-    if (screen == 122) {
+    if (ui_route() == 122) {
         config16("llm-model.txt", llm_model16, sizeof(llm_model16));
         config16("llm-prompt16.txt", llm_prompt16, sizeof(llm_prompt16));
     }
-    if (screen == 120 && !cross_seed16) {
+    if (ui_route() == 120 && !cross_seed16) {
         char seed[40] = "";
         config16("crossword-seed16.txt", seed, sizeof(seed));
         char answers[5][16];
-        int exists = load_blob("crossword16.bin", answers, sizeof(answers));
+        int exists = app_state_load("crossword16.bin", answers, sizeof(answers));
         crossword_new16((unsigned)strtoul(seed, NULL, 10));
         if (exists && *seed) {
             memcpy(crossword_answer16, answers, sizeof(answers));
@@ -853,15 +853,15 @@ static void companion_enter16(void) {
                 crossword_answer16[i][15] = 0;
         }
     }
-    if (screen == 112 || screen == 113 || screen == 117 || screen == 118 || screen == 119 ||
-        screen == 121) {
+    if (ui_route() == 112 || ui_route() == 113 || ui_route() == 117 || ui_route() == 118 || ui_route() == 119 ||
+        ui_route() == 121) {
         static int active_game = -1;
-        if (active_game != screen) {
-            game_new16(screen);
+        if (active_game != ui_route()) {
+            game_new16(ui_route());
             char n[64];
-            snprintf(n, 64, "game16-%d.bin", screen);
+            snprintf(n, 64, "game16-%d.bin", ui_route());
             int state[152];
-            if (load_blob(n, state, sizeof(state))) {
+            if (app_state_load(n, state, sizeof(state))) {
                 int valid = state[144] >= 1 && state[144] <= 2 && state[146] >= 0 &&
                             state[146] <= 100000 && state[147] >= 0 && state[147] < 11 &&
                             state[148] >= 0 && state[148] < 13;
@@ -880,23 +880,23 @@ static void companion_enter16(void) {
                     game_level16 = state[151];
                 }
             }
-            active_game = screen;
+            active_game = ui_route();
         }
     }
 }
 static int u16_apps_draw(void) {
-    if (screen == 21) {
+    if (ui_route() == 21) {
         companion_route16 = 21;
         return calendar_draw16();
     }
-    if (screen < 110 || screen > 127) {
+    if (ui_route() < 110 || ui_route() > 127) {
         companion_route16 = -1;
         return 0;
     }
     companion_enter16();
     char b[300];
 
-    if (screen == 111) {
+    if (ui_route() == 111) {
         heading_actions("Lernen", 1);
         icon_button(528, 74, IC_CLOCK);
         wrapped(30, 140,
@@ -918,13 +918,13 @@ static int u16_apps_draw(void) {
         pager(679, &companion_page16, (files_count16 + 4) / 5);
         return 1;
     }
-    if (screen == 112 || screen == 113 || screen == 117 || screen == 118 || screen == 119 ||
-        screen == 121) {
+    if (ui_route() == 112 || ui_route() == 113 || ui_route() == 117 || ui_route() == 118 || ui_route() == 119 ||
+        ui_route() == 121) {
         game_draw16();
         return 1;
     }
 
-    if (screen == 115) {
+    if (ui_route() == 115) {
         elements_init16();
         heading("Periodensystem");
         const char **e = elements16[element_selected16 - 1];
@@ -947,7 +947,7 @@ static int u16_apps_draw(void) {
             }
         return 1;
     }
-    if (screen == 116) {
+    if (ui_route() == 116) {
         heading_actions("Dateien", 1);
         icon_button(528, 74, IC_UP);
         ink_color = 120;
@@ -963,12 +963,12 @@ static int u16_apps_draw(void) {
         pager(715, &companion_page16, (files_count16 + 7) / 8);
         return 1;
     }
-    if (screen == 120) {
+    if (ui_route() == 120) {
         crossword_draw16();
         return 1;
     }
 
-    if (screen == 125) {
+    if (ui_route() == 125) {
         solar16();
         return 1;
     }
@@ -977,24 +977,24 @@ static int u16_apps_draw(void) {
 #include "../calendar/navigation.h"
 
 static int u16_apps_input(const Input *in) {
-    if (screen == 110 || screen == 126 || screen == 122 || screen == 123 || screen == 114 ||
-        screen == 118 || screen == 119 || screen == 120)
+    if (ui_route() == 110 || ui_route() == 126 || ui_route() == 122 || ui_route() == 123 || ui_route() == 114 ||
+        ui_route() == 118 || ui_route() == 119 || ui_route() == 120)
         return -1;
     if (in->kind != INPUT_TAP)
         return -1;
     int x = in->x, y = in->y;
     int helpx = game_help_x();
     if (y >= 74 && y < 118 && x >= helpx && x < helpx + 44) {
-        AppId id = app_for_route(screen);
+        AppId id = app_for_route(ui_route());
         if ((id >= APP_MINES && id <= APP_SNAKE) || id == APP_CHESS || id == APP_TIC_TAC_TOE ||
             (id >= APP_2048 && id <= APP_SUDOKU) || id == APP_WORDLE || id == APP_NONOGRAMS ||
             id == APP_HEX || id == APP_BINGO || id == APP_CONNECT4 ||
             (id >= APP_KNIGHTS && id <= APP_RPG)) {
-            game_help16(screen);
+            game_help16(ui_route());
             return 1;
         }
     }
-    if (screen == 21) {
+    if (ui_route() == 21) {
         if (y >= 74 && y < 118) {
 
             if (x >= 250 && x < 395) {
@@ -1040,16 +1040,16 @@ static int u16_apps_input(const Input *in) {
             }
         }
     }
-    if (screen == 79 && y >= 74 && y < 118 && x >= 460 && x < 516) {
+    if (ui_route() == 79 && y >= 74 && y < 118 && x >= 460 && x < 516) {
         extra_open(125);
         return 1;
     }
-    if (screen < 110 || screen > 127)
+    if (ui_route() < 110 || ui_route() > 127)
         return -1;
     if (y < 48)
         return -1;
 
-    if (screen == 111) {
+    if (ui_route() == 111) {
         if (y >= 74 && y < 118 && x >= 516) {
             extra_open(28);
             return 1;
@@ -1064,7 +1064,7 @@ static int u16_apps_input(const Input *in) {
                 ui_message("Fokuszeit gestartet.");
             } else {
                 open_keyboard(177, "Was weißt du noch?", "");
-                note_cursor = note_view_start = 0;
+                editor_ui.note_cursor = editor_ui.note_view_start = 0;
             }
             return 1;
         }
@@ -1085,7 +1085,7 @@ static int u16_apps_input(const Input *in) {
         return -1;
     }
 
-    if (screen == 115) {
+    if (ui_route() == 115) {
         if (y >= 138 && y < 190) {
             element_open16(element_selected16);
             return 1;
@@ -1098,7 +1098,7 @@ static int u16_apps_input(const Input *in) {
         }
         return 1;
     }
-    if (screen == 116) {
+    if (ui_route() == 116) {
         if (y >= 74 && y < 118 && x >= 516) {
             char p[4096];
             snprintf(p, sizeof(p), "%s", files_dir16);
@@ -1125,7 +1125,7 @@ static int u16_apps_input(const Input *in) {
         return -1;
     }
 
-    if (screen == 125) {
+    if (ui_route() == 125) {
         if (y >= 74 && y < 118 && x >= 516) {
             extra_open(80);
             return 1;
@@ -1144,7 +1144,7 @@ static int u16_apps_input(const Input *in) {
         }
         return 1;
     }
-    if (screen == 120) {
+    if (ui_route() == 120) {
         if (y >= 74 && y < 118 && x >= 516) {
             crossword_new16(random16());
             return 1;
@@ -1156,10 +1156,10 @@ static int u16_apps_input(const Input *in) {
         }
         return 1;
     }
-    if (screen == 112 || screen == 113 || screen == 117 || screen == 118 || screen == 119 ||
-        screen == 121) {
+    if (ui_route() == 112 || ui_route() == 113 || ui_route() == 117 || ui_route() == 118 || ui_route() == 119 ||
+        ui_route() == 121) {
         if (y >= 74 && y < 118 && x >= 460 && x < 516 &&
-            (screen == 118 || screen == 119 || screen == 121)) {
+            (ui_route() == 118 || ui_route() == 119 || ui_route() == 121)) {
             if (game_undo_valid16) {
                 memcpy(game_board16, game_previous16, sizeof(game_board16));
                 game_px16 = game_undo16[0];
@@ -1174,10 +1174,10 @@ static int u16_apps_input(const Input *in) {
             return 1;
         }
         if (y >= 74 && y < 118 && x >= 516) {
-            game_new16(screen);
+            game_new16(ui_route());
             return 1;
         }
-        if (screen == 112 && x >= 35 && x < 565 && y >= 200 && y < 700) {
+        if (ui_route() == 112 && x >= 35 && x < 565 && y >= 200 && y < 700) {
             int i = (y - 200) / 100 * 5 + (x - 35) / 106;
             if (i != 12)
                 game_board16[i] = -game_board16[i];
@@ -1204,7 +1204,7 @@ static int u16_apps_input(const Input *in) {
                 game_won16 = 1;
             return 1;
         }
-        if (screen == 113 && x >= 40 && x < 565 && y >= 210 && y < 672 && !game_won16) {
+        if (ui_route() == 113 && x >= 40 && x < 565 && y >= 210 && y < 672 && !game_won16) {
             int col = (x - 40) / 75, row = 5;
             while (row >= 0 && game_board16[row * 7 + col])
                 row--;
@@ -1232,7 +1232,7 @@ static int u16_apps_input(const Input *in) {
             }
             return 1;
         }
-        if (screen == 117 && x >= 28 && x < 572 && y >= 190 && y < 702) {
+        if (ui_route() == 117 && x >= 28 && x < 572 && y >= 190 && y < 702) {
             int xx = (x - 28) / 68, yy = (y - 190) / 64, dx = abs(xx - game_px16),
                 dy = abs(yy - game_py16);
             if (dx * dy == 2 && !game_board16[yy * 8 + xx]) {
@@ -1242,7 +1242,7 @@ static int u16_apps_input(const Input *in) {
             }
             return 1;
         }
-        if (screen == 118 || screen == 119 || screen == 121) {
+        if (ui_route() == 118 || ui_route() == 119 || ui_route() == 121) {
             int dx = 0, dy = 0;
             if (y >= 728 && y < 772) {
                 if (x >= 150 && x < 210)
@@ -1254,13 +1254,13 @@ static int u16_apps_input(const Input *in) {
                 else if (x >= 387 && x < 447)
                     dx = 1;
             } else {
-                int cell = screen == 118   ? 68
-                           : screen == 119 ? 40
+                int cell = ui_route() == 118   ? 68
+                           : ui_route() == 119 ? 40
                                            : 44,
-                    cols = screen == 118   ? 8
-                           : screen == 119 ? 11
+                    cols = ui_route() == 118   ? 8
+                           : ui_route() == 119 ? 11
                                            : 9,
-                    ox = 300 - cols * cell / 2, oy = screen == 118 ? 205 : 150;
+                    ox = 300 - cols * cell / 2, oy = ui_route() == 118 ? 205 : 150;
                 int xx = (x - ox) / cell - game_px16, yy = (y - oy) / cell - game_py16;
                 if (abs(xx) > abs(yy))
                     dx = xx > 0 ? 1 : -1;
@@ -1341,7 +1341,7 @@ static void companion_checkpoint16(void) {
         state[149] = game_hp16;
         state[150] = game_gold16;
         state[151] = game_level16;
-        save_blob(name, state, sizeof(state));
+        app_state_save(name, state, sizeof(state));
     }
 }
 static void companion_close16(void) {
