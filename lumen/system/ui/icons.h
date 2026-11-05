@@ -79,10 +79,18 @@ static void icon_native(int x, int y, int kind) {
         stroke(x + 38, y + 23, x + 38, y + 33, 3);
         break;
     case IC_CHAT:
-        outline_surface(x+12,y+6,26,19,6,0);
-        control_surface(x+5,y+15,27,19,6,0);
-        control_surface(x+8,y+18,21,13,4,255);
-        stroke(x+11,y+30,x+9,y+37,3);
+        outline_surface(x + 6, y + 7, 32, 24, 8, 0);
+        stroke(x + 11, y + 29, x + 11, y + 36, 2);
+        stroke(x + 11, y + 36, x + 19, y + 30, 2);
+        stroke(x + 14, y + 16, x + 29, y + 16, 2);
+        stroke(x + 14, y + 22, x + 25, y + 22, 2);
+        break;
+    case IC_SEND:
+        stroke(x + 6, y + 10, x + 37, y + 21, 3);
+        stroke(x + 37, y + 21, x + 6, y + 34, 3);
+        stroke(x + 6, y + 34, x + 13, y + 22, 3);
+        stroke(x + 13, y + 22, x + 6, y + 10, 3);
+        stroke(x + 13, y + 22, x + 29, y + 21, 2);
         break;
     case IC_CONTENTS:
     case IC_DEVICES:

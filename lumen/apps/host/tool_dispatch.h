@@ -402,8 +402,10 @@ static int extra_input(const Input *in) {
     if (ui_route() == 33) {
         if (y >= 74 && y < 118) {
             if (x >= 516) {
-                ha_select ^= 1;
-                ha_page = 0;
+                if (!ha_back()) {
+                    ha_select = 1;
+                    ha_page = 0;
+                }
             } else if (x >= 456)
                 extra_open(34);
         } else if ((!*ha_url || !*ha_token) && y >= 420 && y < 468)

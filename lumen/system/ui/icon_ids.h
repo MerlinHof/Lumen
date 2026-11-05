@@ -54,6 +54,7 @@ enum {
     IC_ALIGN,
     IC_BARS,
     IC_CHAT,
-    IC_LAST = IC_CHAT
+    IC_SEND,
+    IC_LAST = IC_SEND
 };
 #endif

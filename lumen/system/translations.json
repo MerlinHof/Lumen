@@ -571,8 +571,8 @@
   ],
   "Diese Software wurde Ende 2026 von GPT-6.1 Sol entwickelt unter Aufsicht und Prompting und Lizenz von Merlin Hof.": [
     "Diese Software wurde Ende 2026 von GPT-6.1 Sol entwickelt unter Aufsicht und Prompting und Lizenz von Merlin Hof.",
-    "This software was developed in late 2026 by GPT-6.1 Sol under the supervision, prompting and licence of Merlin Hof.",
-    "Ce logiciel a été développé fin 2026 par GPT-6.1 Sol, sous la supervision, les instructions et la licence de Merlin Hof."
+    "This software was developed in late 2026 by GPT-6.1 Sol under the supervision, prompting and license of Merlin Hof.",
+    "Ce logiciel a été développé fin 2026 par GPT-6.1 Sol sous la supervision, les instructions et la licence de Merlin Hof."
   ],
   "Diese Tagesnotiz löschen?": [
     "Diese Tagesnotiz löschen?",
@@ -5198,5 +5198,130 @@
     "Wordle · English",
     "Wordle · English",
     "Wordle · anglais"
+  ],
+  "Spieler %d ist dran": [
+    "Spieler %d ist dran",
+    "Player %d’s turn",
+    "Au tour du joueur %d"
+  ],
+  "Automatischer Ruhezustand": [
+    "Automatischer Ruhezustand",
+    "Auto sleep",
+    "Veille automatique"
+  ],
+  "Nicht verfügbar": [
+    "Nicht verfügbar",
+    "Unavailable",
+    "Indisponible"
+  ],
+  "Unbekannt": [
+    "Unbekannt",
+    "Unknown",
+    "Inconnu"
+  ],
+  "Gutenberg · Internet Archive": [
+    "Gutenberg · Internet Archive",
+    "Gutenberg · Internet Archive",
+    "Gutenberg · Internet Archive"
+  ],
+  "Noble gas": [
+    "Edelgas",
+    "Noble gas",
+    "Gaz noble"
+  ],
+  "Alkali metal": [
+    "Alkalimetall",
+    "Alkali metal",
+    "Métal alcalin"
+  ],
+  "Alkaline earth metal": [
+    "Erdalkalimetall",
+    "Alkaline earth metal",
+    "Métal alcalino-terreux"
+  ],
+  "Transition metal": [
+    "Übergangsmetall",
+    "Transition metal",
+    "Métal de transition"
+  ],
+  "Post-transition metal": [
+    "Post-Übergangsmetall",
+    "Post-transition metal",
+    "Métal pauvre"
+  ],
+  "Nonmetal": [
+    "Nichtmetall",
+    "Nonmetal",
+    "Non-métal"
+  ],
+  "Reactive nonmetal": [
+    "Reaktives Nichtmetall",
+    "Reactive nonmetal",
+    "Non-métal réactif"
+  ],
+  "Metalloid": [
+    "Halbmetall",
+    "Metalloid",
+    "Métalloïde"
+  ],
+  "Halogen": [
+    "Halogen",
+    "Halogen",
+    "Halogène"
+  ],
+  "Lanthanide": [
+    "Lanthanoid",
+    "Lanthanide",
+    "Lanthanide"
+  ],
+  "Actinide": [
+    "Actinoid",
+    "Actinide",
+    "Actinide"
+  ],
+  "Solid": [
+    "Fest",
+    "Solid",
+    "Solide"
+  ],
+  "Liquid": [
+    "Flüssig",
+    "Liquid",
+    "Liquide"
+  ],
+  "Gas": [
+    "Gasförmig",
+    "Gas",
+    "Gazeux"
+  ],
+  "Expected solid": [
+    "Voraussichtlich fest",
+    "Expected solid",
+    "Probablement solide"
+  ],
+  "1543 · Copernicus\nDe revolutionibus describes a heliocentric model: Earth is a planet orbiting the Sun.": [
+    "1543 · Kopernikus\nDe revolutionibus beschreibt ein heliozentrisches Modell: Die Erde umkreist die Sonne.",
+    "1543 · Copernicus\nDe revolutionibus describes a heliocentric model: Earth is a planet orbiting the Sun.",
+    "1543 · Copernic\nDe revolutionibus décrit un modèle héliocentrique : la Terre orbite autour du Soleil."
+  ],
+  "1609 · Galileo\nA telescope reveals lunar mountains and resolves the Milky Way into countless stars. In 1610 he observes Jupiter's four large moons.": [
+    "1609 · Galilei\nDas Fernrohr zeigt Mondberge und löst die Milchstraße in unzählige Sterne auf. 1610 beobachtet Galilei die vier großen Jupitermonde.",
+    "1609 · Galileo\nA telescope reveals lunar mountains and resolves the Milky Way into countless stars. In 1610 he observes Jupiter's four large moons.",
+    "1609 · Galilée\nUne lunette révèle les montagnes de la Lune et les étoiles de la Voie lactée. En 1610, Galilée observe les quatre grandes lunes de Jupiter."
+  ],
+  "1687 · Newton\nUniversal gravitation connects falling objects on Earth with the motion of planets.": [
+    "1687 · Newton\nDie universelle Gravitation verbindet den Fall von Körpern auf der Erde mit der Bewegung der Planeten.",
+    "1687 · Newton\nUniversal gravitation connects falling objects on Earth with the motion of planets.",
+    "1687 · Newton\nLa gravitation universelle relie la chute des corps sur Terre au mouvement des planètes."
+  ],
+  "1915 · Einstein\nGeneral relativity explains gravity as spacetime curvature, including Mercury's orbital precession.": [
+    "1915 · Einstein\nDie allgemeine Relativitätstheorie beschreibt Gravitation als Krümmung der Raumzeit und erklärt die Drehung der Merkurbahn.",
+    "1915 · Einstein\nGeneral relativity explains gravity as spacetime curvature, including Mercury's orbital precession.",
+    "1915 · Einstein\nLa relativité générale décrit la gravité comme une courbure de l’espace-temps et explique la précession de l’orbite de Mercure."
+  ],
+  "1995 · 51 Pegasi b\nMayor and Queloz announce a planet orbiting a Sun-like star. Thousands of exoplanets follow.": [
+    "1995 · 51 Pegasi b\nMayor und Queloz melden einen Planeten um einen sonnenähnlichen Stern. Tausende weitere Exoplaneten folgen.",
+    "1995 · 51 Pegasi b\nMayor and Queloz announce a planet orbiting a Sun-like star. Thousands of exoplanets follow.",
+    "1995 · 51 Pegasi b\nMayor et Queloz annoncent une planète autour d’une étoile semblable au Soleil. Des milliers d’exoplanètes suivent."
   ]
 }

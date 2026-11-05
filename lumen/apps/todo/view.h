@@ -5,11 +5,10 @@ typedef struct {
 } TaskRow18;
 static TaskRow18 task_rows18[256];
 static int task_rows_count18, task_pages18;
-static int task_height18(int index, int width) {
+static int task_text_height(int index, int width) {
     FlowLine lines[16];
     int n = text_flow(tasks[index].title, ui_font(UI_BODY), width, lines, 14);
-    int h = n * 27 + 22;
-    return h < 68 ? 68 : h;
+    return n * 27;
 }
 static void tasks_layout18(void) {
     task_rows_count18 = 0;
@@ -23,7 +22,8 @@ static void tasks_layout18(void) {
             if (task_board ? (tasks[i].state == 2) != col
                            : ((task_tab == 1) != (tasks[i].state == 2)))
                 continue;
-            int h = task_height18(i, task_board ? 184 : 365);
+            int h = task_text_height(i, task_board ? 184 : 365) + 22;
+            if (h < 68) h = 68;
             if (y + h > 720 && y > (task_board ? 195 : 201)) {
                 page18++;
                 y = task_board ? 195 : 201;
@@ -75,12 +75,14 @@ static void tasks_draw18(void) {
             key_outline(row.x, row.y, row.w, row.h);
         else
             rect(row.x, row.y + row.h, row.w, 1, 205);
-        checkbox(row.x + (task_board ? 8 : 1), row.y + 9, done);
-        text_flow_draw(row.x + (task_board ? 60 : 52), row.y + 10, task_board ? 184 : 365, tasks[i].title, ui_font(UI_BODY), 27,
-                       14, done);
+        int center = row.y + row.h/2;
+        int width = task_board ? 184 : 365;
+        checkbox(row.x + (task_board ? 8 : 1), center - 15, done);
+        text_flow_draw(row.x + (task_board ? 60 : 52), center - task_text_height(i,width)/2,
+                       width, tasks[i].title, ui_font(UI_BODY), 27, 14, done);
         if (!task_board) {
-            icon_button(458, row.y + 7, IC_FOLDER);
-            icon_button(522, row.y + 7, IC_TRASH);
+            icon_button(458, center - 22, IC_FOLDER);
+            icon_button(522, center - 22, IC_TRASH);
         }
     }
     pager(746, &task_page, task_pages18);
@@ -114,7 +116,7 @@ static int tasks_input18(const Input *in) {
             continue;
         int i = row.index;
         if (x >= row.x + (task_board ? 8 : 1) && x < row.x + (task_board ? 52 : 45) &&
-            y >= row.y + 9 && y < row.y + 53) {
+            y >= row.y + row.h/2 - 24 && y < row.y + row.h/2 + 24) {
             tasks[i].state = tasks[i].state == 2 ? 0 : 2;
             v1_dirty = 1;
             v1_save();

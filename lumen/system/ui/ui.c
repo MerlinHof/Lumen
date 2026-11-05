@@ -222,6 +222,7 @@ static void extra_wiki_restore(void);
 static void quotes_load(void);
 static void app_insights(void);
 static void key_outline(int x, int y, int w, int h);
+enum { READER_TOOLBAR_END = 126, READER_CONTENTS_X = 468, READER_SETTINGS_X = 528 };
 static void control_surface(int x, int y, int w, int h, int r, int color);
 static void outline_surface(int x, int y, int w, int h, int r, int color);
 static void segment_fill(int x, int y, int w, int h, int r, int color, int sides);
@@ -279,7 +280,7 @@ static void photo_open_folder_menu(int assign, int index);
 static void photo_folder_choice(int target, int choice);
 static void photo_create_folder(const char *name);
 static void photo_duration_choice(int choice);
-static int photo_gallery_active(void), photo_back(void);
+static int photo_gallery_active(void), photo_back(void), ha_back(void);
 static void clock_show_face(void);
 static void photo_app_leave(void);
 static int polish_photo_full(void);
@@ -1386,22 +1387,34 @@ static int ui_dispatch_input(const Input *in) {
             return 1;
         }
     }
+    if (battery_popup) {
+        if (in->kind == INPUT_TAP || in->kind == INPUT_SWIPE) {
+            battery_popup = 0;
+            return 1;
+        }
+        if (in->kind == INPUT_DOWN || in->kind == INPUT_MOVE || in->kind == INPUT_HOLD)
+            return 2;
+    }
     if (polish_photo_full() && in->kind == INPUT_TAP)
         return polish_photo_input(in);
     int input18 = keyboard_intercept18(in);
     if (input18 >= 0)
         return input18;
-    int update17 = u17_input(in);
+    int back_release = pressed >= 0 && press_bounds.system && press_bounds.x == 0 &&
+                       press_bounds.y == 0 && press_bounds.w == 62 && in->y < 56 && in->x < 70;
+    int status_tap = in->kind == INPUT_TAP && (in->y < 48 || back_release) &&
+                     (ui_route() != 2 || reader_ui.reader_chrome);
+    int update17 = status_tap ? -1 : u17_input(in);
     if (update17 >= 0) {
         pressed = -1;
         return update17;
     }
-    int update16 = u16_input(in);
+    int update16 = status_tap ? -1 : u16_input(in);
     if (update16 >= 0) {
         pressed = -1;
         return update16;
     }
-    int update15 = u15_input(in);
+    int update15 = status_tap ? -1 : u15_input(in);
     if (update15 >= 0) {
         pressed = -1;
         return update15;
@@ -1731,7 +1744,7 @@ static int ui_dispatch_input(const Input *in) {
         return 1;
     }
 
-    if (in->kind == INPUT_TAP && ui_route() == 2 && reader_ui.reader_chrome && y >= 164 && y < 736) {
+    if (in->kind == INPUT_TAP && ui_route() == 2 && reader_ui.reader_chrome && y >= READER_TOOLBAR_END && y < 736) {
         reader_ui.reader_chrome = 0;
         return 1;
     }
@@ -1764,14 +1777,10 @@ static int ui_dispatch_input(const Input *in) {
             u17_notes_up();
             return 1;
         }
-        if (x < 62 && !editor_ui.keyboard && !dropdown && (photo_back() || recipes_back()))
+        if (x < 62 && !editor_ui.keyboard && !dropdown && !confirm_delete && (photo_back() || recipes_back() || ha_back()))
             return 1;
         if (x < 62 && can_back()) {
             apps_pause();
-            if (battery_popup) {
-                battery_popup = 0;
-                return 1;
-            }
             if (editor_ui.keyboard || dropdown || confirm_delete) {
                 if (editor_ui.keyboard && keyboard_multiline())
                     commit_keyboard();
@@ -1814,14 +1823,11 @@ static int ui_dispatch_input(const Input *in) {
             return 1;
         }
     }
-    if (in->kind == INPUT_TAP && y < 48 && (options[OPT_BATTERY] || options[OPT_BATTERY_PERCENT]) &&
+    if (in->kind == INPUT_TAP && y < 48 && !editor_ui.keyboard && !dropdown && !confirm_delete &&
+        (options[OPT_BATTERY] || options[OPT_BATTERY_PERCENT]) &&
         status_ui.status_battery_x >= 0 && x >= status_ui.status_battery_x - 6 && x < status_ui.status_battery_right + 6 &&
         (ui_route() != 2 || reader_ui.reader_chrome)) {
-        battery_popup = !battery_popup;
-        return 1;
-    }
-    if (battery_popup && in->kind == INPUT_TAP) {
-        battery_popup = 0;
+        battery_popup = 1;
         return 1;
     }
     if (in->kind == INPUT_TAP && has_tabs() && y >= 736 &&
@@ -2339,18 +2345,22 @@ void ui_feedback_draw(void) {
         return;
     Widget r = widgets[pressed];
     if (r.quiet) return;
+    /* Invert the actual inset of the shared curve and preserve the outer rim. */
+    int inset = 2, w = r.w - 2*inset, h = r.h - 2*inset;
+    if (w <= 0 || h <= 0) return;
     int radius = r.radius;
     if (radius > r.w/2) radius = r.w/2;
     if (radius > r.h/2) radius = r.h/2;
     int profile = rounding_profile();
     if (profile && radius*2 >= (r.w < r.h ? r.w : r.h)-1) profile = CORNER_CIRCLE;
+    radius -= inset;
     const unsigned char *mask = radius > 0 && profile ? corner_mask(radius, profile) : NULL;
-    for (int y = 2; y < r.h-2; y++) {
-        for (int x = 2; x < r.w-2; x++) {
-            int px = r.x+x, py = r.y+y;
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            int px = r.x + inset + x, py = r.y + inset + y;
             if ((unsigned)px >= WIDTH || (unsigned)py >= HEIGHT) continue;
-            int cx = x < r.w/2 ? x : r.w-1-x, cy = y < r.h/2 ? y : r.h-1-y;
-            int side = x < r.w/2 ? 1 : 2;
+            int cx = x < w/2 ? x : w-1-x, cy = y < h/2 ? y : h-1-y;
+            int side = x < w/2 ? 1 : 2;
             int alpha = mask && (r.sides & side) && cx < radius && cy < radius
                             ? mask[cy*radius+cx] : CORNER_ALPHA;
             unsigned char *pixel = &ui_pixels[py*WIDTH+px];

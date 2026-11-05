@@ -105,9 +105,6 @@ static void calc_math(char *out, int cap) {
     out[n] = 0;
 }
 #include "formula.h"
-static void primary_key(int x, int y, int w, int h, const char *label) {
-    action_button(x,y,w,h,label);
-}
 static void calc_key(int x, int y, int w, int h, const char *label) {
     region(x, y, w, h);
     key_outline(x, y, w, h);
@@ -200,7 +197,7 @@ static void app_calculator(void) {
         calc_key(28 + (i % 4) * 108, 540 + (i / 4) * 62, 100, 56, calc_label(calc_digits[i]));
     calc_key(460, 540, 112, 56, "±");
     calc_key(460, 602, 112, 56, "AC");
-    primary_key(460, 664, 112, 118, "=");
+    filled_button(460, 664, 112, 118, "=", ui_font(UI_PRIMARY));
 }
 static void app_calc_history(void) {
     heading("Rechenverlauf");

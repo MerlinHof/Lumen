@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.9
+
+- Align Reader actions in the title bar and match the calculator equals typography to its other keys.
+- Keep the keyboard accent menu open on release and dismiss battery details before forwarding touch to an app.
+- Return from Home Assistant device selection to the dashboard and use larger dashboard card corners.
+- Center ToDo rows, refine the minimal clock, and fit more conversation above a bottom-aligned OpenAI composer.
+- Correct localization in shared labels, Planetarium history, and device status. Refine Slide 3D tile materials.
+
 ## 2.8
 
 - Shared rounded outlines and press feedback, larger media and dropdown corners, and single-update segmented controls.

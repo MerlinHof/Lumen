@@ -210,7 +210,7 @@ static void sky_settings_draw(void) {
             "including Mercury's orbital precession.",
             "1995 · 51 Pegasi b\nMayor and Queloz announce a planet orbiting a Sun-like star. "
             "Thousands of exoplanets follow."};
-        wrapped_raw(30, 230, history[v1_page % 5], ui_font(UI_TITLE), 540, 9);
+        wrapped(30, 230, history[v1_page % 5], ui_font(UI_TITLE), 540, 9);
         pager(708, &v1_page, 5);
     }
 }

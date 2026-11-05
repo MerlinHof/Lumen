@@ -1,6 +1,7 @@
 /* Visible-ink alignment and role-owned emphasis, shared by all app surfaces. */
 static void type_label(int x, int y, int w, int h, const char *text, TextRole role) {
     TextStyle style = ui_text_style(role);
+    text = tr(text);
     int old = ink_color;
     ink_color = style.color;
     label_ellipsis(x, y, w, h, text, style.font, 0);
@@ -23,12 +24,15 @@ static void raised_surface(int x, int y, int w, int h) {
     control_surface(x, y, w, h, 15, UI_INK);
     control_surface(x + 2, y + 2, w - 4, h - 4, 13, UI_PAPER);
 }
-static void action_button(int x, int y, int w, int h, const char *text) {
+static void filled_button(int x, int y, int w, int h, const char *text, const Font *font) {
     region(x, y, w, h);
     widget_shape(x, y, w, h, RADIUS_MEDIUM, 3, 0);
     control_surface(x, y, w, h, RADIUS_MEDIUM, UI_INK);
     int ink = ink_color;
     ink_color = UI_PAPER;
-    centered(x, y, w, h, text, &small);
+    centered(x, y, w, h, text, font);
     ink_color = ink;
+}
+static void action_button(int x, int y, int w, int h, const char *text) {
+    filled_button(x, y, w, h, text, ui_font(UI_CONTROL));
 }

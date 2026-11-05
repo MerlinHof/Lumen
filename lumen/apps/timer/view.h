@@ -32,10 +32,13 @@ static void clock_face(int fullscreen) {
         if (style != 1) ring(300,cy,r,3);
         for (int i=0; i<60; i++) {
             double a = i * .104719755;
-            if (style == 1 && i % 15) continue;
+            if (style == 1 && i % 5) continue;
             int inner = r - (i%5 ? 12 : 23);
-            stroke(300+sin(a)*inner, cy-cos(a)*inner,
-                   300+sin(a)*(r-5), cy-cos(a)*(r-5), i%5 ? 2 : 4);
+            int primary = i % (style == 1 ? 15 : 5) == 0;
+            if (style == 1 && !primary) inner = r - 12;
+            stroke_color(300+sin(a)*inner, cy-cos(a)*inner,
+                         300+sin(a)*(r-5), cy-cos(a)*(r-5), primary ? 4 : 2,
+                         style == 1 && !primary ? 112 : 0);
             if (style == 4 && !(i%5)) {
                 char label[8];
                 snprintf(label,sizeof(label),"%d",i ? i/5 : 12);

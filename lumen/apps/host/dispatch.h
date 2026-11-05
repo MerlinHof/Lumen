@@ -128,10 +128,11 @@ static int app_handle_input(const Input *in) {
         return wifi_ui.wifi_exit ? 0 : 1;
     }
     if (ui_route() == 2 && in->kind == INPUT_TAP) {
-        if (reader_ui.reader_chrome && y >= 108 && y < 152) {
-            if ((x >= 278 && x < 322) || (x >= 478 && x < 522)) {
+        if (reader_ui.reader_chrome && y >= 74 && y < 118) {
+            if ((x >= READER_CONTENTS_X && x < READER_CONTENTS_X + 44) ||
+                (x >= READER_SETTINGS_X && x < READER_SETTINGS_X + 44)) {
                 if (history_count < 64) history[history_count++] = 2;
-                if (x < 400) {
+                if (x < READER_SETTINGS_X) {
                     route_to(4);
                     reader_ui.chapterpage = 0;
                 } else {

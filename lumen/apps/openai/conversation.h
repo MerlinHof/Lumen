@@ -193,24 +193,29 @@ static void chat_preview(int i, char *out, size_t size) {
     }
     out[n] = 0;
 }
+enum { CHAT_TOP = 166, CHAT_ROWS_END = 656, CHAT_PAGER_Y = 667,
+       CHAT_COMPOSE_Y = 722, CHAT_COMPOSE_H = 66 };
+static int chat_preview_lines(const char *text, int bot, FlowLine *lines) {
+    return text_flow(text, ui_font(UI_BODY), 454, lines, bot ? 5 : 3);
+}
 static void chat_layout(void) {
-    int y = 174, page_index = 0;
+    int y = CHAT_TOP, page_index = 0;
     chat_row_count = 0;
     for (int i = 0; i < chat_count; i++) {
         char b[2048];
         chat_preview(i, b, sizeof(b));
         FlowLine lines[6];
-        int limit = chat_messages[i].role ? 5 : 3, n = text_flow(b, ui_font(UI_BODY), 450, lines, limit);
+        int n = chat_preview_lines(b, chat_messages[i].role, lines);
         int truncated =
             (size_t)lines[n - 1].end < strlen(b) || strlen(chat_messages[i].text) >= sizeof(b);
-        int height = 35 + n * 26 + (truncated ? 52 : 12);
-        if (y + height > 615 && y > 174) {
+        int height = 30 + n * 25 + (truncated ? 42 : 9);
+        if (y + height > CHAT_ROWS_END && y > CHAT_TOP) {
             page_index++;
-            y = 174;
+            y = CHAT_TOP;
         }
         if (page_index == chat_page)
             chat_rows[chat_row_count++] = (typeof(chat_rows[0])){i, y, height, truncated};
-        y += height + 16;
+        y += height + 10;
     }
     chat_pages = page_index + 1;
     if (chat_page >= chat_pages) {
@@ -244,29 +249,34 @@ static void chat_draw(void) {
         char b[2048];
         chat_preview(i, b, sizeof(b));
         int x = bot ? 28 : 92;
-        control_surface(x,y,480,chat_rows[row].height,RADIUS_LARGE,bot ? 241 : 217);
+        outline_surface(x, y, 480, chat_rows[row].height, RADIUS_LARGE, bot ? 180 : 128);
         ink_color = UI_SECONDARY_INK;
-        drawtext(x+15, y+8, bot ? "OpenAI" : "Du", ui_font(UI_SECONDARY), 450);
+        label_at(x+13, y+6, 454, 24, tr(bot ? "OpenAI" : "Du"), ui_font(UI_SECONDARY));
         ink_color = 0;
-        text_flow_draw(x+15, y+34, 450, b, ui_font(UI_BODY), 26, bot ? 5 : 3, 0);
-        if (chat_rows[row].truncated) {
-            int yy = y + chat_rows[row].height - 48;
-            drawtext_raw(x+15, yy+10, "…", ui_font(UI_BODY), 35);
-            icon_button(x+426, yy, IC_BOOK);
+        FlowLine lines[6];
+        int n = chat_preview_lines(b, bot, lines);
+        for (int line = 0; line < n; line++) {
+            char visible[512];
+            snprintf(visible, sizeof(visible), "%.*s", lines[line].end-lines[line].start,
+                     b + lines[line].start);
+            label_ellipsis(x+13, y+30+line*25, 454, 25, visible, ui_font(UI_BODY),
+                           line == n-1 && chat_rows[row].truncated);
         }
+        if (chat_rows[row].truncated)
+            icon_button(x+426, y+chat_rows[row].height-44, IC_BOOK);
     }
-    key_outline(28, 634, 470, 91);
-    region(28, 634, 470, 91);
-    ink_color = *llm_prompt16 ? 0 : 125;
-    wrapped_raw(42, 646, *llm_prompt16 ? llm_prompt16 : tr("Nachricht schreiben …"), ui_font(UI_BODY), 442,
-                2);
+    region(28, CHAT_COMPOSE_Y, 480, CHAT_COMPOSE_H);
+    key_outline(28, CHAT_COMPOSE_Y, 480, CHAT_COMPOSE_H);
+    ink_color = *llm_prompt16 ? 0 : UI_SECONDARY_INK;
+    const char *hint = job_pid16 > 0 && job_kind16 == 2 ? "Antwort wird geschrieben …" :
+                       "Nachricht schreiben …";
+    wrapped_raw(42, CHAT_COMPOSE_Y+8, *llm_prompt16 ? llm_prompt16 : tr(hint),
+                ui_font(UI_BODY), 452, 2);
     ink_color = 0;
-    icon_button(528, 655, IC_NEXT);
-    pager(746, &chat_page, chat_pages);
-    if (job_pid16 > 0 && job_kind16 == 2) {
-        rect(28, 593, 544, 32, 255);
-        drawtext(40, 595, "Antwort wird geschrieben …", ui_font(UI_SECONDARY), 530);
-    }
+    region(520, CHAT_COMPOSE_Y, 52, CHAT_COMPOSE_H);
+    key_outline(520, CHAT_COMPOSE_Y, 52, CHAT_COMPOSE_H);
+    icon(524, CHAT_COMPOSE_Y+11, IC_SEND);
+    pager(CHAT_PAGER_Y, &chat_page, chat_pages);
 }
 static int chat_input(const Input *in) {
     if (in->kind != INPUT_TAP)
@@ -289,8 +299,9 @@ static int chat_input(const Input *in) {
         }
         return 1;
     }
-    if (y >= 634 && y < 728) {
-        if (x < 510)
+    if (y >= CHAT_COMPOSE_Y && y < CHAT_COMPOSE_Y + CHAT_COMPOSE_H &&
+        ((x >= 28 && x < 508) || (x >= 520 && x < 572))) {
+        if (x < 508)
             open_keyboard(174, "Nachricht", llm_prompt16);
         else if (job_pid16 > 0)
             ui_message("Bitte die laufende Anfrage abwarten.");
@@ -315,8 +326,8 @@ static int chat_input(const Input *in) {
         if (chat_rows[r].truncated &&
             x >= (chat_messages[chat_rows[r].message].role ? 454 : 518) &&
             x < (chat_messages[chat_rows[r].message].role ? 498 : 562) &&
-            y >= chat_rows[r].y + chat_rows[r].height - 48 &&
-            y < chat_rows[r].y + chat_rows[r].height - 4) {
+            y >= chat_rows[r].y + chat_rows[r].height - 44 &&
+            y < chat_rows[r].y + chat_rows[r].height) {
             int i = chat_rows[r].message;
             reader_markdown17(chat_title, chat_messages[i].text, 122);
             return 1;

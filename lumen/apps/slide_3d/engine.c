@@ -32,7 +32,7 @@ static void raster(V a,V b,V c,int shade,int face,int texture){
   if(iz<=depth[at])continue;
   depth[at]=iz;normal[at]=(unsigned char)face;
   int ink=shade;
-  if(texture && ((x+y*2)%13==0))ink-=20;
+  if (texture && (x + y*2)%9 == 0) ink -= 9;
   tone[at]=(unsigned char)(ink<0?0:ink>255?255:ink);
  }
 }
@@ -97,12 +97,14 @@ void signal_render(const SignalGame *g,unsigned char *pixels) {
  memset(depth,0,sizeof(depth));
  memset(normal,0,sizeof(normal));
  memset(tone,247,sizeof(tone));
- box(0,-.25f,1.5f,4.25f,.25f,4.25f,188);
+ box(0,-.32f,1.5f,4.33f,.32f,4.33f,147);
+ box(0,-.025f,1.5f,4.17f,.025f,4.17f,-208);
  for(int i=0;i<16;i++){
   float x=i%4-1.5f,z=3-i/4;
   if(g->tiles[i]){
    box(x+.06f,.008f,z+.06f,.94f,.012f,.94f,-94);
-   box(x,0,z,.87f,.24f,.87f,235);
+   box(x,0,z,.87f,.18f,.87f,192);
+   box(x,.18f,z,.81f,.06f,.81f,250);
   }
  }
  for(int y=0;y<SIGNAL_H;y++)for(int x=0;x<SIGNAL_W;x++){
@@ -118,6 +120,7 @@ void signal_render(const SignalGame *g,unsigned char *pixels) {
  memcpy(tone,pixels,sizeof(tone));
  for(int y=1;y<SIGNAL_H-1;y++)for(int x=1;x<SIGNAL_W-1;x++){
   int a=y*SIGNAL_W+x,l=tone[a-1],r=tone[a+1],u=tone[a-SIGNAL_W],d=tone[a+SIGNAL_W];
-  if(abs(l-r)>40&&abs(u-d)>40)pixels[a]=(4*tone[a]+l+r+u+d)/8;
+  if (abs(l-r)>40 && abs(u-d)>40)
+   pixels[a]=(6*tone[a]+l+r+u+d)/10;
  }
 }

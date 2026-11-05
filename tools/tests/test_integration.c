@@ -207,7 +207,7 @@ int main(int argc, char **argv) {
     route_to(2);
     reader_ui.reader_chrome = 1;
     ui_draw();
-    tap17(510, 128);
+    tap17(550, 95);
     assert(ui_route() == 3);
     tap17(375, 700);
     assert(settings_ui.reading_page == 1);
@@ -322,8 +322,32 @@ int main(int argc, char **argv) {
     tap17(20, 20);
     assert(ui_route() == 71);
 
+    extra_open(33);
+    ha_select = 1;
+    int ha_depth = history_count;
+    ui_draw();
+    tap17(20, 20);
+    assert(ui_route() == 33 && !ha_select && history_count == ha_depth);
+    tap17(20, 20);
+    assert(ui_route() == 71);
+
+    options[OPT_BATTERY] = 1;
+    ui_draw();
+    tap17(status_ui.status_battery_x + 10, 20);
+    assert(battery_popup);
+    tap17(549, 96);
+    assert(!battery_popup && !photo_settings && ui_route() == 71);
+
     memset(ui_pixels, 255, sizeof(ui_pixels));
     options[OPT_ROUNDING] = 1;
+    widget_count = 0;
+    button_h(20, 20, 100, 48, "", 0);
+    unsigned char rim = ui_pixels[22*WIDTH+22];
+    pressed = 0;
+    ui_feedback_draw();
+    assert(ui_pixels[22*WIDTH+22] == rim && ui_pixels[42*WIDTH+70] == 0);
+    pressed = -1;
+    memset(ui_pixels, 255, sizeof(ui_pixels));
     control_surface(20, 20, 48, 48, 16, 0);
     assert(ui_pixels[20*WIDTH+20] > 0);
     options[OPT_ROUNDING] = 0;

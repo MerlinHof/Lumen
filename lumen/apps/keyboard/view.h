@@ -305,20 +305,35 @@ static void keyboard_tap18(int x, int y) {
 static int keyboard_intercept18(const Input *in) {
     if (!editor_ui.keyboard || sleeping || dropdown || editor_ui.clip_active)
         return -1;
+    if (editor_ui.accent_count18) {
+        if (in->kind == INPUT_DOWN)
+            editor_ui.accent_opening_touch = 0;
+        else if (in->kind == INPUT_TAP || in->kind == INPUT_SWIPE) {
+            if (editor_ui.accent_opening_touch &&
+                !(in->y >= 442 && in->y < 488 && in->x >= editor_ui.accent_x18 + 6 &&
+                  in->x < editor_ui.accent_x18 + 6 + editor_ui.accent_count18 * 54)) {
+                editor_ui.accent_opening_touch = 0;
+                return 2;
+            }
+            editor_ui.accent_opening_touch = 0;
+            keyboard_tap18(in->x, in->y);
+            pressed = -1;
+            return 1;
+        } else if (in->kind == INPUT_HOLD)
+            return 2;
+    }
     if (in->kind == INPUT_HOLD) {
         int i = keyboard_hit18(in->x, in->y);
-        if (keyboard_accents18(i))
+        if (keyboard_accents18(i)) {
+            editor_ui.accent_opening_touch = 1;
+            pressed = -1;
             return 1;
+        }
         if (i >= 0)
             return 2;
         if (!keyboard_multiline() && in->y >= 452 && in->y < 502)
             keyboard_place18(in->x);
         return -1;
-    }
-    if (in->kind == INPUT_TAP && editor_ui.accent_count18) {
-        keyboard_tap18(in->x, in->y);
-        pressed = -1;
-        return 1;
     }
     return -1;
 }

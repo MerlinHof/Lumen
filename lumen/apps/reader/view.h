@@ -20,12 +20,11 @@ static void reader(void) {
     if (!reader_ui.reader_chrome)
         u15_reader_progress();
     if (reader_ui.reader_chrome) {
-        rect(0, 48, 600, 116, 255);
-        label_ellipsis(28, 56, 544, 36, library[selected].title, ui_font(UI_PRIMARY), 0);
-        label_ellipsis(29, 56, 543, 36, library[selected].title, ui_font(UI_PRIMARY), 0);
-        rect(0, 162, 600, 2, 190);
-
-        icon_button(278, 108, IC_CONTENTS);
-        icon_button(478, 108, IC_SETTINGS);
+        rect(0, 48, 600, READER_TOOLBAR_END - 48, 255);
+        label_ellipsis(28, 74, 422, 44, library[selected].title, ui_font(UI_HEADING), 0);
+        label_ellipsis(29, 74, 421, 44, library[selected].title, ui_font(UI_HEADING), 0);
+        divider(0, READER_TOOLBAR_END - 2, 600);
+        icon_button(READER_CONTENTS_X, 74, IC_CONTENTS);
+        icon_button(READER_SETTINGS_X, 74, IC_SETTINGS);
     }
 }

@@ -26,11 +26,6 @@ static void signal_open(void) {
     }
     signal_new(&signal_game, (unsigned)time(NULL), 20);
 }
-static int signal_movable(int i) {
-    int empty = signal_game.empty;
-    return (i/4 == empty/4 && (i == empty-1 || i == empty+1)) ||
-           i == empty-4 || i == empty+4;
-}
 static void signal_draw(void) {
     signal_open();
     ui_paint_heading("Slide 3D", 1);
@@ -46,10 +41,6 @@ static void signal_draw(void) {
         signal_project(i, &x, &y);
         char label[8];
         snprintf(label, sizeof(label), "%d", signal_game.tiles[i]);
-        if (signal_movable(i) && !signal_won(&signal_game)) {
-            ui_paint_hitbox(x-28,y+107,56,50);
-            ui_paint_ellipse(x,y+154,5,4,0);
-        }
         ui_paint_text(x-27, y+110, 54, 44, label, PAINT_HEADING);
     }
     char steps[32];
@@ -57,7 +48,7 @@ static void signal_draw(void) {
     ui_paint_text(28, 635, 544, 48, steps, PAINT_DISPLAY);
     ui_paint_text(28, 680, 544, 24, "Züge", PAINT_SECONDARY);
     ui_paint_text(28, 707, 544, 46, signal_won(&signal_game) ? "Gewonnen!" :
-                  "Tippe auf eine markierte Kachel neben der Lücke.", PAINT_BODY);
+                  "Ordne die Zahlen von 1 bis 15.", PAINT_BODY);
 }
 static int signal_input(const Input *in) {
     signal_open();

@@ -10,6 +10,20 @@ static HAHistory ha_history[6];
 static char ha_history_key[1500];
 static time_t ha_history_at, ha_refresh_at;
 static char ha_search[128], ha_plot_id[160];
+static const char *ha_state_label(const char *state) {
+    if (!strcmp(state, "on")) return tr("Ein");
+    if (!strcmp(state, "off")) return tr("Aus");
+    if (!strcmp(state, "unavailable")) return tr("Nicht verfügbar");
+    if (!strcmp(state, "unknown")) return tr("Unbekannt");
+    return state;
+}
+static int ha_back(void) {
+    if (ui_route() != 33 || !ha_select) return 0;
+    ha_select = ha_page = 0;
+    ha_search[0] = 0;
+    return 1;
+}
+
 static time_t ha_timestamp(const char *s) {
     struct tm t = {0};
     int y, m, d, h, min;
@@ -214,16 +228,20 @@ static void ha_dashboard(void) {
         if (ha_select) {
             int y = 250 + r * 68;
             char b[120];
-            snprintf(b, sizeof(b), "%s%s%s", e->state, *e->unit ? " " : "", e->unit);
+            snprintf(b, sizeof(b), "%s%s%s", ha_state_label(e->state), *e->unit ? " " : "", e->unit);
             list_row(28, y, 544, 68, -1, 90, e->name, b, ui_font(UI_BODY), 1);
             toggle(492, y + 18, ha_favorite(e->id) >= 0);
             continue;
         }
         int x = 28 + (r % 2) * 282, y = 198 + (r / 2) * 154;
         region(x, y, 262, 140);
-        if (e->sensor)
+        if (e->sensor) {
+            rounded_clip_begin(x, y, 262, 140);
             ha_graph(e, x + 3, y + 3, 256, 134);
-        key_outline(x, y, 262, 140);
+            rounded_clip_end(x, y, 262, 140);
+        }
+        widget_shape(x, y, 262, 140, RADIUS_LARGE, 3, 0);
+        outline_surface(x, y, 262, 140, RADIUS_LARGE, 48);
         label_ellipsis(x + 13, y + 8, 236, 24, e->name, ui_font(UI_SECONDARY), 0);
         if (e->sensor) {
             char v[100], value[72];
@@ -233,17 +251,13 @@ static void ha_dashboard(void) {
                 snprintf(value, sizeof(value), "%.6g", number);
             else
                 snprintf(value, sizeof(value), "%s",
-                         !strcmp(e->state, "on")    ? tr("Ein")
-                         : !strcmp(e->state, "off") ? tr("Aus")
-                                                    : e->state);
+                         ha_state_label(e->state));
             snprintf(v, sizeof(v), "%s%s%s", value, *e->unit ? " " : "", e->unit);
             const Font *f = textwidth_raw(v, ui_font(UI_TITLE)) > 234 ? ui_font(UI_PRIMARY) : ui_font(UI_TITLE);
             label_ellipsis(x + 13, y + 38, 236, 44, v, f, 0);
         } else {
             drawtext(x + 13, y + 62,
-                     !strcmp(e->state, "on")    ? "Ein"
-                     : !strcmp(e->state, "off") ? "Aus"
-                                                : e->state,
+                     ha_state_label(e->state),
                      ui_font(UI_BODY), 150);
             toggle(x + 176, y + 69, !strcmp(e->state, "on"));
         }
