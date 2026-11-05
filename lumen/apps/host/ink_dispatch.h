@@ -6,7 +6,7 @@ static int u15_commit(int target, const char *text) {
         if ((!strncmp(text, "https://", 8) || !strncmp(text, "http://", 7)) &&
             strlen(text) < 2048 && !strpbrk(text, "\r\n\"\\<> ") && source15_count < 10) {
             int i = source15_count++;
-            snprintf(source15[i].name, 80, "Katalog %d", i - 4);
+            snprintf(source15[i].name, 80, tr("Katalog %d"), i - 4);
             snprintf(source15[i].url, 2048, "%s", text);
             source15[i].enabled = 1;
             sources15_save();

@@ -883,6 +883,11 @@ static void pagination_move(int delta) {
     else
         *pagination.state = next;
 }
+static int pagination_hit(const Input *in) {
+    return in->kind == INPUT_TAP && pagination.state && pagination.visible &&
+           pagination.count > 1 && in->y >= pagination.y && in->y < pagination.y + 44 &&
+           ((in->x >= 205 && in->x < 249) || (in->x >= 350 && in->x < 394));
+}
 static void pager_draw(int x, int y, int w, int page, int pages) {
     page_arrow(x, y, IC_PREV, page > 0);
     page_arrow(x + w - 44, y, IC_NEXT, page + 1 < pages);
@@ -1201,74 +1206,6 @@ static int centered_lines(int x, int y, int width, const char *text, const Font 
     }
     return row;
 }
-static void lock_backdrop(Book *b) {
-    static unsigned char cached[WIDTH * HEIGHT];
-    static uint64_t id;
-    static time_t stamp;
-    static int ready;
-    char path[2048];
-    library_cover_path(b, path, sizeof(path));
-    struct stat st;
-    if (stat(path, &st))
-        return;
-    if (!ready || id != b->id || stamp != st.st_mtime) {
-        FILE *f = fopen(path, "rb");
-        if (!f)
-            return;
-        char magic[3];
-        int w, h, max;
-        unsigned char pix[120 * 164], tmp[120 * 164];
-        int ok = fscanf(f, "%2s %d %d %d", magic, &w, &h, &max) == 4 && !strcmp(magic, "P5") &&
-                 w == 120 && h == 164 && max == 255;
-        if (ok) {
-            fgetc(f);
-            ok = fread(pix, 1, sizeof(pix), f) == sizeof(pix);
-        }
-        fclose(f);
-        if (!ok)
-            return;
-        for (int pass = 0; pass < 3; pass++) {
-            for (int y = 0; y < 164; y++)
-                for (int x = 0; x < 120; x++) {
-                    int sum = 0, n = 0;
-                    for (int k = -5; k <= 5; k++) {
-                        int xx = x + k;
-                        if (xx >= 0 && xx < 120) {
-                            sum += pix[y * 120 + xx];
-                            n++;
-                        }
-                    }
-                    tmp[y * 120 + x] = sum / n;
-                }
-            for (int y = 0; y < 164; y++)
-                for (int x = 0; x < 120; x++) {
-                    int sum = 0, n = 0;
-                    for (int k = -5; k <= 5; k++) {
-                        int yy = y + k;
-                        if (yy >= 0 && yy < 164) {
-                            sum += tmp[yy * 120 + x];
-                            n++;
-                        }
-                    }
-                    pix[y * 120 + x] = sum / n;
-                }
-        }
-        for (int y = 0; y < HEIGHT; y++)
-            for (int x = 0; x < WIDTH; x++) {
-                float fx = x * 119.f / (WIDTH - 1), fy = y * 163.f / (HEIGHT - 1);
-                int xx = (int)fx, yy = (int)fy;
-                int nx = xx < 119 ? xx + 1 : xx, ny = yy < 163 ? yy + 1 : yy;
-                float a = fx - xx, c = fy - yy;
-                float v = (1 - c) * ((1 - a) * pix[yy * 120 + xx] + a * pix[yy * 120 + nx]) +
-                          c * ((1 - a) * pix[ny * 120 + xx] + a * pix[ny * 120 + nx]);
-                cached[y * WIDTH + x] = (unsigned char)(180 + v * 75 / 255);
-            }
-        id = b->id;
-        stamp = st.st_mtime;
-        ready = 1;
-    }
-    memcpy(ui_pixels, cached, sizeof(cached));
-}
 #include "../../apps/lock_screen/view.h"
 void ui_draw(void) {
     widget_count = 0;
@@ -1404,17 +1341,19 @@ static int ui_dispatch_input(const Input *in) {
                        press_bounds.y == 0 && press_bounds.w == 62 && in->y < 56 && in->x < 70;
     int status_tap = in->kind == INPUT_TAP && (in->y < 48 || back_release) &&
                      (ui_route() != 2 || reader_ui.reader_chrome);
-    int update17 = status_tap ? -1 : u17_input(in);
+    int system_pager = !sleeping && !editor_ui.keyboard && !dropdown && !confirm_delete &&
+                       pagination_hit(in);
+    int update17 = (status_tap || system_pager) ? -1 : u17_input(in);
     if (update17 >= 0) {
         pressed = -1;
         return update17;
     }
-    int update16 = status_tap ? -1 : u16_input(in);
+    int update16 = (status_tap || system_pager) ? -1 : u16_input(in);
     if (update16 >= 0) {
         pressed = -1;
         return update16;
     }
-    int update15 = status_tap ? -1 : u15_input(in);
+    int update15 = (status_tap || system_pager) ? -1 : u15_input(in);
     if (update15 >= 0) {
         pressed = -1;
         return update15;
@@ -1568,9 +1507,7 @@ static int ui_dispatch_input(const Input *in) {
             pagination_move(in->dx < 0 ? 1 : -1);
             return 1;
         }
-        if (in->kind == INPUT_TAP && pagination.visible && in->y >= pagination.y &&
-            in->y < pagination.y + 44 &&
-            ((in->x >= 205 && in->x < 249) || (in->x >= 350 && in->x < 394))) {
+        if (pagination_hit(in)) {
             pagination_move(in->x < 300 ? -1 : 1);
             return 1;
         }
@@ -1829,11 +1766,6 @@ static int ui_dispatch_input(const Input *in) {
         (ui_route() != 2 || reader_ui.reader_chrome)) {
         battery_popup = 1;
         return 1;
-    }
-    if (in->kind == INPUT_TAP && has_tabs() && y >= 736 &&
-        (editor_ui.keyboard || dropdown || confirm_delete)) {
-        editor_ui.keyboard = dropdown = confirm_delete = 0;
-        memset(editor_ui.edit, 0, sizeof(editor_ui.edit));
     }
     if (editor_ui.keyboard || dropdown || confirm_delete) {
         modal_input(in);

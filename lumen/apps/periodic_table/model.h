@@ -21,6 +21,9 @@ static void elements_init16(void) {
         element_grid16[8][i + 2] = 90 + i;
     }
 }
+static const char *element_name(int n) {
+    return tr(n == 80 ? "Quecksilber" : elements16[n-1][1]);
+}
 static void element_open16(int n) {
     if (n < 1 || n > 118)
         return;
@@ -33,7 +36,7 @@ static void element_open16(int n) {
            "K\nSiedepunkt: %s K\nDichte: %s g/cm³\nEntdeckung: %s\n\nLeere Angaben sind nicht "
            "verfügbar. Massen synthetischer Elemente können eine Referenzisotopenmasse "
            "darstellen.\n\nQuelle: NIH PubChem Periodic Table"),
-        e[1], e[0], n, e[2], tr(e[9]), e[3], e[4], tr(e[5]), e[6], e[7], e[8], e[10]);
-    reader16(e[1], b, 115);
+        element_name(n), e[0], n, e[2], tr(e[9]), e[3], e[4], tr(e[5]), e[6], e[7], e[8], tr(e[10]));
+    reader16(element_name(n), b, 115);
 }
 static char crossword_answer16[5][16];

@@ -118,8 +118,8 @@ static void sky_map(void) {
     }
     centered(280, 158, 40, 28, "N", ui_font(UI_SECONDARY));
     centered(280, 666, 40, 28, "S", ui_font(UI_SECONDARY));
-    drawtext_raw(18, 413, "E", ui_font(UI_SECONDARY), 30);
-    drawtext_raw(563, 413, "W", ui_font(UI_SECONDARY), 30);
+    drawtext_raw(18, 413, options[OPT_LANGUAGE] == 0 ? "O" : "E", ui_font(UI_SECONDARY), 30);
+    drawtext_raw(563, 413, options[OPT_LANGUAGE] == 2 ? "O" : "W", ui_font(UI_SECONDARY), 30);
     if (sky_selected >= 0) {
         rect(45, 588, 510, 80, 255);
         key_outline(45, 588, 510, 80);
@@ -127,7 +127,7 @@ static void sky_map(void) {
         astro_constellation_t c =
             Astronomy_Constellation(sky_stars[sky_selected].ra, sky_stars[sky_selected].dec);
         char b[200];
-        snprintf(b, 200, "%s · %s", *n ? n : "Star", c.status == ASTRO_SUCCESS ? c.name : "");
+        snprintf(b, 200, "%s · %s", *n ? n : tr("Stern"), c.status == ASTRO_SUCCESS ? c.name : "");
         drawtext_raw(58, 599, b, ui_font(UI_BODY), 484);
         snprintf(b, 200, "RA %.2fh · Dec %.1f° · %.1f mag", sky_stars[sky_selected].ra,
                  sky_stars[sky_selected].dec, sky_stars[sky_selected].mag);

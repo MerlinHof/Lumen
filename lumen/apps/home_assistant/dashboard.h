@@ -97,11 +97,19 @@ static void ha_history_parse(void) {
 }
 static int ha_visible(int *out) {
     int n = 0;
-    for (int i = 0; i < ha_count; i++)
-        if ((ha_select || ha_favorite(ha_entities[i].id) >= 0) &&
-            (!ha_select || !*ha_search || strcasestr(ha_entities[i].name, ha_search) ||
-             strcasestr(ha_entities[i].id, ha_search)))
-            out[n++] = i;
+    char query[sizeof(ha_search)];
+    utf8_fold(ha_search, query, sizeof(query));
+    for (int i = 0; i < ha_count; i++) {
+        const HAEntity *e = &ha_entities[i];
+        if (!ha_select && ha_favorite(e->id) < 0) continue;
+        if (ha_select && *query) {
+            char name[sizeof(e->name)], id[sizeof(e->id)];
+            utf8_fold(e->name, name, sizeof(name));
+            utf8_fold(e->id, id, sizeof(id));
+            if (!strstr(name, query) && !strstr(id, query)) continue;
+        }
+        out[n++] = i;
+    }
     return n;
 }
 static int ha_request_history(void) {
@@ -263,7 +271,9 @@ static void ha_dashboard(void) {
         }
     }
     if (!n)
-        wrapped(30, 225, service_busy() ? "Geräte werden geladen …" : "Keine Geräte ausgewählt.",
+        wrapped(30, ha_select ? 270 : 225,
+                service_busy() ? "Geräte werden geladen …" :
+                ha_select ? "Keine passenden Geräte." : "Keine Geräte ausgewählt.",
                 ui_font(UI_TITLE), 540, 4);
     pager(679, &ha_page, (n + 5) / 6);
 }

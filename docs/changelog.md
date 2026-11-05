@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0
+
+- Fix shared pager dispatch in OpenAI conversations and archives. Long messages open in Reader from the sender row.
+- Use the shared UTF-8 search folding in the Home Assistant device picker.
+- Enlarge the lock-screen book cover and remove the blurred backdrop and its setting.
+- Restore the white Weather background and extend German, English and French localization.
+
 ## 2.9
 
 - Align Reader actions in the title bar and match the calculator equals typography to its other keys.

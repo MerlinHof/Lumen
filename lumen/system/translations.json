@@ -2199,11 +2199,6 @@
     "Alarm time",
     "Heure du réveil"
   ],
-  "Weicher Cover-Hintergrund": [
-    "Weicher Cover-Hintergrund",
-    "Soft cover background",
-    "Fond de couverture flou"
-  ],
   "Weiter": [
     "Weiter",
     "Next",
@@ -3335,17 +3330,17 @@
     "Voyage temporel : de l’an 1 à 12026. Le ciel lointain est approximatif, sans mouvement propre des étoiles."
   ],
   "Sun": [
-    "Sun",
+    "Sonne",
     "Sun",
     "Soleil"
   ],
   "Moon": [
-    "Moon",
+    "Mond",
     "Moon",
     "Lune"
   ],
   "Mercury": [
-    "Mercury",
+    "Merkur",
     "Mercury",
     "Mercure"
   ],
@@ -3390,7 +3385,7 @@
     "Blanc · de haut en bas"
   ],
   "English · 6 Versuche": [
-    "English · 6 Versuche",
+    "Englisch · 6 Versuche",
     "English · 6 guesses",
     "Anglais · 6 essais"
   ],
@@ -5323,5 +5318,365 @@
     "1995 · 51 Pegasi b\nMayor und Queloz melden einen Planeten um einen sonnenähnlichen Stern. Tausende weitere Exoplaneten folgen.",
     "1995 · 51 Pegasi b\nMayor and Queloz announce a planet orbiting a Sun-like star. Thousands of exoplanets follow.",
     "1995 · 51 Pegasi b\nMayor et Queloz annoncent une planète autour d’une étoile semblable au Soleil. Des milliers d’exoplanètes suivent."
+  ],
+  "Keine passenden Geräte.": [
+    "Keine passenden Geräte.",
+    "No matching devices.",
+    "Aucun appareil correspondant."
+  ],
+  "Katalog %d": [
+    "Katalog %d",
+    "Catalogue %d",
+    "Catalogue %d"
+  ],
+  "Expected to be a Gas": [
+    "Voraussichtlich gasförmig",
+    "Expected to be a Gas",
+    "Probablement gazeux"
+  ],
+  "Expected to be a Solid": [
+    "Voraussichtlich fest",
+    "Expected to be a Solid",
+    "Probablement solide"
+  ],
+  "Ancient": [
+    "Antike",
+    "Ancient",
+    "Antiquité"
+  ],
+  "Hydrogen": [
+    "Wasserstoff",
+    "Hydrogen",
+    "Hydrogène"
+  ],
+  "Helium": [
+    "Helium",
+    "Helium",
+    "Hélium"
+  ],
+  "Beryllium": [
+    "Beryllium",
+    "Beryllium",
+    "Béryllium"
+  ],
+  "Boron": [
+    "Bor",
+    "Boron",
+    "Bore"
+  ],
+  "Carbon": [
+    "Kohlenstoff",
+    "Carbon",
+    "Carbone"
+  ],
+  "Nitrogen": [
+    "Stickstoff",
+    "Nitrogen",
+    "Azote"
+  ],
+  "Oxygen": [
+    "Sauerstoff",
+    "Oxygen",
+    "Oxygène"
+  ],
+  "Fluorine": [
+    "Fluor",
+    "Fluorine",
+    "Fluor"
+  ],
+  "Neon": [
+    "Neon",
+    "Neon",
+    "Néon"
+  ],
+  "Sodium": [
+    "Natrium",
+    "Sodium",
+    "Sodium"
+  ],
+  "Magnesium": [
+    "Magnesium",
+    "Magnesium",
+    "Magnésium"
+  ],
+  "Aluminum": [
+    "Aluminium",
+    "Aluminum",
+    "Aluminium"
+  ],
+  "Silicon": [
+    "Silicium",
+    "Silicon",
+    "Silicium"
+  ],
+  "Phosphorus": [
+    "Phosphor",
+    "Phosphorus",
+    "Phosphore"
+  ],
+  "Sulfur": [
+    "Schwefel",
+    "Sulfur",
+    "Soufre"
+  ],
+  "Chlorine": [
+    "Chlor",
+    "Chlorine",
+    "Chlore"
+  ],
+  "Potassium": [
+    "Kalium",
+    "Potassium",
+    "Potassium"
+  ],
+  "Titanium": [
+    "Titan",
+    "Titanium",
+    "Titane"
+  ],
+  "Chromium": [
+    "Chrom",
+    "Chromium",
+    "Chrome"
+  ],
+  "Manganese": [
+    "Mangan",
+    "Manganese",
+    "Manganèse"
+  ],
+  "Iron": [
+    "Eisen",
+    "Iron",
+    "Fer"
+  ],
+  "Copper": [
+    "Kupfer",
+    "Copper",
+    "Cuivre"
+  ],
+  "Zinc": [
+    "Zink",
+    "Zinc",
+    "Zinc"
+  ],
+  "Arsenic": [
+    "Arsen",
+    "Arsenic",
+    "Arsenic"
+  ],
+  "Selenium": [
+    "Selen",
+    "Selenium",
+    "Sélénium"
+  ],
+  "Bromine": [
+    "Brom",
+    "Bromine",
+    "Brome"
+  ],
+  "Niobium": [
+    "Niob",
+    "Niobium",
+    "Niobium"
+  ],
+  "Molybdenum": [
+    "Molybdän",
+    "Molybdenum",
+    "Molybdène"
+  ],
+  "Technetium": [
+    "Technetium",
+    "Technetium",
+    "Technétium"
+  ],
+  "Ruthenium": [
+    "Ruthenium",
+    "Ruthenium",
+    "Ruthénium"
+  ],
+  "Silver": [
+    "Silber",
+    "Silver",
+    "Argent"
+  ],
+  "Tin": [
+    "Zinn",
+    "Tin",
+    "Étain"
+  ],
+  "Antimony": [
+    "Antimon",
+    "Antimony",
+    "Antimoine"
+  ],
+  "Tellurium": [
+    "Tellur",
+    "Tellurium",
+    "Tellure"
+  ],
+  "Iodine": [
+    "Iod",
+    "Iodine",
+    "Iode"
+  ],
+  "Xenon": [
+    "Xenon",
+    "Xenon",
+    "Xénon"
+  ],
+  "Cesium": [
+    "Caesium",
+    "Cesium",
+    "Césium"
+  ],
+  "Barium": [
+    "Barium",
+    "Barium",
+    "Baryum"
+  ],
+  "Lanthanum": [
+    "Lanthan",
+    "Lanthanum",
+    "Lanthane"
+  ],
+  "Cerium": [
+    "Cer",
+    "Cerium",
+    "Cérium"
+  ],
+  "Praseodymium": [
+    "Praseodym",
+    "Praseodymium",
+    "Praséodyme"
+  ],
+  "Neodymium": [
+    "Neodym",
+    "Neodymium",
+    "Néodyme"
+  ],
+  "Promethium": [
+    "Promethium",
+    "Promethium",
+    "Prométhium"
+  ],
+  "Lutetium": [
+    "Lutetium",
+    "Lutetium",
+    "Lutécium"
+  ],
+  "Tantalum": [
+    "Tantal",
+    "Tantalum",
+    "Tantale"
+  ],
+  "Tungsten": [
+    "Wolfram",
+    "Tungsten",
+    "Tungstène"
+  ],
+  "Rhenium": [
+    "Rhenium",
+    "Rhenium",
+    "Rhénium"
+  ],
+  "Platinum": [
+    "Platin",
+    "Platinum",
+    "Platine"
+  ],
+  "Gold": [
+    "Gold",
+    "Gold",
+    "Or"
+  ],
+  "Lead": [
+    "Blei",
+    "Lead",
+    "Plomb"
+  ],
+  "Bismuth": [
+    "Bismut",
+    "Bismuth",
+    "Bismuth"
+  ],
+  "Astatine": [
+    "Astat",
+    "Astatine",
+    "Astate"
+  ],
+  "Uranium": [
+    "Uran",
+    "Uranium",
+    "Uranium"
+  ],
+  "Americium": [
+    "Americium",
+    "Americium",
+    "Américium"
+  ],
+  "Berkelium": [
+    "Berkelium",
+    "Berkelium",
+    "Berkélium"
+  ],
+  "Mendelevium": [
+    "Mendelevium",
+    "Mendelevium",
+    "Mendélévium"
+  ],
+  "Nobelium": [
+    "Nobelium",
+    "Nobelium",
+    "Nobélium"
+  ],
+  "Meitnerium": [
+    "Meitnerium",
+    "Meitnerium",
+    "Meitnérium"
+  ],
+  "Roentgenium": [
+    "Röntgenium",
+    "Roentgenium",
+    "Roentgenium"
+  ],
+  "Flerovium": [
+    "Flerovium",
+    "Flerovium",
+    "Flérovium"
+  ],
+  "Tennessine": [
+    "Tenness",
+    "Tennessine",
+    "Tennesse"
+  ],
+  "Quecksilber": [
+    "Quecksilber",
+    "Mercury",
+    "Mercure"
+  ],
+  "Stern": [
+    "Stern",
+    "Star",
+    "Étoile"
+  ],
+  "Default": [
+    "Standard",
+    "Default",
+    "Par défaut"
+  ],
+  "+1 d": [
+    "+1 T",
+    "+1 d",
+    "+1 j"
+  ],
+  "+1 y": [
+    "+1 J",
+    "+1 y",
+    "+1 an"
+  ],
+  "+1000 y": [
+    "+1000 J",
+    "+1000 y",
+    "+1000 ans"
   ]
 }

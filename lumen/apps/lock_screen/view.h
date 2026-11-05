@@ -22,11 +22,8 @@ static void lock_screen_draw(void) {
         }
         memset(ui_pixels, 255, sizeof(ui_pixels));
     }
-    if (lock_book >= 0 && options[OPT_LOCK] == 0 && options[OPT_LOCK_BLUR])
-        lock_backdrop(&library[lock_book]);
-
     if (lock_book >= 0 && options[OPT_LOCK] == 0) {
-        cover_size(&library[lock_book], 180, 135, 240, 328);
+        cover_size(&library[lock_book], 162, 113, 276, 377);
         int lines = centered_lines(44, 500, 512, library[lock_book].title, &editorial, 3);
         char author[320];
         centered_lines(44, 510 + lines * (editorial.h - 4), 512,

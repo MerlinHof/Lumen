@@ -928,7 +928,7 @@ static int u16_apps_draw(void) {
         elements_init16();
         heading("Periodensystem");
         const char **e = elements16[element_selected16 - 1];
-        snprintf(b, sizeof(b), "%d  %s · %s", element_selected16, e[0], e[1]);
+        snprintf(b, sizeof(b), "%d  %s · %s", element_selected16, e[0], element_name(element_selected16));
         button_h(28, 138, 544, 52, b, 0);
         for (int y = 0; y < 9; y++)
             for (int x = 0; x < 18; x++) {

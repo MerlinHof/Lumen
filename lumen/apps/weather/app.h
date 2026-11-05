@@ -91,7 +91,6 @@ static void app_weather(void) {
         return;
     }
     double is_day = json_number(&j, json_get(&j, current, "is_day"));
-    control_surface(28,178,544,232,RADIUS_LARGE,245);
     weather_symbol(48, 185, is_day == 0 && code <= 1 ? -1 : (int)code, 130);
     char b[120];
     snprintf(b, sizeof(b), "%.0f °C", temp);

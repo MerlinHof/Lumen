@@ -481,7 +481,8 @@ void library_settings_load(void) {
     if (of) {
         int key, value;
         while (fscanf(of, "%d %d", &key, &value) == 2) {
-            if (key >= 0 && key < OPT_COUNT && value >= 0 && value <= option_maximum[key])
+            if (key >= 0 && key < OPT_COUNT && key != OPT_RESERVED_27 && value >= 0 &&
+                value <= option_maximum[key])
                 options[key] = value;
         }
         fclose(of);
@@ -539,7 +540,8 @@ void library_options_save(void) {
     snprintf(p, sizeof(p), "%s/options-v3.txt", data_root);
     int n = 0;
     for (int i = 0; i < OPT_COUNT; i++)
-        n += snprintf(s + n, sizeof(s) - (size_t)n, "%d %d\n", i, options[i]);
+        if (i != OPT_RESERVED_27)
+            n += snprintf(s + n, sizeof(s) - (size_t)n, "%d %d\n", i, options[i]);
     atomic_write(p, s, (size_t)n);
 }
 static int validname(const char *s) {
@@ -639,7 +641,8 @@ int library_config_export(const char *path) {
     for (int i = 0; i < 7; i++)
         n += snprintf(buf + n, sizeof(buf) - (size_t)n, "setting.%d %d\n", i, base[i]);
     for (int i = 0; i < OPT_COUNT; i++)
-        n += snprintf(buf + n, sizeof(buf) - (size_t)n, "option.%d %d\n", i, options[i]);
+        if (i != OPT_RESERVED_27)
+            n += snprintf(buf + n, sizeof(buf) - (size_t)n, "option.%d %d\n", i, options[i]);
     return atomic_write(path, buf, (size_t)n);
 }
 int library_config_import(const char *path) {
@@ -664,6 +667,8 @@ int library_config_import(const char *path) {
             ok = 0;
             break;
         }
+        if (!strcmp(kind, "option") && key == OPT_RESERVED_27)
+            continue;
         if (!strcmp(kind, "setting") && key >= 0 && key < 7 && value >= low[key] &&
             value <= high[key])
             candidate[key] = value;

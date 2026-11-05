@@ -30,7 +30,6 @@
     [OPT_ROUNDING] = 1, \
     [OPT_PROGRESS] = 1, \
     [OPT_APPS] = 1, \
-    [OPT_LOCK_BLUR] = 1, \
     [OPT_UI_REV] = 11, \
     [OPT_TAB_LABELS] = 0, \
     [OPT_AUTO_TIME] = 1, \

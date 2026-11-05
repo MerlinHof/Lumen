@@ -33,7 +33,6 @@ static SettingRow setting_rows[] = {
     {"Lesefortschritt", 1, OPT_PROGRESS, 0, 1, 1, NULL, 0},
     {"Sperrbild", 1, OPT_LOCK, 0, 4, 1, lockmodes, 5},
     {"Sperrbild-Hinweis", 1, OPT_LOCK_HINT, 0, 1, 1, NULL, 0},
-    {"Weicher Cover-Hintergrund", 1, OPT_LOCK_BLUR, 0, 1, 1, NULL, 0},
     {"Wischen zum Blättern", 3, OPT_SWIPE, 0, 1, 1, NULL, 0},
     {"Tippzonen", 3, OPT_TAP, 0, 1, 1, tapzones, 2},
     {"Connect-Port", 4, OPT_PORT, 1024, 65535, 1, NULL, 0},

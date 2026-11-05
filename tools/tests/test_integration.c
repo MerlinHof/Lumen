@@ -354,8 +354,55 @@ int main(int argc, char **argv) {
     control_surface(20, 20, 48, 48, 16, 0);
     assert(ui_pixels[20*WIDTH+20] == 0);
     options[OPT_ROUNDING] = 1;
+    route_to(33);
+    strcpy(ha_url, "http://example.invalid");
+    strcpy(ha_token, "fixture");
+    ha_select = 1;
+    ha_count = 2;
+    strcpy(ha_entities[0].name, "Küche");
+    strcpy(ha_entities[0].id, "light.kitchen");
+    strcpy(ha_entities[1].name, "Salon");
+    strcpy(ha_entities[1].id, "sensor.living_room");
+    ui_draw();
+    tap17(150, 210);
+    assert(editor_ui.keyboard && editor_ui.keyboard_target == 61);
+    keyboard_insert("KUCHE");
+    keyboard_layout18();
+    for (int k = 0; k < keyboard_count18; k++)
+        if (keyboard_keys18[k].action == KEY_ENTER18) {
+            tap17(keyboard_keys18[k].x + 8, keyboard_keys18[k].y + 8);
+            break;
+        }
+    int matches[512];
+    assert(!editor_ui.keyboard && ui_route() == 33 && ha_visible(matches) == 1 && matches[0] == 0);
+    extra_commit(61, "missing");
+    ui_draw();
+    assert(ha_visible(matches) == 0);
+
+    route_to(122);
+    chat_clear();
+    const char *long_reply = "Line one.\nLine two.\nLine three.\nLine four.\nLine five.\nLine six.";
+    for (int i=0; i<8; i++)
+        assert(chat_append(i%2, i%2 ? long_reply : "Short message."));
+    ui_draw();
+    assert(chat_pages > 1 && !chat_rows[0].truncated && chat_rows[1].truncated);
+    tap17(370, CHAT_PAGER_Y + 22);
+    assert(chat_page == 1);
+    tap17(220, CHAT_PAGER_Y + 22);
+    assert(chat_page == 0);
+    tap17(475, chat_rows[1].y + 15);
+    assert(ui_route() == 2 && reader_ui.reader_document_active);
+    tap17(300, 55);
+    tap17(20, 20);
+    assert(ui_route() == 122 && chat_page == 0);
+    route_to(128);
+    chat_archive_count = 14;
+    ui_draw();
+    tap17(370, 768);
+    assert(chat_archive_page == 1);
     ui_close();
     engine_shutdown();
+    puts("PASS Home Assistant UTF-8 device search, chat/archive paging and inline Reader action.");
     puts("PASS compact popups/nested folder menu, notes back, task editing/checkboxes, calculator "
          "dropdown, inline sleep, clipboard hit limits, warehouse/maze, crossword, journal "
          "editing, model list, Markdown Reader/chrome, local calendar and planet selector.");

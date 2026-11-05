@@ -177,7 +177,7 @@ static void chat_complete(const char *text) {
     llm_prompt16[0] = 0;
     extra_write_text("llm-prompt16.txt", "");
 }
-static void chat_preview(int i, char *out, size_t size) {
+static int chat_preview(int i, char *out, size_t size) {
     const char *p = chat_messages[i].text;
     size_t n = 0;
     while (*p && n + 1 < size) {
@@ -189,9 +189,18 @@ static void chat_preview(int i, char *out, size_t size) {
             p++;
             continue;
         }
-        out[n++] = *p++;
+        const char *next = p;
+        glyph(&next);
+        size_t bytes = (size_t)(next - p);
+        if (n + bytes >= size) break;
+        memcpy(out+n, p, bytes);
+        n += bytes;
+        p = next;
     }
+    while (n && isspace((unsigned char)out[n-1])) n--;
     out[n] = 0;
+    while (isspace((unsigned char)*p)) p++;
+    return *p != 0;
 }
 enum { CHAT_TOP = 166, CHAT_ROWS_END = 656, CHAT_PAGER_Y = 667,
        CHAT_COMPOSE_Y = 722, CHAT_COMPOSE_H = 66 };
@@ -203,12 +212,11 @@ static void chat_layout(void) {
     chat_row_count = 0;
     for (int i = 0; i < chat_count; i++) {
         char b[2048];
-        chat_preview(i, b, sizeof(b));
+        int truncated = chat_preview(i, b, sizeof(b));
         FlowLine lines[6];
         int n = chat_preview_lines(b, chat_messages[i].role, lines);
-        int truncated =
-            (size_t)lines[n - 1].end < strlen(b) || strlen(chat_messages[i].text) >= sizeof(b);
-        int height = 30 + n * 25 + (truncated ? 42 : 9);
+        truncated |= b[lines[n-1].end] != 0;
+        int height = 30 + n * 25 + 9;
         if (y + height > CHAT_ROWS_END && y > CHAT_TOP) {
             page_index++;
             y = CHAT_TOP;
@@ -262,8 +270,10 @@ static void chat_draw(void) {
             label_ellipsis(x+13, y+30+line*25, 454, 25, visible, ui_font(UI_BODY),
                            line == n-1 && chat_rows[row].truncated);
         }
-        if (chat_rows[row].truncated)
-            icon_button(x+426, y+chat_rows[row].height-44, IC_BOOK);
+        if (chat_rows[row].truncated) {
+            region(x+426, y, 44, 30);
+            icon_sized(x+434, y+3, IC_BOOK, 26);
+        }
     }
     region(28, CHAT_COMPOSE_Y, 480, CHAT_COMPOSE_H);
     key_outline(28, CHAT_COMPOSE_Y, 480, CHAT_COMPOSE_H);
@@ -326,8 +336,7 @@ static int chat_input(const Input *in) {
         if (chat_rows[r].truncated &&
             x >= (chat_messages[chat_rows[r].message].role ? 454 : 518) &&
             x < (chat_messages[chat_rows[r].message].role ? 498 : 562) &&
-            y >= chat_rows[r].y + chat_rows[r].height - 44 &&
-            y < chat_rows[r].y + chat_rows[r].height) {
+            y >= chat_rows[r].y && y < chat_rows[r].y + 30) {
             int i = chat_rows[r].message;
             reader_markdown17(chat_title, chat_messages[i].text, 122);
             return 1;

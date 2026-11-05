@@ -45,7 +45,8 @@ enum {
     OPT_ROUNDING,
     OPT_PROGRESS,
     OPT_APPS,
-    OPT_LOCK_BLUR,
+    /* Retired persisted option at this index. Keep later settings stable. */
+    OPT_RESERVED_27,
     OPT_UI_REV,
     OPT_TAB_LABELS,
     OPT_AUTO_TIME,
