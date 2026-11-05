@@ -21,7 +21,7 @@ def extract(archive,dest):
     entries=list(temporary.iterdir());assert len(entries)==1
     entries[0].rename(dest);temporary.rmdir()
 def setup(target):
-    lock=json.loads((ROOT/'scripts/dependencies.json').read_text());deps=ROOT/'.local/deps';cache=ROOT/'.local/cache'
+    lock=json.loads((ROOT/'tools/config/dependencies.json').read_text());deps=ROOT/'.local/deps';cache=ROOT/'.local/cache'
     deps.mkdir(parents=True,exist_ok=True);cache.mkdir(parents=True,exist_ok=True)
     mupdf=deps/'mupdf'
     if not mupdf.exists():
@@ -33,14 +33,14 @@ def setup(target):
         archive=cache/data['tarball'].split('/')[-1];download(data['tarball'],archive,data['shasum']);extract(archive,zig)
     env=dict(os.environ,MUPDF=str(mupdf),ZIG=str(zig/'zig'),ZIG_GLOBAL_CACHE_DIR=str(cache/'zig'),ZIG_LOCAL_CACHE_DIR=str(cache/'zig-local'))
     lib=mupdf/'build'/('lumen-host' if target=='host' else 'lumen-arm')/'libmupdf.a'
-    if not lib.exists():subprocess.run(['sh',str(ROOT/'vendor/build-mupdf.sh')]+(['host'] if target=='host' else []),env=env,check=True)
+    if not lib.exists():subprocess.run(['sh',str(ROOT/'tools/vendor/build-mupdf.sh')]+(['host'] if target=='host' else []),env=env,check=True)
     if target=='kindle':
         # libmobi's small pinned source archive is included for reproducibility.
         mobi=deps/'libmobi'
-        if not mobi.exists():extract(ROOT/'vendor/libmobi-0.12.tar.gz',mobi)
+        if not mobi.exists():extract(ROOT/'tools/vendor/libmobi-0.12.tar.gz',mobi)
         if not (mobi/'config.h').exists() or '#define USE_ENCRYPTION 1' not in (mobi/'config.h').read_text():subprocess.run(['sh','configure','--with-libxml2=no','--with-zlib=no','--enable-encryption','--disable-shared','--enable-tools-static'],cwd=mobi,check=True)
         env.update(LIBMOBI=str(mobi),MOBI_BUILD=str(ROOT/'build/kindle/mobi-obj'))
-        subprocess.run(['sh',str(ROOT/'vendor/build-libmobi.sh')],env=env,check=True)
+        subprocess.run(['sh',str(ROOT/'tools/vendor/build-libmobi.sh')],env=env,check=True)
         subprocess.run([sys.executable,str(ROOT/'tools/prepare-amazon.py')],check=True)
     print('Dependencies ready:',target)
 if __name__=='__main__':

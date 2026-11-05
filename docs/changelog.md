@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.4
+
+- Slide 3D uses the existing engine at native resolution. Frog Solitaire adds a 33-pad jumping puzzle with undo.
+- Clock has analog and digital faces, full screen, timer and alarm tabs.
+- Shared rounded controls, solid selected segments, dropdown pager and semantic option icons.
+- Book long-press menu, pinned shelf order, reader preferences shared across both entry points.
+- Offline FreeDict translations and a shared vocabulary for word games.
+- Source and assets consolidated under `lumen/`. Build and release tooling live under `tools/`.
+- Firmware `cvm` stays running to support normal power-button handling.
+
 ## 2.3
 
 - Signal: an original local 3D exploration game with three beacons and a lighthouse objective.

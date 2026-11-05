@@ -46,7 +46,7 @@ be disabled under **Settings → System → Management**.
 | Auto sleep | 10 minutes |
 | Transfer server | Off; port 8080 when started |
 
-Defaults come from `src/system/defaults.h`; first boot and Reset use the same values.
+Defaults come from `lumen/system/defaults.h`; first boot and Reset use the same values.
 Existing settings are preserved during updates. The timer is visual and does not wake
 the device from deep sleep.
 

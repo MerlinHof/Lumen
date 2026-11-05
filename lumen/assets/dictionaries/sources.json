@@ -1,0 +1,26 @@
+{
+  "deu-fra": {
+    "URL": "https://download.freedict.org/dictionaries/deu-fra/2025.11.23/freedict-deu-fra-2025.11.23.src.tar.xz",
+    "checksum": "ef87052072a0c2e48449264706b5c222444b9e05a7480394f67df5b964fd554eb2e60b391c89012b7a4d7d5cc437f750e4c3700254767907dcc02c0697b6f04c",
+    "date": "2026-02-12",
+    "platform": "src",
+    "size": "3036424",
+    "version": "2025.11.23"
+  },
+  "eng-fra": {
+    "URL": "https://download.freedict.org/dictionaries/eng-fra/0.1.6/freedict-eng-fra-0.1.6.src.tar.xz",
+    "checksum": "7b7decb42f36617958303b8640616acc06e82aecd955e78949b67e083a7dbbdc4c668fee9cfcda20f219897767f64daabc942b3c3c01ed1f5e8d6ee56262e8a7",
+    "date": "2019-12-01",
+    "platform": "src",
+    "size": "212948",
+    "version": "0.1.6"
+  },
+  "fra-eng": {
+    "URL": "https://download.freedict.org/dictionaries/fra-eng/0.4.1/freedict-fra-eng-0.4.1.src.tar.xz",
+    "checksum": "bf234cfc9aedea3e322ee9bc518f6b1addfcc4a96c6b9c42d2bd1de765ae2011b057888134c9c4361422d4632e289455c92c6c429fcfab566a95cdc49ac2a2fb",
+    "date": "2019-12-01",
+    "platform": "src",
+    "size": "214980",
+    "version": "0.4.1"
+  }
+}

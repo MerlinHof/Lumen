@@ -137,7 +137,7 @@ strikes each actual text line through its middle.
 ## Architecture and ownership
 
 ```
-src/
+lumen/
   system/       preferences, storage, network, device, reader, app runtime
     ui/         shell, chrome, keyboard, editor, widgets, icons, image helpers
   apps/<name>/  app-owned models, state, views and adapters
@@ -195,7 +195,7 @@ Read `docs/building.md`. Dependency versions and hashes are pinned under
 `scripts`; dependencies and archives stay in ignored `.local`. Build products
 and test data stay in ignored `build`; packages in ignored `dist`.
 
-Use explicit source/object lists from `scripts/sources.txt`. Never link every
+Use explicit source/object lists from `tools/config/sources.txt`. Never link every
 object matching a wildcard: stale objects and duplicate names caused clutter.
 Normal incremental builds do not download dependencies.
 
@@ -291,13 +291,13 @@ continues to use stable AppIntent IDs. An app need not be a launcher tile.
 
 ## 2.1 ownership and design contracts
 
-Every active app owns its source under `src/apps/<name>/`. Public app APIs live
+Every active app owns its source under `lumen/apps/<name>/`. Public app APIs live
 beside their implementation (calculator/evaluate, flashcards/scheduler,
 news/provider and archive). `apps/host/compose.h` is the explicit composition root
 for the remaining unity-build view fragments. Shared dispatch adapters are still
 coupled: do not claim plugin isolation. Move behavior and state together when
 improving these boundaries; never introduce another release-number catch-all.
-System public APIs live beside their implementations under `src/system`.
+System public APIs live beside their implementations under `lumen/system`.
 
 Use `theme.h` roles and `typography.h` for hierarchy and primary actions. Use
 `icons.h` / `app_icons.h` semantic identities, not private app copies. Black is an
@@ -314,7 +314,7 @@ Unsupported protection must fail clearly and retain the original-reader fallback
 Do not claim all DRM variants work; ARM converter execution needs target testing.
 Keep third-party notices and pinned source links with distributed dependencies.
 
-`device/ui-session.sh` may pause only `awesome` and `cvm` for exclusive display
+`tools/device/ui-session.sh` may pause only `awesome` for exclusive display
 ownership. Record PID and start tick, never take ownership of an existing pause,
 reassert on wake and resume on exit. Never stop powerd, wifid, USB, D-Bus or
 appmgrd; do not generalize this into a kill-all optimization. This frees UI CPU,
@@ -329,12 +329,17 @@ arrowheads and arc endpoints coherent. Dropdowns share option icons and a separa
 right-side selection tick; new action menus must provide meaningful semantics in
 `system/ui/dropdown_icons.h`, rather than drawing private menu rows.
 
-## Signal 3D game
+## Slide 3D game
 
-`apps/signal` owns its engine, model and view. Preserve event-driven rendering:
+`apps/slide_3d` owns its engine, model and view. Preserve event-driven rendering:
 no animation timer, permanent repaint loop or refresh-engine changes. Geometry
 uses near-plane clipping and perspective inverse depth; outlines and spatial AA
 are bounded post-processes. Cache the presented frame between actions. Game
 state is local personal data; launcher IDs stay append-only and old order files
 must remain readable when adding apps. Never describe host render timing as
 Kindle touch/display latency.
+
+The canonical source tree is `lumen/`. Use `python3 compile.py` for Kindle or
+`python3 compile.py host` for native preview. Device scripts, source manifests,
+packaging and tests live under `tools/`. The package mapping explicitly
+separates repository paths from on-device installation paths.

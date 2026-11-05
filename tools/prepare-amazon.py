@@ -9,7 +9,7 @@ import urllib.request
 import zipfile
 ROOT=Path(__file__).resolve().parents[1]
 def prepare():
-    lock=json.loads((ROOT/'scripts/amazon-runtime.json').read_text())
+    lock=json.loads((ROOT/'tools/config/amazon-runtime.json').read_text())
     archive=ROOT/'.local/deps/kindle-import/kindle-koplugin-armv7.zip'
     archive.parent.mkdir(parents=True,exist_ok=True)
     if not archive.exists():
@@ -26,7 +26,7 @@ def prepare():
             if name=='libsyscall_wrapper.so' or name.startswith('dist/bin/') or name.startswith('dist/lib/') or name.startswith('dist/kfxlib/') or name.startswith('dist/dedrm/'):
                 if '__pycache__' in name or name.endswith(('.pyc','.pyo','.jar')) or 'crypto_hook' in name:continue
                 add(tar,name,z.read(member),0o755 if name.startswith('dist/bin/') or name.endswith('.so') or '/runtime/' in name else 0o644)
-        for source,name in [('src/apps/library/import_kfx.py','dist/import_kfx.py'),('vendor/amazon/kfxdedrm.py','dist/kfxdedrm.py'),('vendor/amazon/COPYING','COPYING'),('vendor/amazon/README.md','SOURCES.md')]:
+        for source,name in [('lumen/apps/library/import_kfx.py','dist/import_kfx.py'),('tools/vendor/amazon/kfxdedrm.py','dist/kfxdedrm.py'),('tools/vendor/amazon/COPYING','COPYING'),('tools/vendor/amazon/README.md','SOURCES.md')]:
             add(tar,name,(ROOT/source).read_bytes())
     print('On-demand Kindle import runtime:',round(output.stat().st_size/1048576,1),'MiB compressed')
     return output

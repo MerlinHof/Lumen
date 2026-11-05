@@ -17,4 +17,4 @@ jobs:
       - name: Input, defaults and UI regression checks
         run: python3 tools/check.py --native-only
       - name: Installer boundaries with synthetic payload
-        run: python3 tests/test_installation.py --fixture
+        run: python3 tools/tests/test_installation.py --fixture

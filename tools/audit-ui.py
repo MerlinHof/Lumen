@@ -27,7 +27,7 @@ def main():
     folder.mkdir(parents=True, exist_ok=True)
     shutil.rmtree(folder / 'data', ignore_errors=True)
     OUT.mkdir(parents=True, exist_ok=True)
-    binary = compile_test('audit', 'tests/render_audit.c', True)
+    binary = compile_test('audit', 'tools/tests/render_audit.c', True)
     result = subprocess.run([str(binary), str(folder)], cwd=ROOT, check=True, text=True, capture_output=True)
     (folder / 'timings.txt').write_text(result.stdout)
     timings = {line.split()[0]: float(line.split()[1]) for line in result.stdout.splitlines()}

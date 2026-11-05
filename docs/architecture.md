@@ -8,9 +8,9 @@ beschrieben, statt eine vollständige Prozess- oder Datenisolation zu behaupten.
 
 ## System
 
-`src/system/app_runtime.{c,h}` verwaltet Aktivierung, App-Wechsel und
+`lumen/system/app_runtime.{c,h}` verwaltet Aktivierung, App-Wechsel und
 Lebenszyklus. `AppDefinition` beschreibt ID, Einstiegsroute, Vollbildstrategie
-und zugehörigen Systemtab. `src/apps/catalog.c` enthält die App-Registrierung.
+und zugehörigen Systemtab. `lumen/apps/catalog.c` enthält die App-Registrierung.
 IDs bleiben stabil, damit gespeicherte Launcherreihenfolgen nicht verrutschen.
 Die zurückgezogenen Drawing-/NumScratch-IDs bleiben dafür reserviert.
 
@@ -38,7 +38,7 @@ HTTP-Transfer sowie gemeinsame Schriften und Übersetzungen.
 
 ## Gemeinsame UI
 
-`src/system/ui/ui.c` ist die Shell und integriert die Ansichten. Die anderen
+`lumen/system/ui/ui.c` ist die Shell und integriert die Ansichten. Die anderen
 Header in diesem Ordner liefern Widgets, Dropdowns, Checkboxen, verbundene
 Tabselectoren, Icons, Status-/Tabbar, Bilddarstellung und Spielfeldkacheln.
 `text_flow.h` misst und zeichnet dieselben Zeilenbereiche für dynamische Listen.
@@ -59,7 +59,7 @@ Touch-down-Feedback läuft weiterhin unabhängig von der anschließenden App-Akt
 
 ## App-Regeln
 
-Neue Ansichten kommen nach `src/apps`, wiederverwendbare UI nach `system/ui`.
+Neue Ansichten kommen nach `lumen/apps`, wiederverwendbare UI nach `system/ui`.
 Bestehende Widgets und Dienste verwenden, keine zweite Tastatur oder Kopie eines
 Dropdowns einführen. Netzwerk und aufwendige Aufgaben gehören in die vorhandenen
 begrenzten Hintergrundjobs. Vollbild ist eine App-/Routenentscheidung, nicht eine
@@ -68,7 +68,7 @@ synchronen Dateischreibvorgänge pro Tastendruck einführen.
 
 ## Repository and installation boundaries
 
-`device` contains target-only launcher/autostart code; `tools` host-side build and installation code. Dependencies live in ignored `.local`; generated objects are in `build/<target>/obj` and explicit source lists prevent stale objects from linking. `packaging/runtime.json` is independent of all old releases. Shared `system/defaults` defines fresh boot, reset and option bounds. The installer validates every file first and prunes only recognized runtime-only backups after successful verification.
+`device` contains target-only launcher/autostart code; `tools` host-side build and installation code. Dependencies live in ignored `.local`; generated objects are in `build/<target>/obj` and explicit source lists prevent stale objects from linking. `tools/config/runtime.json` is independent of all old releases. Shared `system/defaults` defines fresh boot, reset and option bounds. The installer validates every file first and prunes only recognized runtime-only backups after successful verification.
 
 ## Shared quality and rendering contracts
 
@@ -93,7 +93,7 @@ Periodic status queries are coalesced; detailed render logging is opt-in.
 
 ## Ownership after the 2.1 refactor
 
-App code now lives under `src/apps/<app>/`: views, state, storage and adapters
+App code now lives under `lumen/apps/<app>/`: views, state, storage and adapters
 are grouped by responsibility. Calculator evaluation, news providers/archives,
 flashcard scheduling and game models are beside their app APIs. System headers
 live beside their system implementation. Retired NumScratch and standalone
@@ -113,4 +113,16 @@ The Library delegates supported Amazon conversion to `system/amazon.c` and its
 app-owned Python adapter. The ARM converter stays compressed until first use;
 preparation happens in the existing loading flow, outputs are cached in personal
 data, and source files remain unchanged. UI processes are reversibly paused by
-`device/ui-session.sh`; essential firmware services retain ownership of hardware.
+`tools/device/ui-session.sh`; essential firmware services retain ownership of hardware.
+
+## App boundaries in 2.4
+
+The app runtime registers views and input callbacks. The shell composes app-owned views for the status bar, tab bar, lock screen,
+keyboard and notifications. Text fields use the keyboard endpoint and
+notifications use their own endpoint. App endpoints are synchronous and copy
+the requested text while handling the call. The remaining legacy route adapters
+still share shell state and build in the same translation unit.
+
+The common contrast transfer lives in `lumen/system/image.h`. It runs during
+image sampling and when producing reader-page and lock-screen rasters. UI icons
+have their own deliberately drawn ink coverage.

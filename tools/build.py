@@ -4,7 +4,7 @@ import argparse,json,os,shlex,subprocess
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 def sources():
-    return [s.strip() for s in (ROOT/'scripts/sources.txt').read_text().splitlines() if s.strip() and not s.startswith('#')]
+    return [s.strip() for s in (ROOT/'tools/config/sources.txt').read_text().splitlines() if s.strip() and not s.startswith('#')]
 def dependencies(target):
     mupdf=Path(os.environ.get('MUPDF',ROOT/'.local/deps/mupdf')).resolve()
     zig=Path(os.environ.get('ZIG',ROOT/'.local/deps/zig/zig')).resolve()
@@ -24,7 +24,7 @@ def build(target):
     for source in sources():
         obj=object_path(target,source);obj.parent.mkdir(parents=True,exist_ok=True);dep=obj.with_suffix('.d');signature=obj.with_suffix('.command.json')
         unit_flags=flags+(['-O2'] if target=='kindle' and source in ('system/ui/ui.c','system/device.c','system/unicode.c') else [])
-        cmd=compiler+unit_flags+['-MMD','-MF',str(dep),'-c',str(ROOT/'src'/source),'-o',str(obj)]
+        cmd=compiler+unit_flags+['-MMD','-MF',str(dep),'-c',str(ROOT/'lumen'/source),'-o',str(obj)]
         stale=not obj.exists() or not dep.exists() or not signature.exists()
         if not stale:
             try:

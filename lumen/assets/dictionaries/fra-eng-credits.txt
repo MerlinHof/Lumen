@@ -1,0 +1,68 @@
+FreeDict fra-eng, version 0.4.1
+https://download.freedict.org/dictionaries/fra-eng/0.4.1/freedict-fra-eng-0.4.1.src.tar.xz
+SHA-512: bf234cfc9aedea3e322ee9bc518f6b1addfcc4a96c6b9c42d2bd1de765ae2011b057888134c9c4361422d4632e289455c92c6c429fcfab566a95cdc49ac2a2fb
+LUMEN adaptation: extracted single-word forms and up to five translations.
+
+French-English FreeDict Dictionary
+Maintainer
+[up for grabs]
+Re-edited and extended by
+John Darrington
+0.4.1
+8505 headwords
+FreeDict
+Copyright: the particular authors/compilers (1999: Horst Eyermann, horst@freedict.de; 2010: John Darrington); (c) 2017 FreeDict project
+Available under the terms of the
+GNU General Public License ver. 2.0 and any later version
+.
+Aug 11, 2018
+http://freedict.org/
+big enough to be useful
+An early version of this Database was originally generated from
+Ergane
+.
+This dictionary comes to you through nice people making it available for free and for good. It is part of the FreeDict project, http://www.freedict.org/. This project aims to make available many translating dictionaries for free. Your contributions are welcome!
+n
+v
+vi
+vt
+adj
+adv
+num
+prep
+int
+pron
+conj
+art
+fem
+masc
+Sebastian Humenda
+Remove duplicates
+Sebastian Humenda
+update licencing stanza (thanks to Karl Bartel)
+remove duplicated entries
+Yota Moteuchi
+: <sense> tags were not properly set (after the previous conversion of <def>).  Corrections were half automatic, half manual, but the content should not have changed. The file was also fully re-indented with xmllint.
+Piotr Bański
+: Technical changes: added the missing values to the <tagsDecl>. TODO: conversion to the cit/quote system, but only after, or at the same time as, the equivalents inside <def> are split apart.
+Piotr Bański
+: Technical changes: took out the dependency including the ontology interface. The interface is now a free-standing document and this dictionary refers to rhat document only via the header (see <tagsDecl>).
+Piotr Bański
+: Technical changes: include the FreeDict interface to ontologies, use @ana to refer to it from inside gramGrp.
+John Darrington
+: Extended the dictionary (several commits: added POS fields, genders, + over 300 entries). (+ Piotr: little changes in the header, tiny fixes).
+Piotr Bański
+: Merged the old header in. Converted the dictionary to TEI P5, replaced ndashes (or something of that sort, also within headwords) with plain hyphens. Reorganised the directory (NEWS and README out, stuff from shared/ in).
+John Darrington
+Lots of new words added, (a few deleted) parts of speech added. Genders added. Some horrible errors corrected. Probably some new errors introduced.
+Verbs were identified using "verbiste", nouns by using freedict's fra-deu dictionary (definitions starting with upper case were assumed to be nouns).
+Michael Bunk
+: Re-Import from Ergane: fra.mdb from 2005-Sep-14, eng.mdb from 2006-Feb-02. Part of speech and gender information now included. teidiff gave the following output: Unmodified 487, Added 5821, Deleted 4173, Modified <form> 1587, Modified <sense>s 877, Modified multimatch 707 + 788.
+Michael Bunk
+: Switched to Makefile.common style. Converted file from TEI P3 to TEI P4.
+Horst Eyermann
+: Database was converted to TEI format and checked into CVS.
+Horst Eyermann
+: Phonetics added - machine generated from MBRODICT.
+Horst Eyermann
+: This Database was generated from ergane, http://www.travlang.com - Thanks!

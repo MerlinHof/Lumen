@@ -12,7 +12,9 @@ def validate_runtime_mapping(mapping):
         path=(ROOT/source).resolve()
         if not path.is_relative_to(ROOT):raise RuntimeError('Unsafe package source')
         relative=path.relative_to(ROOT);parts=relative.parts
-        if not parts or parts[0] not in {'device','fonts','catalogs','certs','licenses','docs','build','LICENSE'}:raise RuntimeError('Non-runtime package source')
+        if not (relative.is_relative_to('lumen/assets') or relative.is_relative_to('tools/device')
+                or parts[0] in {'docs', 'build', 'LICENSE'}):
+            raise RuntimeError('Non-runtime package source')
         if parts[0]=='build' and relative.as_posix() not in {'build/kindle/lumen','build/kindle/mobitool','build/kindle/amazon-runtime.tar.gz'}:raise RuntimeError('Build/test data must never enter a release')
         if any(p in {'.git','.local','dist','backups','data'} for p in parts):raise RuntimeError('Unsafe package source')
 
@@ -25,7 +27,7 @@ def package():
     version=validate_version((ROOT/'VERSION').read_text().strip());dist=ROOT/'dist';dist.mkdir(exist_ok=True)
     bundle=dist/('LUMEN-'+version);payload=bundle/'Kindle'
     if bundle.exists():shutil.rmtree(bundle)
-    mapping=json.loads((ROOT/'packaging/runtime.json').read_text());validate_runtime_mapping(mapping);manifest={}
+    mapping=json.loads((ROOT/'tools/config/runtime.json').read_text());validate_runtime_mapping(mapping);manifest={}
     for rel,local in mapping.items():
         source=ROOT/local
         if not source.is_file():raise RuntimeError('Missing runtime file: '+local+'; build Kindle first.')
@@ -33,7 +35,7 @@ def package():
         manifest[rel]=hashlib.sha256(dest.read_bytes()).hexdigest()
     (bundle/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
     (bundle/'release.json').write_text(json.dumps({'version':version,'firmware':'5.12.2.2','architecture':'armv7','runtime_files':len(manifest)},indent=2)+'\n')
-    shutil.copy2(ROOT/'packaging/legacy.json',bundle/'legacy-files.json')
+    shutil.copy2(ROOT/'tools/config/legacy.json',bundle/'legacy-files.json')
     shutil.copy2(ROOT/'tools/update-device.py',bundle/'Install-LUMEN.py')
     command=bundle/'Install-LUMEN.command'
     command.write_text('''#!/bin/sh

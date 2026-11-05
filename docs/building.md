@@ -27,8 +27,8 @@ Only setup uses the network; subsequent builds are local and incremental.
 MuPDF sources include their third-party libraries. The libmobi converter is
 built separately from the included archive with device-serial support.
 Kindle setup also verifies and compresses the pinned ARM import runtime from
-`scripts/amazon-runtime.json`; source and license links are in
-[`vendor/amazon/README.md`](../vendor/amazon/README.md). This adds about 20 MiB
+`tools/config/amazon-runtime.json`; source and license links are in
+[`vendor/amazon/README.md`](../tools/vendor/amazon/README.md). This adds about 20 MiB
 to the installed runtime and is unpacked temporarily only when required.
 
 Local source/dependency copies already present under `.local/deps` are reused.
@@ -67,7 +67,7 @@ python3 tools/package.py
 ```
 
 The result is `dist/LUMEN-<version>.zip`, checksum and unpacked installer folder.
-`scripts/sources.txt` is the explicit compile list; `packaging/runtime.json` is
+`tools/config/sources.txt` is the explicit compile list; `tools/config/runtime.json` is
 the explicit runtime allowlist. There is no dependency on old release folders.
 
 See [Architecture](architecture.md), [Installation](installation.md) and

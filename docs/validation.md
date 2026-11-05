@@ -1,11 +1,11 @@
-# Validation · LUMEN 2.3
+# Validation · LUMEN 2.4
 
-## Signal checks
+## 3D puzzle checks
 
-Focused ASan/UBSan tests cover deterministic rendering, all camera headings,
-movement, blocked boundaries/buildings, beacon activation and the victory state.
+Focused ASan/UBSan tests cover deterministic rendering, legal moves and the
+victory state.
 A native demo render is included. Antialiasing is lightweight spatial edge
-filtering plus bilinear presentation, not temporal AA or full-scene supersampling.
+filtering at native viewport resolution.
 Physical input latency and E-Ink appearance still need on-device review.
 
 ## 2.1 scope and practical limits
@@ -21,7 +21,7 @@ newer or unsupported variants may need the original-reader fallback. Conversion
 is lazy on first opening, not an eager rewrite of every book. Existing imports
 remain readable. Original book files are never replaced.
 
-The firmware pause is limited to awesome/cvm and restored on exit; tests exercise
+The firmware pause is limited to awesome and restored on exit; tests exercise
 ownership, already-stopped processes and PID reuse. Real wake behavior and API
 integrations still require hardware verification. Do not infer these from mocks.
 

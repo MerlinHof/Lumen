@@ -20,17 +20,17 @@
 
 ---
 
-## New in 2.3 · Signal
+## New in 2.4
 
-An original little 3D exploration game: relight three signal fires on a stone
-island and return to its lighthouse. A custom CPU triangle renderer gives the
-world an ink-and-paper style, with perspective, depth, directional light,
-projected shadows, outlines and lightweight post-process antialiasing. Move at
-your own pace; frames update only after an action and progress is saved locally.
+Slide 3D replaces Signal with a sliding-tile puzzle rendered at the Kindle's
+native viewport resolution. Frog Solitaire is a separate peg-jumping game.
+Clock offers analog and digital faces, full screen, a timer and an alarm.
+Offline reading lookups include German–French, English–French and French–English
+FreeDict data and a small set of original definitions.
 
-<img src="docs/images/signal.png" width="300" alt="Signal: an original monochrome 3D island game rendered natively">
-
-Includes the compact controls and dropdown corrections from 2.2.
+<img src="docs/images/slide-3d.png" width="260" alt="Slide 3D native-rendered puzzle">
+<img src="docs/images/frog-solitaire.png" width="260" alt="Frog Solitaire lily pads">
+<img src="docs/images/clock.png" width="260" alt="Clock with the classic analog face">
 
 ## UI refinement in 2.2
 
@@ -151,18 +151,14 @@ for prerequisites, testing, preview generation and the optional local HTTP check
 
 ```text
 Lumen/
-├── src/
-│   ├── system/       device, storage, networking, preferences, app runtime
-│   │   └── ui/       shared shell, widgets, icons, keyboard and text editor
-│   ├── apps/         application models and views
-│   └── vendor/       credited embedded third-party code
-├── device/           target launcher, autostart and internal rendering test
-├── tools/            build, setup, checks, packaging and installer
-├── scripts/          pinned dependencies and explicit source list
-├── packaging/        explicit runtime allowlist and legacy cleanup hashes
-├── tests/            synthetic fixtures and focused regression checks
-├── docs/             guides and current native screenshots
-└── licenses/         third-party license and attribution notices
+├── compile.py        Kindle and native preview build entry point
+├── lumen/
+│   ├── system/       app runtime, device, shared UI, storage and image rendering
+│   ├── apps/         app-owned models, endpoints and views
+│   ├── assets/       dictionaries, fonts, catalogues, certificates and web UI
+│   └── vendor/       embedded third-party code
+├── tools/            build, packaging, installer, device scripts and tests
+└── docs/             guides and native screenshots
 ```
 
 Dependencies live in ignored `.local/`, outputs in `build/`, packages in `dist/`.

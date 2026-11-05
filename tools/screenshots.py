@@ -18,7 +18,7 @@ for i,(title,author) in enumerate(books):
         z.writestr('book.opf',f'<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">lumen-demo-{i}</dc:identifier><dc:title>{title}</dc:title><dc:creator>{author}</dc:creator><dc:language>en</dc:language><meta name="cover" content="cover"/></metadata><manifest><item id="cover" href="cover.svg" media-type="image/svg+xml"/><item id="coverpage" href="cover.xhtml" media-type="application/xhtml+xml"/><item id="text" href="text.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="coverpage"/><itemref idref="text"/></spine></package>')
         z.writestr('cover.svg',cover);z.writestr('cover.xhtml','<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Cover</title><style>body{margin:0;padding:0}img{width:100%;height:auto}</style></head><body><img src="cover.svg"/></body></html>');z.writestr('text.xhtml','<html xmlns="http://www.w3.org/1999/xhtml"><head><title>'+title+'</title></head><body>'+text.replace('The Quiet Hours',title)*5+'</body></html>')
 OUT.mkdir(parents=True,exist_ok=True)
-binary=compile_test('gallery','tests/render_gallery.c',True);subprocess.run([str(binary)],check=True)
+binary=compile_test('gallery','tools/tests/render_gallery.c',True);subprocess.run([str(binary)],check=True)
 images=ROOT/'docs/images';images.mkdir(exist_ok=True)
 for p in folder.glob('*.pgm'):Image.open(p).save(images/(p.stem+'.png'),optimize=True)
 # Native pixels are kept at 1:1: no resampling of the app screenshots.
