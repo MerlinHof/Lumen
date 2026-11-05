@@ -29,7 +29,7 @@ static SettingRow setting_rows[] = {
     {"Apps-Tab", 1, OPT_APPS, 0, 1, 1, NULL, 0},
     {"Tab-Beschriftungen", 1, OPT_TAB_LABELS, 0, 1, 1, NULL, 0},
     {"Cover zuschneiden", 1, OPT_COVER_CROP, 0, 1, 1, NULL, 0},
-    {"Runde Cover-Ecken", 1, OPT_COVER_RADIUS, 0, 1, 1, NULL, 0},
+    {"Abgerundete Ecken", 1, OPT_ROUNDING, 0, 1, 1, NULL, 0},
     {"Lesefortschritt", 1, OPT_PROGRESS, 0, 1, 1, NULL, 0},
     {"Sperrbild", 1, OPT_LOCK, 0, 4, 1, lockmodes, 5},
     {"Sperrbild-Hinweis", 1, OPT_LOCK_HINT, 0, 1, 1, NULL, 0},

@@ -258,6 +258,12 @@ static int v1_commit(int target, const char *text) {
     return 0;
 }
 static int v1_tick(void) {
+    if (!sleeping && ui_route() == 72 && photo_slideshow && photo_count &&
+        extra_millis() >= photo_next_frame) {
+        photo_selected = (photo_selected + 1) % photo_count;
+        photo_next_frame = extra_millis() + photo_catalog.seconds * 1000;
+        return 1;
+    }
     if (polish_tick())
         return 1;
     if (alarm_ring) {
@@ -281,6 +287,10 @@ static int v1_tick(void) {
     return 0;
 }
 static int v1_poll(void) {
+    if (ui_route() == 72 && photo_slideshow) {
+        int64_t remaining = photo_next_frame - extra_millis();
+        return remaining > 0 ? (int)remaining : 1;
+    }
     if (ui_route() == 48 && chess_computer && chess.turn < 0)
         return 250;
     if (alarm_ring && timer_flash_started && extra_millis() - timer_flash_started < 60000)
@@ -314,7 +324,16 @@ static int v1_input(const Input *in) {
                     char p[2048], n[300];
                     snprintf(n, sizeof(n), "photos/%s", photo_names[photo_selected]);
                     local_path(p, sizeof(p), n);
-                    unlink(p);
+                    if (unlink(p)) {
+                        ui_message("Löschen fehlgeschlagen.");
+                        v1_delete = 0;
+                        return 1;
+                    }
+                    PhotoMembership *member = photo_membership(photo_id(photo_names[photo_selected]), 0);
+                    if (member) {
+                        *member = (PhotoMembership){0};
+                        photo_catalog_save();
+                    }
                     char cache[2048], thumb[300];
                     snprintf(thumb, sizeof(thumb), "photos/.thumbs/%s",
                              photo_names[photo_selected]);
@@ -353,33 +372,8 @@ static int v1_input(const Input *in) {
             open_keyboard(100, "Wordle · English", "");
         break;
     case 71:
-        if (y >= 74 && y < 118 && x >= 516) {
-            extra_open(8);
-            return 1;
-        }
-        if (y >= 746 && y < 790) {
-            if (x < 300 && photo_page)
-                photo_page--;
-            else if (x >= 300 && (photo_page + 1) * 16 < photo_count)
-                photo_page++;
-        } else if (y >= 142 && y < 710 && x >= 19 && x < 581) {
-            int c = (x - 19) / 142, r = (y - 142) / 142, i = photo_page * 16 + r * 4 + c;
-            if (c < 4 && i < photo_count) {
-                photo_selected = i;
-                extra_open(72);
-            }
-        }
+        photo_grid_input(x, y);
         return 1;
-    case 72:
-        if (y >= 742) {
-            if (x < 100 && photo_selected)
-                photo_selected--;
-            else if (x > 500 && photo_selected + 1 < photo_count)
-                photo_selected++;
-            else if (x >= 270 && x < 330)
-                v1_delete = 1;
-        }
-        break;
     case 73:
         if (y >= 135 && y < 179) {
             lang_pair = (x - 28) / (544 / 3);

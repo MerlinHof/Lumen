@@ -1,4 +1,4 @@
-# Validation · LUMEN 2.5
+# Validation · LUMEN 2.6
 
 ## 3D puzzle checks
 

@@ -22,7 +22,7 @@ static void clock_face(int fullscreen) {
         char text[24];
         strftime(text, sizeof(text), "%H:%M", &t);
         if (clock_ui.clock_style == 3) {
-            aa_soft_rect(60, cy-83, 480, 166, 20, 0);
+            control_surface(60, cy-83, 480, 166, 20, 0);
             int ink = ink_color;
             ink_color = 255;
             centered(60, cy-83, 480, 166, text, ui_font(UI_DISPLAY));

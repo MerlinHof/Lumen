@@ -35,7 +35,7 @@ static void library_screen(void) {
         region(x, y, 168, 274);
         cover_size(book, x + 8, y, 140, 191);
         if (book->favorite) {
-            aa_soft_rect(x + 109, y + 7, 32, 32, 7, 255);
+            control_surface(x + 109, y + 7, 32, 32, 7, 255);
             icon_sized(x + 111, y + 9, IC_PIN, 28);
         }
         wrapped_raw(x + 8, y + 195, book->title, ui_font(UI_BODY), 164, 2);

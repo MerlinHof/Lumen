@@ -30,17 +30,22 @@ static const unsigned char *corner_mask(int r, int profile) {
     corner_ready[profile - 1][r] = 1;
     return mask;
 }
+static int rounding_profile(void) {
+    return options[OPT_ROUNDING] ? control_corner_profile : CORNER_SQUARE;
+}
 static float corner_inside(int r, int x, int y) {
+    int profile = rounding_profile();
     if (r > MAX_CORNER_RADIUS) r = MAX_CORNER_RADIUS;
-    if (r < 1 || x >= r || y >= r) return 1;
-    return corner_mask(r, CORNER_CIRCLE)[y*r+x] / 16.f;
+    if (profile == CORNER_SQUARE || r < 1 || x >= r || y >= r) return 1;
+    return corner_mask(r, profile)[y*r+x] / 16.f;
 }
 static void paint_corner_pixel(int x, int y, int coverage, int color) {
     if ((unsigned)x >= WIDTH || (unsigned)y >= HEIGHT || !coverage) return;
     unsigned char *pixel = &ui_pixels[y*WIDTH+x];
     *pixel = (unsigned char)((*pixel * (16-coverage) + color * coverage) / 16);
 }
-static void rounded_surface(int x, int y, int w, int h, int r, int color, int profile, int sides) {
+static void rounded_surface(int x, int y, int w, int h, int r, int color, int sides) {
+    int profile = rounding_profile();
     if (w <= 0 || h <= 0) return;
     if (r > MAX_CORNER_RADIUS) r = MAX_CORNER_RADIUS;
     if (r > w/2) r = w/2;
@@ -70,12 +75,42 @@ static void rounded_surface(int x, int y, int w, int h, int r, int color, int pr
         }
     }
 }
-static void aa_soft_rect(int x, int y, int w, int h, int r, int color) {
-    rounded_surface(x, y, w, h, r, color, CORNER_CIRCLE, 3);
-}
 static void control_surface(int x, int y, int w, int h, int r, int color) {
-    rounded_surface(x, y, w, h, r, color, control_corner_profile, 3);
+    rounded_surface(x, y, w, h, r, color, 3);
 }
 static void segment_fill(int x, int y, int w, int h, int r, int color, int sides) {
-    rounded_surface(x, y, w, h, r, color, control_corner_profile, sides);
+    rounded_surface(x, y, w, h, r, color, sides);
+}
+
+/* Preserve the background under the shared mask when painting image pixels. */
+static unsigned char clip_background[4][81];
+static void rounded_clip_end(int x, int y, int w, int h) {
+    if (!rounding_profile())
+        return;
+    for (int j = 0; j < 9; j++)
+        for (int i = 0; i < 9; i++) {
+            int xx[4] = {x + i, x + w - 1 - i, x + i, x + w - 1 - i},
+                yy[4] = {y + j, y + j, y + h - 1 - j, y + h - 1 - j};
+            int a = (int)((1 - corner_inside(9, i, j)) * 16);
+            for (int c = 0; c < 4; c++)
+                if (xx[c] >= 0 && xx[c] < WIDTH && yy[c] >= 0 && yy[c] < HEIGHT) {
+                    int k = yy[c] * WIDTH + xx[c], v = ui_pixels[k];
+                    ui_pixels[k] =
+                        (unsigned char)((v * (16 - a) + clip_background[c][j * 9 + i] * a + 8) /
+                                        16);
+                }
+        }
+}
+static void rounded_clip_begin(int x, int y, int w, int h) {
+    if (!rounding_profile()) return;
+    for (int j = 0; j < 9; j++)
+        for (int i = 0; i < 9; i++) {
+            int xx[4] = {x + i, x + w - 1 - i, x + i, x + w - 1 - i},
+                yy[4] = {y + j, y + j, y + h - 1 - j, y + h - 1 - j};
+            for (int c = 0; c < 4; c++)
+                clip_background[c][j * 9 + i] =
+                    (xx[c] >= 0 && xx[c] < WIDTH && yy[c] >= 0 && yy[c] < HEIGHT)
+                        ? ui_pixels[yy[c] * WIDTH + xx[c]]
+                        : 255;
+        }
 }

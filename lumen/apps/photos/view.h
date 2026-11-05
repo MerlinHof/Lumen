@@ -1,7 +1,7 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 static int photo_fill, photo_controls = 1, photo_rotation, photo_grid_page = -1;
-static uint64_t photo_grid_key;
-static unsigned char photo_grid[16][136 * 136];
+static unsigned photo_grid_key;
+static unsigned char photo_grid[PHOTO_PER_PAGE][136 * 136];
 static int photo_bx, photo_by, photo_bw = 600, photo_bh = 800;
 static char photo_bounds_key[256];
 static void photo_bounds(void) {
@@ -60,15 +60,35 @@ static void photo_bounds(void) {
     photo_bh = bottom - top + 1;
 }
 static void polish_photos_grid(void) {
-    heading_actions("Fotos", 1);
-    icon_button(528, 74, IC_PLUS);
-    uint64_t key = photo_count ? press_id(photo_names[0]) ^ photo_count : 0;
+    heading_actions("Fotos", 3);
+    icon_button(408, 74, IC_FOLDER_PLUS);
+    icon_button(468, 74, IC_CONNECT);
+    icon_button(528, 74, photo_settings ? IC_CLOSE : IC_SETTINGS);
+    if (photo_settings) {
+        const char *fits[] = {"Einpassen", "Ausfüllen"};
+        const char *formats[] = {"Hochformat", "Querformat"};
+        char seconds[32];
+        snprintf(seconds, sizeof(seconds), "%d s", photo_catalog.seconds);
+        type_label(28, 143, 544, 54, "Diashow", UI_HEADING);
+        type_label(28, 221, 240, 44, "Dauer pro Foto", UI_PRIMARY);
+        dropdown_button(335, 221, 237, 44, seconds);
+        type_label(28, 292, 544, 38, "Bildformat", UI_PRIMARY);
+        segments(28, 337, 544, 48, fits, 2, photo_catalog.fill);
+        type_label(28, 411, 544, 38, "Bildausrichtung", UI_PRIMARY);
+        segments(28, 456, 544, 48, formats, 2, photo_catalog.landscape);
+        wrapped(28, 555, "Tippe während der Diashow, um zum Ordner zurückzukehren.", ui_font(UI_SECONDARY), 544, 3);
+        return;
+    }
+    dropdown_button(28, 133, 328, 44,
+                    photo_folder ? photo_catalog.folders[photo_folder - 1] : "Alle Fotos");
+    if (photo_count) action_button(376, 133, 196, 44, "Diashow");
+    unsigned key = photo_scan_generation;
     if (photo_grid_page != photo_page || photo_grid_key != key) {
         char dir[2048];
         local_path(dir, sizeof(dir), "photos/.thumbs");
         mkdir(dir, 0700);
-        for (int r = 0; r < 16 && photo_page * 16 + r < photo_count; r++) {
-            int i = photo_page * 16 + r;
+        for (int r = 0; r < PHOTO_PER_PAGE && photo_page * PHOTO_PER_PAGE + r < photo_count; r++) {
+            int i = photo_page * PHOTO_PER_PAGE + r;
             char path[2048], source[2048], name[300];
             snprintf(name, sizeof(name), "photos/.thumbs/%s", photo_names[i]);
             local_path(path, sizeof(path), name);
@@ -93,23 +113,70 @@ static void polish_photos_grid(void) {
         photo_grid_page = photo_page;
         photo_grid_key = key;
     }
-    for (int r = 0; r < 16 && photo_page * 16 + r < photo_count; r++) {
-        int x = 19 + (r % 4) * 142, y = 142 + (r / 4) * 142;
+    for (int r = 0; r < PHOTO_PER_PAGE && photo_page * PHOTO_PER_PAGE + r < photo_count; r++) {
+        int x = 19 + (r % 4) * 142, y = 202 + (r / 4) * 142;
         region(x, y, 136, 136);
+        rounded_clip_begin(x, y, 136, 136);
         for (int yy = 0; yy < 136; yy++)
             for (int xx = 0; xx < 136; xx++)
                 ui_pixels[(y + yy) * 600 + x + xx] =
                     image_tone(photo_grid[r][yy * 136 + xx], x + xx, y + yy);
+        rounded_clip_end(x, y, 136, 136);
     }
     if (!photo_count)
-        wrapped(30, 180,
-                "Fotos vom Handy über LUMEN Connect hochladen. Auch Zeichnungen lassen sich als "
-                "Foto speichern.",
-                ui_font(UI_TITLE), 540, 5);
-    pager(746, &photo_page, (photo_count + 15) / 16);
+        wrapped(30, 216, photo_folder ? "Halte ein Foto unter Alle Fotos gedrückt, um es zuzuordnen." :
+                "Fotos vom Handy über LUMEN Connect hochladen.", ui_font(UI_BODY), 530, 4);
+    else
+        type_label(28, 643, 544, 35, "Foto gedrückt halten, um es Ordnern zuzuordnen.", UI_SECONDARY);
+    pager(746, &photo_page, (photo_count + PHOTO_PER_PAGE - 1) / PHOTO_PER_PAGE);
+}
+static int photo_grid_hit(int x, int y) {
+    if (x < 19 || x >= 581 || y < 202 || y >= 622 ||
+        (x - 19) % 142 >= 136 || (y - 202) % 142 >= 136) return -1;
+    int index = photo_page * PHOTO_PER_PAGE + (y - 202) / 142 * 4 + (x - 19) / 142;
+    return index < photo_count ? index : -1;
+}
+static void photo_grid_input(int x, int y) {
+    if (y >= 74 && y < 118) {
+        if (x >= 528) photo_settings ^= 1;
+        else if (x >= 468) extra_open(8);
+        else if (x >= 408) open_keyboard(TEXT_INPUT_PHOTO_FOLDER, "Neuer Fotoordner", "");
+        return;
+    }
+    if (photo_settings) {
+        if (y >= 221 && y < 265 && x >= 335) {
+            static const char *times[] = {"5 s", "10 s", "20 s", "30 s", "60 s", "120 s"};
+            open_dropdown(905, times, 6, -1, 335, 270, 237);
+        } else if (y >= 337 && y < 385 && x >= 28 && x < 572) {
+            int old = photo_catalog.fill;
+            photo_catalog.fill = x >= 300;
+            if (!photo_catalog_save()) photo_catalog.fill = old;
+        } else if (y >= 456 && y < 504 && x >= 28 && x < 572) {
+            int old = photo_catalog.landscape;
+            photo_catalog.landscape = x >= 300;
+            if (!photo_catalog_save()) photo_catalog.landscape = old;
+        }
+        return;
+    }
+    if (y >= 133 && y < 177) {
+        if (x >= 28 && x < 356) photo_open_folder_menu(0, 0);
+        else if (x >= 376 && x < 572 && photo_count) {
+            photo_slideshow = 1;
+            photo_selected = 0;
+            photo_next_frame = extra_millis() + photo_catalog.seconds * 1000;
+            extra_open(72);
+        }
+        return;
+    }
+    int index = photo_grid_hit(x, y);
+    if (index >= 0) {
+        photo_selected = index;
+        photo_rotation = 0;
+        extra_open(72);
+    }
 }
 static int polish_photo_full(void) {
-    return ui_route() == 72 && photo_fill && !photo_controls && !v1_delete && !power_menu;
+    return ui_route() == 72 && (photo_slideshow || (photo_fill && !photo_controls)) && !v1_delete && !power_menu;
 }
 static void photo_page_move(int delta) {
     photo_selected += delta;
@@ -120,12 +187,18 @@ static void polish_photo(void) {
         return;
     photo_bounds();
     pagination_bind(&photo_selected, photo_count, 0, 0, photo_page_move);
-    int W = photo_rotation % 2 ? photo_bh : photo_bw, H = photo_rotation % 2 ? photo_bw : photo_bh;
-    int area_y = photo_fill ? 0 : 52, area_h = photo_fill ? 800 : 680;
+    int rotation = photo_slideshow ? photo_catalog.landscape : photo_rotation;
+    int fill = photo_slideshow ? photo_catalog.fill : photo_fill;
+    int W = rotation % 2 ? photo_bh : photo_bw, H = rotation % 2 ? photo_bw : photo_bh;
+    int full_photo = photo_slideshow || photo_fill;
+    int area_y = full_photo ? 0 : 52, area_h = full_photo ? 800 : 680;
     double scale =
-        photo_fill ? fmax(600. / W, (double)area_h / H) : fmin(600. / W, (double)area_h / H);
+        fill ? fmax(600. / W, (double)area_h / H) : fmin(600. / W, (double)area_h / H);
     int left = (600 - W * scale) / 2, top = area_y + (area_h - H * scale) / 2;
     rect(0, 0, 600, 800, 255);
+    int drawn_w = (int)ceil(W * scale), drawn_h = (int)ceil(H * scale);
+    int clip = !fill && drawn_w >= 18 && drawn_h >= 18;
+    if (clip) rounded_clip_begin(left, top, drawn_w, drawn_h);
     int xmap[600], ymap[800];
     for (int x = 0; x < 600; x++)
         xmap[x] = x < left ? -1 : (int)(((x - left + .5) / scale - .5) * 256);
@@ -141,7 +214,7 @@ static void polish_photo(void) {
             if (v < 0)
                 v = 0;
             int a, b;
-            switch (photo_rotation % 4) {
+            switch (rotation % 4) {
             case 1:
                 a = v;
                 b = (photo_bh - 1) * 256 - u;
@@ -162,7 +235,8 @@ static void polish_photo(void) {
                                        photo_bh, a, b);
             ui_pixels[y * 600 + x] = image_tone(value, x, y);
         }
-    if (photo_controls || !photo_fill) {
+    if (clip) rounded_clip_end(left, top, drawn_w, drawn_h);
+    if (!photo_slideshow && (photo_controls || !photo_fill)) {
         rect(0, 0, 600, 50, 255);
         header();
         rect(0, 742, 600, 58, 255);
@@ -177,6 +251,11 @@ static int polish_photo_input(const Input *in) {
     if (in->kind != INPUT_TAP)
         return 2;
     int x = in->x, y = in->y;
+    if (photo_slideshow) {
+        photo_slideshow = 0;
+        extra_return(71);
+        return 1;
+    }
     if (photo_fill && !photo_controls) {
         photo_controls = 1;
         return 1;
@@ -199,4 +278,17 @@ static int polish_photo_input(const Input *in) {
     } else if (photo_fill)
         photo_controls = 0;
     return 1;
+}
+
+static int photo_gallery_active(void) { return ui_route() == 71 && !photo_settings; }
+static void photo_app_leave(void) {
+    photo_slideshow = 0;
+    photo_settings = 0;
+}
+static void photo_duration_choice(int choice) {
+    static const int durations[] = {5, 10, 20, 30, 60, 120};
+    if (choice < 0 || choice >= 6) return;
+    int old = photo_catalog.seconds;
+    photo_catalog.seconds = durations[choice];
+    if (!photo_catalog_save()) photo_catalog.seconds = old;
 }

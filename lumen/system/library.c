@@ -511,7 +511,7 @@ void library_settings_load(void) {
     if (options[OPT_UI_REV] < 8) {
         options[OPT_BATTERY_PERCENT] = 0;
         options[OPT_COVER_CROP] = 1;
-        options[OPT_COVER_RADIUS] = 1;
+        options[OPT_ROUNDING] = 1;
         if (settings.size == 22)
             settings.size = 24;
     }

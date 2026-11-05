@@ -40,28 +40,28 @@ static void app_icon(int x, int y, int app) {
         break;
     case APP_NOTES:
     case APP_JOURNAL:
-        aa_soft_rect(x + 7, y + 3, 30, 38, 6, 0);
+        control_surface(x + 7, y + 3, 30, 38, 6, 0);
         for (int i = 0; i < 4; i++)
             stroke_color(x + 14, y + 13 + i * 6, x + 30 - (i == 3 ? 7 : 0), y + 13 + i * 6, 2, 255);
         if (app == APP_JOURNAL)
             stroke_color(x + 10, y + 4, x + 10, y + 40, 2, 255);
         break;
     case APP_CALCULATOR:
-        aa_soft_rect(x + 6, y + 2, 32, 40, 7, 0);
-        aa_soft_rect(x + 11, y + 7, 22, 10, 3, 255);
+        control_surface(x + 6, y + 2, 32, 40, 7, 0);
+        control_surface(x + 11, y + 7, 22, 10, 3, 255);
         for (int i = 0; i < 9; i++)
             disc(x + 13 + i % 3 * 9, y + 24 + i / 3 * 6, 2, 255);
         break;
     case APP_QUOTES:
         for (int i = 0; i < 2; i++) {
-            aa_soft_rect(x + 5 + i * 21, y + 10, 14, 17, 4, 0);
+            control_surface(x + 5 + i * 21, y + 10, 14, 17, 4, 0);
             stroke(x + 16 + i * 21, y + 24, x + 8 + i * 21, y + 35, 4);
         }
         break;
     case APP_NEWS:
         icon_box(x + 4, y + 5, 36, 34);
-        aa_soft_rect(x + 10, y + 11, 24, 5, 2, 0);
-        aa_soft_rect(x + 10, y + 22, 9, 11, 2, 0);
+        control_surface(x + 10, y + 11, 24, 5, 2, 0);
+        control_surface(x + 10, y + 22, 9, 11, 2, 0);
         for (int i = 0; i < 3; i++)
             stroke(x + 25, y + 22 + i * 5, x + 34, y + 22 + i * 5, 2);
         break;
@@ -86,11 +86,11 @@ static void app_icon(int x, int y, int app) {
         disc(x + 17, y + 29, 7, 0);
         disc(x + 28, y + 25, 9, 0);
         disc(x + 37, y + 30, 5, 0);
-        aa_soft_rect(x + 12, y + 28, 27, 10, 4, 0);
+        control_surface(x + 12, y + 28, 27, 10, 4, 0);
         break;
     case APP_INSIGHTS:
         for (int i = 0; i < 3; i++)
-            aa_soft_rect(x + 6 + i * 12, y + 24 - i * 8, 7, 15 + i * 8, 3, 0);
+            control_surface(x + 6 + i * 12, y + 24 - i * 8, 7, 15 + i * 8, 3, 0);
         stroke(x + 5, y + 17, x + 16, y + 9, 3);
         stroke(x + 16, y + 9, x + 25, y + 12, 3);
         stroke(x + 25, y + 12, x + 37, y + 4, 3);
@@ -99,7 +99,7 @@ static void app_icon(int x, int y, int app) {
         icon_native(x, y, IC_DEVICES);
         break;
     case APP_LLM:
-        aa_soft_rect(x + 4, y + 6, 36, 29, 8, 0);
+        control_surface(x + 4, y + 6, 36, 29, 8, 0);
         stroke(x + 14, y + 32, x + 10, y + 40, 4);
         for (int i = 0; i < 3; i++)
             disc(x + 13 + i * 9, y + 21, 2, 255);
@@ -109,13 +109,13 @@ static void app_icon(int x, int y, int app) {
         break;
     case APP_FLASHCARDS:
         icon_box(x + 3, y + 3, 29, 32);
-        aa_soft_rect(x + 12, y + 11, 29, 31, 5, 255);
+        control_surface(x + 12, y + 11, 29, 31, 5, 255);
         icon_box(x + 12, y + 11, 29, 31);
         type_label(x + 21, y + 15, 16, 22, "?", UI_PRIMARY);
         break;
     case APP_WORDLE:
         for (int i = 0; i < 3; i++) {
-            aa_soft_rect(x + 1 + i * 15, y + 12, 12, 20, 3, 0);
+            control_surface(x + 1 + i * 15, y + 12, 12, 20, 3, 0);
             char b[2] = {(char)('A' + i), 0};
             int old = ink_color;
             ink_color = 255;
@@ -137,9 +137,9 @@ static void app_icon(int x, int y, int app) {
             int filled = app == APP_NONOGRAMS   ? (i == 1 || i == 3 || i == 4 || i == 5 || i == 7)
                          : app == APP_CROSSWORD ? (i % 3 == 1 || i / 3 == 1)
                                                 : 0;
-            aa_soft_rect(xx, yy, 11, 11, 3, 0);
+            control_surface(xx, yy, 11, 11, 3, 0);
             if (!filled)
-                aa_soft_rect(xx + 2, yy + 2, 7, 7, 2, 255);
+                control_surface(xx + 2, yy + 2, 7, 7, 2, 255);
             if (app == APP_BINGO && i % 4 == 0)
                 disc(xx + 5, yy + 5, 2, 0);
             if (app == APP_SUDOKU && i % 4 == 0)
@@ -147,7 +147,7 @@ static void app_icon(int x, int y, int app) {
         }
         break;
     case APP_2048:
-        aa_soft_rect(x + 3, y + 3, 38, 38, 7, 0);
+        control_surface(x + 3, y + 3, 38, 38, 7, 0);
         int old = ink_color;
         ink_color = 255;
         label_at(x + 10, y + 4, 30, 17, "20", ui_font(UI_SECONDARY));
@@ -156,7 +156,7 @@ static void app_icon(int x, int y, int app) {
         break;
     case APP_SOLITAIRE:
         icon_box(x + 3, y + 3, 27, 33);
-        aa_soft_rect(x + 13, y + 10, 28, 32, 5, 255);
+        control_surface(x + 13, y + 10, 28, 32, 5, 255);
         icon_box(x + 13, y + 10, 28, 32);
         disc(x + 23, y + 23, 4, 0);
         disc(x + 31, y + 23, 4, 0);
@@ -174,7 +174,7 @@ static void app_icon(int x, int y, int app) {
         break;
     case APP_BLOCKS:
         for (int i = 0; i < 4; i++)
-            aa_soft_rect(x + 3 + (i < 3 ? i : 1) * 13, y + 9 + (i < 3 ? 0 : 13), 11, 11, 3, 0);
+            control_surface(x + 3 + (i < 3 ? i : 1) * 13, y + 9 + (i < 3 ? 0 : 13), 11, 11, 3, 0);
         break;
     case APP_SNAKE:
         stroke(x + 7, y + 9, x + 35, y + 9, 8);
@@ -231,7 +231,7 @@ static void app_icon(int x, int y, int app) {
             stroke(x + 2 + i * 3, y + 5, x + 2 + i * 3, y + 15, 2);
         break;
     case APP_PERIODIC:
-        aa_soft_rect(x + 4, y + 4, 36, 36, 6, 0);
+        control_surface(x + 4, y + 4, 36, 36, 6, 0);
         type_centered(x + 4, y + 6, 36, 32, "Fe", UI_INVERSE);
         break;
     case APP_SOKOBAN:

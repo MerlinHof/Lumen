@@ -271,7 +271,7 @@ static void app_tic(void) {
     for (int i = 0; i < 9; i++) {
         int x = 63 + (i % 3) * 160, y = 241 + (i / 3) * 160;
         region(x, y, 154, 154);
-        soft_rect(x, y, 154, 154, 12, 218);
+        control_surface(x, y, 154, 154, 12, 218);
         if (tic[i] == 1) {
             stroke(x + 40, y + 40, x + 114, y + 114, 6);
             stroke(x + 114, y + 40, x + 40, y + 114, 6);

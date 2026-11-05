@@ -27,7 +27,7 @@
     [OPT_DATE] = 1, \
     [OPT_BATTERY_PERCENT] = 0, \
     [OPT_COVER_CROP] = 1, \
-    [OPT_COVER_RADIUS] = 1, \
+    [OPT_ROUNDING] = 1, \
     [OPT_PROGRESS] = 1, \
     [OPT_APPS] = 1, \
     [OPT_LOCK_BLUR] = 1, \

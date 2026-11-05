@@ -213,8 +213,6 @@ static void extra_wiki_restore(void);
 static void quotes_load(void);
 static void app_insights(void);
 static void key_outline(int x, int y, int w, int h);
-static void soft_rect(int x, int y, int w, int h, int r, int color);
-static void aa_soft_rect(int x, int y, int w, int h, int r, int color);
 static void control_surface(int x, int y, int w, int h, int r, int color);
 static void segment_fill(int x, int y, int w, int h, int r, int color, int sides);
 static void stroke(int x0, int y0, int x1, int y1, int thickness);
@@ -265,6 +263,14 @@ static int polish_input(const Input *), polish_tick(void), polish_poll(void),
     polish_commit(int, const char *), polish_power(const Input *);
 static void polish_wiki_archive(void), polish_wiki_saved(void);
 static void polish_notes(void);
+static int photo_grid_hit(int x, int y);
+static void photo_grid_input(int x, int y);
+static void photo_open_folder_menu(int assign, int index);
+static void photo_folder_choice(int target, int choice);
+static void photo_create_folder(const char *name);
+static void photo_duration_choice(int choice);
+static int photo_gallery_active(void);
+static void photo_app_leave(void);
 static int polish_photo_full(void);
 static int polish_notes_input(const Input *), polish_news_input(const Input *);
 static void polish_news_draw(void), polish_photo(void), polish_brain(void), polish_language(void);
@@ -660,7 +666,7 @@ static void stroke(int x0, int y0, int x1, int y1, int thickness) {
 static void ring(int x, int y, int r, int thickness) {
     aa_arc(x, y, r, 0, 360, thickness);
 }
-static void aa_soft_rect(int,int,int,int,int,int);
+static int rounding_profile(void);
 #include "icons.h"
 #include "dropdown_icons.h"
 
@@ -673,10 +679,6 @@ static void disc(int x, int y, int r, int color) {
     aa_disc(x, y, r, color);
 }
 #include "corners.h"
-static void soft_rect(int x, int y, int w, int h, int r, int color) {
-    (void)r;
-    rect(x, y, w, h, color);
-}
 static void toggle(int x, int y, int on) {
     region(x - 10, y - 8, 90, 48);
     control_surface(x, y, 68, 32, 16, 0);
@@ -704,24 +706,6 @@ static void progress(int x, int y, int w, int n, int total) {
 }
 #include "image_sampling.h"
 #include "cover_cache.h"
-static unsigned char clip_background[4][81];
-static void rounded_clip_end(int x, int y, int w, int h, int enabled) {
-    if (!enabled)
-        return;
-    for (int j = 0; j < 9; j++)
-        for (int i = 0; i < 9; i++) {
-            int xx[4] = {x + i, x + w - 1 - i, x + i, x + w - 1 - i},
-                yy[4] = {y + j, y + j, y + h - 1 - j, y + h - 1 - j};
-            int a = (int)((1 - corner_inside(9, i, j)) * 16);
-            for (int c = 0; c < 4; c++)
-                if (xx[c] >= 0 && xx[c] < WIDTH && yy[c] >= 0 && yy[c] < HEIGHT) {
-                    int k = yy[c] * WIDTH + xx[c], v = ui_pixels[k];
-                    ui_pixels[k] =
-                        (unsigned char)((v * (16 - a) + clip_background[c][j * 9 + i] * a + 8) /
-                                        16);
-                }
-        }
-}
 static void cover_bounds(const unsigned char *p, int cw, int ch, int *x0, int *y0, int *x1,
                          int *y1) {
     *x0 = 0;
@@ -761,18 +745,6 @@ static void cover_bounds(const unsigned char *p, int cw, int ch, int *x0, int *y
         *y1 = bottom;
     }
 }
-static void rounded_clip_begin(int x, int y, int w, int h) {
-    for (int j = 0; j < 9; j++)
-        for (int i = 0; i < 9; i++) {
-            int xx[4] = {x + i, x + w - 1 - i, x + i, x + w - 1 - i},
-                yy[4] = {y + j, y + j, y + h - 1 - j, y + h - 1 - j};
-            for (int c = 0; c < 4; c++)
-                clip_background[c][j * 9 + i] =
-                    (xx[c] >= 0 && xx[c] < WIDTH && yy[c] >= 0 && yy[c] < HEIGHT)
-                        ? ui_pixels[yy[c] * WIDTH + xx[c]]
-                        : 255;
-        }
-}
 static void cover_size(Book *b, int x, int y, int w, int h) {
     rounded_clip_begin(x, y, w, h);
     char path[2048];
@@ -792,7 +764,7 @@ static void cover_size(Book *b, int x, int y, int w, int h) {
         int cacheable = !fstat(fileno(f), &source);
         if (cacheable && cover_tile_get(&source, x, y, w, h)) {
             fclose(f);
-            rounded_clip_end(x, y, w, h, options[OPT_COVER_RADIUS]);
+            rounded_clip_end(x, y, w, h);
             return;
         }
         char magic[3];
@@ -829,7 +801,7 @@ static void cover_size(Book *b, int x, int y, int w, int h) {
                     }
                 if (cacheable)
                     cover_tile_put(&source, x, y, w, h);
-                rounded_clip_end(x, y, w, h, options[OPT_COVER_RADIUS]);
+                rounded_clip_end(x, y, w, h);
                 fclose(f);
                 return;
             }
@@ -856,7 +828,7 @@ static void cover_size(Book *b, int x, int y, int w, int h) {
     centered(x + 8, y + h / 4, w - 16, h / 2, initial, face);
     if (w > 100)
         centered(x + 12, y + h - 42, w - 24, 26, b->format, &caption);
-    rounded_clip_end(x, y, w, h, options[OPT_COVER_RADIUS]);
+    rounded_clip_end(x, y, w, h);
 }
 static void cover(Book *b, int x, int y, int scale) {
     cover_size(b, x, y, scale == 2 ? 52 : 120 / scale, scale == 2 ? 72 : 164 / scale);
@@ -925,7 +897,6 @@ static void system_loading(int target) {
     device_present(ui_pixels, 0, 0);
 #endif
 }
-#include "squircle.h"
 #include "widgets.h"
 #include "typography.h"
 #include "selection_menu.h"
@@ -1394,6 +1365,15 @@ int ui_input(const Input *in) {
     int pm = polish_power(in);
     if (pm)
         return pm == 2 ? 0 : pm == 3 ? 3 : 1;
+    if (!sleeping && in->kind == INPUT_HOLD && photo_gallery_active() &&
+        !dropdown && !editor_ui.keyboard) {
+        int index = photo_grid_hit(in->x, in->y);
+        if (index >= 0) {
+            photo_open_folder_menu(1, index);
+            selection_release = 1;
+            return 1;
+        }
+    }
     if (polish_photo_full() && in->kind == INPUT_TAP)
         return polish_photo_input(in);
     int input18 = keyboard_intercept18(in);
@@ -1888,8 +1868,8 @@ static void overlays(void) {
         }
     }
     if (confirm_delete) {
-        soft_rect(20, 270, 554, 260, 12, 0);
-        soft_rect(22, 272, 550, 256, 10, 255);
+        control_surface(20, 270, 554, 260, 12, 0);
+        control_surface(22, 272, 550, 256, 10, 255);
         drawtext(42, 292, confirm_delete == 2 ? "Markierung löschen?" : "Buch wirklich löschen?",
                  &body, 510);
         wrapped(42, 340,
@@ -1899,8 +1879,8 @@ static void overlays(void) {
         button(309, 446, 235, "Löschen", 0);
     }
     if (battery_popup) {
-        soft_rect(428, 50, 148, 84, 9, 0);
-        soft_rect(430, 52, 144, 80, 0, 255);
+        control_surface(428, 50, 148, 84, 9, 0);
+        control_surface(430, 52, 144, 80, 0, 255);
         char b[32];
         snprintf(b, sizeof(b), "%s%%", status_ui.battery);
         centered(430, 58, 144, 64, b, &body);
@@ -1917,6 +1897,12 @@ static void refresh_library(void) {
     update_view();
 }
 static void commit_keyboard(void) {
+    if (editor_ui.keyboard_target == TEXT_INPUT_PHOTO_FOLDER) {
+        photo_create_folder(editor_ui.edit);
+        editor_ui.keyboard = 0;
+        pressed = -1;
+        return;
+    }
     if (editor_ui.keyboard_target >= 30) {
         int previous_target = editor_ui.keyboard_target;
         extra_commit(editor_ui.keyboard_target, editor_ui.edit);
@@ -2043,6 +2029,10 @@ static void modal_input(const Input *in) {
                 u17_choice(drop_target, choice);
             } else if (drop_target >= 910 && drop_target <= 930) {
                 u16_dropdown(drop_target, choice);
+            } else if (drop_target == 903 || drop_target == 904) {
+                photo_folder_choice(drop_target, choice);
+            } else if (drop_target == 905) {
+                photo_duration_choice(choice);
             } else if (drop_target == 902) {
                 clock_ui.clock_style = choice;
                 extra_save();
@@ -2174,6 +2164,7 @@ static void register_builtin_views(void) {
 
 static void app_leave(AppId app, void *ctx) {
     app_page_checkpoint(app);
+    if (app == APP_PHOTOS) photo_app_leave();
     (void)ctx;
     games_save17();
     if (app == APP_JOURNAL)

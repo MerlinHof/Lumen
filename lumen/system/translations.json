@@ -5053,5 +5053,100 @@
     "Keine Sprünge mehr. Rückgängig oder neu starten.",
     "No jumps left. Undo or restart.",
     "Plus de saut possible. Annulez ou recommencez."
+  ],
+  "Abgerundete Ecken": [
+    "Abgerundete Ecken",
+    "Rounded corners",
+    "Coins arrondis"
+  ],
+  "Alle Fotos": [
+    "Alle Fotos",
+    "All photos",
+    "Toutes les photos"
+  ],
+  "Diashow": [
+    "Diashow",
+    "Slideshow",
+    "Diaporama"
+  ],
+  "Dauer pro Foto": [
+    "Dauer pro Foto",
+    "Time per photo",
+    "Durée par photo"
+  ],
+  "Einpassen": [
+    "Einpassen",
+    "Fit",
+    "Ajuster"
+  ],
+  "Ausfüllen": [
+    "Ausfüllen",
+    "Fill",
+    "Remplir"
+  ],
+  "Hochformat": [
+    "Hochformat",
+    "Portrait",
+    "Portrait"
+  ],
+  "Querformat": [
+    "Querformat",
+    "Landscape",
+    "Paysage"
+  ],
+  "Bildformat": [
+    "Bildformat",
+    "Image fit",
+    "Cadrage"
+  ],
+  "Neuer Fotoordner": [
+    "Neuer Fotoordner",
+    "New photo folder",
+    "Nouveau dossier photo"
+  ],
+  "Dieser Ordner existiert bereits.": [
+    "Dieser Ordner existiert bereits.",
+    "This folder already exists.",
+    "Ce dossier existe déjà."
+  ],
+  "Maximal 16 Fotoordner.": [
+    "Maximal 16 Fotoordner.",
+    "Up to 16 photo folders.",
+    "16 dossiers photo au maximum."
+  ],
+  "Erstelle zuerst einen Fotoordner.": [
+    "Erstelle zuerst einen Fotoordner.",
+    "Create a photo folder first.",
+    "Créez d’abord un dossier photo."
+  ],
+  "Zu viele Fotozuordnungen.": [
+    "Zu viele Fotozuordnungen.",
+    "Too many photo assignments.",
+    "Trop d’affectations de photos."
+  ],
+  "Foto gedrückt halten, um es Ordnern zuzuordnen.": [
+    "Foto gedrückt halten, um es Ordnern zuzuordnen.",
+    "Hold a photo to assign it to folders.",
+    "Maintenez une photo pour l’ajouter à des dossiers."
+  ],
+  "Halte ein Foto unter Alle Fotos gedrückt, um es zuzuordnen.": [
+    "Halte ein Foto unter Alle Fotos gedrückt, um es zuzuordnen.",
+    "Hold a photo in All photos to assign it here.",
+    "Maintenez une photo dans Toutes les photos pour l’ajouter ici."
+  ],
+  "Fotos vom Handy über LUMEN Connect hochladen.": [
+    "Fotos vom Handy über LUMEN Connect hochladen.",
+    "Upload photos from your phone with LUMEN Connect.",
+    "Envoyez vos photos depuis votre téléphone avec LUMEN Connect."
+  ],
+  "Tippe während der Diashow, um zum Ordner zurückzukehren.": [
+    "Tippe während der Diashow, um zum Ordner zurückzukehren.",
+    "Tap during the slideshow to return to the folder.",
+    "Touchez l’écran pendant le diaporama pour revenir au dossier."
+  ],
+  "Bildausrichtung": [
+    "Bildausrichtung",
+    "Orientation",
+    "Orientation"
   ]
 }

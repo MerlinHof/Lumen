@@ -3,8 +3,8 @@
 
 /* One optical grid: 44 px tile, 3 px round-capped ink, soft 5 px corners. */
 static void icon_box(int x, int y, int w, int h) {
-    aa_soft_rect(x, y, w, h, 5, 0);
-    aa_soft_rect(x + 3, y + 3, w - 6, h - 6, 3, 255);
+    control_surface(x, y, w, h, 5, 0);
+    control_surface(x + 3, y + 3, w - 6, h - 6, 3, 255);
 }
 static void icon_chevron(int cx, int cy, int direction) {
     stroke(cx - 4 * direction, cy - 9, cx + 5 * direction, cy, 3);
@@ -65,8 +65,8 @@ static void icon_native(int x, int y, int kind) {
         stroke(c, y + 5, c, y + 22, 3);
         break;
     case IC_BOOK:
-        aa_soft_rect(x + 5, y + 6, 34, 33, 5, 0);
-        aa_soft_rect(x + 8, y + 9, 28, 26, 3, 255);
+        control_surface(x + 5, y + 6, 34, 33, 5, 0);
+        control_surface(x + 8, y + 9, 28, 26, 3, 255);
         stroke(c, y + 9, c, y + 35, 3);
         stroke(x + 12, y + 14, x + 17, y + 14, 2);
         stroke(x + 27, y + 14, x + 32, y + 14, 2);
@@ -159,7 +159,7 @@ static void icon_native(int x, int y, int kind) {
         break;
     case IC_FLAG:
         stroke(x + 12, y + 5, x + 12, y + 39, 3);
-        aa_soft_rect(x + 12, y + 6, 24, 17, 4, 0);
+        control_surface(x + 12, y + 6, 24, 17, 4, 0);
         break;
     case IC_CLOSE:
         stroke(x + 12, y + 12, x + 32, y + 32, 3);
@@ -185,9 +185,9 @@ static void icon_native(int x, int y, int kind) {
         break;
     case IC_FOLDER:
     case IC_FOLDER_PLUS:
-        aa_soft_rect(x + 5, y + 12, 34, 25, 5, 0);
-        aa_soft_rect(x + 5, y + 7, 17, 15, 4, 0);
-        aa_soft_rect(x + 8, y + 15, 28, 19, 3, 255);
+        control_surface(x + 5, y + 12, 34, 25, 5, 0);
+        control_surface(x + 5, y + 7, 17, 15, 4, 0);
+        control_surface(x + 8, y + 15, 28, 19, 3, 255);
         if (kind == IC_FOLDER_PLUS) {
             disc(x + 34, y + 33, 10, 255);
             disc(x + 34, y + 33, 8, 0);
@@ -289,7 +289,8 @@ static void icon_native(int x, int y, int kind) {
 static void icon_sized(int x, int y, int kind, int size) {
     static unsigned char tiles[IC_LAST + 1][48 * 48], ready[IC_LAST + 1];
     if (kind < 0 || kind > IC_LAST) return;
-    if (!ready[kind]) {
+    int profile = rounding_profile() + 1;
+    if (ready[kind] != profile) {
         unsigned char saved[48 * 48];
         int offset = ui_y_offset;
         ui_y_offset = 0;
@@ -303,7 +304,7 @@ static void icon_sized(int x, int y, int kind, int size) {
             memcpy(ui_pixels+j*WIDTH,saved+j*48,48);
         }
         ui_y_offset = offset;
-        ready[kind]=1;
+        ready[kind]=profile;
     }
     for (int j=0;j<size;j++) for (int i=0;i<size;i++) {
         int u=i*48/size,v=j*48/size,u1=(i+1)*48/size,v1=(j+1)*48/size;

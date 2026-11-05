@@ -1,5 +1,9 @@
 /* App-owned module; assembled by apps/host/compose.h. */
+#include "catalog.h"
+static unsigned photo_scan_generation;
 static void v1_photos_scan(void) {
+    photo_catalog_load();
+    photo_scan_generation++;
     photo_cache_page = -1;
     photo_loaded[0] = 0;
     photo_count = 0;
@@ -12,8 +16,12 @@ static void v1_photos_scan(void) {
     struct dirent *e;
     while ((e = readdir(d)) && photo_count < 512) {
         size_t n = strlen(e->d_name);
-        if (n > 4 && !strcmp(e->d_name + n - 4, ".pgm") && e->d_name[0] != '.')
-            snprintf(photo_names[photo_count++], 256, "%s", e->d_name);
+        if (n <= 4 || strcmp(e->d_name + n - 4, ".pgm") || e->d_name[0] == '.') continue;
+        if (photo_folder) {
+            PhotoMembership *item = photo_membership(photo_id(e->d_name), 0);
+            if (!item || !(item->folders & (1u << (photo_folder - 1)))) continue;
+        }
+        snprintf(photo_names[photo_count++], 256, "%s", e->d_name);
     }
     closedir(d);
     for (int i = 0; i < photo_count; i++)
@@ -57,17 +65,26 @@ static int v1_photo_load(int i) {
     return ok;
 }
 static int v1_sleep_photo(void) {
-    v1_photos_scan();
-    if (!photo_count)
-        return 0;
-    uint64_t hour = (uint64_t)time(NULL) / 3600;
+    char path[2048], name[300] = "";
+    local_path(path, sizeof(path), "photos");
+    DIR *dir = opendir(path);
+    if (!dir) return 0;
+    uint64_t hour = (uint64_t)time(NULL) / 3600, best = UINT64_MAX;
+    struct dirent *entry;
+    while ((entry = readdir(dir))) {
+        size_t size = strlen(entry->d_name);
+        if (size <= 4 || strcmp(entry->d_name + size - 4, ".pgm") || entry->d_name[0] == '.')
+            continue;
+        uint64_t score = photo_id(entry->d_name) ^ (hour * 11400714819323198485ULL);
+        if (score <= best) {
+            best = score;
+            snprintf(name, sizeof(name), "photos/%s", entry->d_name);
+        }
+    }
+    closedir(dir);
+    if (!*name) return 0;
     photo_hour_drawn = hour;
-    int i = (int)((hour * 11400714819323198485ull) >> 32) % photo_count;
-    if (i < 0)
-        i = -i;
-    char n[300];
-    snprintf(n, sizeof(n), "photos/%s", photo_names[i]);
-    if (!v1_pgm(n, ui_pixels)) return 0;
+    if (!v1_pgm(name, ui_pixels)) return 0;
     image_contrast_pixels(ui_pixels, sizeof(ui_pixels));
     return 1;
 }
@@ -78,3 +95,5 @@ static void v1_photos_draw(void) {
 static void v1_photo_draw(void) {
     polish_photo();
 }
+
+#include "albums.h"

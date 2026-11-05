@@ -263,6 +263,58 @@ int main(int argc, char **argv) {
     assert(dictionary_translate("bonjour", 2, translation, sizeof(translation)));
     assert(!strncmp(translation, "fra-eng", 7));
 
+    /* Real gallery entry, folder editor, long press assignment and timed playback. */
+    char photo_path[2048];
+    local_path(photo_path, sizeof(photo_path), "photos");
+    mkdir(photo_path, 0700);
+    for (int i = 0; i < 2; i++) {
+        char file[2100];
+        snprintf(file, sizeof(file), "%s/demo-%d.pgm", photo_path, i);
+        FILE *photo = fopen(file, "wb");
+        assert(photo);
+        fprintf(photo, "P5\n600 800\n255\n");
+        static unsigned char raster[WIDTH*HEIGHT];
+        memset(raster, 80 + i * 20, sizeof(raster));
+        assert(fwrite(raster, 1, sizeof(raster), photo) == sizeof(raster));
+        fclose(photo);
+    }
+    extra_open(71);
+    notification_dismiss();
+    ui_draw();
+    assert(photo_count == 2);
+    tap17(430, 96);
+    assert(editor_ui.keyboard && editor_ui.keyboard_target == TEXT_INPUT_PHOTO_FOLDER);
+    strcpy(editor_ui.edit, "Test folder");
+    commit_keyboard();
+    ui_draw();
+    assert(photo_folder == 1 && !photo_count);
+    tap17(100, 156);
+    tap17(drop_x + 85, drop_y + 25);
+    assert(!photo_folder && photo_count == 2);
+    Input photo_hold = {.kind=INPUT_HOLD, .x=80, .y=240};
+    assert(ui_input(&photo_hold) == 1 && dropdown && drop_target == 904);
+    ui_draw();
+    tap17(80, 240);
+    assert(dropdown);
+    tap17(drop_x + 85, drop_y + 25);
+    assert(photo_count == 2 && !dropdown);
+    tap17(100, 156);
+    tap17(drop_x + 85, drop_y + 73);
+    assert(photo_folder == 1 && photo_count == 1);
+    tap17(450, 156);
+    assert(ui_route() == 72 && photo_slideshow && polish_photo_full());
+    photo_next_frame = extra_millis() - 1;
+    assert(v1_tick() == 1);
+    tap17(300, 300);
+    assert(ui_route() == 71 && !photo_slideshow && photo_folder == 1);
+    memset(ui_pixels, 255, sizeof(ui_pixels));
+    options[OPT_ROUNDING] = 1;
+    control_surface(20, 20, 48, 48, 16, 0);
+    assert(ui_pixels[20*WIDTH+20] > 0);
+    options[OPT_ROUNDING] = 0;
+    control_surface(20, 20, 48, 48, 16, 0);
+    assert(ui_pixels[20*WIDTH+20] == 0);
+    options[OPT_ROUNDING] = 1;
     ui_close();
     engine_shutdown();
     puts("PASS compact popups/nested folder menu, notes back, task editing/checkboxes, calculator "

@@ -44,6 +44,7 @@ TextInputSpec text_input_spec(int target) {
     case 180:
         s = (TextInputSpec){200, 1, 0, 0};
         break;
+    case TEXT_INPUT_PHOTO_FOLDER:
     case 170:
     case 111:
         s.capacity = 64;

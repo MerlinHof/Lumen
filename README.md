@@ -20,6 +20,13 @@
 
 ---
 
+## New in 2.6
+
+Photos has folders and a slideshow with timing, framing and orientation controls.
+The appearance setting for rounded corners applies across shared controls, app
+tiles, covers and photos. The [wireless update design](docs/wireless-updates.md)
+explains how LUMEN Connect could stage signed updates for the device launcher.
+
 ## New in 2.5
 
 The shared controls use antialiased superellipse corners. Segmented tabs share

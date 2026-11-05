@@ -11,7 +11,7 @@ int main(void) {
     library_settings_load();
     assert(settings.size==24&&settings.grid==1&&settings.sort==2);
     assert(options[OPT_APPS]&&options[OPT_AUTO_TIME]&&options[OPT_AUTOSTART]);
-    assert(options[OPT_COVER_CROP]&&options[OPT_COVER_RADIUS]&&!options[OPT_BATTERY_PERCENT]);
+    assert(options[OPT_COVER_CROP]&&options[OPT_ROUNDING]&&!options[OPT_BATTERY_PERCENT]);
     assert(!options[OPT_KEYBOARD_LANGUAGE]&&!options[OPT_TAB_LABELS]);
     assert(access("build/tests/fresh-data/settings.txt",F_OK)==0);
     options[OPT_KEYBOARD_LANGUAGE]=2;options[OPT_LANGUAGE]=1;options[OPT_APPS]=0;settings.size=29;library_settings_save();

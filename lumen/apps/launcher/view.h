@@ -20,8 +20,8 @@ static void v1_launcher(void) {
     for (int r = 0; r < 12 && launcher_page * 12 + r < n; r++) {
         int id = ids[launcher_page * 12 + r], x = 53 + (r % 3) * 172, y = 137 + (r / 3) * 130;
         region(x, y, 150, 122);
-        squircle(x+36,y+2,78,0);
-        squircle(x+38,y+4,74,255);
+        control_surface(x+36,y+2,78,78,32,0);
+        control_surface(x+38,y+4,74,74,30,255);
         app_icon(x + 53, y + 17, id);
         const char *name = tr(app_definition(id)->name);
         if (textwidth_raw(name, ui_font(UI_BODY)) <= 148)

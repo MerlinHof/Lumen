@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.6
+
+- Photo folders with persistent multi-folder assignment and an All Photos view.
+- Folder slideshow with duration, fit or fill, and portrait or landscape preferences.
+- Global appearance switch for corner rounding. Covers, photos, launcher tiles, and shared controls use the same superellipse mask.
+- Wireless update design using LUMEN Connect and launcher-managed activation and rollback.
+
 ## 2.5
 
 - Superellipse corners for shared buttons, segmented controls, dropdowns, switches and floating surfaces.

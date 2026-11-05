@@ -1,5 +1,7 @@
 /* Option semantics are shared across anchored menus and setting selectors. */
 static int dropdown_option_icon(int target, int option, const char *label) {
+    if (target == 903 || target == 904) return IC_FOLDER;
+    if (target == 905) return IC_CLOCK;
     if (target == 902) return option < 2 ? IC_CLOCK : IC_DIGITAL;
     if (target == 901) return option == 0 ? IC_PIN : IC_TRASH;
     if (target == 932) return option == 0 ? IC_MOVE : IC_TRASH;
