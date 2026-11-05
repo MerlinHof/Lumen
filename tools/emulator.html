@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="de">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LUMEN · Kindle-Emulator</title>
+<style>
+  :root{color-scheme:light;background:#e8e7e2;color:#191919;font:15px system-ui,sans-serif}
+  body{margin:0}
+  header{position:sticky;top:0;z-index:2;display:flex;align-items:center;flex-wrap:wrap;gap:10px 16px;background:#242424;color:#fff;padding:10px 18px}
+  strong{letter-spacing:.18em}
+  small{color:#d1d0cc}
+  button,select,a{font:inherit;color:inherit}
+  button,select,a.download{padding:6px 10px;background:#343434;border:1px solid #8c8c8c;border-radius:4px;text-decoration:none}
+  button{cursor:pointer;touch-action:none}
+  button:active{background:#f0f0f0;color:#151515}
+  main{width:max-content;min-width:100%;box-sizing:border-box;padding:16px;text-align:center}
+  .device{display:inline-block;position:relative;line-height:0;background:#f8f8f8;border:10px solid #252525;border-radius:12px;overflow:hidden;box-shadow:0 6px 20px #0003}
+  canvas{display:block;width:600px;height:800px;image-rendering:pixelated;touch-action:none;user-select:none;cursor:crosshair}
+  .fit canvas{width:min(600px,calc(100vw - 52px),max(180px,calc((100dvh - var(--bar-height, 70px) - 52px) * .75)));height:auto;aspect-ratio:3/4}
+  .raster canvas{width:1800px;height:2400px}
+  .raster::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,#7774 1px,transparent 1px),linear-gradient(#7774 1px,transparent 1px);background-size:3px 3px}
+  output{inline-size:137px;white-space:nowrap;font-variant-numeric:tabular-nums;color:#d1d0cc}
+</style>
+<header>
+  <strong>LUMEN</strong><small>Kindle Touch 2 · 600 × 800</small>
+  <button id="power" title="Kurz drücken für Schlaf/Wachen, halten für das Power-Menü">Power</button>
+  <label>Ansicht <select id="zoom"><option value="">1:1</option><option value="fit">Einpassen</option><option value="raster">Pixelraster 3×</option></select></label>
+  <a class="download" href="snapshot.png" download="lumen-screenshot.png">PNG</a>
+  <output id="status" aria-live="polite">Startet …</output>
+</header>
+<main><div class="device" id="device"><canvas id="screen" width="600" height="800" aria-label="LUMEN Touchscreen"></canvas></div></main>
+<script>
+"use strict";
+const canvas = document.getElementById("screen"), status = document.getElementById("status");
+const context = canvas.getContext("2d", {alpha: false});
+context.imageSmoothingEnabled = false;
+context.fillStyle = "#fff";
+context.fillRect(0, 0, 600, 800);
+const zoom = document.getElementById("zoom");
+zoom.value = innerWidth < 650 || innerHeight < 900 ? "fit" : "";
+const toolbar = document.querySelector("header");
+new ResizeObserver(() => {
+  document.documentElement.style.setProperty("--bar-height", toolbar.offsetHeight + "px");
+}).observe(toolbar);
+const updateZoom = () => {document.getElementById("device").className = "device " + zoom.value;};
+zoom.onchange = updateZoom;
+updateZoom();
+
+let inputs = Promise.resolve();
+function send(kind, x = 0, y = 0) {
+  inputs = inputs.then(async () => {
+    const reply = await fetch("input", {
+      method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify([kind, x, y])
+    });
+    if (!reply.ok) throw new Error("Eingabe fehlgeschlagen");
+  }).catch(() => { status.value = "Verbindung unterbrochen"; });
+}
+function point(event) {
+  const r = canvas.getBoundingClientRect();
+  return [
+    Math.max(0, Math.min(599, Math.floor((event.clientX - r.left) * 600 / r.width))),
+    Math.max(0, Math.min(799, Math.floor((event.clientY - r.top) * 800 / r.height)))
+  ];
+}
+let touch = null, lastMove = 0;
+canvas.onpointerdown = event => {
+  if (touch !== null || event.button !== 0) return;
+  event.preventDefault();
+  touch = event.pointerId;
+  lastMove = 0;
+  canvas.setPointerCapture(touch);
+  send(1, ...point(event));
+};
+canvas.onpointermove = event => {
+  if (event.pointerId !== touch || performance.now() - lastMove < 32) return;
+  lastMove = performance.now();
+  send(2, ...point(event));
+};
+canvas.onpointerup = event => {
+  if (event.pointerId !== touch) return;
+  touch = null;
+  send(3, ...point(event));
+};
+canvas.onpointercancel = canvas.onlostpointercapture = event => {
+  if (event.pointerId !== touch) return;
+  touch = null;
+  send(4, ...point(event));
+};
+canvas.oncontextmenu = event => event.preventDefault();
+
+const power = document.getElementById("power");
+let powerPointer = null;
+power.onpointerdown = event => {
+  if (powerPointer !== null || event.button !== 0) return;
+  powerPointer = event.pointerId;
+  power.setPointerCapture(powerPointer);
+  send(5);
+};
+power.onpointerup = power.onpointercancel = power.onlostpointercapture = event => {
+  if (event.pointerId !== powerPointer) return;
+  powerPointer = null;
+  send(6);
+};
+power.onclick = event => {
+  if (event.detail === 0 && powerPointer === null) { send(5); send(6); }
+};
+
+async function frames() {
+  let revision = 0;
+  for (;;) {
+    try {
+      const response = await fetch("frame?after=" + revision, {cache: "no-store"});
+      if (response.status === 204) continue;
+      if (!response.ok) throw new Error("Bildabruf fehlgeschlagen");
+      const bitmap = await createImageBitmap(await response.blob());
+      context.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      revision = Number(response.headers.get("X-Frame"));
+      status.value = response.headers.get("X-Waveform") || "Bereit";
+    } catch {
+      status.value = "Emulator getrennt";
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+}
+frames();
+</script>
+</html>
