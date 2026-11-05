@@ -681,10 +681,10 @@ static void disc(int x, int y, int r, int color) {
 #include "corners.h"
 static void toggle(int x, int y, int on) {
     region(x - 10, y - 8, 90, 48);
-    control_surface(x, y, 68, 32, 16, 0);
+    control_surface(x + 2, y + 1, 64, 30, 15, 0);
     if (!on)
-        control_surface(x + 2, y + 2, 64, 28, 14, 255);
-    aa_disc(x + (on ? 52 : 16), y + 16, 12, on ? 255 : 0);
+        control_surface(x + 4, y + 3, 60, 26, 13, 255);
+    control_surface(x + (on ? 40 : 8), y + 6, 20, 20, 10, on ? 255 : 0);
 }
 static void key_outline(int x, int y, int w, int h) {
     if (w < 4 || h < 4)

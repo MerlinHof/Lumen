@@ -214,7 +214,7 @@ is KT2, 5.12.2.2, with the documented `.sh` launcher/FBInk prerequisite.
 Versions use one decimal digit: 2.0, 2.1, ... 2.9, then 3.0 (never 2.10).
 The user explicitly designated this quality/performance release 2.0. Keep
 `VERSION`, displayed version, package metadata and release notes
-consistent. Commit every finished update with its documentation and validation.
+consistent. Commit each finished update with its documentation and validation, then push it to `origin/main`. Verify that the remote contains the new commit before reporting completion.
 
 ## Git and publication
 

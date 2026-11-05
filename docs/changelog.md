@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.7
+
+- Round capsule silhouettes for the battery and toggles using the shared corner renderer.
+- Softer cubic superellipses and 8×8 coverage for shared corners, including image clips.
+
 ## 2.6
 
 - Photo folders with persistent multi-folder assignment and an All Photos view.

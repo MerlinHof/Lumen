@@ -40,14 +40,14 @@ static void header(void) {
         if (element == 0) {
             status_ui.status_battery_x = x;
             status_ui.status_battery_right = right;
-            control_surface(x, 15, 30, 18, 4, 0);
-            control_surface(x + 2, 17, 26, 14, 2, 255);
-            control_surface(x + 31, 21, 3, 6, 1, 0);
+            control_surface(x, 15, 30, 18, 9, 0);
+            control_surface(x + 2, 17, 26, 14, 7, 255);
+            control_surface(x + 30, 21, 4, 6, 2, 0);
             int fill = 22 * atoi(status_ui.battery) / 100;
             if (fill > 22)
                 fill = 22;
             if (fill > 0)
-                control_surface(x + 4, 19, fill, 10, 2, 0);
+                control_surface(x + 4, 19, fill, 10, 5, 0);
             if(status_ui.battery_charging) {
                 /* White halo separates the black bolt from every charge fill. */
                 stroke_color(x+18,16,x+11,25,5,255);stroke_color(x+11,25,x+18,24,5,255);stroke_color(x+18,24,x+13,31,5,255);
