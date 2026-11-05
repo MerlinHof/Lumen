@@ -5148,5 +5148,55 @@
     "Bildausrichtung",
     "Orientation",
     "Orientation"
+  ],
+  " · Check": [
+    " · Check",
+    " · Check",
+    " · Échec"
+  ],
+  "Auto Y": [
+    "Auto Y",
+    "Auto Y",
+    "Y auto"
+  ],
+  "Datum · UTC": [
+    "Datum · UTC",
+    "Date · UTC",
+    "Date · UTC"
+  ],
+  "Datum: YYYY-MM-DD HH:MM UTC": [
+    "Datum: YYYY-MM-DD HH:MM UTC",
+    "Date: YYYY-MM-DD HH:MM UTC",
+    "Date : AAAA-MM-JJ HH:MM UTC"
+  ],
+  "Eine Anfrage läuft bereits.": [
+    "Eine Anfrage läuft bereits.",
+    "A request is already running.",
+    "Une requête est déjà en cours."
+  ],
+  "Klassisch · Ziffern": [
+    "Klassisch · Ziffern",
+    "Classic · Numbers",
+    "Classique · Chiffres"
+  ],
+  "Noch kein Material. Connect → Lernen → Dateien hochladen.": [
+    "Noch kein Material. Connect → Lernen → Dateien hochladen.",
+    "No study material yet. Connect → Study → Upload files.",
+    "Aucun support pour le moment. Connect → Étudier → Importer des fichiers."
+  ],
+  "Suchergebnisse": [
+    "Suchergebnisse",
+    "Search results",
+    "Résultats de recherche"
+  ],
+  "Tippe auf eine markierte Kachel neben der Lücke.": [
+    "Tippe auf eine markierte Kachel neben der Lücke.",
+    "Tap a marked tile beside the gap.",
+    "Touchez une tuile marquée à côté de la case vide."
+  ],
+  "Wordle · English": [
+    "Wordle · English",
+    "Wordle · English",
+    "Wordle · anglais"
   ]
 }

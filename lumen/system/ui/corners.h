@@ -86,33 +86,69 @@ static void segment_fill(int x, int y, int w, int h, int r, int color, int sides
     rounded_surface(x, y, w, h, r, color, sides);
 }
 
-/* Preserve the background under the shared mask when painting image pixels. */
-static unsigned char clip_background[4][81];
-static void rounded_clip_end(int x, int y, int w, int h) {
+/* Paint only the perimeter so callers can draw content in either order. */
+static void outline_surface(int x, int y, int w, int h, int r, int color) {
     int profile = rounding_profile();
-    if (!profile) return;
-    const unsigned char *mask = corner_mask(9, profile);
-    for (int j = 0; j < 9; j++)
-        for (int i = 0; i < 9; i++) {
+    if (r > w/2) r = w/2;
+    if (r > h/2) r = h/2;
+    if (!profile || r < 3) {
+        rect(x,y,w,2,color);
+        rect(x,y+h-2,w,2,color);
+        rect(x,y+2,2,h-4,color);
+        rect(x+w-2,y+2,2,h-4,color);
+        return;
+    }
+    if (r*2 >= (w < h ? w : h)-1) profile = CORNER_CIRCLE;
+    const unsigned char *outer = corner_mask(r, profile);
+    const unsigned char *inner = corner_mask(r-2, profile);
+    rect(x+r,y,w-2*r,2,color);
+    rect(x+r,y+h-2,w-2*r,2,color);
+    rect(x,y+r,2,h-2*r,color);
+    rect(x+w-2,y+r,2,h-2*r,color);
+    y += ui_y_offset;
+    color = theme_gray(color);
+    for (int j=0; j<r; j++)
+        for (int i=0; i<r; i++) {
+            int alpha = outer[j*r+i];
+            if (i>=2 && j>=2) alpha -= inner[(j-2)*(r-2)+i-2];
+            if (alpha <= 0) continue;
+            paint_corner_pixel(x+i,y+j,alpha,color);
+            paint_corner_pixel(x+w-1-i,y+j,alpha,color);
+            paint_corner_pixel(x+i,y+h-1-j,alpha,color);
+            paint_corner_pixel(x+w-1-i,y+h-1-j,alpha,color);
+        }
+}
+
+/* Preserve the background under the shared mask when painting image pixels. */
+static unsigned char clip_background[4][RADIUS_LARGE * RADIUS_LARGE];
+static void rounded_clip_apply(int x, int y, int w, int h, int background) {
+    int profile = rounding_profile();
+    if (!profile || w < 2*RADIUS_LARGE || h < 2*RADIUS_LARGE) return;
+    const unsigned char *mask = corner_mask(RADIUS_LARGE, profile);
+    for (int j = 0; j < RADIUS_LARGE; j++)
+        for (int i = 0; i < RADIUS_LARGE; i++) {
             int xx[4] = {x + i, x + w - 1 - i, x + i, x + w - 1 - i},
                 yy[4] = {y + j, y + j, y + h - 1 - j, y + h - 1 - j};
-            int alpha = mask[j * 9 + i];
+            int alpha = mask[j * RADIUS_LARGE + i];
             for (int c = 0; c < 4; c++)
                 if (xx[c] >= 0 && xx[c] < WIDTH && yy[c] >= 0 && yy[c] < HEIGHT) {
                     int k = yy[c] * WIDTH + xx[c], v = ui_pixels[k];
                     ui_pixels[k] =
-                        corner_blend(clip_background[c][j * 9 + i], v, alpha);
+                        corner_blend(background < 0 ? clip_background[c][j * RADIUS_LARGE + i] : background, v, alpha);
                 }
         }
 }
+static void rounded_clip_end(int x, int y, int w, int h) {
+    rounded_clip_apply(x,y,w,h,-1);
+}
 static void rounded_clip_begin(int x, int y, int w, int h) {
-    if (!rounding_profile()) return;
-    for (int j = 0; j < 9; j++)
-        for (int i = 0; i < 9; i++) {
+    if (!rounding_profile() || w < 2*RADIUS_LARGE || h < 2*RADIUS_LARGE) return;
+    for (int j = 0; j < RADIUS_LARGE; j++)
+        for (int i = 0; i < RADIUS_LARGE; i++) {
             int xx[4] = {x + i, x + w - 1 - i, x + i, x + w - 1 - i},
                 yy[4] = {y + j, y + j, y + h - 1 - j, y + h - 1 - j};
             for (int c = 0; c < 4; c++)
-                clip_background[c][j * 9 + i] =
+                clip_background[c][j * RADIUS_LARGE + i] =
                     (xx[c] >= 0 && xx[c] < WIDTH && yy[c] >= 0 && yy[c] < HEIGHT)
                         ? ui_pixels[yy[c] * WIDTH + xx[c]]
                         : 255;

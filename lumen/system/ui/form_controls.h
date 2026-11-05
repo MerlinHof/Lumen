@@ -5,6 +5,7 @@ static void select_row17(int y, const char *label, const char *value) {
 }
 static void checkbox(int x, int y, int checked) {
     region(x - 9, y - 9, 48, 48);
+    widget_shape(x - 9, y - 9, 48, 48, RADIUS_MEDIUM, 3, 0);
     key_outline(x, y, 30, 30);
     if (checked) {
         stroke(x + 6, y + 15, x + 12, y + 21, 3);

@@ -78,6 +78,12 @@ static void icon_native(int x, int y, int kind) {
         ring(x + 33, y + 28, 5, 3);
         stroke(x + 38, y + 23, x + 38, y + 33, 3);
         break;
+    case IC_CHAT:
+        outline_surface(x+12,y+6,26,19,6,0);
+        control_surface(x+5,y+15,27,19,6,0);
+        control_surface(x+8,y+18,21,13,4,255);
+        stroke(x+11,y+30,x+9,y+37,3);
+        break;
     case IC_CONTENTS:
     case IC_DEVICES:
         for (int i = 0; i < 3; i++) {

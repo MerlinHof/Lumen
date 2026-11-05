@@ -198,9 +198,9 @@ static void app_calculator(void) {
                           429 + (i / 8) * 51, top[i]);
     for (int i = 0; i < 16; i++)
         calc_key(28 + (i % 4) * 108, 540 + (i / 4) * 62, 100, 56, calc_label(calc_digits[i]));
-    calc_key(468, 540, 104, 56, "±");
-    calc_key(468, 602, 104, 56, "AC");
-    primary_key(468, 664, 104, 118, "=");
+    calc_key(460, 540, 112, 56, "±");
+    calc_key(460, 602, 112, 56, "AC");
+    primary_key(460, 664, 112, 118, "=");
 }
 static void app_calc_history(void) {
     heading("Rechenverlauf");

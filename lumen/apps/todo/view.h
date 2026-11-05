@@ -23,7 +23,7 @@ static void tasks_layout18(void) {
             if (task_board ? (tasks[i].state == 2) != col
                            : ((task_tab == 1) != (tasks[i].state == 2)))
                 continue;
-            int h = task_height18(i, task_board ? 194 : 365);
+            int h = task_height18(i, task_board ? 184 : 365);
             if (y + h > 720 && y > (task_board ? 195 : 201)) {
                 page18++;
                 y = task_board ? 195 : 201;
@@ -75,8 +75,8 @@ static void tasks_draw18(void) {
             key_outline(row.x, row.y, row.w, row.h);
         else
             rect(row.x, row.y + row.h, row.w, 1, 205);
-        checkbox(row.x + 1, row.y + 9, done);
-        text_flow_draw(row.x + 52, row.y + 10, task_board ? 194 : 365, tasks[i].title, ui_font(UI_BODY), 27,
+        checkbox(row.x + (task_board ? 8 : 1), row.y + 9, done);
+        text_flow_draw(row.x + (task_board ? 60 : 52), row.y + 10, task_board ? 184 : 365, tasks[i].title, ui_font(UI_BODY), 27,
                        14, done);
         if (!task_board) {
             icon_button(458, row.y + 7, IC_FOLDER);
@@ -113,7 +113,8 @@ static int tasks_input18(const Input *in) {
         if (x < row.x || x >= row.x + row.w || y < row.y || y >= row.y + row.h)
             continue;
         int i = row.index;
-        if (x < row.x + 48) {
+        if (x >= row.x + (task_board ? 8 : 1) && x < row.x + (task_board ? 52 : 45) &&
+            y >= row.y + 9 && y < row.y + 53) {
             tasks[i].state = tasks[i].state == 2 ? 0 : 2;
             v1_dirty = 1;
             v1_save();

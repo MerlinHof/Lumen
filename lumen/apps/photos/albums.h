@@ -72,5 +72,11 @@ static void photo_folder_choice(int target, int choice) {
     item->folders ^= 1u << (id - 1);
     if (!item->folders) item->id = 0;
     if (!photo_catalog_save()) *item = before;
-    if (ui_route() == 71) v1_photos_scan();
+    if (ui_route() == 72 && id == photo_folder && !(item->folders & (1u << (id - 1)))) {
+        photo_page = 0;
+        v1_photos_scan();
+        extra_return(71);
+    } else if (ui_route() == 71) {
+        v1_photos_scan();
+    }
 }

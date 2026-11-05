@@ -334,9 +334,8 @@ static void recipes_open_ready17(void) {
 static int recipes_draw17(void) {
     if (ui_route() != 114)
         return 0;
-    heading_actions("Rezepte", 2);
+    heading_actions("Rezepte", 1);
     search_action();
-    icon_button(468, 74, IC_HISTORY);
     drawtext(30, 140, recipe_search16 ? "Suchergebnisse" : "Zuletzt geöffnet · offline verfügbar",
              ui_font(UI_SECONDARY), 540);
     int count = recipe_search16 ? recipes_count17 : recipe_recent_count16;
@@ -368,12 +367,6 @@ static int recipes_input17(const Input *in) {
     int x = in->x, y = in->y;
     if (search_action_hit(x, y)) {
         open_keyboard(172, "Rezepte suchen", "");
-        return 1;
-    }
-    if (y >= 74 && y < 118 && x >= 460 && x < 516) {
-        recipe_search16 = 0;
-        recipe_archive16();
-        companion_page16 = 0;
         return 1;
     }
     if (y >= 189 && y < 669) {

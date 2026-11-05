@@ -41,6 +41,8 @@ TextInputSpec text_input_spec(int target) {
         s = (TextInputSpec){8192, 1, 0, 0};
         break;
     case 110:
+        s.capacity = 200;
+        break;
     case 180:
         s = (TextInputSpec){200, 1, 0, 0};
         break;

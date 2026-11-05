@@ -29,6 +29,7 @@ void engine_options(int font, int align, int letterspace, int paragraph);
 typedef struct {
     float x0, y0, x1, y1;
 } TextRect;
+int engine_image_rects(TextRect *out, int cap);
 typedef struct {
     char text[2048];
     TextRect rects[64];

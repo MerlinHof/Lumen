@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.8
+
+- Shared rounded outlines and press feedback, larger media and dropdown corners, and single-update segmented controls.
+- Tap the status date or time to open Calendar or Clock. New analog faces and larger digital time.
+- Cleaner Reader controls, rounded reflowable illustrations and independent navigation highlighting.
+- Four-row photo gallery and folder assignment from the viewer. Photos settings return to the gallery.
+- Refined weather, chat, drawing strokes, quick task entry and Slide 3D guidance.
+
 ## 2.7
 
 - Round capsule silhouettes for the battery and toggles using the shared corner renderer.

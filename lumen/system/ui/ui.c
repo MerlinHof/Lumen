@@ -125,7 +125,7 @@ static void selection_overlay(void);
 
 
 typedef struct {
-    int x, y, w, h, system;
+    int x, y, w, h, system, radius, sides, quiet;
 } Widget;
 static Widget widgets[1024], press_bounds;
 static int widget_count, pressed = -1, press_canceled, down_y, history[64], history_count;
@@ -144,7 +144,16 @@ static int hit(int x, int y) {
 }
 static void region(int x, int y, int w, int h) {
     if (widget_count < 1000)
-        widgets[widget_count++] = (Widget){x, y + ui_y_offset, w, h, 0};
+        widgets[widget_count++] = (Widget){.x=x, .y=y+ui_y_offset, .w=w, .h=h};
+}
+static void widget_shape(int x, int y, int w, int h, int radius, int sides, int quiet) {
+    if (!widget_count) return;
+    Widget *widget = &widgets[widget_count - 1];
+    if (widget->x != x || widget->y != y + ui_y_offset || widget->w != w || widget->h != h)
+        return;
+    widget->radius = radius;
+    widget->sides = sides;
+    widget->quiet = quiet;
 }
 static void system_region(int x, int y, int w, int h) {
     int count = widget_count;
@@ -214,6 +223,7 @@ static void quotes_load(void);
 static void app_insights(void);
 static void key_outline(int x, int y, int w, int h);
 static void control_surface(int x, int y, int w, int h, int r, int color);
+static void outline_surface(int x, int y, int w, int h, int r, int color);
 static void segment_fill(int x, int y, int w, int h, int r, int color, int sides);
 static void stroke(int x0, int y0, int x1, int y1, int thickness);
 static void commit_keyboard(void);
@@ -269,7 +279,8 @@ static void photo_open_folder_menu(int assign, int index);
 static void photo_folder_choice(int target, int choice);
 static void photo_create_folder(const char *name);
 static void photo_duration_choice(int choice);
-static int photo_gallery_active(void);
+static int photo_gallery_active(void), photo_back(void);
+static void clock_show_face(void);
 static void photo_app_leave(void);
 static int polish_photo_full(void);
 static int polish_notes_input(const Input *), polish_news_input(const Input *);
@@ -546,7 +557,8 @@ static void centered(int x, int y, int w, int h, const char *label, const Font *
 }
 static void button_h(int x, int y, int w, int h, const char *label, int chosen) {
     region(x, y, w, h);
-    control_surface(x, y, w, h, 12, 0);
+    widget_shape(x, y, w, h, RADIUS_MEDIUM, 3, 0);
+    control_surface(x, y, w, h, RADIUS_MEDIUM, 0);
     control_surface(x + 2, y + 2, w - 4, h - 4, 10, 255);
     if (chosen)
         rect(x + 8, y + h - 5, w - 16, 3, 0);
@@ -554,6 +566,7 @@ static void button_h(int x, int y, int w, int h, const char *label, int chosen) 
 }
 static void dropdown_button(int x, int y, int w, int h, const char *label) {
     region(x, y, w, h);
+    widget_shape(x, y, w, h, RADIUS_MEDIUM, 3, 0);
     control_surface(x, y, w, h, 12, 0);
     control_surface(x + 2, y + 2, w - 4, h - 4, 10, 255);
     centered(x + 2, y, w - 34, h, label, &small);
@@ -568,6 +581,7 @@ static void segments(int x, int y, int w, int h, const char *const *labels, int 
         int left = x + w * i / count;
         int right = x + w * (i + 1) / count;
         region(left, y, right - left, h);
+        widget_shape(left, y, right-left, h, RADIUS_MEDIUM, 0, 1);
         if (i != selected) {
             int edge_left = i == 0 ? 2 : 0;
             int edge_right = i == count - 1 ? 2 : 0;
@@ -687,12 +701,9 @@ static void toggle(int x, int y, int on) {
     control_surface(x + (on ? 40 : 8), y + 6, 20, 20, 10, on ? 255 : 0);
 }
 static void key_outline(int x, int y, int w, int h) {
-    if (w < 4 || h < 4)
-        return;
-    rect(x, y, w, 2, 48);
-    rect(x, y + h - 2, w, 2, 48);
-    rect(x, y + 2, 2, h - 4, 48);
-    rect(x + w - 2, y + 2, 2, h - 4, 48);
+    if (w < 4 || h < 4) return;
+    widget_shape(x, y, w, h, RADIUS_MEDIUM, 3, 0);
+    outline_surface(x, y, w, h, RADIUS_MEDIUM, 48);
 }
 static int can_back(void) {
     return editor_ui.keyboard || dropdown || confirm_delete || battery_popup ||
@@ -1359,7 +1370,8 @@ static void toggle_bookmark(void) {
     b->bookmarks[b->bookmark_count++] = page;
     library_save_book(b);
 }
-int ui_input(const Input *in) {
+static unsigned navigation_rewinds;
+static int ui_dispatch_input(const Input *in) {
     int visible=notification_visible();
     if(notification_input(in,visible)) { pressed=-1; return 1; }
     int pm = polish_power(in);
@@ -1499,7 +1511,7 @@ int ui_input(const Input *in) {
         pressed = hit(in->x, in->y);
         if (pressed >= 0)
             press_bounds = widgets[pressed];
-        return pressed >= 0 ? 3 : 2;
+        return pressed >= 0 && !press_bounds.quiet ? 3 : 2;
     }
     if (in->kind == INPUT_MOVE) {
         if (pressed >= 0 &&
@@ -1727,7 +1739,19 @@ int ui_input(const Input *in) {
         reader_ui.reader_chrome = 1;
         return 1;
     }
-    if (in->kind == INPUT_TAP && y < 48 && (ui_route() != 2 || reader_ui.reader_chrome) && status_ui.status_timer_x >= 0 &&
+    if (in->kind == INPUT_TAP && y < 48 && (ui_route() != 2 || reader_ui.reader_chrome) &&
+        !editor_ui.keyboard && !dropdown && !confirm_delete && !battery_popup) {
+        int date = x >= status_ui.status_date_x && x < status_ui.status_date_x + status_ui.status_date_w;
+        int clock = x >= status_ui.status_clock_x && x < status_ui.status_clock_x + status_ui.status_clock_w;
+        if (date || clock) {
+            if (clock) clock_show_face();
+            AppIntent request = {.app = date ? APP_CALENDAR : APP_TIMER, .kind = INTENT_OPEN};
+            app_send(&request);
+            return 1;
+        }
+    }
+    if (in->kind == INPUT_TAP && y < 48 && (ui_route() != 2 || reader_ui.reader_chrome) &&
+        !editor_ui.keyboard && !dropdown && !confirm_delete && !battery_popup && status_ui.status_timer_x >= 0 &&
         x >= status_ui.status_timer_x && x < status_ui.status_timer_x + status_ui.status_timer_width) {
         AppIntent request = {.app = APP_TIMER, .kind = INTENT_OPEN};
         app_send(&request);
@@ -1740,7 +1764,7 @@ int ui_input(const Input *in) {
             u17_notes_up();
             return 1;
         }
-        if (x < 62 && !editor_ui.keyboard && !dropdown && recipes_back())
+        if (x < 62 && !editor_ui.keyboard && !dropdown && (photo_back() || recipes_back()))
             return 1;
         if (x < 62 && can_back()) {
             apps_pause();
@@ -1763,6 +1787,7 @@ int ui_input(const Input *in) {
                 return 1;
             }
             int target = 1;
+            navigation_rewinds++;
             while (history_count) {
                 int candidate = history[--history_count];
                 if (candidate != ui_route() && app_route_valid(candidate)) {
@@ -1814,6 +1839,7 @@ int ui_input(const Input *in) {
         apps_pause();
         if (ui_route() == 3 || ui_route() == 9)
             apply_reading_settings();
+        navigation_rewinds++;
         history_count = 0;
         int tab = x / (options[OPT_APPS] ? 150 : 200);
         const AppId tabs[] = {APP_LIBRARY, APP_SETTINGS, APP_STORE, APP_LAUNCHER};
@@ -1826,6 +1852,18 @@ int ui_input(const Input *in) {
     }
     return app_handle_input(in);
 }
+int ui_input(const Input *in) {
+    int from = ui_route(), depth = history_count;
+    unsigned rewinds = navigation_rewinds;
+    int result = ui_dispatch_input(in);
+    if (in->kind == INPUT_TAP && from && from != ui_route() &&
+        app_for_route(from) == app_for_route(ui_route()) &&
+        rewinds == navigation_rewinds && depth == history_count && depth < 64 &&
+        (!depth || history[depth-1] != from))
+        history[history_count++] = from;
+    return result;
+}
+
 /* Shared overlays: dropdowns, keyboard and destructive-action confirmation. */
 #include "text_editor.h"
 #include "../../apps/keyboard/view.h"
@@ -1845,8 +1883,8 @@ static void overlays(void) {
         int height = drop_visible * 48 + 10 + (drop_count > 5 ? 44 : 0);
         if (drop_y + height > (has_tabs() ? 728 : 790))
             drop_y = (has_tabs() ? 728 : 790) - height;
-        control_surface(drop_x, drop_y, drop_w, height, 10, 0);
-        control_surface(drop_x + 2, drop_y + 2, drop_w - 4, height - 4, 8, 255);
+        control_surface(drop_x, drop_y, drop_w, height, RADIUS_LARGE, 0);
+        control_surface(drop_x + 2, drop_y + 2, drop_w - 4, height - 4, RADIUS_LARGE-2, 255);
         for (int row = 0; row < drop_visible && drop_first + row < drop_count; row++) {
             int i = drop_first + row;
             int y = drop_y + 5 + row * 48;
@@ -1879,8 +1917,8 @@ static void overlays(void) {
         button(309, 446, 235, "Löschen", 0);
     }
     if (battery_popup) {
-        control_surface(428, 50, 148, 84, 9, 0);
-        control_surface(430, 52, 144, 80, 0, 255);
+        control_surface(428, 50, 148, 84, RADIUS_MEDIUM, 255);
+        key_outline(428, 50, 148, 84);
         char b[32];
         snprintf(b, sizeof(b), "%s%%", status_ui.battery);
         centered(430, 58, 144, 64, b, &body);
@@ -2276,6 +2314,10 @@ static int app_send(const AppIntent *intent) {
             storage_scan();
         if (ui_route() == 39)
             extra_prepare(39);
+    } else if (intent->app == APP_RECIPES) {
+        recipe_search16 = 0;
+        companion_page16 = 0;
+        recipe_archive16();
     } else if (app_definition(intent->app)->entry >= 27)
         extra_prepare(ui_route());
     else if (intent->app == APP_CALENDAR)
@@ -2296,11 +2338,25 @@ void ui_feedback_draw(void) {
     if (pressed < 0 || pressed >= widget_count)
         return;
     Widget r = widgets[pressed];
-    for (int y = r.y + 2; y < r.y + r.h - 2 && y < HEIGHT; y++)
-        if (y >= 0)
-            for (int x = r.x + 2; x < r.x + r.w - 2 && x < WIDTH; x++)
-                if (x >= 0)
-                    ui_pixels[y * WIDTH + x] = 255 - ui_pixels[y * WIDTH + x];
+    if (r.quiet) return;
+    int radius = r.radius;
+    if (radius > r.w/2) radius = r.w/2;
+    if (radius > r.h/2) radius = r.h/2;
+    int profile = rounding_profile();
+    if (profile && radius*2 >= (r.w < r.h ? r.w : r.h)-1) profile = CORNER_CIRCLE;
+    const unsigned char *mask = radius > 0 && profile ? corner_mask(radius, profile) : NULL;
+    for (int y = 2; y < r.h-2; y++) {
+        for (int x = 2; x < r.w-2; x++) {
+            int px = r.x+x, py = r.y+y;
+            if ((unsigned)px >= WIDTH || (unsigned)py >= HEIGHT) continue;
+            int cx = x < r.w/2 ? x : r.w-1-x, cy = y < r.h/2 ? y : r.h-1-y;
+            int side = x < r.w/2 ? 1 : 2;
+            int alpha = mask && (r.sides & side) && cx < radius && cy < radius
+                            ? mask[cy*radius+cx] : CORNER_ALPHA;
+            unsigned char *pixel = &ui_pixels[py*WIDTH+px];
+            *pixel = corner_blend(*pixel, 255-*pixel, alpha);
+        }
+    }
 }
 
 static int app_read_book(int index) {

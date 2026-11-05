@@ -247,7 +247,7 @@ static void polish_brain(void) {
         if (brain_task == 0) {
             for (int i = 0; i < 16; i++) {
                 int x = 166 + (i % 4) * 68, y = 277 + (i / 4) * 68;
-                rect(x, y, 58, 58, brain_target[i] ? 0 : 240);
+                control_surface(x, y, 58, 58, RADIUS_MEDIUM, brain_target[i] ? 0 : 240);
                 if (brain_selected[i] != brain_target[i])
                     key_outline(x, y, 58, 58);
             }
@@ -265,7 +265,7 @@ static void polish_brain(void) {
         for (int i = 0; i < 16; i++) {
             int x = 124 + (i % 4) * 90, y = 275 + (i / 4) * 90;
             key_outline(x, y, 80, 80);
-            rect(x + 3, y + 3, 74, 74,
+            control_surface(x + 3, y + 3, 74, 74, RADIUS_MEDIUM,
                  (brain_phase == 1 ? brain_target[i] : brain_selected[i]) ? 0 : 255);
             region(x, y, 80, 80);
         }
@@ -285,7 +285,7 @@ static void polish_brain(void) {
         for (int i = 0; i < 9; i++) {
             int x = 118 + (i % 3) * 126, y = 280 + (i / 3) * 126;
             key_outline(x, y, 112, 112);
-            rect(x + 3, y + 3, 106, 106, brain_grid[i] ? 0 : 255);
+            control_surface(x + 3, y + 3, 106, 106, RADIUS_MEDIUM, brain_grid[i] ? 0 : 255);
             region(x, y, 112, 112);
         }
         snprintf(b, 160, "%d %s", brain_moves, tr("Züge"));

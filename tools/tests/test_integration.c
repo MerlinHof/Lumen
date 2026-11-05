@@ -203,7 +203,7 @@ int main(int argc, char **argv) {
     tap17(300, 55);
     assert(reader_ui.reader_chrome);
     tap17(100, 128);
-    assert(ui_route() == 3);
+    assert(ui_route() == 2);
     route_to(2);
     reader_ui.reader_chrome = 1;
     ui_draw();
@@ -282,6 +282,10 @@ int main(int argc, char **argv) {
     notification_dismiss();
     ui_draw();
     assert(photo_count == 2);
+    tap17(549, 96);
+    assert(photo_settings && ui_route() == 71);
+    tap17(20, 20);
+    assert(!photo_settings && ui_route() == 71);
     tap17(430, 96);
     assert(editor_ui.keyboard && editor_ui.keyboard_target == TEXT_INPUT_PHOTO_FOLDER);
     strcpy(editor_ui.edit, "Test folder");
@@ -307,6 +311,17 @@ int main(int argc, char **argv) {
     assert(v1_tick() == 1);
     tap17(300, 300);
     assert(ui_route() == 71 && !photo_slideshow && photo_folder == 1);
+    options[OPT_DATE] = options[OPT_CLOCK] = 1;
+    ui_draw();
+    tap17(status_ui.status_clock_x + 10, 20);
+    assert(ui_route() == 28 && timer_panel == 0);
+    tap17(20, 20);
+    assert(ui_route() == 71);
+    tap17(status_ui.status_date_x + 10, 20);
+    assert(ui_route() == 21);
+    tap17(20, 20);
+    assert(ui_route() == 71);
+
     memset(ui_pixels, 255, sizeof(ui_pixels));
     options[OPT_ROUNDING] = 1;
     control_surface(20, 20, 48, 48, 16, 0);

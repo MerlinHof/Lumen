@@ -160,20 +160,23 @@ static void keyboard_draw18(void) {
     rect(0, 502, 600, 298, 255);
     rect(0, 502, 600, 1, 190);
     keyboard_layout18();
-    int frame = preferences_keyboard_language() * 16 + editor_ui.keyboard_symbols * 2 + editor_ui.keyboard_shift;
+    int frame = (preferences_keyboard_language() * 16 + editor_ui.keyboard_symbols * 2 +
+                 editor_ui.keyboard_shift) * 2 + !!options[OPT_ROUNDING];
     if (keyboard_frame18 == frame) {
         memcpy(ui_pixels + 502 * WIDTH, keyboard_keybed18, sizeof(keyboard_keybed18));
         for (int i = 0; i < keyboard_count18; i++) {
             KeyboardKey18 *k = &keyboard_keys18[i];
             region(k->x, k->y, k->w, k->h);
+            widget_shape(k->x,k->y,k->w,k->h,RADIUS_MEDIUM,3,0);
         }
     } else {
         for (int i = 0; i < keyboard_count18; i++) {
             KeyboardKey18 *k = &keyboard_keys18[i];
             if(k->y==506) {
                 region(k->x,k->y,k->w,k->h);
-                rect(k->x,k->y,k->w,1,155);rect(k->x,k->y+k->h-1,k->w,1,155);
-                rect(k->x,k->y,1,k->h,155);rect(k->x+k->w-1,k->y,1,k->h,155);
+                widget_shape(k->x,k->y,k->w,k->h,RADIUS_MEDIUM,3,0);
+                control_surface(k->x,k->y,k->w,k->h,RADIUS_MEDIUM,155);
+                control_surface(k->x+1,k->y+1,k->w-2,k->h-2,RADIUS_MEDIUM-1,255);
             } else button_h(k->x, k->y, k->w, k->h, "", k->action == KEY_SHIFT18 && editor_ui.keyboard_shift);
             if(k->y==506)ink_color=112;
             centered(k->x, k->y, k->w, k->h, k->text,
@@ -192,9 +195,7 @@ static void keyboard_draw18(void) {
     }
     if (editor_ui.accent_count18) {
         int w = editor_ui.accent_count18 * 54 + 12;
-        rect(editor_ui.accent_x18 + 4, 440, w, 58, 170);
-        rect(editor_ui.accent_x18, 436, w, 58, 255);
-        key_outline(editor_ui.accent_x18, 436, w, 58);
+        raised_surface(editor_ui.accent_x18, 436, w, 58);
         for (int i = 0; i < editor_ui.accent_count18; i++)
             button_h(editor_ui.accent_x18 + 6 + i * 54, 442, 50, 46, editor_ui.accent_keys18[i], 0);
     }
@@ -244,7 +245,7 @@ static void keyboard_tap18(int x, int y) {
             keyboard_insert(editor_ui.accent_keys18[(x - editor_ui.accent_x18 - 6) / 54]);
             editor_ui.accent_count18 = 0;
             editor_ui.keyboard_shift = 0;
-        } else if (y < 436)
+        } else
             editor_ui.accent_count18 = 0;
         return;
     }

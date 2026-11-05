@@ -131,34 +131,24 @@ static void u15_note_overlay(void) {
     } else
         u15_note_tools();
 }
-static void ink_stamp(int x, int y) {
+static void ink_stamp(float x, float y) {
     y -= 54;
     int radius = ink_eraser ? 14 : ink_width;
-    for (int yy = y - radius; yy <= y + radius; yy++)
-        for (int xx = x - radius; xx <= x + radius; xx++)
-            if (xx >= 0 && xx < 600 && yy >= 0 && yy < 688) {
-                int d2 = (xx - x) * (xx - x) + (yy - y) * (yy - y);
-                if (d2 > (radius + 1) * (radius + 1))
-                    continue;
-                if (ink_eraser) {
-                    if (d2 <= radius * radius)
-                        ink_pixels[yy * 600 + xx] = 255;
-                    continue;
-                }
-                double a = d2 <= (radius - 1) * (radius - 1)
-                               ? 1
-                               : ((radius + .5) * (radius + .5) - d2) / (2 * radius);
-                if (a < 0)
-                    continue;
-                if (a > 1)
-                    a = 1;
-                int at = yy * 600 + xx;
-                if (ink_eraser) {
-                    if (d2 <= radius * radius)
-                        ink_pixels[at] = 255;
-                } else
-                    ink_pixels[at] = (unsigned char)(ink_pixels[at] * (1 - a));
+    float outer = radius + .5f, inner = radius - .5f;
+    for (int yy=(int)floorf(y-outer); yy<=y+outer; yy++)
+        for (int xx=(int)floorf(x-outer); xx<=x+outer; xx++) {
+            if ((unsigned)xx >= 600 || (unsigned)yy >= 688) continue;
+            float dx=xx-x, dy=yy-y, distance=dx*dx+dy*dy;
+            if (distance >= outer*outer) continue;
+            float alpha = distance <= inner*inner ? 1 : outer-sqrtf(distance);
+            unsigned char *pixel = &ink_pixels[yy*600+xx];
+            int edge = (int)(255*(1-alpha)+.5f);
+            if (ink_eraser) {
+                if (*pixel < 255-edge) *pixel = 255-edge;
+            } else if (*pixel > edge) {
+                *pixel = edge;
             }
+        }
     ink_dirty = 1;
 }
 static void ink_line(int x, int y) {
@@ -166,7 +156,7 @@ static void ink_line(int x, int y) {
     if (!n)
         n = 1;
     for (int i = 0; i <= n; i++)
-        ink_stamp(ink_last_x + dx * i / n, ink_last_y + dy * i / n);
+        ink_stamp(ink_last_x + dx * (float)i / n, ink_last_y + dy * (float)i / n);
     ink_last_x = x;
     ink_last_y = y;
 }

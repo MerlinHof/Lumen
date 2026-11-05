@@ -17,22 +17,20 @@ static void weather_symbol(int x, int y, int code, int size) {
         }
     }
     if (code >= 2) {
-        int cy = y + size * 3 / 5;
         /* Single outline union, no seams between cloud lobes. */
         for (int yy = y; yy <= y + size; yy++)
             for (int xx = x; xx <= x + size; xx++) {
                 float a = hypotf(xx - (x + size * .34f), yy - (y + size * .54f)) - size * .15f;
                 float b = hypotf(xx - (x + size * .52f), yy - (y + size * .43f)) - size * .21f;
                 float e = hypotf(xx - (x + size * .73f), yy - (y + size * .56f)) - size * .14f;
-                float box = fmaxf(fabsf(xx - (x + size * .53f)) - size * .24f,
-                                  fabsf(yy - (y + size * .61f)) - size * .09f);
-                float dist = fminf(fminf(a, b), fminf(e, box));
+                float base = (hypotf((xx - (x + size * .54f)) / (size * .30f),
+                                     (yy - (y + size * .58f)) / (size * .14f)) - 1) * size * .14f;
+                float dist = fminf(fminf(a, b), fminf(e, base));
                 if (dist <= .5f)
                     blend_pixel(xx, yy, .5f - dist, 255);
                 if (dist >= -t)
                     blend_pixel(xx, yy, fminf(.5f - dist, dist + t + .5f), 0);
             }
-        (void)cy;
     }
     if (code == 45 || code == 48) {
         stroke(x + size / 4, y + size * 4 / 5, x + size * 4 / 5, y + size * 4 / 5, t);
@@ -93,12 +91,13 @@ static void app_weather(void) {
         return;
     }
     double is_day = json_number(&j, json_get(&j, current, "is_day"));
-    weather_symbol(30, 180, is_day == 0 && code <= 1 ? -1 : (int)code, 130);
+    control_surface(28,178,544,232,RADIUS_LARGE,245);
+    weather_symbol(48, 185, is_day == 0 && code <= 1 ? -1 : (int)code, 130);
     char b[120];
     snprintf(b, sizeof(b), "%.0f °C", temp);
-    drawtext(200, 194, b, ui_font(UI_DISPLAY), 370);
+    drawtext(200, 194, b, ui_font(UI_DISPLAY), 338);
     snprintf(b, sizeof(b), "%s %.0f°  ·  %.0f km/h", tr("Gefühlt"), feel, wind);
-    drawtext(200, 265, b, ui_font(UI_BODY), 370);
+    drawtext(200, 265, b, ui_font(UI_BODY), 338);
     int rises = json_get(&j, daily, "sunrise"), sets = json_get(&j, daily, "sunset"),
         daylight = json_get(&j, daily, "daylight_duration");
     char rise[64], set[64];
@@ -108,10 +107,12 @@ static void app_weather(void) {
     snprintf(b, sizeof(b), "%s %.5s  ·  %s %.5s", tr("Aufgang"),
              strlen(rise) > 11 ? rise + 11 : "--:--", tr("Untergang"),
              strlen(set) > 11 ? set + 11 : "--:--");
-    drawtext(30, 330, b, ui_font(UI_BODY), 540);
+    divider(48, 318, 504);
+    drawtext(48, 333, b, ui_font(UI_BODY), 504);
     snprintf(b, sizeof(b), "%s %.0f h %02.0f min", tr("Tageslicht"), floor(light / 3600),
              floor(fmod(light, 3600) / 60));
-    drawtext(30, 368, b, ui_font(UI_SECONDARY), 540);
+    drawtext(48, 367, b, ui_font(UI_SECONDARY), 504);
+    drawtext(28, 429, "Vorhersage", ui_font(UI_HEADING), 544);
     int dates = json_get(&j, daily, "time"), codes = json_get(&j, daily, "weather_code"),
         high = json_get(&j, daily, "temperature_2m_max"),
         low = json_get(&j, daily, "temperature_2m_min"),
@@ -122,12 +123,12 @@ static void app_weather(void) {
         json_string(&j, json_at(&j, dates, i), date, sizeof(date));
         snprintf(b, sizeof(b), "%.2s.%.2s.", strlen(date) > 8 ? date + 8 : "--",
                  strlen(date) > 5 ? date + 5 : "--");
-        centered(x, 437, 100, 34, b, ui_font(UI_SECONDARY));
+        centered(x, 473, 100, 34, b, ui_font(UI_SECONDARY));
         double c = json_number(&j, json_at(&j, codes, i));
-        weather_symbol(x + 12, 478, isfinite(c) ? (int)c : 3, 80);
+        weather_symbol(x + 12, 505, isfinite(c) ? (int)c : 3, 80);
         snprintf(b, sizeof(b), "%.0f / %.0f°", json_number(&j, json_at(&j, high, i)),
                  json_number(&j, json_at(&j, low, i)));
-        centered(x, 579, 100, 36, b, ui_font(UI_BODY));
+        centered(x, 591, 100, 36, b, ui_font(UI_BODY));
         snprintf(b, sizeof(b), "%.0f%%", json_number(&j, json_at(&j, rain, i)));
         centered(x, 623, 100, 32, b, ui_font(UI_SECONDARY));
     }

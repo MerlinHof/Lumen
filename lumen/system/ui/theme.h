@@ -1,4 +1,5 @@
 /* Semantic type roles: apps select meaning, not their own font/grey/weight. */
+enum { RADIUS_SMALL = 7, RADIUS_MEDIUM = 12, RADIUS_LARGE = 18 };
 enum {
     UI_INK = 0,
     UI_SECONDARY_INK = 104,

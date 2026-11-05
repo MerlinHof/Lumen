@@ -73,7 +73,7 @@ static void system_screen(void) {
     const char *tabs[] = {"Speicher & Version", "Verwaltung"};
     segments(28, 133, 544, 44, tabs, 2, extra_page);
     if (!extra_page) {
-        drawtext(30, 205, "LUMEN 2.7", ui_font(UI_TITLE), 540);
+        drawtext(30, 205, "LUMEN 2.8", ui_font(UI_TITLE), 540);
         drawtext(30, 253, "Kindle KT2 · 600 × 800", ui_font(UI_SECONDARY), 540);
         wrapped(30, 289,
                 "Diese Software wurde Ende 2026 von GPT-6.1 Sol entwickelt unter Aufsicht und "

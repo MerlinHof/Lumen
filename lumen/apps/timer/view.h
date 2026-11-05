@@ -1,47 +1,67 @@
 /* App-owned module; assembled by apps/host/compose.h. */
+static void clock_digits(int cy, int hour, int minute, int color) {
+    static const unsigned char digit[] = {63,6,91,79,102,109,125,7,127,111};
+    static const int offsets[] = {109,196,334,421};
+    int values[] = {hour/10,hour%10,minute/10,minute%10};
+    for (int i=0; i<4; i++) {
+        int x=offsets[i], y=cy-65, bits=digit[values[i]];
+        if (bits&1)  control_surface(x+9,y,64,10,5,color);
+        if (bits&2)  control_surface(x+69,y+10,10,50,5,color);
+        if (bits&4)  control_surface(x+69,y+70,10,50,5,color);
+        if (bits&8)  control_surface(x+9,y+120,64,10,5,color);
+        if (bits&16) control_surface(x+3,y+70,10,50,5,color);
+        if (bits&32) control_surface(x+3,y+10,10,50,5,color);
+        if (bits&64) control_surface(x+9,y+60,64,10,5,color);
+    }
+    aa_disc(300,cy-20,7,color);
+    aa_disc(300,cy+20,7,color);
+}
 static void clock_face(int fullscreen) {
     time_t now = time(NULL);
     struct tm t;
     localtime_r(&now, &t);
-    int cy = fullscreen ? 390 : 355;
+    int cy = fullscreen ? 400 : 449;
     int r = fullscreen ? 220 : 168;
-    if (clock_ui.clock_style < 2) {
-        if (!clock_ui.clock_style) ring(300, cy, r, 3);
-        for (int i = 0; i < 60; i++) {
-            if (clock_ui.clock_style && i % 5) continue;
-            double a = i * 6 * .01745329252;
-            int inner = r - (i % 5 ? 13 : 25);
-            stroke(300 + sin(a)*inner, cy - cos(a)*inner,
-                   300 + sin(a)*(r-5), cy - cos(a)*(r-5), i % 5 ? 2 : 4);
-        }
-        double minute = t.tm_min * .104719755, hour = (t.tm_hour + t.tm_min / 60.) * .523598776;
-        stroke(300, cy, 300 + sin(hour)*r*.52, cy - cos(hour)*r*.52, 8);
-        stroke(300, cy, 300 + sin(minute)*r*.74, cy - cos(minute)*r*.74, 4);
-        aa_disc(300, cy, 7, 0);
+    int style = clock_ui.clock_style;
+    int dark = style == 3;
+    if (style == 2 || dark) {
+        if (dark && fullscreen) rect(0,0,600,800,0);
+        else if (dark) control_surface(54,cy-91,492,182,RADIUS_LARGE,0);
+        clock_digits(cy,t.tm_hour,t.tm_min,dark ? 255 : 0);
     } else {
-        char text[24];
-        strftime(text, sizeof(text), "%H:%M", &t);
-        if (clock_ui.clock_style == 3) {
-            control_surface(60, cy-83, 480, 166, 20, 0);
-            int ink = ink_color;
-            ink_color = 255;
-            centered(60, cy-83, 480, 166, text, ui_font(UI_DISPLAY));
-            ink_color = ink;
-        } else {
-            type_centered(60, cy-68, 480, 136, text, UI_DISPLAY);
+        if (style != 1) ring(300,cy,r,3);
+        for (int i=0; i<60; i++) {
+            double a = i * .104719755;
+            if (style == 1 && i % 15) continue;
+            int inner = r - (i%5 ? 12 : 23);
+            stroke(300+sin(a)*inner, cy-cos(a)*inner,
+                   300+sin(a)*(r-5), cy-cos(a)*(r-5), i%5 ? 2 : 4);
+            if (style == 4 && !(i%5)) {
+                char label[8];
+                snprintf(label,sizeof(label),"%d",i ? i/5 : 12);
+                centered(270+sin(a)*(r-47), cy-20-cos(a)*(r-47),60,40,label,ui_font(UI_BODY));
+            }
         }
+        double minute=t.tm_min*.104719755, hour=(t.tm_hour+t.tm_min/60.)*.523598776;
+        stroke(300,cy,300+sin(hour)*r*.5,cy-cos(hour)*r*.5,style==1 ? 6 : 8);
+        stroke(300,cy,300+sin(minute)*r*.69,cy-cos(minute)*r*.69,4);
+        aa_disc(300,cy,6,0);
     }
     char date[32];
-    strftime(date, sizeof(date), "%d.%m.%Y", &t);
-    type_centered(60, cy + r + 18, 480, 50, date, UI_SECONDARY);
+    strftime(date,sizeof(date),"%d.%m.%Y",&t);
+    int ink = ink_color;
+    ink_color = dark && fullscreen ? 255 : UI_SECONDARY_INK;
+    centered(60,cy+r+14,480,48,date,ui_font(UI_SECONDARY));
+    ink_color = ink;
 }
+static void clock_show_face(void) { timer_panel = 0; }
 static void app_timer(void) {
     heading_width("Uhr", 128);
     const char *tabs[] = {"Uhr", "Timer", "Wecker"};
     segments(166, 74, 406, 44, tabs, 3, timer_panel);
     char b[80];
     if (!timer_panel) {
-        static const char *styles[] = {"Klassisch", "Minimal", "Digital", "Digital · Dunkel"};
+        static const char *styles[] = {"Klassisch", "Minimal", "Digital", "Digital · Dunkel", "Klassisch · Ziffern"};
         dropdown_button(28, 137, 250, 44, styles[clock_ui.clock_style]);
         icon_button(528, 137, IC_FULLSCREEN);
         clock_face(0);

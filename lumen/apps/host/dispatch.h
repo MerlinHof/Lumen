@@ -129,23 +129,15 @@ static int app_handle_input(const Input *in) {
     }
     if (ui_route() == 2 && in->kind == INPUT_TAP) {
         if (reader_ui.reader_chrome && y >= 108 && y < 152) {
-            if (history_count < 64)
-                history[history_count++] = 2;
-            if (x < 200) {
-                if (engine_reflowable()) {
-                    route_to(3);
-                    settings_ui.reading_page = 0;
+            if ((x >= 278 && x < 322) || (x >= 478 && x < 522)) {
+                if (history_count < 64) history[history_count++] = 2;
+                if (x < 400) {
+                    route_to(4);
+                    reader_ui.chapterpage = 0;
                 } else {
-                    zoom += 0.5f;
-                    if (zoom > 3)
-                        zoom = 1;
+                    settings_ui.reading_page = 0;
+                    route_to(3);
                 }
-            } else if (x < 400) {
-                route_to(4);
-                reader_ui.chapterpage = 0;
-            } else {
-                settings_ui.reading_page = 0;
-                route_to(3);
             }
         } else if (y < 78 || y >= 722)
             reader_ui.reader_chrome = !reader_ui.reader_chrome;

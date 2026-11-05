@@ -200,10 +200,10 @@ static void chat_layout(void) {
         char b[2048];
         chat_preview(i, b, sizeof(b));
         FlowLine lines[6];
-        int limit = chat_messages[i].role ? 5 : 3, n = text_flow(b, ui_font(UI_BODY), 500, lines, limit);
+        int limit = chat_messages[i].role ? 5 : 3, n = text_flow(b, ui_font(UI_BODY), 450, lines, limit);
         int truncated =
             (size_t)lines[n - 1].end < strlen(b) || strlen(chat_messages[i].text) >= sizeof(b);
-        int height = 27 + n * 26 + (truncated ? 44 : 12);
+        int height = 35 + n * 26 + (truncated ? 52 : 12);
         if (y + height > 615 && y > 174) {
             page_index++;
             y = 174;
@@ -226,7 +226,7 @@ static void chat_draw(void) {
     }
     heading_actions("OpenAI", 3);
     icon_button(408, 74, IC_PLUS);
-    icon_button(468, 74, IC_CONTENTS);
+    icon_button(468, 74, IC_CHAT);
     icon_button(528, 74, IC_SETTINGS);
     ink_color = UI_SECONDARY_INK;
     drawtext_raw(30, 139, chat_count ? llm_model16 : tr("Ein Gedanke. Ein Gespräch."), ui_font(UI_SECONDARY),
@@ -243,16 +243,17 @@ static void chat_draw(void) {
         int i = chat_rows[row].message, y = chat_rows[row].y, bot = chat_messages[i].role;
         char b[2048];
         chat_preview(i, b, sizeof(b));
+        int x = bot ? 28 : 92;
+        control_surface(x,y,480,chat_rows[row].height,RADIUS_LARGE,bot ? 241 : 217);
         ink_color = UI_SECONDARY_INK;
-        drawtext(40, y, bot ? "OpenAI" : "Du", ui_font(UI_SECONDARY), 510);
+        drawtext(x+15, y+8, bot ? "OpenAI" : "Du", ui_font(UI_SECONDARY), 450);
         ink_color = 0;
-        text_flow_draw(40, y + 26, 500, b, ui_font(UI_BODY), 26, bot ? 5 : 3, 0);
+        text_flow_draw(x+15, y+34, 450, b, ui_font(UI_BODY), 26, bot ? 5 : 3, 0);
         if (chat_rows[row].truncated) {
-            int yy = y + chat_rows[row].height - 40;
-            drawtext_raw(40, yy - 15, "…", ui_font(UI_BODY), 35);
-            button_h(76, yy, 280, 36, "Weiterlesen", 0);
+            int yy = y + chat_rows[row].height - 48;
+            drawtext_raw(x+15, yy+10, "…", ui_font(UI_BODY), 35);
+            icon_button(x+426, yy, IC_BOOK);
         }
-        divider(28, y + chat_rows[row].height + 5, 544);
     }
     key_outline(28, 634, 470, 91);
     region(28, 634, 470, 91);
@@ -311,8 +312,11 @@ static int chat_input(const Input *in) {
         return 1;
     }
     for (int r = 0; r < chat_row_count; r++)
-        if (chat_rows[r].truncated && y >= chat_rows[r].y &&
-            y < chat_rows[r].y + chat_rows[r].height) {
+        if (chat_rows[r].truncated &&
+            x >= (chat_messages[chat_rows[r].message].role ? 454 : 518) &&
+            x < (chat_messages[chat_rows[r].message].role ? 498 : 562) &&
+            y >= chat_rows[r].y + chat_rows[r].height - 48 &&
+            y < chat_rows[r].y + chat_rows[r].height - 4) {
             int i = chat_rows[r].message;
             reader_markdown17(chat_title, chat_messages[i].text, 122);
             return 1;

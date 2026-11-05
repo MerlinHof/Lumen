@@ -3,6 +3,7 @@ typedef struct {
     int status_wifi_x;
     int status_battery_x;
     int status_battery_right;
+    int status_date_x, status_date_w, status_clock_x, status_clock_w;
     int status_timer_x;
     int status_timer_width;
     char battery[24];

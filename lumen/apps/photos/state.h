@@ -5,7 +5,7 @@ static char photo_loaded[256];
 static int64_t photo_hour_drawn = -1;
 static unsigned char photo_thumbs[6][168 * 224];
 
-enum { PHOTO_FOLDERS = 16, PHOTO_PER_PAGE = 12 };
+enum { PHOTO_FOLDERS = 16, PHOTO_PER_PAGE = 16 };
 typedef struct {
     uint64_t id;
     unsigned folders;

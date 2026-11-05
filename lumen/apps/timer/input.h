@@ -8,8 +8,8 @@ static int clock_input(int x, int y) {
             if (y >= 137 && y < 181) {
                 if (x >= 528) clock_ui.clock_fullscreen = 1;
                 else if (x >= 28 && x < 278) {
-                    static const char *styles[] = {"Klassisch", "Minimal", "Digital", "Digital · Dunkel"};
-                    open_dropdown(902, styles, 4, clock_ui.clock_style, 28, 185, 250);
+                    static const char *styles[] = {"Klassisch", "Minimal", "Digital", "Digital · Dunkel", "Klassisch · Ziffern"};
+                    open_dropdown(902, styles, 5, clock_ui.clock_style, 28, 185, 250);
                 }
             }
             return 1;

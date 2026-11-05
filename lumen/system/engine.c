@@ -132,6 +132,40 @@ int engine_relayout(int size, int leading, int margin, int oldpage) {
     return page;
 }
 
+static fz_matrix cached_transform;
+static int image_rect_count = -1;
+static TextRect image_rects[64];
+
+int engine_image_rects(TextRect *out, int cap) {
+    if (!doc || cached_page < 0 || cap <= 0) return 0;
+    if (image_rect_count < 0) {
+        image_rect_count = 0;
+        fz_page *p = NULL;
+        fz_stext_page *images = NULL;
+        fz_var(p);
+        fz_var(images);
+        fz_try(ctx) {
+            p = fz_load_page(ctx, doc, cached_page);
+            fz_stext_options opts = {.flags = FZ_STEXT_PRESERVE_IMAGES | FZ_STEXT_IGNORE_ACTUALTEXT};
+            images = fz_new_stext_page_from_page(ctx, p, &opts);
+            for (fz_stext_block *b = images->first_block; b && image_rect_count < 64; b=b->next)
+                if (b->type == FZ_STEXT_BLOCK_IMAGE && fabsf(b->u.i.transform.b) < .01f &&
+                    fabsf(b->u.i.transform.c) < .01f) {
+                    fz_rect r = fz_transform_rect(b->bbox, cached_transform);
+                    image_rects[image_rect_count++] = (TextRect){r.x0,r.y0,r.x1,r.y1};
+                }
+        }
+        fz_always(ctx) {
+            fz_drop_stext_page(ctx, images);
+            fz_drop_page(ctx, p);
+        }
+        fz_catch(ctx) { image_rect_count = 0; }
+    }
+    int n = cap < image_rect_count ? cap : image_rect_count;
+    memcpy(out, image_rects, (size_t)n * sizeof(*out));
+    return n;
+}
+
 int engine_render(int page, unsigned char *pixels, int stride, int width, int height, float zoom,
                   float panx, float pany) {
     if (!doc)
@@ -163,6 +197,7 @@ int engine_render(int page, unsigned char *pixels, int stride, int width, int he
         fz_clear_pixmap_with_value(ctx, pix, 255);
         dev = fz_new_draw_device(ctx, fz_identity, pix);
         fz_matrix transform = {scale, 0, 0, scale, tx, ty};
+        cached_transform = transform;
         fz_run_page(ctx, p, dev, transform, NULL);
         fz_close_device(ctx, dev);
     }
@@ -181,6 +216,7 @@ int engine_render(int page, unsigned char *pixels, int stride, int width, int he
     if (ok && (size_t)width * height <= sizeof(render_cache)) {
         for (int y = 0; y < height; y++)
             memcpy(render_cache + y * width, pixels + y * stride, (size_t)width);
+        image_rect_count = -1;
         cached_page = page;
         cached_w = width;
         cached_h = height;

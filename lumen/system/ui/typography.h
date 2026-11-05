@@ -25,6 +25,10 @@ static void raised_surface(int x, int y, int w, int h) {
 }
 static void action_button(int x, int y, int w, int h, const char *text) {
     region(x, y, w, h);
-    control_surface(x, y, w, h, 12, UI_INK);
-    type_centered(x, y, w, h, text, UI_INVERSE);
+    widget_shape(x, y, w, h, RADIUS_MEDIUM, 3, 0);
+    control_surface(x, y, w, h, RADIUS_MEDIUM, UI_INK);
+    int ink = ink_color;
+    ink_color = UI_PAPER;
+    centered(x, y, w, h, text, &small);
+    ink_color = ink;
 }

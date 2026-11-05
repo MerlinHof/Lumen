@@ -13,11 +13,18 @@ static void header(void) {
     strftime(date, sizeof(date), "%d.%m.", &t);
     strftime(clock, sizeof(clock), "%H:%M", &t);
     snprintf(percent, sizeof(percent), "%d%%", atoi(status_ui.battery));
+    status_ui.status_date_w = status_ui.status_clock_w = 0;
     if (options[OPT_DATE]) {
+        status_ui.status_date_x = left - (left == 68 ? 6 : 8);
+        status_ui.status_date_w = textwidth(date, &small) + 10;
+        system_region(status_ui.status_date_x, 0, status_ui.status_date_w, 48);
         centered(left - 8, 0, textwidth(date, &small) + 16, 44, date, &small);
         left += textwidth(date, &small) + 12;
     }
     if (options[OPT_CLOCK]) {
+        status_ui.status_clock_x = left - (left == 68 ? 6 : 8);
+        status_ui.status_clock_w = textwidth(clock, &small) + 10;
+        system_region(status_ui.status_clock_x, 0, status_ui.status_clock_w, 48);
         centered(left - 8, 0, textwidth(clock, &small) + 16, 44, clock, &small);
         left += textwidth(clock, &small) + 12;
     }

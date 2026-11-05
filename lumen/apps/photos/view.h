@@ -114,8 +114,9 @@ static void polish_photos_grid(void) {
         photo_grid_key = key;
     }
     for (int r = 0; r < PHOTO_PER_PAGE && photo_page * PHOTO_PER_PAGE + r < photo_count; r++) {
-        int x = 19 + (r % 4) * 142, y = 202 + (r / 4) * 142;
+        int x = 19 + (r % 4) * 142, y = 187 + (r / 4) * 139;
         region(x, y, 136, 136);
+        widget_shape(x, y, 136, 136, RADIUS_LARGE, 3, 0);
         rounded_clip_begin(x, y, 136, 136);
         for (int yy = 0; yy < 136; yy++)
             for (int xx = 0; xx < 136; xx++)
@@ -126,14 +127,12 @@ static void polish_photos_grid(void) {
     if (!photo_count)
         wrapped(30, 216, photo_folder ? "Halte ein Foto unter Alle Fotos gedrückt, um es zuzuordnen." :
                 "Fotos vom Handy über LUMEN Connect hochladen.", ui_font(UI_BODY), 530, 4);
-    else
-        type_label(28, 643, 544, 35, "Foto gedrückt halten, um es Ordnern zuzuordnen.", UI_SECONDARY);
     pager(746, &photo_page, (photo_count + PHOTO_PER_PAGE - 1) / PHOTO_PER_PAGE);
 }
 static int photo_grid_hit(int x, int y) {
-    if (x < 19 || x >= 581 || y < 202 || y >= 622 ||
-        (x - 19) % 142 >= 136 || (y - 202) % 142 >= 136) return -1;
-    int index = photo_page * PHOTO_PER_PAGE + (y - 202) / 142 * 4 + (x - 19) / 142;
+    if (x < 19 || x >= 581 || y < 187 || y >= 740 ||
+        (x - 19) % 142 >= 136 || (y - 187) % 139 >= 136) return -1;
+    int index = photo_page * PHOTO_PER_PAGE + (y - 187) / 139 * 4 + (x - 19) / 142;
     return index < photo_count ? index : -1;
 }
 static void photo_grid_input(int x, int y) {
@@ -242,6 +241,7 @@ static void polish_photo(void) {
         rect(0, 742, 600, 58, 255);
         page_arrow(28, 748, IC_PREV, photo_selected > 0);
         icon_button(148, 748, IC_ROTATE_PHOTO);
+        icon_button(216, 748, IC_FOLDER);
         icon_button(278, 748, IC_TRASH);
         icon_button(398, 748, IC_FULLSCREEN);
         page_arrow(528, 748, IC_NEXT, photo_selected + 1 < photo_count);
@@ -269,7 +269,9 @@ static int polish_photo_input(const Input *in) {
             photo_rotation = 0;
         } else if (x >= 135 && x < 210)
             photo_rotation = (photo_rotation + 1) % 4;
-        else if (x >= 260 && x < 330)
+        else if (x >= 216 && x < 260)
+            photo_open_folder_menu(1, photo_selected);
+        else if (x >= 278 && x < 322)
             v1_delete = 1;
         else if (x >= 380 && x < 460) {
             photo_fill ^= 1;
@@ -281,6 +283,11 @@ static int polish_photo_input(const Input *in) {
 }
 
 static int photo_gallery_active(void) { return ui_route() == 71 && !photo_settings; }
+static int photo_back(void) {
+    if (ui_route() != 71 || !photo_settings) return 0;
+    photo_settings = 0;
+    return 1;
+}
 static void photo_app_leave(void) {
     photo_slideshow = 0;
     photo_settings = 0;

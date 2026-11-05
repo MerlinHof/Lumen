@@ -131,7 +131,7 @@ static void app_insights(void) {
         drawtext(30, 214, b, ui_font(UI_PRIMARY), 540);
         for (int i = 0; i < 30; i++) {
             int h = (int)(240ULL * secs[i] / max);
-            control_surface(30 + i * 18, 565 - h, 12, h ? h : 2, 2, secs[i] ? 0 : 220);
+            control_surface(30 + i * 18, 565 - h, 12, h ? h : 2, RADIUS_SMALL, secs[i] ? 0 : 220);
         }
         drawtext(30, 590, "Vor 30 Tagen", ui_font(UI_SECONDARY), 260);
         drawtext(490, 590, "Heute", ui_font(UI_SECONDARY), 82);

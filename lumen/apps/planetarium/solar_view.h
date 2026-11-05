@@ -14,17 +14,15 @@ static void solar16(void) {
     aa_disc(300, 407, 10, 0);
     for (int i = 0; i < 8; i++) {
         int r = 40 + i * 26;
-        ink_color = 210;
-        ring(300, 407, r, 1);
-        ink_color = 0;
+        aa_arc_color(300, 407, r, 0, 360, 1, 176);
         astro_vector_t v = Astronomy_HelioVector(ids[i], t);
         if (v.status != ASTRO_SUCCESS)
             continue;
         double a = atan2(v.y, v.x);
         int x = 300 + r * cos(a), y = 407 - r * sin(a);
-        aa_disc(x, y, i < 4 ? 4 : 6, 0);
+        aa_disc(x, y, i < 4 ? 6 : 8, 0);
         char shortname[4] = {names[i][0], names[i][1], 0};
-        drawtext_raw(x + 8, y - 10, shortname, ui_font(UI_SECONDARY), 40);
+        drawtext_raw(x + 11, y - 10, shortname, ui_font(UI_SECONDARY), 40);
     }
     for (int i = 0; i < 8; i++)
         drawtext(28 + (i % 4) * 140, 650 + (i / 4) * 25, names[i], ui_font(UI_SECONDARY), 135);

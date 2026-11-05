@@ -53,6 +53,7 @@ enum {
     IC_GLOBE,
     IC_ALIGN,
     IC_BARS,
-    IC_LAST = IC_BARS
+    IC_CHAT,
+    IC_LAST = IC_CHAT
 };
 #endif

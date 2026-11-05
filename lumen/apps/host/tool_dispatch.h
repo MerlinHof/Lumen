@@ -110,6 +110,7 @@ static void extra_draw(void) {
     }
 }
 static void extra_return(int target) {
+    navigation_rewinds++;
     for (int i = history_count - 1; i >= 0; i--)
         if (history[i] == target) {
             history_count = i;
@@ -317,7 +318,7 @@ static int extra_input(const Input *in) {
             return 1;
         }
         if (y >= 540 && y < 782) {
-            if (x >= 468) {
+            if (x >= 460) {
                 if (y >= 664)
                     calc_run();
                 else if (y < 596) {
