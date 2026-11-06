@@ -1,4 +1,4 @@
-enum { HOME_ART_Y = 56, HOME_ART_H = 336, HOME_GRID_Y = 465,
+enum { HOME_ART_Y = 52, HOME_ART_H = 400, HOME_GRID_Y = 465,
        HOME_FULL_GRID_Y = 80, HOME_TILE_H = 126, HOME_PAGER_Y = 744 };
 static unsigned char home_art[WIDTH*HOME_ART_H];
 static int home_scene = -1, home_page, home_scene_offset;
@@ -21,7 +21,7 @@ static void home_landscape(time_t now) {
         }
 #endif
         char header[16];
-        const char expected[] = "P5\n600 336\n255\n";
+        const char expected[] = "P5\n600 400\n255\n";
         if (!f || fread(header,1,sizeof(expected)-1,f) != sizeof(expected)-1 ||
             memcmp(header,expected,sizeof(expected)-1) ||
             fread(home_art,1,sizeof(home_art),f) != sizeof(home_art))

@@ -5,9 +5,5 @@ int amazon_metadata(const char *path, char *title, size_t nt, char *author, size
                     int *encrypted);
 int amazon_can_prepare(const Book *book);
 int amazon_prepare(const Book *book, char *path, size_t size);
-int amazon_background_busy(void);
-void amazon_background_start(void);
-int amazon_background_poll(void);
-void amazon_background_stop(void);
 int amazon_reader_request(const char *path);
 #endif

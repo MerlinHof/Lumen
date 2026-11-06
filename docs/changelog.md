@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.5
+
+- Restore the previous on-demand Kindle converter after a startup freeze on the device. Library scans still discover new books and reuse existing imports. Guard KFX extraction against filling the firmware temporary filesystem.
+- Give the Home sketches more vertical space and draw their edges as open linework.
+
 ## 3.4
 
 - Tap the hand-engraved Home illustration to switch scenes. The first page shows the first eight apps in the same ordered list as the other pages.

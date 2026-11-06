@@ -1,9 +1,6 @@
 #include "i18n.h"
 #define _GNU_SOURCE
 #include "amazon.h"
-#include "engine.h"
-#include <signal.h>
-#include <sys/file.h>
 #include <stdio.h>
 #include <errno.h>
 #include <ctype.h>
@@ -14,6 +11,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
 static const char *tool(void) {
@@ -93,6 +91,14 @@ static int prepare_runtime(void) {
     if(*runtime_dir)return 1;
     char archive[2048];snprintf(archive,sizeof(archive),"%s/../lib/amazon-runtime.tar.gz",data_root);
     if(access(archive,R_OK))return 0;
+    /* The bundled runtime occupies about 50 MiB after extraction. Leave
+       room for firmware services on devices where /var is a small tmpfs. */
+    struct statvfs space;
+    if (statvfs("/var/tmp", &space) ||
+        (unsigned long long)space.f_bavail * space.f_frsize < 64ULL * 1024 * 1024) {
+        fprintf(stderr, "amazon_runtime: insufficient temporary space for KFX converter\n");
+        return 0;
+    }
     snprintf(runtime_dir,sizeof(runtime_dir),"/var/tmp/lumen-amazon-XXXXXX");
     if(!mkdtemp(runtime_dir)){runtime_dir[0]=0;return 0;}
     atexit(amazon_runtime_close);
@@ -120,7 +126,7 @@ static int copy_import(const char *from,const char *to) {
     if(ok)ok=rename(temp,to)==0;
     if(!ok)unlink(temp);return ok;
 }
-static int prepare_book(const Book *book,char *path,size_t size) {
+int amazon_prepare(const Book *book,char *path,size_t size) {
     if(library_import_path(book,path,size))return 1;
     if(!amazon_can_prepare(book))return 0;
     char parent[2048],work[2300],serial[64];
@@ -132,7 +138,6 @@ static int prepare_book(const Book *book,char *path,size_t size) {
     char output[2600];snprintf(output,sizeof(output),"%s/book.epub",work);
     pid_t pid=fork();
     if(!pid){
-        signal(SIGTERM,SIG_DFL);
         struct rlimit mem={192*1024*1024,192*1024*1024},cpu={180,180};setrlimit(RLIMIT_AS,&mem);setrlimit(RLIMIT_CPU,&cpu);
         int fd=open("/dev/null",O_WRONLY);if(fd>=0){dup2(fd,1);dup2(fd,2);close(fd);}
         if(kfx){
@@ -162,77 +167,6 @@ static int prepare_book(const Book *book,char *path,size_t size) {
         int n=snprintf(text,sizeof(text),"%llu %lld\n",(unsigned long long)book->size,(long long)book->modified);ok=atomic_write(stamp,text,n);
     }
     remove_owned_tree(work,0);return ok;
-}
-
-int amazon_prepare(const Book *book,char *path,size_t size) {
-    if (library_import_path(book,path,size)) return 1;
-    if (!amazon_can_prepare(book)) return 0;
-    char parent[2048], lock[2300];
-    snprintf(parent,sizeof(parent),"%s/imports",data_root);
-    mkdir(parent,0700);
-    snprintf(lock,sizeof(lock),"%s/%016llx.lock",parent,(unsigned long long)book->id);
-    int fd=open(lock,O_CREAT|O_RDWR|O_CLOEXEC,0600);
-    if (fd < 0) return 0;
-    int acquired;
-    do { acquired=flock(fd,LOCK_EX); } while (acquired < 0 && errno == EINTR);
-    int ok=acquired == 0 && prepare_book(book,path,size);
-    close(fd);
-    return ok;
-}
-
-static pid_t background_pid;
-#ifndef LUMEN_HOST
-static volatile sig_atomic_t background_cancelled;
-static void cancel_background(int signal_number) {
-    (void)signal_number;
-    background_cancelled=1;
-}
-#endif
-int amazon_background_busy(void) { return background_pid > 0; }
-void amazon_background_start(void) {
-#ifndef LUMEN_HOST
-    if (background_pid > 0) return;
-    char path[2048];
-    int pending=0;
-    for (int i=0;i<library_count && !pending;i++)
-        pending=amazon_can_prepare(&library[i]) &&
-                !library_import_path(&library[i],path,sizeof(path));
-    if (!pending) return;
-    pid_t child=fork();
-    if (child < 0) return;
-    if (!child) {
-        setpgid(0,0);
-        signal(SIGTERM,cancel_background);
-        nice(12);
-        for (int i=0;i<library_count && !background_cancelled;i++) {
-            Book *book=&library[i];
-            if (!amazon_can_prepare(book) || library_import_path(book,path,sizeof(path))) continue;
-            if (!amazon_prepare(book,path,sizeof(path)) || background_cancelled) continue;
-            char cover[2048], temp[2080];
-            snprintf(cover,sizeof(cover),"%s/covers/%016llx.hi.pgm",data_root,
-                     (unsigned long long)book->id);
-            snprintf(temp,sizeof(temp),"%s.part-%ld",cover,(long)getpid());
-            if (engine_thumbnail_hd(path,temp)) rename(temp,cover);
-            unlink(temp);
-        }
-        _exit(0);
-    }
-    setpgid(child,child);
-    background_pid=child;
-#endif
-}
-int amazon_background_poll(void) {
-    if (background_pid <= 0) return 0;
-    pid_t result=waitpid(background_pid,NULL,WNOHANG);
-    if (result == 0 || (result < 0 && errno == EINTR)) return 0;
-    background_pid=0;
-    return 1;
-}
-void amazon_background_stop(void) {
-    if (background_pid <= 0) return;
-    kill(-background_pid,SIGTERM);
-    while (waitpid(background_pid,NULL,0)<0 && errno==EINTR) {}
-    background_pid=0;
 }
 
 int amazon_reader_request(const char *path) {

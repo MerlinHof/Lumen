@@ -972,7 +972,6 @@ void ui_set_screen(int n) {
 void ui_init(void) {
     app_runtime_init(&runtime, app_leave, NULL);
     register_builtin_views();
-    amazon_background_start();
     notifications_register();
     app_endpoint_register("keyboard", keyboard_receive);
     library_settings_load();
@@ -1400,7 +1399,6 @@ static int ui_dispatch_input(const Input *in) {
     if (in->kind == INPUT_STATUS && sleeping)
         return v1_sleep_tick() ? 1 : 2;
     if (in->kind == INPUT_STATUS) {
-        if (amazon_background_poll() && ui_route() == 1) return 1;
         if (refresh_status(in->x == -1))
             return 1;
         int tick16 = u16_tick();
@@ -1609,7 +1607,6 @@ static int ui_dispatch_input(const Input *in) {
         return 1;
     }
     if (in->kind == INPUT_EXIT || in->kind == INPUT_USB) {
-        amazon_background_stop();
         connect_stop();
         discover_cancel();
         service_cancel();
@@ -1894,7 +1891,6 @@ static void refresh_library(void) {
     selected = -1;
     library_scan();
     library_ui.library_dirty = 0;
-    amazon_background_start();
     update_view();
 }
 static void commit_keyboard(void) {
@@ -2089,7 +2085,6 @@ int ui_poll_interval(void) {
     int wait = ui_route() >= 20 ? apps_poll_interval() : (ui_route() == 12 || ui_route() == 8 ? 2000 : -1),
         other = extra_poll();
     int np = new_apps_poll();
-    if (amazon_background_busy() && (wait < 0 || wait > 1000)) wait = 1000;
     int pp = polish_poll();
     if (pp >= 0 && (np < 0 || pp < np))
         np = pp;
@@ -2336,7 +2331,6 @@ static int app_read_book(int index) {
     return app_send(&request);
 }
 void ui_close(void) {
-    amazon_background_stop();
     cover_tiles_clear();
     free(weather_snapshot);
     weather_snapshot = NULL;
