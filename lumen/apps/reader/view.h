@@ -20,7 +20,7 @@ static void reader(void) {
     if (!reader_ui.reader_chrome)
         u15_reader_progress();
     if (reader_ui.reader_chrome) {
-        rect(0, 48, 600, READER_TOOLBAR_END - 48, 255);
+        rect(0, STATUS_HEIGHT, 600, READER_TOOLBAR_END - STATUS_HEIGHT, 255);
         label_ellipsis(28, 74, 422, 44, library[selected].title, ui_font(UI_HEADING), 0);
         label_ellipsis(29, 74, 421, 44, library[selected].title, ui_font(UI_HEADING), 0);
         divider(0, READER_TOOLBAR_END - 2, 600);

@@ -1,11 +1,18 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 static const char *sort_modes[] = {"Titel",           "Autor",      "Zuletzt gelesen",
                                    "Neu hinzugefügt", "Dateigröße", "Fortschritt"};
+static int appearance_group(int key) {
+    if (key == OPT_LOCK || key == OPT_LOCK_HINT || key == OPT_COVER_CROP) return 2;
+    if (key == OPT_DATE || key == OPT_CLOCK || key == OPT_WIFI || key == OPT_BATTERY ||
+        key == OPT_BATTERY_PERCENT) return 1;
+    return 0;
+}
 static void more_settings(void) {
     heading(categories[setting_category]);
-    if (setting_category == 1)
-        drawtext(30, 121, settings_ui.setting_page ? "Bücher & Sperrbild" : "Sprache & Statusleiste", ui_font(UI_SECONDARY),
-                 540);
+    if (setting_category == 1) {
+        const char *labels[] = {"Allgemein","Statusleiste","Sperrbild"};
+        segments(28,131,544,46,labels,3,settings_ui.setting_page);
+    }
     if (setting_category == 2) {
         char b[100];
         snprintf(b, sizeof(b), tr("%d Bücher in deiner Bibliothek"), library_count);
@@ -24,11 +31,10 @@ static void more_settings(void) {
         SettingRow *r = &setting_rows[i];
         if (r->category != setting_category)
             continue;
-        int index = row++;
-        if (setting_category == 1 && index / 8 != settings_ui.setting_page)
+        if (setting_category == 1 && appearance_group(r->key) != settings_ui.setting_page)
             continue;
-        int y = (setting_category == 1 ? 155 : 235) +
-                (setting_category == 1 ? index % 8 : index) * (setting_category == 1 ? 62 : 91);
+        int index = row++;
+        int y = setting_category == 1 ? 207 + index*68 : 235 + index*91;
         form_label(30, y - 4, r->choices ? 312 : 310, 48, r->label);
         char value[80];
         int v = options[r->key];
@@ -44,9 +50,6 @@ static void more_settings(void) {
             button(505, y - 4, 62, "+", 0);
         }
     }
-    if (setting_category == 1) {
-        pager(679, &settings_ui.setting_page, (row + 7) / 8);
-    }
     if (setting_category == 4)
         wrapped(30, 580, "Änderungen gelten beim nächsten Serverstart.", ui_font(UI_BODY), 540, 2);
 }
@@ -54,15 +57,8 @@ static void settings_input(const Input *in) {
     if (in->kind != INPUT_TAP)
         return;
     int x = in->x, y = in->y;
-    if (setting_category == 1 && y >= 679 && y < 723) {
-        int count = 0;
-        for (size_t i = 0; i < sizeof(setting_rows) / sizeof(*setting_rows); i++)
-            if (setting_rows[i].category == 1)
-                count++;
-        if (x < 300 && settings_ui.setting_page > 0)
-            settings_ui.setting_page--;
-        else if (x >= 300 && (settings_ui.setting_page + 1) * 8 < count)
-            settings_ui.setting_page++;
+    if (setting_category == 1 && y >= 131 && y < 177 && x >= 28 && x < 572) {
+        settings_ui.setting_page = (x-28)*3/544;
         return;
     }
     if (setting_category == 5 && y >= 145 && y < 193) {
@@ -74,11 +70,10 @@ static void settings_input(const Input *in) {
         SettingRow *r = &setting_rows[i];
         if (r->category != setting_category)
             continue;
-        int index = row++;
-        if (setting_category == 1 && index / 8 != settings_ui.setting_page)
+        if (setting_category == 1 && appearance_group(r->key) != settings_ui.setting_page)
             continue;
-        int top = (setting_category == 1 ? 151 : 231) +
-                  (setting_category == 1 ? index % 8 : index) * (setting_category == 1 ? 62 : 91);
+        int index = row++;
+        int top = setting_category == 1 ? 203 + index*68 : 231 + index*91;
         if (y < top || y >= top + 48)
             continue;
         if (r->choices) {

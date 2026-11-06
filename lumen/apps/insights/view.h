@@ -106,7 +106,7 @@ static void app_insights(void) {
         if (!n)
             wrapped(30, 220, "Deine Leseaktivität wird ab jetzt pro Buch erfasst.", ui_font(UI_TITLE), 540,
                     4);
-        pager(679, &extra_page, (n + 4) / 5);
+        pager(745, &extra_page, (n + 4) / 5);
     } else {
         unsigned secs[30], sum = 0, max = 60, active = 0;
         time_t now = time(NULL);

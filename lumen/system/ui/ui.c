@@ -92,6 +92,8 @@ static int u17_commit(int, const char *), u17_input(const Input *), u17_draw(voi
 static int u16_apps_commit(int, const char *), event_on16(int);
 static void u16_calendar_choice(int);
 static int keyboard_multiline(void);
+static void u15_note_editor_touch(int,int);
+static void u15_note_scroll(int);
 static void editor_reset18(void);
 static void tasks_draw18(void);
 static int tasks_input18(const Input *in);
@@ -189,13 +191,6 @@ static void apps_note_commit(const char *text);
 static void apps_page_turned(void);
 static void open_store(void);
 static void store_search(void);
-static int tasks_fullscreen;
-static void tabs_load(void);
-static int tab_at(int x);
-static int has_tabs(void) {
-    return options[OPT_TAB_BAR] && ((ui_route() == 2 && reader_ui.reader_chrome) ||
-                                  !app_route_fullscreen(ui_route()));
-}
 static void turn(int);
 static void system_loading(int);
 static void polish_wiki_history(void);
@@ -256,8 +251,7 @@ static int new_apps_tick(void);
 static void v1_init(void), v1_save(void), v1_open(int), v1_draw(void);
 static int v1_input(const Input *), v1_commit(int, const char *), v1_tick(void), v1_poll(void);
 static int v1_notes_input(const Input *), clipboard_input(const Input *);
-static void v1_notes_draw(void), v1_note_tools(void), v1_launcher(void),
-    v1_launcher_input(int, int);
+static void v1_notes_draw(void), v1_note_tools(void);
 static void clipboard_draw(void), v1_effect(void), v1_close(void);
 static int v1_sleep_photo(void), v1_chess_tick(void);
 static void v1_note_created(int), v1_timer_ring(int), v1_timer_started(void);
@@ -608,7 +602,7 @@ static void aa_arc(int x, int y, int r, int from, int to, int thickness);
 static void aa_disc(int x, int y, int r, int color);
 static void wifi_symbol(int x, int y) {
     /* One shared bold Wi-Fi symbol in both the header and network settings. */
-    aa_arc(x + 15, y + 27, 9, 220, 320, 3);
+    aa_arc(x + 15, y + 27, 7, 220, 320, 3);
     aa_arc(x + 15, y + 27, 15, 220, 320, 3);
     aa_disc(x + 15, y + 27, 2, 0);
 }
@@ -712,8 +706,7 @@ static void key_outline(int x, int y, int w, int h) {
 static int can_back(void) {
     return editor_ui.keyboard || dropdown || confirm_delete || battery_popup ||
            (ui_route() == 29 && u17_notes_depth()) || (ui_route() == 10 && store_ui.opds_depth) ||
-           history_count || (ui_route() != 131 &&
-           (!has_tabs() || (ui_route() != 1 && ui_route() != 13 && ui_route() != 10 && ui_route() != 20)));
+           history_count || ui_route() != 131;
 }
 static void progress(int x, int y, int w, int n, int total) {
     rect(x, y, w, 4, 180);
@@ -951,7 +944,6 @@ void ui_init(void) {
     notifications_register();
     app_endpoint_register("keyboard", keyboard_receive);
     library_settings_load();
-    tabs_load();
     apps_init();
     extra_init();
     new_apps_init();
@@ -1165,7 +1157,6 @@ static int refresh_status(int force) {
     }
     return 0;
 }
-#include "../../apps/tab_bar/view.h"
 #include "../../apps/status_bar/view.h"
 static void connect_screen(void);
 static void more_settings(void);
@@ -1216,7 +1207,7 @@ static int centered_lines(int x, int y, int width, const char *text, const Font 
 void ui_draw(void) {
     widget_count = 0;
     pagination = (Pagination){0};
-    if (editor_ui.keyboard && editor_ui.keyboard_background_valid18 && !sleeping) {
+    if (editor_ui.keyboard && editor_ui.keyboard_target != 30 && editor_ui.keyboard_background_valid18 && !sleeping) {
         memcpy(ui_pixels, editor_ui.keyboard_background18, sizeof(ui_pixels));
         if (ui_route() != 2)
             app_view_draw(APP_STATUS_BAR);
@@ -1246,11 +1237,9 @@ void ui_draw(void) {
     }
     if (ui_route() == 2 && reader_ui.reader_chrome)
         app_view_draw(APP_STATUS_BAR);
-    if (has_tabs())
-        app_view_draw(APP_TAB_BAR);
     if (ui_route() == 2 && reader_ui.selecting == 2)
         selection_overlay();
-    if (editor_ui.keyboard) {
+    if (editor_ui.keyboard && editor_ui.keyboard_target != 30) {
         memcpy(editor_ui.keyboard_background18, ui_pixels, sizeof(ui_pixels));
         editor_ui.keyboard_background_valid18 = 1;
     }
@@ -1316,6 +1305,12 @@ static void toggle_bookmark(void) {
 }
 static unsigned navigation_rewinds;
 static int ui_dispatch_input(const Input *in) {
+    if (in->kind == INPUT_CANCEL) {
+        pressed = -1;
+        press_canceled = 0;
+        editor_ui.pressed_key = -1;
+        return 1;
+    }
     int visible=notification_visible();
     if(notification_input(in,visible)) { pressed=-1; return 1; }
     int pm = polish_power(in);
@@ -1344,24 +1339,22 @@ static int ui_dispatch_input(const Input *in) {
     if (input18 >= 0)
         return input18;
     int back_release = pressed >= 0 && press_bounds.system && press_bounds.x == 0 &&
-                       press_bounds.y == 0 && press_bounds.w == 62 && in->y < 56 && in->x < 70;
-    int status_tap = in->kind == INPUT_TAP && (in->y < 48 || back_release) &&
+                       press_bounds.y == 0 && press_bounds.w == 62 && in->y < STATUS_HEIGHT+8 && in->x < 70;
+    int status_tap = in->kind == INPUT_TAP && (in->y < STATUS_HEIGHT || back_release) &&
                      (ui_route() != 2 || reader_ui.reader_chrome);
     int system_pager = !sleeping && !editor_ui.keyboard && !dropdown && !confirm_delete &&
                        pagination_hit(in);
-    int system_tab = !sleeping && !editor_ui.keyboard && !dropdown && !confirm_delete &&
-                     in->kind == INPUT_TAP && in->y >= 736 && has_tabs() && !polish_photo_full();
-    int update17 = (status_tap || system_pager || system_tab) ? -1 : u17_input(in);
+    int update17 = (status_tap || system_pager) ? -1 : u17_input(in);
     if (update17 >= 0) {
         pressed = -1;
         return update17;
     }
-    int update16 = (status_tap || system_pager || system_tab) ? -1 : u16_input(in);
+    int update16 = (status_tap || system_pager) ? -1 : u16_input(in);
     if (update16 >= 0) {
         pressed = -1;
         return update16;
     }
-    int update15 = (status_tap || system_pager || system_tab) ? -1 : u15_input(in);
+    int update15 = (status_tap || system_pager) ? -1 : u15_input(in);
     if (update15 >= 0) {
         pressed = -1;
         return update15;
@@ -1499,8 +1492,8 @@ static int ui_dispatch_input(const Input *in) {
             normalized = *in;
             if (normalized.x > 61)
                 normalized.x = 61;
-            if (normalized.y > 47)
-                normalized.y = 47;
+            if (normalized.y >= STATUS_HEIGHT)
+                normalized.y = STATUS_HEIGHT-1;
             in = &normalized;
         }
     } else if (in->kind == INPUT_SWIPE) {
@@ -1681,7 +1674,7 @@ static int ui_dispatch_input(const Input *in) {
         }
         return 1;
     }
-    if (ui_route() == 14 && !confirm_delete && in->kind == INPUT_TAP && y >= 679 && y < 723) {
+    if (ui_route() == 14 && !confirm_delete && in->kind == INPUT_TAP && y >= 745 && y < 789) {
         if (x < 300 && reader_ui.annotation_page)
             reader_ui.annotation_page--;
         else if (x >= 300 && (reader_ui.annotation_page + 1) * 5 < reader_ui.annotation_count)
@@ -1689,7 +1682,7 @@ static int ui_dispatch_input(const Input *in) {
         return 1;
     }
 
-    if (in->kind == INPUT_TAP && ui_route() == 2 && reader_ui.reader_chrome && y >= READER_TOOLBAR_END && y < 736) {
+    if (in->kind == INPUT_TAP && ui_route() == 2 && reader_ui.reader_chrome && y >= READER_TOOLBAR_END) {
         reader_ui.reader_chrome = 0;
         return 1;
     }
@@ -1697,7 +1690,7 @@ static int ui_dispatch_input(const Input *in) {
         reader_ui.reader_chrome = 1;
         return 1;
     }
-    if (in->kind == INPUT_TAP && y < 48 && (ui_route() != 2 || reader_ui.reader_chrome) &&
+    if (in->kind == INPUT_TAP && y < STATUS_HEIGHT && (ui_route() != 2 || reader_ui.reader_chrome) &&
         !editor_ui.keyboard && !dropdown && !confirm_delete && !battery_popup) {
         int date = x >= status_ui.status_date_x && x < status_ui.status_date_x + status_ui.status_date_w;
         int clock = x >= status_ui.status_clock_x && x < status_ui.status_clock_x + status_ui.status_clock_w;
@@ -1708,14 +1701,14 @@ static int ui_dispatch_input(const Input *in) {
             return 1;
         }
     }
-    if (in->kind == INPUT_TAP && y < 48 && (ui_route() != 2 || reader_ui.reader_chrome) &&
+    if (in->kind == INPUT_TAP && y < STATUS_HEIGHT && (ui_route() != 2 || reader_ui.reader_chrome) &&
         !editor_ui.keyboard && !dropdown && !confirm_delete && !battery_popup && status_ui.status_timer_x >= 0 &&
         x >= status_ui.status_timer_x && x < status_ui.status_timer_x + status_ui.status_timer_width) {
         AppIntent request = {.app = APP_TIMER, .kind = INTENT_OPEN};
         app_send(&request);
         return 1;
     }
-    if (in->kind == INPUT_TAP && y < 48 && (ui_route() != 2 || reader_ui.reader_chrome)) {
+    if (in->kind == INPUT_TAP && y < STATUS_HEIGHT && (ui_route() != 2 || reader_ui.reader_chrome)) {
         if (x < 62 && (ui_route() == 3 || ui_route() == 9) && !editor_ui.keyboard && !dropdown && !confirm_delete)
             apply_reading_settings();
         if (x < 62 && ui_route() == 29 && u17_notes_depth() && !editor_ui.keyboard && !dropdown) {
@@ -1768,7 +1761,7 @@ static int ui_dispatch_input(const Input *in) {
             return 1;
         }
     }
-    if (in->kind == INPUT_TAP && y < 48 && !editor_ui.keyboard && !dropdown && !confirm_delete &&
+    if (in->kind == INPUT_TAP && y < STATUS_HEIGHT && !editor_ui.keyboard && !dropdown && !confirm_delete &&
         (options[OPT_BATTERY] || options[OPT_BATTERY_PERCENT]) &&
         status_ui.status_battery_x >= 0 && x >= status_ui.status_battery_x - 6 && x < status_ui.status_battery_right + 6 &&
         (ui_route() != 2 || reader_ui.reader_chrome)) {
@@ -1781,20 +1774,6 @@ static int ui_dispatch_input(const Input *in) {
     }
     if (ui_route() == 0)
         route_to(1);
-    if (in->kind == INPUT_TAP && has_tabs() && y >= 736) {
-        apps_pause();
-        if (ui_route() == 3 || ui_route() == 9)
-            apply_reading_settings();
-        navigation_rewinds++;
-        history_count = 0;
-        int tab = tab_at(x);
-        if (tab >= 0) {
-            AppIntent request = {.app = tab, .kind = INTENT_OPEN};
-            app_send(&request);
-            history_count = 0;
-        }
-        return 1;
-    }
     return app_handle_input(in);
 }
 int ui_input(const Input *in) {
@@ -1826,8 +1805,8 @@ static void overlays(void) {
     ui_y_offset = 0;
     if (dropdown) {
         int height = drop_visible * 48 + 10 + (drop_count > 5 ? 44 : 0);
-        if (drop_y + height > (has_tabs() ? 728 : 790))
-            drop_y = (has_tabs() ? 728 : 790) - height;
+        if (drop_y + height > 790)
+            drop_y = 790 - height;
         control_surface(drop_x, drop_y, drop_w, height, RADIUS_LARGE, 0);
         control_surface(drop_x + 2, drop_y + 2, drop_w - 4, height - 4, RADIUS_LARGE-2, 255);
         for (int row = 0; row < drop_visible && drop_first + row < drop_count; row++) {
@@ -1946,7 +1925,8 @@ static size_t keyboard_capacity(void) {
 static void modal_input(const Input *in) {
     if (in->kind == INPUT_SWIPE && editor_ui.keyboard && keyboard_multiline() && down_y >= 54 &&
         down_y < 502) {
-        editor_scroll18(in->dy > 0 ? -8 : 8);
+        if (editor_ui.keyboard_target == 30) u15_note_scroll(in->dy > 0 ? -8 : 8);
+        else editor_scroll18(in->dy > 0 ? -8 : 8);
         return;
     }
     if (in->kind != INPUT_TAP)
@@ -2138,7 +2118,6 @@ void ui_paint_image(int x, int y, int w, int h, const unsigned char *gray) {
 int64_t ui_clock_millis(void) { return extra_millis(); }
 static void register_builtin_views(void) {
     app_view_register(APP_STATUS_BAR, header, NULL);
-    app_view_register(APP_TAB_BAR, tabbar, NULL);
     app_page_register(APP_HOME, home_draw, home_input, NULL);
     app_view_register(APP_LOCK_SCREEN, lock_screen_draw, NULL);
     app_view_register(APP_KEYBOARD, keyboard_draw18, NULL);
@@ -2340,8 +2319,4 @@ void ui_power_screen(int restart) {
     icon(278, 253, restart ? IC_REBOOT : IC_POWER);
     centered(28, 325, 544, 75, restart ? "Kindle startet neu …" : "Kindle wird ausgeschaltet …",
              &editorial);
-}
-
-int ui_batch_input(void) {
-    return editor_ui.keyboard || (ui_route() == 30 && note_ink_mode);
 }

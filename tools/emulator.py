@@ -57,7 +57,7 @@ def prepare_profile(profile):
     books, data = profile / "books", profile / "data"
     books.mkdir(exist_ok=True)
     data.mkdir(exist_ok=True)
-    for name in ("catalogs", "certs", "fonts"):
+    for name in ("catalogs", "certs", "fonts", "home"):
         target = profile / name
         if not target.exists() and not target.is_symlink():
             target.symlink_to(ROOT / "lumen/assets" / name, target_is_directory=True)

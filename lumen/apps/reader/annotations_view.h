@@ -86,5 +86,5 @@ static void annotations_screen(void) {
         icon_button(522, y + 25, IC_TRASH);
         rect(28, y + 98, 544, 2, 190);
     }
-    pager(679, &reader_ui.annotation_page, (reader_ui.annotation_count + 4) / 5);
+    pager(745, &reader_ui.annotation_page, (reader_ui.annotation_count + 4) / 5);
 }

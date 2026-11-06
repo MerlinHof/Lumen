@@ -11,7 +11,7 @@ typedef struct {
     int note_view_start;
     int note_scroll_lock;
     int keyboard_view18;
-    int accent_count18, accent_opening_touch;
+    int accent_count18, accent_opening_touch, pressed_key;
     int accent_x18;
     int clip_active;
     int keyboard_background_valid18;

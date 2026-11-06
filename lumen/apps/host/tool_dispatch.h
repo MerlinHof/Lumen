@@ -241,7 +241,7 @@ static int extra_input(const Input *in) {
             char b[32];
             snprintf(b, sizeof(b), "%d", reading_goal);
             open_keyboard(38, "Tagesziel: Minuten", b);
-        } else if (stats_page == 1 && y >= 679 && y < 723) {
+        } else if (stats_page == 1 && y >= 745 && y < 789) {
             if (x < 300 && extra_page)
                 extra_page--;
             else if (x >= 300) {
@@ -444,7 +444,7 @@ static int extra_input(const Input *in) {
                 else if (!service_start(SERVICE_TOGGLE, ha_url, ha_token, e->id))
                     ui_message("Anfrage läuft bereits.");
             }
-        } else if (y >= 679 && y < 723) {
+        } else if (y >= 745 && y < 789) {
             if (x < 300 && ha_page)
                 ha_page--;
             else if (x >= 300) {
@@ -495,7 +495,7 @@ static int extra_input(const Input *in) {
                     app_send(&request);
                 }
             }
-        } else if (y >= 679 && y < 723) {
+        } else if (y >= 745 && y < 789) {
             if (x < 300 && global_quote_page)
                 global_quote_page--;
             else if (x >= 300 && (global_quote_page + 1) * 4 < global_quote_count)
@@ -560,9 +560,6 @@ static int extra_input(const Input *in) {
     if (ui_route() == 41) {
         if (y >= 455 && y < 503) {
             library_defaults();
-            tabs = default_tabs;
-            tab_settings_page = 0;
-            app_state_save("tab-bar-v1.bin", &tabs, sizeof(tabs));
             extra_zone();
             apply_reading_settings();
             char p[2048];

@@ -29,13 +29,10 @@
     [OPT_COVER_CROP] = 1, \
     [OPT_ROUNDING] = 1, \
     [OPT_PROGRESS] = 1, \
-    [OPT_APPS] = 1, \
     [OPT_UI_REV] = 11, \
-    [OPT_TAB_LABELS] = 0, \
     [OPT_AUTO_TIME] = 1, \
     [OPT_ZONE] = 0, \
     [OPT_REMOTE] = 0, \
-    [OPT_TAB_BAR] = 1, \
     [OPT_KEYBOARD_LANGUAGE] = 0, \
 }
 extern const Settings factory_settings;

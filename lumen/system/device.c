@@ -264,7 +264,8 @@ void device_ip(char *out, int size) {
     }
     freeifaddrs(ifs);
 }
-static void present_frame(const unsigned char *pixels, int full, int asynchronous) {
+static void present_frame(const unsigned char *pixels, int full, int asynchronous, int press) {
+    static int previous_press;
     feedback_join();
     int top = HEIGHT, bottom = 0, left = WIDTH, right = 0;
     for (int y = 0; y < HEIGHT; y++)
@@ -294,12 +295,12 @@ static void present_frame(const unsigned char *pixels, int full, int asynchronou
     int clear = coverage >= 70;
     /* Header widgets move when visibility/width changes. Refresh the whole strip
        as one unit so the old positions cannot survive at a clipped boundary. */
-    if (top < 48) {
+    if (top < STATUS_HEIGHT) {
         left = 0;
         right = WIDTH;
         top = 0;
-        if (bottom < 48)
-            bottom = 48;
+        if (bottom < STATUS_HEIGHT)
+            bottom = STATUS_HEIGHT;
     }
     /* EPDC updates require aligned regions. Round out, never clip dirty pixels. */
     left &= ~7;
@@ -319,23 +320,26 @@ static void present_frame(const unsigned char *pixels, int full, int asynchronou
     for (int y = top; y < bottom; y++)
         memcpy(fb + (y + yoff) * stride + xoff + left, pixels + y * WIDTH + left,
                (size_t)(right - left));
-    memcpy(previous, pixels, sizeof(previous));
-    initialized = 1;
     char region[100];
     snprintf(region, sizeof(region), "top=%d,left=%d,width=%d,height=%d", top, left, right - left,
              bottom - top);
-    int binary = top >= 48 && (right - left) * (bottom - top) < WIDTH * HEIGHT / 4;
+    int binary = top >= STATUS_HEIGHT && (right - left) * (bottom - top) < WIDTH * HEIGHT / 4;
     if (binary)
         for (int y = top; y < bottom && binary; y++)
             for (int x = left; x < right; x++) {
                 int v = pixels[y * WIDTH + x];
-                if (v != 0 && v != 255) {
+                int old = previous[y * WIDTH + x];
+                if ((v != 0 && v != 255) || (old != 0 && old != 255)) {
                     binary = 0;
                     break;
                 }
             }
+    memcpy(previous, pixels, sizeof(previous));
+    initialized = 1;
+    int wait_for_highlight = press || previous_press;
+    previous_press = press;
     char *partial[] = {"fbink", "-q",   "-W", top == 0 ? "GC16" : binary ? "DU" : "GL16",
-                       "-s",    region, NULL};
+                       "-s",    region, wait_for_highlight ? "-w" : NULL, NULL};
     char *clean[] = {"fbink", "-q", "-W", "GC16", "-f", "-s", "top=0,left=0,width=600,height=800",
                      NULL};
     if (clear)
@@ -364,10 +368,10 @@ static void present_frame(const unsigned char *pixels, int full, int asynchronou
 }
 void device_present(const unsigned char *pixels, int full, int interval) {
     (void)interval;
-    present_frame(pixels,full,0);
+    present_frame(pixels,full,0,0);
 }
-void device_present_async(const unsigned char *pixels) {
-    present_frame(pixels,0,1);
+void device_present_async(const unsigned char *pixels, int press) {
+    present_frame(pixels,0,1,press);
 }
 static int parse_event(int fd, int source, Input *input) {
     char buf[1024];
@@ -404,7 +408,7 @@ static int parse_event(int fd, int source, Input *input) {
     return 0;
 }
 int device_wait(Input *input) {
-    static int x, y, sx, sy, active, started, release, held;
+    static int x, y, sx, sy, active, started, release, held, desynced;
     static int64_t began, power_began;
     static int power_active, power_sent;
     memset(input, 0, sizeof(*input));
@@ -501,6 +505,16 @@ int device_wait(Input *input) {
                     }
                     continue;
                 }
+                if (e.type == EV_SYN && e.code == SYN_DROPPED) {
+                    active = started = release = held = 0;
+                    desynced = 1;
+                    input->kind = INPUT_CANCEL;
+                    return 1;
+                }
+                if (desynced) {
+                    if (e.type == EV_SYN && e.code == SYN_REPORT) desynced = 0;
+                    continue;
+                }
                 if (e.type == EV_ABS) {
                     if (e.code == xcode)
                         x = (e.value - ax.minimum) * (WIDTH - 1) / (ax.maximum - ax.minimum);
@@ -540,6 +554,10 @@ int device_wait(Input *input) {
                             input->kind = INPUT_MOVE;
                         }
                         return 1;
+                    }
+                    if (release && !started) {
+                        active = release = held = 0;
+                        continue;
                     }
                     if (release) {
                         input->x = x;
@@ -586,7 +604,7 @@ int device_wifi(int e) {
     return 1;
 }
 void device_ip(char *s, int n) { snprintf(s, n, "127.0.0.1"); }
-void device_present_async(const unsigned char *p) { (void)p; }
+void device_present_async(const unsigned char *p, int press) { (void)p; (void)press; }
 void device_present(const unsigned char *p, int f, int i) {
     (void)p;
     (void)f;

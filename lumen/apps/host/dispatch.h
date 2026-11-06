@@ -1,6 +1,5 @@
 /* App view and event dispatch. Status and tab bars own their views in their app modules. */
 static void app_render(void) {
-    if (ui_route() == 132) { tab_settings_draw(); return; }
     if (app_page_draw(ui_route())) return;
     if (ui_route() >= 60) {
         new_apps_draw();
@@ -59,7 +58,6 @@ static void app_render(void) {
         if (ui_route() >= 27)
             extra_draw();
         break;
-    case 20:
     case 21:
     case 22:
     case 23:
@@ -72,7 +70,6 @@ static void app_render(void) {
 }
 static int app_handle_input(const Input *in) {
     int x = in->x, y = in->y, old = ui_route();
-    if (ui_route() == 132) return tab_settings_input(in);
     int handled = app_page_input(ui_route(), in);
     if (handled >= 0) return handled;
     if (ui_route() >= 60) return new_apps_input(in);
@@ -101,7 +98,7 @@ static int app_handle_input(const Input *in) {
             if (row == 5)
                 extra_open(39);
             else if (row == 6)
-                extra_open(132);
+                extra_open(83);
             else
                 extra_open(40);
         } else {
@@ -111,7 +108,7 @@ static int app_handle_input(const Input *in) {
         return 1;
     }
     if (ui_route() == 1 && in->kind == INPUT_TAP) {
-        if (y >= 679 && y < 723) {
+        if (y >= 745 && y < 789) {
             if (x >= 190 && x < 259 && library_ui.listpage)
                 library_ui.listpage--;
             else if (x >= 337 && x < 406 && library_ui.listpage + 1 < library_pages())

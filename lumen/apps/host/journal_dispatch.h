@@ -42,7 +42,7 @@ static int u17_more_draw(void) {
             ListLayout l = list_row(28, y, 544, 74, -1, 62, b, detail, ui_font(UI_PRIMARY), 1);
             icon(528, l.action_y, IC_NEXT);
         }
-        pager(679, &journal_page17, (journal_count17 + 6) / 7);
+        pager(745, &journal_page17, (journal_count17 + 6) / 7);
         return 1;
     }
     if (ui_route() == 126) {

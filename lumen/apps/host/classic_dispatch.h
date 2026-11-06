@@ -1,9 +1,6 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 static void apps_draw(void) {
     switch (ui_route()) {
-    case 20:
-        app_launcher();
-        break;
     case 21:
         app_calendar();
         break;
@@ -67,10 +64,6 @@ static int apps_input(const Input *in) {
     }
     if (in->kind != INPUT_TAP)
         return 2;
-    if (ui_route() == 20) {
-        v1_launcher_input(x, y);
-        return 1;
-    }
     if (ui_route() >= 23 && x >= 516 && y >= 74 && y < 118) {
         app_new(ui_route());
         return 1;

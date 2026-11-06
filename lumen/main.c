@@ -16,7 +16,7 @@ static double stamp(void) {
 }
 int main(int argc, char **argv) {
     if (argc == 2 && !strcmp(argv[1], "--version")) {
-        puts("LUMEN 3.1 / MuPDF 1.28.5 / native ARMv7");
+        puts("LUMEN 3.2 / MuPDF 1.28.5 / native ARMv7");
         return 0;
     }
     const char *preview = NULL, *inspect = NULL, *render = NULL;
@@ -121,16 +121,15 @@ int main(int argc, char **argv) {
             break;
         if (action == 1)
             redraw_pending = 1;
-        int batching = ui_batch_input();
         int poll = ui_poll_interval();
         device_poll_interval(redraw_pending && (poll < 0 || poll > 24) ? 24 : poll);
         if ((action == 3 || redraw_pending) && device_input_pending())
             continue;
         if ((action == 3 || redraw_pending) && device_refresh_busy())
             continue;
-        if (action == 3 && !batching && !redraw_pending) {
+        if (action == 3 && !redraw_pending) {
             ui_feedback_draw();
-            device_present_async(ui_pixels);
+            device_present_async(ui_pixels, 1);
             continue;
         }
         if (!redraw_pending)
@@ -139,7 +138,7 @@ int main(int argc, char **argv) {
         ui_draw();
         int full_refresh = ui_full_refresh();
         if (!full_refresh)
-            device_present_async(ui_pixels);
+            device_present_async(ui_pixels, 0);
         else
             device_present(ui_pixels, full_refresh, settings.refresh);
         if (profile)
@@ -155,7 +154,7 @@ int main(int argc, char **argv) {
     device_close();
     ui_close();
     engine_shutdown();
-    fprintf(stderr, "LUMEN 3.1 clean exit\n");
+    fprintf(stderr, "LUMEN 3.2 clean exit\n");
     if (power_request)
         device_system_power(power_request == 2);
     return 0;

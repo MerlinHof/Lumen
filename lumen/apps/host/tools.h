@@ -915,7 +915,7 @@ static int u16_apps_draw(void) {
         if (!files_count16)
             wrapped(30, 375, "Noch kein Material. Connect → Lernen → Dateien hochladen.", ui_font(UI_PRIMARY),
                     540, 4);
-        pager(679, &companion_page16, (files_count16 + 4) / 5);
+        pager(745, &companion_page16, (files_count16 + 4) / 5);
         return 1;
     }
     if (ui_route() == 112 || ui_route() == 113 || ui_route() == 117 || ui_route() == 118 || ui_route() == 119 ||
@@ -1034,7 +1034,7 @@ static int u16_apps_input(const Input *in) {
                 return 1;
             }
             if (y >= 120) {
-                if (calendar_view16 == 0 && y >= 679 && y < 723)
+                if (calendar_view16 == 0 && y >= 745 && y < 789)
                     return -1;
                 return 1;
             }

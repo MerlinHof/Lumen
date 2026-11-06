@@ -37,8 +37,8 @@ static void wifi_screen(void) {
     if (!wifi_count)
         wrapped(28, 258, wifi_ui.wifi_scanning ? "Suche läuft …" : "Keine Netzwerke gefunden.", ui_font(UI_TITLE),
                 544, 3);
-    pager(679, &wifi_ui.wifi_page, (wifi_count + 5) / 6);
-    icon_button(528, 679, IC_RESTART);
+    pager(745, &wifi_ui.wifi_page, (wifi_count + 5) / 6);
+    icon_button(528, 745, IC_RESTART);
 }
 static void wifi_input(const Input *in) {
     if (in->kind != INPUT_TAP)
@@ -90,7 +90,7 @@ static void wifi_input(const Input *in) {
             else
                 open_keyboard(5, n->ssid, "");
         }
-    } else if (y >= 679 && y < 723) {
+    } else if (y >= 745 && y < 789) {
         if (x >= 430) {
             wifi_ui.wifi_scanning = network_scan();
             if (!wifi_ui.wifi_scanning)

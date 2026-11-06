@@ -107,12 +107,17 @@ static void keyboard_layout18(void) {
 }
 static int keyboard_hit18(int x, int y) {
     keyboard_layout18();
-    for (int i = keyboard_count18 - 1; i >= 0; i--) {
+    int best = -1, distance = 7;
+    for (int i = 0; i < keyboard_count18; i++) {
         KeyboardKey18 *k = &keyboard_keys18[i];
-        if (x >= k->x - 2 && x < k->x + k->w + 3 && y >= k->y - 2 && y < k->y + k->h + 3)
-            return i;
+        int dx = x < k->x ? k->x-x : x >= k->x+k->w ? x-k->x-k->w+1 : 0;
+        int dy = y < k->y ? k->y-y : y >= k->y+k->h ? y-k->y-k->h+1 : 0;
+        if (dx+dy < distance) {
+            best = i;
+            distance = dx+dy;
+        }
     }
-    return -1;
+    return best;
 }
 static int keyboard_secret18(void) {
     return text_input_spec(editor_ui.keyboard_target).secret;
@@ -140,8 +145,12 @@ static void keyboard_place18(int x) {
 static void keyboard_draw18(void) {
     ui_y_offset = 0;
     if (keyboard_multiline()) {
-        rect(0, editor_ui.keyboard_target == 60 ? 132 : 54, 600, editor_ui.keyboard_target == 60 ? 370 : 450, 255);
-        editor_draw18();
+        if (editor_ui.keyboard_target != 30) {
+            rect(0, editor_ui.keyboard_target == 60 ? 132 : 54, 600,
+                 editor_ui.keyboard_target == 60 ? 370 : 450, 255);
+            editor_draw18();
+        }
+        rect(540,456,44,44,255);
         icon_button(540, 456, IC_CLOSE);
     } else {
         rect(0, 395, 600, 111, 255);
@@ -263,8 +272,10 @@ static void keyboard_tap18(int x, int y) {
         return;
     }
     if (y < 502) {
-        if (keyboard_multiline() && y >= (editor_ui.keyboard_target == 60 ? 132 : 54))
-            editor_place18(x, y);
+        if (keyboard_multiline() && y >= (editor_ui.keyboard_target == 60 ? 132 : 54)) {
+            if (editor_ui.keyboard_target == 30) u15_note_editor_touch(x,y);
+            else editor_place18(x,y);
+        }
         else if (!keyboard_multiline() && y >= 452)
             keyboard_place18(x);
         else if (y < 395) {
@@ -327,10 +338,35 @@ static int keyboard_intercept18(const Input *in) {
         } else if (in->kind == INPUT_HOLD)
             return 2;
     }
+    if (!editor_ui.accent_count18 && in->kind == INPUT_DOWN) {
+        int key = keyboard_hit18(in->x,in->y);
+        editor_ui.pressed_key = key;
+        if (key >= 0) {
+            KeyboardKey18 *k = &keyboard_keys18[key];
+            pressed = hit(k->x+k->w/2,k->y+k->h/2);
+            return pressed >= 0 ? 3 : 2;
+        }
+    }
+    if (!editor_ui.accent_count18 && editor_ui.pressed_key >= 0) {
+        if (in->kind == INPUT_MOVE) return 2;
+        if (in->kind == INPUT_TAP || in->kind == INPUT_SWIPE) {
+            int key = editor_ui.pressed_key;
+            editor_ui.pressed_key = -1;
+            pressed = -1;
+            if (in->kind == INPUT_TAP) {
+                KeyboardKey18 *k = &keyboard_keys18[key];
+                if (in->x >= k->x-22 && in->x < k->x+k->w+22 &&
+                    in->y >= k->y-22 && in->y < k->y+k->h+22)
+                    keyboard_tap18(k->x+k->w/2,k->y+k->h/2);
+            }
+            return 1;
+        }
+    }
     if (in->kind == INPUT_HOLD) {
         int i = keyboard_hit18(in->x, in->y);
         if (keyboard_accents18(i)) {
             editor_ui.accent_opening_touch = 1;
+            editor_ui.pressed_key = -1;
             pressed = -1;
             return 1;
         }

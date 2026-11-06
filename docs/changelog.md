@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.2
+
+- Merge Home and the app launcher. The date page rotates through seven grayscale landscapes, followed by full-height app grids.
+- Use the whole screen for apps. Manage Home grid order and visibility in Settings, and group appearance options into General, Status bar and Lock screen.
+- Keep Notes on the same ruled page when typing. Capture keys on touch-down, tolerate release drift and restore press feedback.
+- Keep grayscale transitions on a consistent waveform and complete press feedback before submitting its replacement.
+
 ## 3.1
 
 - Start on Home with a live date, a lakeside pencil sketch and a paged app grid.

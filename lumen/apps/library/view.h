@@ -48,5 +48,5 @@ static void library_screen(void) {
     if (!library_ui.view_count && last < 0)
         wrapped(28, 180, "Deine Bücher erscheinen hier. Im Store kannst du neue Bücher entdecken.",
                 ui_font(UI_TITLE), 544, 3);
-    pager(679, &library_ui.listpage, library_pages());
+    pager(745, &library_ui.listpage, library_pages());
 }

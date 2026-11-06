@@ -72,7 +72,7 @@ static int u15_draw(void) {
             toggle(492, y + 10, source15[i].enabled);
             divider(28, y + 75, 544);
         }
-        pager(679, &source15_page, (source15_count + 5) / 6);
+        pager(745, &source15_page, (source15_count + 5) / 6);
         return 1;
     }
     if (ui_route() == 102) {

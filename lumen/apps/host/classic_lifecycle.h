@@ -101,9 +101,3 @@ static void app_open(int target) {
     if (target >= 23 && !app_ready[target - 20])
         app_new(target);
 }
-static int launcher_page;
-static const int launcher_targets[] = {27, 28, 29, 31, 32, 33, 21, 22, 38, 36, 23,
-                                       24, 25, 26, 48, 49, 52, 63, 64, 65, 66, 67};
-static void app_launcher(void) {
-    v1_launcher();
-}

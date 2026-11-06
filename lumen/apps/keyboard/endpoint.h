@@ -17,6 +17,7 @@ static int keyboard_receive(const void *payload, size_t size, int64_t now) {
     editor_ui.note_cursor = strlen(editor_ui.edit);
     editor_ui.note_view_start = editor_ui.note_scroll_lock = editor_ui.keyboard_view18 = editor_ui.accent_count18 = 0;
     editor_ui.keyboard_shift = editor_ui.keyboard_symbols = 0;
+    editor_ui.pressed_key = -1;
     editor_ui.keyboard_background_valid18 = 0;
     editor_reset18();
     editor_ui.cursor_visible = 1;

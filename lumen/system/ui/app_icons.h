@@ -28,9 +28,6 @@ static void app_icon(int x, int y, int app) {
     case APP_STORE:
         icon_native(x, y, IC_STORE);
         break;
-    case APP_LAUNCHER:
-        icon_native(x, y, IC_GRID);
-        break;
     case APP_TIMER:
         icon_native(x, y, IC_CLOCK);
         stroke(x + 16, y + 4, x + 28, y + 4, 3);
@@ -262,7 +259,10 @@ static void app_icon(int x, int y, int app) {
         for(int i=0;i<3;i++) icon_box(x+5+(i%2)*18,y+5+(i/2)*18,16,16);
         break;
     case APP_HOME:
-        icon(x, y, IC_HOME);
+        stroke(x+6,y+21,x+22,y+7,4);
+        stroke(x+22,y+7,x+38,y+21,4);
+        control_surface(x+9,y+20,26,17,4,0);
+        control_surface(x+18,y+26,8,12,2,255);
         break;
     case APP_FROG:
         ui_paint_ellipse(x+22, y+34, 18, 5, 176);
@@ -276,11 +276,6 @@ static void app_icon(int x, int y, int app) {
         }
         stroke_color(x+16, y+22, x+22, y+25, 2, 39);
         stroke_color(x+22, y+25, x+28, y+22, 2, 39);
-        break;
-    case APP_TAB_BAR:
-        icon_box(x + 3, y + 8, 38, 28);
-        for (int i = 0; i < 3; i++)
-            disc(x + 12 + i * 10, y + 23, 3, 0);
         break;
     default:
         icon_native(x, y, IC_BOOK);

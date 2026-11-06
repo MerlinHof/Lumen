@@ -28,7 +28,13 @@ static void selection_span(int left, int top, const Font *font, const char *text
 static void clipboard_draw(void) {
     if (!editor_ui.clip_active)
         return;
-    if (editor_ui.keyboard && keyboard_multiline()) {
+    if (editor_ui.keyboard && editor_ui.keyboard_target == 30) {
+        for (int r = 0; r < 15 && editor_ui.note_view_start+r < note_rows; r++) {
+            int i = editor_ui.note_view_start+r;
+            selection_span(48,54+r*29,ui_font(UI_BODY),editor_ui.edit,
+                           note_offsets[i],note_offsets[i+1],clip_s,clip_e,i%23 < 2 ? 420 : 528);
+        }
+    } else if (editor_ui.keyboard && keyboard_multiline()) {
         for (int r = 0; r < 14 && editor_first18 + r < editor_count18; r++) {
             FlowLine line = editor_lines18[editor_first18 + r];
             selection_span(28 + text_input_spec(editor_ui.keyboard_target).gutter, 54 + r * 29, &small, editor_ui.edit,
@@ -71,7 +77,9 @@ static void clipboard_paste(void) {
 static int clip_anchor, clip_dragged;
 static int clipboard_position(int x, int y) {
     if (editor_ui.keyboard) {
-        if (keyboard_multiline())
+        if (editor_ui.keyboard_target == 30)
+            u15_note_editor_touch(x,y);
+        else if (keyboard_multiline())
             editor_place18(x, y);
         else
             keyboard_place18(x);

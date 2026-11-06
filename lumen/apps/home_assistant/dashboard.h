@@ -275,5 +275,5 @@ static void ha_dashboard(void) {
                 service_busy() ? "Geräte werden geladen …" :
                 ha_select ? "Keine passenden Geräte." : "Keine Geräte ausgewählt.",
                 ui_font(UI_TITLE), 540, 4);
-    pager(679, &ha_page, (n + 5) / 6);
+    pager(745, &ha_page, (n + 5) / 6);
 }

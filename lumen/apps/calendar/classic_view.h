@@ -47,7 +47,7 @@ static int calendar_draw16(void) {
         divider(28, 470, 544);
         drawtext(30, 490, "Tagesnotiz", ui_font(UI_PRIMARY), 540);
         wrapped_raw(30, 535, calendar_note, ui_font(UI_BODY), 540, 3);
-        pager(679, &calendar_day_page16, (count + 7) / 8);
+        pager(745, &calendar_day_page16, (count + 7) / 8);
     }
     if (calendar_view16 == 1) {
         time_t start = calendar_time16(calendar_year, calendar_month, calendar_day);

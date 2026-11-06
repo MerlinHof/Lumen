@@ -11,7 +11,7 @@ typedef enum {
     APP_READER,
     APP_SETTINGS,
     APP_STORE,
-    APP_LAUNCHER,
+    APP_RESERVED_4,
     APP_CALENDAR,
     APP_INSIGHTS,
     APP_MINES,
@@ -43,7 +43,7 @@ typedef enum {
     APP_NONOGRAMS,
     APP_HEX,
     APP_STATUS_BAR,
-    APP_TAB_BAR,
+    APP_RESERVED_36,
     APP_LOCK_SCREEN,
     APP_KEYBOARD,
     APP_JOURNAL,
@@ -77,12 +77,11 @@ typedef struct {
 typedef struct {
     AppId id;
     const char *name;
-    int entry, fullscreen, tab;
+    int entry;
 } AppDefinition;
 typedef struct {
     int route;
     AppId app;
-    int fullscreen;
 } AppRoute;
 typedef struct {
     int route;
@@ -94,12 +93,9 @@ typedef struct {
 const AppDefinition *app_definition(AppId id);
 AppId app_for_route(int route);
 int app_route_valid(int route);
-int app_route_fullscreen(int route);
 void app_runtime_init(AppRuntime *rt, void (*leave)(AppId, void *), void *context);
 int app_runtime_route(AppRuntime *rt, int route);
 int app_runtime_deliver(AppRuntime *rt, const AppIntent *intent);
-int app_runtime_tabs(const AppRuntime *rt);
-int app_runtime_tab(const AppRuntime *rt);
 /* A view can be composed by the shell or opened as a standalone app. */
 void app_view_register(AppId id, void (*draw)(void), int (*input)(const Input *));
 int app_view_draw(AppId id);

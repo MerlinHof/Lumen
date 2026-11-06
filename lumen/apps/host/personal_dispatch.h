@@ -107,7 +107,6 @@ static void v1_draw(void) {
         v1_timer_ring(1);
         break;
     case 90:
-    case 91:
         more_settings();
         break;
     case 92:
@@ -592,7 +591,7 @@ static int v1_input(const Input *in) {
                 }
                 v1_dirty = 1;
             }
-        } else if (y >= 687 && y < 731) {
+        } else if (y >= 745 && y < 789) {
             if (x < 300 && launcher_settings_page)
                 launcher_settings_page--;
             else if (x >= 300 && (launcher_settings_page + 1) * 7 < count)
@@ -652,7 +651,6 @@ static int v1_input(const Input *in) {
         }
         break;
     case 90:
-    case 91:
         settings_input(in);
         break;
     case 92:

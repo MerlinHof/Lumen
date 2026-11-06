@@ -74,5 +74,5 @@ static void app_quotes(void) {
     if (!global_quote_count)
         wrapped(30, 180, "Alle markierten Zitate deiner Bücher erscheinen hier.", ui_font(UI_TITLE), 540,
                 4);
-    pager(679, &global_quote_page, (global_quote_count + 3) / 4);
+    pager(745, &global_quote_page, (global_quote_count + 3) / 4);
 }

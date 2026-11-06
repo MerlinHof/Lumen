@@ -1,3 +1,12 @@
+#include "../../vendor/wordle_words.h"
+static const char *wordle_answers[] = {
+    "PAPER", "LIGHT", "STONE", "EARTH", "WATER", "DREAM", "BRAIN", "BOOKS", "PLANT", "STARS",
+    "NIGHT", "CLOUD", "OCEAN", "GRACE", "STUDY", "LEARN", "MUSIC", "SPACE", "GREEN", "HOUSE",
+    "TRAIN", "FRAME", "CHESS", "CLOCK", "SOUND", "HEART", "CLEAR", "FRESH", "SWEET", "QUIET",
+    "WORLD", "NORTH", "SOUTH", "RIVER", "FLAME", "SHORE", "BREAD", "PEACH", "APPLE", "TABLE",
+    "CHAIR", "STORY", "COVER", "LAYER", "FIELD", "ORBIT", "SOLAR", "LUNAR", "SCALE", "LOGIC",
+    "QUEST", "PRIDE", "BRAVE", "SMILE", "WHALE", "EAGLE", "HORSE", "TIGER", "ZEBRA", "BLOOM",
+    "GLASS", "METAL", "AMBER", "CORAL"};
 /* App-owned module; assembled by apps/host/compose.h. */
 static int v1_word_index(void) {
     time_t now = time(NULL);

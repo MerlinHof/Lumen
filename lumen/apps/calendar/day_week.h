@@ -83,7 +83,7 @@ static int calendar_layout17(void) {
             char text[2048];
             snprintf(text, sizeof(text), "%.*s", (int)(end - p), p);
             wrapped_raw(30, 372, text, ui_font(UI_PRIMARY), 540, 8);
-            pager(679, &calendar_day_page16, pages);
+            pager(745, &calendar_day_page16, pages);
         } else {
             ink_color = UI_SECONDARY_INK;
             wrapped(30, 379, "Noch keine Notiz für diesen Tag.", ui_font(UI_BODY), 540, 3);

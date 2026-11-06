@@ -58,5 +58,12 @@
   "lumen/dictionary/fra-eng-credits.txt": "lumen/assets/dictionaries/fra-eng-credits.txt",
   "lumen/dictionary/eng-fra-credits.txt": "lumen/assets/dictionaries/eng-fra-credits.txt",
   "lumen/dictionary/deu-fra-credits.txt": "lumen/assets/dictionaries/deu-fra-credits.txt",
-  "lumen/dictionary/deu-fra.idx": "lumen/assets/dictionaries/deu-fra.idx"
+  "lumen/dictionary/deu-fra.idx": "lumen/assets/dictionaries/deu-fra.idx",
+  "lumen/home/scene-0.pgm": "lumen/assets/home/scene-0.pgm",
+  "lumen/home/scene-1.pgm": "lumen/assets/home/scene-1.pgm",
+  "lumen/home/scene-2.pgm": "lumen/assets/home/scene-2.pgm",
+  "lumen/home/scene-3.pgm": "lumen/assets/home/scene-3.pgm",
+  "lumen/home/scene-4.pgm": "lumen/assets/home/scene-4.pgm",
+  "lumen/home/scene-5.pgm": "lumen/assets/home/scene-5.pgm",
+  "lumen/home/scene-6.pgm": "lumen/assets/home/scene-6.pgm"
 }

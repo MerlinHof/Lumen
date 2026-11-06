@@ -44,16 +44,16 @@ enum {
     OPT_COVER_CROP,
     OPT_ROUNDING,
     OPT_PROGRESS,
-    OPT_APPS,
+    OPT_RESERVED_26,
     /* Retired persisted option at this index. Keep later settings stable. */
     OPT_RESERVED_27,
     OPT_UI_REV,
-    OPT_TAB_LABELS,
+    OPT_RESERVED_29,
     OPT_AUTO_TIME,
     OPT_ZONE,
     OPT_REMOTE,
     OPT_KEYBOARD_LANGUAGE,
-    OPT_TAB_BAR,
+    OPT_RESERVED_35,
     OPT_COUNT
 };
 extern int options[OPT_COUNT];

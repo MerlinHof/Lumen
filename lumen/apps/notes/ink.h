@@ -89,6 +89,13 @@ static void u15_note_editor_draw(void) {
         }
     }
 }
+static void u15_note_scroll(int delta) {
+    note15_layout(editor_ui.edit);
+    int last = note_rows > 15 ? note_rows-15 : 0;
+    int first = editor_ui.note_view_start + delta;
+    editor_ui.note_view_start = first < 0 ? 0 : first > last ? last : first;
+    editor_ui.note_scroll_lock = 1;
+}
 static void u15_note_editor_touch(int x, int y) {
     note15_layout(editor_ui.edit);
     int row = editor_ui.note_view_start + (y - 54) / 29;
@@ -116,7 +123,8 @@ static void u15_note_tools(void) {
 static void u15_export_photo(void);
 static void u15_note_overlay(void) {
     ink_load();
-    for (int y = 0; y < 688; y++)
+    int height = editor_ui.keyboard ? 448 : 688;
+    for (int y = 0; y < height; y++)
         for (int x = 0; x < 600; x++) {
             unsigned char v = ink_pixels[y * 600 + x];
             if (v < ui_pixels[(y + 54) * 600 + x])

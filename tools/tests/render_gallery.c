@@ -30,7 +30,8 @@ int main(void) {
     update_view();
     route_to(1);
     picture("library");
-    route_to(20);
+    route_to(131);
+    home_page = 1;
     picture("apps");
     route_to(27);
     snprintf(calc_expr, sizeof(calc_expr), "sin(pi/3)^2+sqrt(5^2+3^2)");

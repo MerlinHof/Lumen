@@ -117,7 +117,7 @@ data, and source files remain unchanged. UI processes are reversibly paused by
 
 ## App boundaries in 2.4
 
-The app runtime registers views and input callbacks. The shell composes app-owned views for the status bar, tab bar, lock screen,
+The app runtime registers views and input callbacks. The shell composes app-owned views for the status bar, lock screen,
 keyboard and notifications. Text fields use the keyboard endpoint and
 notifications use their own endpoint. App endpoints are synchronous and copy
 the requested text while handling the call. The remaining legacy route adapters

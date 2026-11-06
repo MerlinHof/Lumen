@@ -26,7 +26,6 @@ static SettingRow setting_rows[] = {
     {"Akkusymbol", 1, OPT_BATTERY, 0, 1, 1, NULL, 0},
     {"Akku-Prozentzahl", 1, OPT_BATTERY_PERCENT, 0, 1, 1, NULL, 0},
     {"Invertierte Darstellung", 1, OPT_INVERT, 0, 1, 1, NULL, 0},
-    {"Tab-Beschriftungen", 1, OPT_TAB_LABELS, 0, 1, 1, NULL, 0},
     {"Cover zuschneiden", 1, OPT_COVER_CROP, 0, 1, 1, NULL, 0},
     {"Abgerundete Ecken", 1, OPT_ROUNDING, 0, 1, 1, NULL, 0},
     {"Lesefortschritt", 1, OPT_PROGRESS, 0, 1, 1, NULL, 0},
@@ -38,12 +37,12 @@ static SettingRow setting_rows[] = {
     {"Inaktivität (Minuten)", 4, OPT_TIMEOUT, 1, 60, 1, NULL, 0},
 };
 static const char *settings_sections[] = {"WLAN",       "Bücher übertragen", "Lesen", "Darstellung",
-                                          "Bibliothek", "Datum & Uhrzeit", "Tableiste", "System"};
+                                          "Bibliothek", "Datum & Uhrzeit", "Apps verwalten", "System"};
 static const char *settings_hints[] = {
     "Netzwerke und Verbindung",           "Webserver, Adresse und Zugriff",
     "Schrift, Satz und Gesten",           "Sprache, Sperrbild und Statusleiste",
     "Lesestände und Verwaltung",          "Zeit, Zeitzone und WLAN-Abgleich",
-    "Apps wählen und anordnen", "Speicher, Version und Konfiguration"};
+    "Sichtbarkeit & Reihenfolge", "Speicher, Version und Konfiguration"};
 static void settings_home(void) {
     heading("Einstellungen");
     for (int i = 0; i < 8; i++) {

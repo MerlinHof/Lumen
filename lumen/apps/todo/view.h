@@ -87,7 +87,6 @@ static int tasks_input18(const Input *in) {
             open_keyboard(110, "Neue Aufgabe", "");
         else if (x >= 456) {
             task_board ^= 1;
-            tasks_fullscreen = 0;
             task_tab = 0;
             task_page = 0;
         }

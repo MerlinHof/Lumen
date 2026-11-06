@@ -1,12 +1,13 @@
 static void header(void) {
     time_t now = time(NULL);
     refresh_status(0);
-    rect(0, 0, 600, 48, 255);
-    int left = can_back() ? 68 : 24;
+    rect(0, 0, 600, STATUS_HEIGHT, 255);
+    int left = can_back() || ui_route() == 131 ? 68 : 24;
     if (can_back()) {
-        system_region(0, 0, 62, 48);
-        icon_sized(9, 1, IC_BACK, 44);
-    }
+        system_region(0, 0, 62, STATUS_HEIGHT);
+        icon_sized(9, 6, IC_BACK, 44);
+    } else if (ui_route() == 131)
+        app_icon(18,6,APP_HOME);
     char date[32], clock[16], percent[24], timer[32];
     struct tm t;
     localtime_r(&now, &t);
@@ -14,7 +15,7 @@ static void header(void) {
     strftime(clock, sizeof(clock), "%H:%M", &t);
     snprintf(percent, sizeof(percent), "%d%%", atoi(status_ui.battery));
     status_ui.status_date_w = status_ui.status_clock_w = 0;
-    int right = 576, previous = -1;
+    int right = 581, previous = -1;
     status_ui.status_wifi_x = status_ui.status_battery_x = -1;
     for (int element = 0; element < 3; element++) {
         int enabled = element == 0   ? options[OPT_BATTERY]
@@ -25,37 +26,37 @@ static void header(void) {
         int gap = previous < 0 ? 0 : element == 1 ? 8 : 16;
         right -= gap;
         const char *label = element == 1 ? percent : date;
-        int width = element == 0   ? 34
+        int width = element == 0   ? 32
                     : element == 2 ? 30
                                    : textwidth(label, &small),
             x = right - width;
         if (element == 0) {
             status_ui.status_battery_x = x;
             status_ui.status_battery_right = right;
-            control_surface(x, 15, 30, 18, 9, 0);
-            control_surface(x + 2, 17, 26, 14, 7, 255);
-            control_surface(x + 30, 21, 4, 6, 2, 0);
+            control_surface(x, 19, 30, 18, 9, 0);
+            control_surface(x + 2, 21, 26, 14, 7, 255);
+            control_surface(x + 30, 26, 2, 4, 1, 0);
             int fill = 22 * atoi(status_ui.battery) / 100;
             if (fill > 22)
                 fill = 22;
             if (fill > 0)
-                control_surface(x + 4, 19, fill, 10, 5, 0);
+                control_surface(x + 4, 23, fill, 10, 5, 0);
             if(status_ui.battery_charging) {
                 /* White halo separates the black bolt from every charge fill. */
-                stroke_color(x+18,16,x+11,25,5,255);stroke_color(x+11,25,x+18,24,5,255);stroke_color(x+18,24,x+13,31,5,255);
-                stroke(x+18,16,x+11,25,2);stroke(x+11,25,x+18,24,2);stroke(x+18,24,x+13,31,2);
+                stroke_color(x+18,20,x+11,29,5,255);stroke_color(x+11,29,x+18,28,5,255);stroke_color(x+18,28,x+13,35,5,255);
+                stroke(x+18,20,x+11,29,2);stroke(x+11,29,x+18,28,2);stroke(x+18,28,x+13,35,2);
             }
-            system_region(status_ui.status_battery_x - 5, 0, 44, 48);
+            system_region(status_ui.status_battery_x - 5, 0, 44, STATUS_HEIGHT);
         } else if (element == 2) {
             status_ui.status_wifi_x = x;
-            wifi_symbol(x, 2);
+            wifi_symbol(x, 6);
             if (!strcmp(status_ui.wifi, "Offline"))
-                aa_stroke(x + 2, 11, x + 27, 34, 2);
-            system_region(x - 5, 0, 40, 48);
+                aa_stroke(x + 2, 15, x + 27, 38, 2);
+            system_region(x - 5, 0, 40, STATUS_HEIGHT);
         } else {
-            centered(x - 8, 0, width + 16, 44, label, &small);
+            centered(x - 8, 0, width + 16, STATUS_HEIGHT, label, &small);
             if (element == 1) {
-                system_region(x - 4, 0, width + 8, 48);
+                system_region(x - 4, 0, width + 8, STATUS_HEIGHT);
                 if (status_ui.status_battery_x < 0 || x < status_ui.status_battery_x) {
                     status_ui.status_battery_x = x;
                     if (status_ui.status_battery_right < right || !options[OPT_BATTERY])
@@ -71,8 +72,8 @@ static void header(void) {
         right -= previous < 0 ? 0 : 13;
         status_ui.status_clock_x = right-w-4;
         status_ui.status_clock_w = w+8;
-        system_region(status_ui.status_clock_x,0,w+8,48);
-        centered(right-w-8,0,w+16,44,clock,&small);
+        system_region(status_ui.status_clock_x,0,w+8,STATUS_HEIGHT);
+        centered(right-w-8,0,w+16,STATUS_HEIGHT,clock,&small);
         right -= w;
         previous = 3;
     }
@@ -81,8 +82,8 @@ static void header(void) {
         right -= previous < 0 ? 0 : 12;
         status_ui.status_date_x = right-w-4;
         status_ui.status_date_w = w+8;
-        system_region(status_ui.status_date_x,0,w+8,48);
-        centered(right-w-8,0,w+16,44,date,&small);
+        system_region(status_ui.status_date_x,0,w+8,STATUS_HEIGHT);
+        centered(right-w-8,0,w+16,STATUS_HEIGHT,date,&small);
         right -= w;
     }
     const AppDefinition *app = app_definition(app_for_route(ui_route()));
@@ -91,7 +92,7 @@ static void header(void) {
     if (name_width > 195) name_width = 195;
     if (name_width > right-left-12) name_width = right-left-12;
     if (name_width > 0)
-        label_ellipsis(left,0,name_width,44,name,&small,0);
+        label_ellipsis(left,0,name_width,STATUS_HEIGHT,name,&small,0);
     left += name_width+12;
     status_ui.status_timer_x = -1;
     extra_timer_label(timer, sizeof(timer));
@@ -108,13 +109,13 @@ static void header(void) {
         int w = textwidth_raw(label, &caption) + 27;
         if (right - left > w + 6) {
             int x = left + (right - left - w) / 2;
-            ring(x + 9, 22, 8, 2);
-            stroke(x + 9, 22, x + 9, 17, 2);
-            stroke(x + 9, 22, x + 13, 24, 2);
-            centered(x + 19, 0, w - 19 + 16, 44, label, &caption);
+            ring(x + 9, 28, 8, 2);
+            stroke(x + 9, 28, x + 9, 23, 2);
+            stroke(x + 9, 28, x + 13, 30, 2);
+            centered(x + 19, 0, w - 19 + 16, STATUS_HEIGHT, label, &caption);
             status_ui.status_timer_x = left;
             status_ui.status_timer_width = right - left;
-            system_region(left, 0, right - left, 48);
+            system_region(left, 0, right - left, STATUS_HEIGHT);
         }
     }
 }

@@ -223,5 +223,5 @@ static void language_book(void) {
         drawtext_raw(30, y + 38, v1_lessons[i][language_target()], ui_font(UI_BODY), 540);
         divider(28, y + 76, 544);
     }
-    pager(679, &language_book_page, 4);
+    pager(745, &language_book_page, 4);
 }

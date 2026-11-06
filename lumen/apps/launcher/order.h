@@ -27,7 +27,7 @@ static void polish_order(void) {
     }
     for (int i = 0; i < APP_COUNT; i++) {
         int id = launcher_order[i];
-        if (!seen[id] && (id < APP_MINES || id == APP_STATUS_BAR || id == APP_TAB_BAR ||
+        if (!seen[id] && (id < APP_MINES || id == APP_STATUS_BAR ||
                           id == APP_LOCK_SCREEN || id == APP_KEYBOARD)) {
             order[n++] = id;
             seen[id] = 1;

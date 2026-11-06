@@ -159,11 +159,6 @@
     "Apps",
     "Applications"
   ],
-  "Apps-Tab": [
-    "Apps-Tab",
-    "Apps tab",
-    "Onglet Applications"
-  ],
   "April": [
     "April",
     "April",
@@ -1814,11 +1809,6 @@
     "LUMEN & data includes apps, covers and imports. Firmware storage outside the USB volume is listed separately when available.",
     "Les données hors du stockage USB ne sont pas mesurables ici. LUMEN inclut applications, couvertures et imports."
   ],
-  "Tab-Beschriftungen": [
-    "Tab-Beschriftungen",
-    "Tab labels",
-    "Libellés des onglets"
-  ],
   "Tag": [
     "Tag",
     "Day",
@@ -2918,11 +2908,6 @@
     "Statusleiste",
     "Status bar",
     "Barre d’état"
-  ],
-  "Tableiste": [
-    "Tableiste",
-    "Tab bar",
-    "Barre d’onglets"
   ],
   "Tastatur": [
     "Tastatur",
@@ -5684,24 +5669,9 @@
     "Book cover · Full screen",
     "Couverture · Plein écran"
   ],
-  "Apps wählen und anordnen": [
-    "Apps wählen und anordnen",
-    "Choose and reorder apps",
-    "Choisir et réorganiser les apps"
-  ],
-  "Tableiste anzeigen": [
-    "Tableiste anzeigen",
-    "Show tab bar",
-    "Afficher la barre d’onglets"
-  ],
-  "Bis zu acht Apps in der Tableiste.": [
-    "Bis zu acht Apps in der Tableiste.",
-    "The tab bar holds up to eight apps.",
-    "La barre peut contenir huit apps."
-  ],
-  "Mindestens eine App auswählen.": [
-    "Mindestens eine App auswählen.",
-    "Select at least one app.",
-    "Sélectionnez au moins une app."
+  "Allgemein": [
+    "Allgemein",
+    "General",
+    "Général"
   ]
 }

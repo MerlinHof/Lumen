@@ -65,18 +65,19 @@ static void present(const unsigned char *pixels, int full) {
     int area = (right-left)*(bottom-top);
     int clear = !initialized || (top < HEIGHT && area >= WIDTH*HEIGHT*60/100 &&
                 refresh_coverage(previous, pixels, WIDTH, HEIGHT) >= 70);
-    if (top < 48 || full) top = 0;
+    if (top < STATUS_HEIGHT || full) top = 0;
     if (top > 0) {
         left &= ~7;
         right = (right+7) & ~7;
         top &= ~1;
         bottom = (bottom+1) & ~1;
     }
-    int binary = top >= 48 && (right-left)*(bottom-top) < WIDTH*HEIGHT/4;
+    int binary = top >= STATUS_HEIGHT && (right-left)*(bottom-top) < WIDTH*HEIGHT/4;
     for (int y = top; y < bottom && binary; y++)
         for (int x = left; x < right; x++) {
             int value = pixels[y*WIDTH+x];
-            if (value != 0 && value != 255) { binary = 0; break; }
+            int old = previous[y*WIDTH+x];
+            if ((value != 0 && value != 255) || (old != 0 && old != 255)) { binary = 0; break; }
         }
     unsigned char mode = clear ? 3 : top == 0 ? 2 : binary ? 0 : 1;
     if (write_all(&mode, 1) && write_all(pixels, sizeof(previous))) {
@@ -96,7 +97,7 @@ void device_present(const unsigned char *pixels, int full, int interval) {
     (void)interval;
     present(pixels, full);
 }
-void device_present_async(const unsigned char *pixels) { present(pixels, 0); }
+void device_present_async(const unsigned char *pixels, int press) { (void)press; present(pixels, 0); }
 void device_poll_interval(int ms) { timeout_ms = ms; }
 int device_refresh_busy(void) { return 0; }
 int device_input_pending(void) {
@@ -186,7 +187,7 @@ int device_wait(Input *input) {
         }
         touching = 0;
         if (packet.kind == TOUCH_CANCEL) {
-            *input = (Input){INPUT_MOVE, WIDTH + 64, HEIGHT + 64, dx, dy};
+            *input = (Input){.kind = INPUT_CANCEL};
             return 1;
         }
         if (packet.kind == TOUCH_UP) {

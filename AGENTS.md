@@ -92,10 +92,9 @@ page. Prefer a label on the left and selector on the right in the same row.
 Connected tab selectors should look like one component. Do not duplicate widget
 implementations in an app.
 
-The selected bottom tab should be obvious but restrained: a small strong marker,
-not a giant black tile. Status and bottom bars belong to the system. An app's
-route policy decides whether the bottom bar is visible. Settings and glanceable
-utilities usually keep it; games and the reader usually need the working space.
+The status bar is shell chrome. Apps use the screen below it for their own
+content. Home owns the illustrated landing page and app grid. Settings owns
+app visibility and ordering. Use shared segmented controls inside app views.
 
 ### Navigation and feedback
 

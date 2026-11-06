@@ -33,8 +33,6 @@ int app_runtime_deliver(AppRuntime *rt, const AppIntent *intent) {
     rt->intent = copy;
     return 1;
 }
-int app_runtime_tabs(const AppRuntime *rt) { return !app_route_fullscreen(rt->route); }
-int app_runtime_tab(const AppRuntime *rt) { return app_definition(app_for_route(rt->route))->tab; }
 
 static struct { char name[64];AppReceiver receive; } endpoints[16];
 static size_t endpoint_count;

@@ -469,6 +469,10 @@ int library_last(void) {
             idx = i;
     return idx;
 }
+static int retired_option(int key) {
+    return key == OPT_RESERVED_26 || key == OPT_RESERVED_27 ||
+           key == OPT_RESERVED_29 || key == OPT_RESERVED_35;
+}
 void library_settings_load(void) {
     settings = factory_settings;
     memcpy(options, factory_options, sizeof(options));
@@ -481,7 +485,7 @@ void library_settings_load(void) {
     if (of) {
         int key, value;
         while (fscanf(of, "%d %d", &key, &value) == 2) {
-            if (key >= 0 && key < OPT_COUNT && key != OPT_RESERVED_27 && value >= 0 &&
+            if (key >= 0 && key < OPT_COUNT && !retired_option(key) && value >= 0 &&
                 value <= option_maximum[key])
                 options[key] = value;
         }
@@ -517,8 +521,6 @@ void library_settings_load(void) {
             settings.size = 24;
     }
     if (options[OPT_UI_REV] < 9) {
-        options[OPT_APPS] = 1;
-        options[OPT_TAB_LABELS] = 0;
         options[OPT_LOCK_HINT] = 0;
         options[OPT_UI_REV] = 9;
     }
@@ -540,7 +542,7 @@ void library_options_save(void) {
     snprintf(p, sizeof(p), "%s/options-v3.txt", data_root);
     int n = 0;
     for (int i = 0; i < OPT_COUNT; i++)
-        if (i != OPT_RESERVED_27)
+        if (!retired_option(i))
             n += snprintf(s + n, sizeof(s) - (size_t)n, "%d %d\n", i, options[i]);
     atomic_write(p, s, (size_t)n);
 }
@@ -641,7 +643,7 @@ int library_config_export(const char *path) {
     for (int i = 0; i < 7; i++)
         n += snprintf(buf + n, sizeof(buf) - (size_t)n, "setting.%d %d\n", i, base[i]);
     for (int i = 0; i < OPT_COUNT; i++)
-        if (i != OPT_RESERVED_27)
+        if (!retired_option(i))
             n += snprintf(buf + n, sizeof(buf) - (size_t)n, "option.%d %d\n", i, options[i]);
     return atomic_write(path, buf, (size_t)n);
 }
@@ -667,7 +669,7 @@ int library_config_import(const char *path) {
             ok = 0;
             break;
         }
-        if (!strcmp(kind, "option") && key == OPT_RESERVED_27)
+        if (!strcmp(kind, "option") && retired_option(key))
             continue;
         if (!strcmp(kind, "setting") && key >= 0 && key < 7 && value >= low[key] &&
             value <= high[key])

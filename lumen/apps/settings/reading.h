@@ -38,13 +38,13 @@ static void settings_screen(void) {
         }
         divider(28, y + 66, 544);
     }
-    pager(679, &settings_ui.reading_page, 2);
+    pager(745, &settings_ui.reading_page, 2);
 }
 static void reading_input(const Input *in) {
     if (in->kind != INPUT_TAP)
         return;
     int x = in->x, y = in->y;
-    if (y >= 679 && y < 723) {
+    if (y >= 745 && y < 789) {
         settings_ui.reading_page = x >= 300 ? 1 : 0;
         return;
     }

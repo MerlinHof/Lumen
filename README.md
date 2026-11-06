@@ -133,8 +133,8 @@ not hardware photographs or claims about measured E-Ink response time.*
 4. Wait for copy verification, safely eject, disconnect and open **LUMEN** once.
 
 The first launch checks native EPUB rendering and installs autostart on the
-supported firmware. Reader size starts at **24 px**. The bottom bar starts with
-Home, Library and Apps. Automatic time sync is enabled, and keyboard language
+supported firmware. Reader size starts at **24 px**. Home starts with an illustrated date page and opens
+into a paged app grid. Automatic time sync is enabled, and keyboard language
 is independent of system language.
 Existing preferences and personal content survive updates.
 

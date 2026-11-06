@@ -168,7 +168,7 @@ static void discover_screen(void) {
                     ? "Der Katalog wird geladen …"
                     : "Kein Katalog geladen. WLAN in den Einstellungen verbinden und erneut laden.",
                 ui_font(UI_TITLE), 544, 4);
-    pager(679, &store_ui.opds_page, (opds_count + 4) / 5);
+    pager(745, &store_ui.opds_page, (opds_count + 4) / 5);
 }
 static void discover_detail(void) {
     if (store_ui.opds_selected < 0 || store_ui.opds_selected >= opds_count)
@@ -209,7 +209,7 @@ static void discover_input(const Input *in) {
                         ui_message(discover_error());
                 }
             }
-        } else if (y >= 679 && y < 723) {
+        } else if (y >= 745 && y < 789) {
             if (x < 300 && store_ui.opds_page)
                 store_ui.opds_page--;
             else if (x >= 300 && (store_ui.opds_page + 1) * 5 < opds_count)
