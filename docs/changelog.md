@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.8
+
+- Default to a high-contrast engraved icon set for every launchable app. Classic remains available in Appearance.
+- Replace the rotating Home scenes with one quieter landscape and center the date in its open sky.
+
 ## 3.7
 
 - Extend the original Home sketches to the screen edges and give the date a stronger typographic hierarchy.

@@ -12,7 +12,7 @@ static int lock_mode_row(void) {
     return 0;
 }
 static const char *languages[] = {"Deutsch", "English", "Français"};
-static const char *app_icon_styles[] = {"Klassisch", "Graviert · Test"};
+static const char *app_icon_styles[] = {"Klassisch", "Graviert"};
 typedef struct {
     const char *label;
     int category, key, min, max, step;

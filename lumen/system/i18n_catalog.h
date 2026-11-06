@@ -411,7 +411,7 @@ static const Translation translations[]={
 {"Graph-Bereich",{"Graph-Bereich","Plot bounds","Limites du graphe"}},
 {"Grau gewinnt",{"Grau gewinnt","Gray wins","Les gris gagnent"}},
 {"Grau · oben nach unten",{"Grau · oben nach unten","Gray · top to bottom","Gris · de haut en bas"}},
-{"Graviert · Test",{"Graviert · Test","Engraved · Trial","Gravure · Essai"}},
+{"Graviert",{"Graviert","Engraved","Gravure"}},
 {"Große Pflanze mit Stamm (EN)",{"Große Pflanze mit Stamm (EN)","Large woody plant (EN)","Grande plante ligneuse (EN)"}},
 {"Großes Meer (EN)",{"Großes Meer (EN)","Vast body of salt water (EN)","Vaste étendue d’eau salée (EN)"}},
 {"Größe in Sekunden (EN)",{"Größe in Sekunden (EN)","Quantity measured in seconds (EN)","Grandeur en secondes (EN)"}},

@@ -13,7 +13,8 @@ static void v1_launcher_settings(void) {
     for (int r = 0; r < 7 && launcher_settings_page * 7 + r < count; r++) {
         int pos = launcher_settings_page * 7 + r, i = indices[pos], id = launcher_order[i],
             y = 174 + r * 68;
-        app_icon(28, y + 10, id);
+        if (!options[OPT_APP_ICON_STYLE] || !engraved_app_icon(28,y+10,MANAGE_ICON_SIDE,id))
+            app_icon(28, y + 10, id);
         label_at(87, y + 10, 252, 44, tr(app_definition(id)->name), ui_font(UI_BODY));
         page_arrow(354, y + 10, IC_UP, pos > 0);
         page_arrow(405, y + 10, IC_DOWN, pos + 1 < count);

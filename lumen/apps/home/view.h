@@ -2,24 +2,16 @@ enum { HOME_ART_Y = 48, HOME_ART_H = 404,
        HOME_FULL_GRID_Y = 80, HOME_TILE_H = 126,
        HOME_GRID_Y = HOME_FULL_GRID_Y + 3*HOME_TILE_H, HOME_PAGER_Y = 744 };
 static unsigned char home_art[WIDTH*HOME_ART_H];
-static int home_scene = -1, home_page, home_scene_offset;
+static int home_page;
 
-static void home_landscape(time_t now) {
-    /* A stable pseudo-random scene per local day avoids flicker during redraws. */
-    unsigned day = (unsigned)app_date_key(now);
-    day ^= day >> 16;
-    day *= 0x7feb352du;
-    day ^= day >> 15;
-    int scene = (day%4+home_scene_offset)%4;
-    if (scene != home_scene) {
+static void home_landscape(void) {
+    static int loaded;
+    if (!loaded) {
         char path[2048];
-        snprintf(path,sizeof(path),"%s/../home/scene-%d.pgm",data_root,scene);
+        snprintf(path,sizeof(path),"%s/../home/scene-0.pgm",data_root);
         FILE *f = fopen(path,"rb");
 #ifdef LUMEN_HOST
-        if (!f) {
-            snprintf(path,sizeof(path),"lumen/assets/home/scene-%d.pgm",scene);
-            f = fopen(path,"rb");
-        }
+        if (!f) f=fopen("lumen/assets/home/scene-0.pgm","rb");
 #endif
         char header[16];
         const char expected[] = "P5\n600 404\n255\n";
@@ -28,7 +20,7 @@ static void home_landscape(time_t now) {
             fread(home_art,1,sizeof(home_art),f) != sizeof(home_art))
             memset(home_art,255,sizeof(home_art));
         if (f) fclose(f);
-        home_scene = scene;
+        loaded=1;
     }
     memcpy(ui_pixels+HOME_ART_Y*WIDTH,home_art,sizeof(home_art));
 }
@@ -38,7 +30,7 @@ static void home_date(void) {
     static const char *months[] = {"Januar","Februar","März","April","Mai","Juni",
                                    "Juli","August","September","Oktober","November","Dezember"};
     time_t now = time(NULL);
-    home_landscape(now);
+    home_landscape();
     struct tm day;
     localtime_r(&now,&day);
     char date[80], year[12];
@@ -48,11 +40,11 @@ static void home_date(void) {
     else
         snprintf(date,sizeof(date),"%d%s %s",day.tm_mday,options[OPT_LANGUAGE] == 0 ? "." : "",
                  tr(months[day.tm_mon]));
-    centered(108,79,384,40,weekdays[day.tm_wday],&editorial);
-    centered(96,118,408,56,date,&title);
-    rect(235,192,32,1,118);
-    rect(333,192,32,1,118);
-    centered(267,175,66,36,year,&caption);
+    centered(108,111,384,40,weekdays[day.tm_wday],&editorial);
+    centered(96,150,408,56,date,&title);
+    rect(235,224,32,1,118);
+    rect(333,224,32,1,118);
+    centered(267,207,66,36,year,&caption);
 }
 static void home_draw(void) {
     int ids[APP_COUNT], n = v1_visible(ids), pages = 1+(n>8 ? (n-8+19)/20 : 0);
@@ -63,8 +55,6 @@ static void home_draw(void) {
         top = HOME_GRID_Y;
         start = 0;
         limit = 8;
-        region(0,HOME_ART_Y,WIDTH,HOME_ART_H);
-        widget_shape(0,HOME_ART_Y,WIDTH,HOME_ART_H,0,0,1);
     }
     for (int i=0; i<limit && start+i<n; i++)
         app_tile(20+i%4*140,top+i/4*HOME_TILE_H,140,ids[start+i]);
@@ -77,10 +67,6 @@ static int home_input(const Input *in) {
     if (!launcher_visible[APP_SETTINGS] && in->x >= 528 && in->y >= 56 && in->y < 100) {
         AppIntent intent = {.app=APP_SETTINGS,.kind=INTENT_OPEN};
         app_send(&intent);
-        return 1;
-    }
-    if (!home_page && in->y >= HOME_ART_Y && in->y < HOME_ART_Y+HOME_ART_H) {
-        home_scene_offset = (home_scene_offset+1)%4;
         return 1;
     }
     int top = home_page ? HOME_FULL_GRID_Y : HOME_GRID_Y;

@@ -34,6 +34,7 @@
     [OPT_ZONE] = 0, \
     [OPT_REMOTE] = 0, \
     [OPT_KEYBOARD_LANGUAGE] = 0, \
+    [OPT_APP_ICON_STYLE] = 1, \
 }
 extern const Settings factory_settings;
 extern const int factory_options[OPT_COUNT], option_maximum[OPT_COUNT];

@@ -60,8 +60,5 @@
   "lumen/dictionary/deu-fra-credits.txt": "lumen/assets/dictionaries/deu-fra-credits.txt",
   "lumen/dictionary/deu-fra.idx": "lumen/assets/dictionaries/deu-fra.idx",
   "lumen/home/scene-0.pgm": "lumen/assets/home/scene-0.pgm",
-  "lumen/home/scene-1.pgm": "lumen/assets/home/scene-1.pgm",
-  "lumen/home/scene-2.pgm": "lumen/assets/home/scene-2.pgm",
-  "lumen/home/scene-3.pgm": "lumen/assets/home/scene-3.pgm",
   "lumen/home/engraved.gray": "lumen/assets/home/engraved.gray"
 }
