@@ -1,67 +1,38 @@
 /* App-owned module; assembled by apps/host/compose.h. */
+static int launcher_load(const char *name, int count) {
+    int config[APP_COUNT * 2], seen[APP_COUNT] = {0};
+    if (!app_state_load(name, config, sizeof(int) * count * 2))
+        return 0;
+    for (int i = 0; i < count; i++)
+        if (config[i] < 0 || config[i] >= count || seen[config[i]]++)
+            return 0;
+    for (int i = 0; i < count; i++) {
+        launcher_order[i] = config[i];
+        launcher_visible[i] = !!config[i + count];
+    }
+    for (int i = count; i < APP_COUNT; i++)
+        launcher_order[i] = i;
+    return 1;
+}
 static void v1_init(void) {
-    polish_init();
     u15_init();
     if (v1_ready)
         return;
     v1_ready = 1;
-    for (int i = 0; i < APP_COUNT; i++) {
-        launcher_order[i] = i;
-        launcher_visible[i] = i == APP_LIBRARY || i == APP_SETTINGS || i == APP_STORE || (i >= APP_CALENDAR && i <= APP_HEX) || i >= APP_JOURNAL;
-    }
-    launcher_count = APP_COUNT;
-    int config[APP_COUNT * 2];
-    for (int old_count = APP_HOME; old_count >= APP_SIGNAL; old_count--) {
-        if (!app_state_load("launcher-16.bin", config, sizeof(int) * old_count * 2))
-            continue;
-        int good = 1, seen[APP_COUNT] = {0};
-        for (int i = 0; i < old_count; i++)
-            if (config[i] < 0 || config[i] >= old_count || seen[config[i]]++)
-                good = 0;
-        if (good)
-            for (int i = 0; i < old_count; i++) {
-                launcher_order[i] = config[i];
-                launcher_visible[i] = config[i + old_count] != 0;
-            }
-        break;
-    }
-    if (app_state_load("launcher-16.bin", config, sizeof(config))) {
-        int good = 1, seen[APP_COUNT] = {0};
-        for (int i = 0; i < APP_COUNT; i++)
-            if (config[i] < 0 || config[i] >= APP_COUNT || seen[config[i]]++)
-                good = 0;
-        if (good)
-            for (int i = 0; i < APP_COUNT; i++) {
-                launcher_order[i] = config[i];
-                launcher_visible[i] = config[i + APP_COUNT] != 0;
-            }
-    }
-    if (!app_state_load("launcher-31.bin", config, sizeof(config))) {
-        launcher_visible[APP_LIBRARY] = launcher_visible[APP_SETTINGS] = launcher_visible[APP_STORE] = 1;
-    } else {
-        int seen[APP_COUNT] = {0}, valid = 1;
-        for (int i = 0; i < APP_COUNT; i++)
-            if (config[i] < 0 || config[i] >= APP_COUNT || seen[config[i]]++) valid = 0;
-        if (valid)
-            for (int i = 0; i < APP_COUNT; i++) {
-                launcher_order[i] = config[i];
-                launcher_visible[i] = !!config[i + APP_COUNT];
-            }
-    }
-    launcher_visible[APP_NUMSCRATCH] = 0;
-    for (int i = 0; i < APP_COUNT - 1; i++)
-        if (launcher_order[i] == APP_NUMSCRATCH) {
-            memmove(&launcher_order[i], &launcher_order[i + 1], (APP_COUNT - i - 1) * sizeof(int));
-            launcher_order[APP_COUNT - 1] = APP_NUMSCRATCH;
-            break;
+    launcher_defaults();
+    for (int i = 0; i < APP_COUNT; i++)
+        launcher_visible[i] = i == APP_LIBRARY || i == APP_SETTINGS || i == APP_STORE ||
+            i == APP_FILE_TRANSFER || (i >= APP_CALENDAR && i <= APP_HEX) || i >= APP_JOURNAL;
+    if (!launcher_load("launcher-36.bin", APP_COUNT)) {
+        if (!launcher_load("launcher-31.bin", APP_COUNT)) {
+            for (int count = APP_COUNT; count >= APP_SIGNAL; count--)
+                if (launcher_load("launcher-16.bin", count))
+                    break;
+            launcher_visible[APP_LIBRARY] = launcher_visible[APP_SETTINGS] = launcher_visible[APP_STORE] = 1;
         }
-    launcher_visible[APP_DRAWING] = 0;
-    for (int i = 0; i < APP_COUNT - 2; i++)
-        if (launcher_order[i] == APP_DRAWING) {
-            memmove(launcher_order + i, launcher_order + i + 1, (APP_COUNT - i - 2) * sizeof(int));
-            launcher_order[APP_COUNT - 2] = APP_DRAWING;
-            break;
-        }
+        launcher_visible[APP_FILE_TRANSFER] = 1;
+    }
+    launcher_visible[APP_NUMSCRATCH] = launcher_visible[APP_DRAWING] = 0;
     app_state_load("note-tree-1.bin", &note_tree, sizeof(note_tree));
     if (note_tree.nf < 0 || note_tree.nf > 512 || note_tree.np < 0 || note_tree.np > 1024)
         memset(&note_tree, 0, sizeof(note_tree));
@@ -143,7 +114,7 @@ static void v1_save(void) {
         cfg[i] = launcher_order[i];
         cfg[i + APP_COUNT] = launcher_visible[i];
     }
-    app_state_save("launcher-31.bin", cfg, sizeof(cfg));
+    app_state_save("launcher-36.bin", cfg, sizeof(cfg));
     app_state_save("note-tree-1.bin", &note_tree, sizeof(note_tree));
     app_state_save("flashcards-1.bin", flashcards, sizeof(flashcards));
     app_state_save("wordle-1.bin", &wordle_game, sizeof(wordle_game));

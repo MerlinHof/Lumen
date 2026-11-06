@@ -9,7 +9,7 @@ static void app_ha_setup(void) {
     drawtext(30, 281, "Langlebiger Zugriffstoken", ui_font(UI_BODY), 540);
     button_h(28, 327, 544, 52, *ha_token ? "••••••••  ·  Ändern" : "Token eingeben", 0);
     wrapped(30, 414,
-            "Am Handy: Bücher übertragen starten, die Webseite öffnen und Home Assistant wählen. "
+            "Auf dem Kindle Dateiübertragung starten, am Handy die Webseite öffnen und Home Assistant wählen. "
             "Adresse und Token dort einfügen. Danach diese App erneut öffnen.",
             ui_font(UI_BODY), 540, 5);
     button(28, 607, 544, "Verbinden", 0);

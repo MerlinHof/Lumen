@@ -1,5 +1,6 @@
-enum { HOME_ART_Y = 52, HOME_ART_H = 400, HOME_GRID_Y = 465,
-       HOME_FULL_GRID_Y = 80, HOME_TILE_H = 126, HOME_PAGER_Y = 744 };
+enum { HOME_ART_Y = 48, HOME_ART_H = 404,
+       HOME_FULL_GRID_Y = 80, HOME_TILE_H = 126,
+       HOME_GRID_Y = HOME_FULL_GRID_Y + 3*HOME_TILE_H, HOME_PAGER_Y = 744 };
 static unsigned char home_art[WIDTH*HOME_ART_H];
 static int home_scene = -1, home_page, home_scene_offset;
 
@@ -21,7 +22,7 @@ static void home_landscape(time_t now) {
         }
 #endif
         char header[16];
-        const char expected[] = "P5\n600 400\n255\n";
+        const char expected[] = "P5\n600 404\n255\n";
         if (!f || fread(header,1,sizeof(expected)-1,f) != sizeof(expected)-1 ||
             memcmp(header,expected,sizeof(expected)-1) ||
             fread(home_art,1,sizeof(home_art),f) != sizeof(home_art))
@@ -50,7 +51,6 @@ static void home_date(void) {
     centered(28,155,544,48,date,&editorial);
 }
 static void home_draw(void) {
-    polish_order();
     int ids[APP_COUNT], n = v1_visible(ids), pages = 1+(n>8 ? (n-8+19)/20 : 0);
     if (home_page >= pages) home_page = pages-1;
     int top = HOME_FULL_GRID_Y, start = 8+(home_page-1)*20, limit = 20;

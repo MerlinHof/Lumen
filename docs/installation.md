@@ -84,7 +84,7 @@ file `lumen/DISABLE_AUTOSTART` over USB. Removing user files is not required.
 
 - **Not prepared:** install the compatible jailbreak and `.sh` launcher/FBInk first.
 - **Web transfer unreachable:** phone and Kindle must be on the same Wi-Fi network;
-  keep LUMEN awake, start Books Transfer, use the displayed address and four-character code.
+  keep LUMEN awake, open File Transfer from Home and start the server, use the displayed address and four-character code.
 - **Autostart check fails:** consult the log; the first native EPUB rendering check must pass.
 - **Damaged package / insufficient space:** installer stops before replacing runtime files.
 - **Protected Amazon books:** not every protected format is readable; the original Kindle

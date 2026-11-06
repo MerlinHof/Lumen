@@ -1,6 +1,7 @@
 /* App view and event dispatch. Status and tab bars own their views in their app modules. */
 static void app_render(void) {
     if (ui_route() == 132) { more_settings(); return; }
+    if (ui_route() == 133) { transfer_draw(); return; }
     if (app_page_draw(ui_route())) return;
     if (ui_route() >= 60) {
         new_apps_draw();
@@ -30,9 +31,6 @@ static void app_render(void) {
         break;
     case 7:
         detail();
-        break;
-    case 8:
-        connect_screen();
         break;
     case 9:
         more_settings();
@@ -71,6 +69,7 @@ static void app_render(void) {
 }
 static int app_handle_input(const Input *in) {
     if (ui_route() == 132) { settings_input(in); return 1; }
+    if (ui_route() == 133) return transfer_input(in);
     int x = in->x, y = in->y, old = ui_route();
     int handled = app_page_input(ui_route(), in);
     if (handled >= 0) return handled;
@@ -82,7 +81,7 @@ static int app_handle_input(const Input *in) {
         return extra_input(in);
     if (ui_route() >= 20 && ui_route() <= 26)
         return apps_input(in);
-    if (ui_route() == 13 && in->kind == INPUT_TAP && y >= 134 && y < 566) {
+    if (ui_route() == 13 && in->kind == INPUT_TAP && y >= 134 && y < 494) {
         int row = (y - 134) / 72;
         settings_ui.setting_page = 0;
         if (history_count < 64)
@@ -91,14 +90,12 @@ static int app_handle_input(const Input *in) {
             apps_pause();
             route_to(12);
             wifi_open();
-        } else if (row == 1)
-            route_to(8);
-        else if (row == 2) {
+        } else if (row == 1) {
             setting_category = 1;
             route_to(9);
-        } else if (row == 3)
+        } else if (row == 2)
             extra_open(39);
-        else if (row == 4)
+        else if (row == 3)
             extra_open(83);
         else
             extra_open(40);
@@ -155,10 +152,6 @@ static int app_handle_input(const Input *in) {
     }
     if (ui_route() == 3) {
         reading_input(in);
-        return 1;
-    }
-    if (ui_route() == 8) {
-        connect_input(in);
         return 1;
     }
     if (ui_route() == 9) {

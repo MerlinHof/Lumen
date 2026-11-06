@@ -22,6 +22,13 @@ static void app_icon(int x, int y, int app) {
     case APP_STUDY:
         icon_native(x, y, IC_BOOK);
         break;
+    case APP_FILE_TRANSFER:
+        control_surface(x+4,y+25,36,13,5,0);
+        rect(x+8,y+27,28,5,255);
+        stroke(x+22,y+5,x+22,y+25,4);
+        stroke(x+14,y+18,x+22,y+26,4);
+        stroke(x+22,y+26,x+30,y+18,4);
+        break;
     case APP_SETTINGS:
         icon_native(x, y, IC_SETTINGS);
         break;

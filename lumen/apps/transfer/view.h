@@ -1,7 +1,6 @@
 /* App-owned module; assembled by apps/host/compose.h. */
-/* Settings/store application views and events. */
 static void connect_screen(void) {
-    heading("Bücher übertragen");
+    heading("Dateiübertragung");
     int active = connect_running();
     drawtext(30, 150, "Transfer-Server", ui_font(UI_PRIMARY), 400);
     toggle(492, 150, active);
@@ -57,8 +56,7 @@ static void connect_input(const Input *in) {
     if (in->x >= 516 && in->y >= 72 && in->y < 124) {
         if (history_count < 64)
             history[history_count++] = 8;
-        setting_category = 4;
-        route_to(9);
+        route_to(133);
         return;
     }
     if (in->y >= 142 && in->y < 198) {
@@ -68,4 +66,20 @@ static void connect_input(const Input *in) {
         } else if (!connect_start(options[OPT_PORT], options[OPT_TIMEOUT]))
             ui_message(connect_error());
     }
+}
+
+static void transfer_draw(void) {
+    if (ui_route() == 133) {
+        setting_category = 4;
+        more_settings();
+    } else
+        connect_screen();
+}
+static int transfer_input(const Input *in) {
+    if (ui_route() == 133) {
+        setting_category = 4;
+        settings_input(in);
+    } else
+        connect_input(in);
+    return 1;
 }

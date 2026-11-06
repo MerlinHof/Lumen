@@ -129,10 +129,10 @@
     "Next",
     "Suivant"
   ],
-  "Am Handy: Bücher übertragen starten, die Webseite öffnen und Home Assistant wählen. Adresse und Token dort einfügen. Danach diese App erneut öffnen.": [
-    "Am Handy: Bücher übertragen starten, die Webseite öffnen und Home Assistant wählen. Adresse und Token dort einfügen. Danach diese App erneut öffnen.",
-    "On your phone: start Transfer books, open the website and select Home Assistant. Paste the address and token there, then reopen this app.",
-    "Sur votre téléphone : lancez le transfert, ouvrez la page et choisissez Home Assistant. Collez l’adresse et le jeton, puis rouvrez cette application."
+  "Auf dem Kindle Dateiübertragung starten, am Handy die Webseite öffnen und Home Assistant wählen. Adresse und Token dort einfügen. Danach diese App erneut öffnen.": [
+    "Auf dem Kindle Dateiübertragung starten, am Handy die Webseite öffnen und Home Assistant wählen. Adresse und Token dort einfügen. Danach diese App erneut öffnen.",
+    "Start File Transfer on the Kindle, then open the website on your phone and select Home Assistant. Paste the address and token there, then reopen this app.",
+    "Lancez Transfert de fichiers sur le Kindle, puis ouvrez la page sur votre téléphone et choisissez Home Assistant. Collez l’adresse et le jeton, puis rouvrez cette application."
   ],
   "Amazon öffnen": [
     "Amazon öffnen",
@@ -413,6 +413,11 @@
     "Bücher und freie PDFs",
     "Books and free PDFs",
     "Livres et PDF gratuits"
+  ],
+  "Dateiübertragung": [
+    "Dateiübertragung",
+    "File Transfer",
+    "Transfert de fichiers"
   ],
   "Bücher übertragen": [
     "Bücher übertragen",

@@ -4,7 +4,7 @@ static const AppDefinition definitions[APP_COUNT] = {
     {APP_READER, "Lesen", 2},
     {APP_SETTINGS, "Einstellungen", 13},
     {APP_STORE, "Store", 10},
-    {APP_RESERVED_4, "", -1},
+    {APP_FILE_TRANSFER, "Dateiübertragung", 8},
     {APP_CALENDAR, "Kalender", 21},
     {APP_INSIGHTS, "Lesestatistik", 22},
     {APP_MINES, "Minesweeper", 23},
@@ -58,7 +58,7 @@ static const AppDefinition definitions[APP_COUNT] = {
 static const AppRoute routes[] = {
     {0, APP_LIBRARY},      {1, APP_LIBRARY},         {2, APP_READER},
     {3, APP_READER},     {4, APP_READER},          {5, APP_READER},
-    {6, APP_LIBRARY},      {7, APP_LIBRARY},         {8, APP_SETTINGS},
+    {6, APP_LIBRARY},      {7, APP_LIBRARY},         {8, APP_FILE_TRANSFER},
     {9, APP_SETTINGS},     {10, APP_STORE},          {11, APP_STORE},
     {12, APP_SETTINGS},    {13, APP_SETTINGS},       {14, APP_READER},
     {15, APP_WIKIPEDIA},          {21, APP_CALENDAR},
@@ -90,7 +90,7 @@ static const AppRoute routes[] = {
     {117, APP_KNIGHTS},    {118, APP_SOKOBAN},       {119, APP_MAZE},
     {120, APP_CROSSWORD},             {122, APP_LLM}, {128, APP_LLM},
     {123, APP_LLM},        {125, APP_PLANETARIUM},   {126, APP_JOURNAL},
-    {127, APP_STUDY}, {129, APP_SIGNAL}, {130, APP_FROG}, {131, APP_HOME}, {132, APP_LIBRARY}};
+    {127, APP_STUDY}, {129, APP_SIGNAL}, {130, APP_FROG}, {131, APP_HOME}, {132, APP_LIBRARY}, {133, APP_FILE_TRANSFER}};
 const AppDefinition *app_definition(AppId id) {
     return id >= 0 && id < APP_COUNT ? &definitions[id] : 0;
 }

@@ -11,7 +11,7 @@ typedef enum {
     APP_READER,
     APP_SETTINGS,
     APP_STORE,
-    APP_RESERVED_4,
+    APP_FILE_TRANSFER,
     APP_CALENDAR,
     APP_INSIGHTS,
     APP_MINES,

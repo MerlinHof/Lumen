@@ -266,8 +266,8 @@ static int article_wiki_open(void);
 static void article_wiki_request(void);
 static int wiki_reader_pending;
 static void polish_wiki_history(void);
-static void polish_view(void), polish_order(void);
-static void polish_init(void), polish_draw(void), polish_open(int), polish_close(void);
+static void polish_view(void);
+static void polish_draw(void), polish_open(int), polish_close(void);
 static int polish_input(const Input *), polish_tick(void), polish_poll(void),
     polish_commit(int, const char *), polish_power(const Input *);
 static void polish_wiki_archive(void), polish_wiki_saved(void);
@@ -1189,7 +1189,6 @@ static int refresh_status(int force) {
     return 0;
 }
 #include "../../apps/status_bar/view.h"
-static void connect_screen(void);
 static void more_settings(void);
 #include "../../apps/library/view.h"
 #include "../../apps/reader/view.h"
@@ -2153,6 +2152,7 @@ int64_t ui_clock_millis(void) { return extra_millis(); }
 static void register_builtin_views(void) {
     app_view_register(APP_STATUS_BAR, header, NULL);
     app_page_register(APP_HOME, home_draw, home_input, NULL);
+    app_page_register(APP_FILE_TRANSFER, transfer_draw, transfer_input, NULL);
     app_view_register(APP_LOCK_SCREEN, lock_screen_draw, NULL);
     app_view_register(APP_KEYBOARD, keyboard_draw18, NULL);
     slide_3d_register();

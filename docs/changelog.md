@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.6
+
+- Give File Transfer its own Home icon, server controls and preferences.
+- Put everyday apps first on fresh installs and games last. Align the first Home grid with the full app grid.
+- Replace the four Home sketches with taller compositions and open graphite edges.
+
 ## 3.5
 
 - Restore the previous on-demand Kindle converter after a startup freeze on the device. Library scans still discover new books and reuse existing imports. Guard KFX extraction against filling the firmware temporary filesystem.
