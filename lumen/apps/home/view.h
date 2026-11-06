@@ -41,14 +41,18 @@ static void home_date(void) {
     home_landscape(now);
     struct tm day;
     localtime_r(&now,&day);
-    char date[80];
+    char date[80], year[12];
+    snprintf(year,sizeof(year),"%d",day.tm_year+1900);
     if (options[OPT_LANGUAGE] == 1)
-        snprintf(date,sizeof(date),"%s %d, %d",tr(months[day.tm_mon]),day.tm_mday,day.tm_year+1900);
+        snprintf(date,sizeof(date),"%s %d",tr(months[day.tm_mon]),day.tm_mday);
     else
-        snprintf(date,sizeof(date),"%d%s %s %d",day.tm_mday,options[OPT_LANGUAGE] == 0 ? "." : "",
-                 tr(months[day.tm_mon]),day.tm_year+1900);
-    centered(28,89,544,68,weekdays[day.tm_wday],&title);
-    centered(28,155,544,48,date,&editorial);
+        snprintf(date,sizeof(date),"%d%s %s",day.tm_mday,options[OPT_LANGUAGE] == 0 ? "." : "",
+                 tr(months[day.tm_mon]));
+    centered(108,79,384,40,weekdays[day.tm_wday],&editorial);
+    centered(96,118,408,56,date,&title);
+    rect(235,192,32,1,118);
+    rect(333,192,32,1,118);
+    centered(267,175,66,36,year,&caption);
 }
 static void home_draw(void) {
     int ids[APP_COUNT], n = v1_visible(ids), pages = 1+(n>8 ? (n-8+19)/20 : 0);

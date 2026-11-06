@@ -111,3 +111,5 @@ those directories. That is fixed and regression-tested.
 
 This bounds automatic runtime backup growth; your own photos, books, chats and
 notes remain user content and are never silently deleted to enforce a size limit.
+
+Starting with 3.7, compatible executable-only updates can be uploaded through File Transfer. See [Wireless updates](wireless-updates.md).

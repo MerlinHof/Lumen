@@ -48,6 +48,7 @@ exit "$result"
 ''');command.chmod(0o755)
     shutil.copy2(ROOT/'docs/installation.md',bundle/'INSTALL.md')
     shutil.copy2(ROOT/'docs/validation.md',bundle/'VALIDATION.md')
+    shutil.copy2(ROOT/'docs/wireless-updates.md',bundle/'wireless-updates.md')
     archive=dist/('LUMEN-'+version+'.zip')
     with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
         for p in sorted(bundle.rglob('*')):

@@ -1,6 +1,7 @@
 #include "i18n.h"
 #define _GNU_SOURCE
 #include "connect.h"
+#include "wireless_update.h"
 #include "engine.h"
 #include "library.h"
 #include "services.h"
@@ -533,6 +534,16 @@ static void handle(int fd) {
     char *query = strchr(url, '?');
     if (query)
         *query++ = 0;
+    if (!strcmp(method, "PUT") && !strcmp(url, "/api/update")) {
+        char digest[UPDATE_DIGEST_SIZE], result[128];
+        int status = haslength ? update_receive(fd,length,body,bodyn,digest) : 411;
+        if (status == 201)
+            snprintf(result,sizeof(result),"{\"sha256\":\"%s\"}",digest);
+        else
+            snprintf(result,sizeof(result),"{\"error\":\"Update upload rejected\"}");
+        response(fd,status,"application/json",result);
+        return;
+    }
     if (!strcmp(method, "GET") && !strcmp(url, "/api/notes")) {
         web_notes16(fd);
         return;

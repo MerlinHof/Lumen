@@ -1,6 +1,9 @@
 from pathlib import Path
-import sys,subprocess,urllib.request,urllib.error,string,json,shutil
-root=Path('build/tests/http-data');shutil.rmtree(root,ignore_errors=True);(root/'notes').mkdir(parents=True)
+import sys,subprocess,urllib.request,urllib.error,string,json,shutil,hashlib
+sandbox=Path('build/tests/http-sandbox');shutil.rmtree(sandbox,ignore_errors=True)
+root=sandbox/'data';(root/'notes').mkdir(parents=True)
+(sandbox/'bin').mkdir();(sandbox/'bin/lumen').write_bytes(b'old executable')
+command='x'
 (root/'notes/123.txt').write_text('# Example\n\nA **bold** note.\n');(root/'notes/123-page-0.ink').write_bytes(bytes([255])*412800)
 p=subprocess.Popen([sys.argv[1]],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=open('build/tests/http-server.log','w'),text=True)
 try:
@@ -19,8 +22,21 @@ try:
  assert(root/'study/Lesson.txt').read_bytes()==b'Study material'
  assert req('/api/setup?key=llm-key.txt','PUT',b'test-key')[0]==200
  assert req('/api/setup?key=../outside','PUT',b'test')[0]==400
+ assert req('/api/update','PUT',bytes(4096))[0]==400
+ binary=bytearray(8192)
+ binary[:7]=b'\x7fELF\x01\x01\x01'
+ binary[16]=2
+ binary[18]=40
+ status,receipt=req('/api/update','PUT',bytes(binary))
+ assert status==201 and json.loads(receipt)['sha256']==hashlib.sha256(binary).hexdigest()
+ assert (sandbox/'bin/lumen').read_bytes()==b'old executable'
+ command='u'
  for i in range(5):assert req('/api/books',auth='WRNG')[0]==401
  assert req('/api/books',auth='WRNG')[0]==429
  print('PASS HTTP: pairing, notes without phantom entries, TXT/PDF exports, study upload, secret setup allowlist, traversal rejection and rate limit.')
 finally:
- p.stdin.write('x');p.stdin.flush();p.wait(timeout=10)
+ p.stdin.write(command);p.stdin.flush();assert p.wait(timeout=10)==0
+if command=='u':
+ assert (sandbox/'bin/lumen').read_bytes()==binary
+ assert (sandbox/'.update/previous').read_bytes()==b'old executable'
+ print('PASS wireless update: reject invalid ELF, stage an ARM binary, verify its checksum, apply only after approval and retain the previous binary.')

@@ -54,6 +54,7 @@ enum {
     OPT_REMOTE,
     OPT_KEYBOARD_LANGUAGE,
     OPT_RESERVED_35,
+    OPT_APP_ICON_STYLE,
     OPT_COUNT
 };
 extern int options[OPT_COUNT];

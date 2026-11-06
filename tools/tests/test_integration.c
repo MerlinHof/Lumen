@@ -413,8 +413,16 @@ int main(int argc, char **argv) {
     assert(v1_visible(home_ids) > 8);
     assert(!memcmp(home_ids, launcher_first, sizeof(launcher_first)));
     assert(HOME_GRID_Y == HOME_FULL_GRID_Y + 3 * HOME_TILE_H);
+    assert(options[OPT_APP_ICON_STYLE] == 0);
+    options[OPT_APP_ICON_STYLE] = 1;
+    shot17("home-engraved");
+    options[OPT_APP_ICON_STYLE] = 0;
     tap17(500, HOME_GRID_Y + HOME_TILE_H + 24);
     assert(app_for_route(ui_route()) == APP_FILE_TRANSFER);
+    tap17(300,765);
+    assert(ui_route() == 134 && app_for_route(ui_route()) == APP_FILE_TRANSFER);
+    tap17(20,20);
+    assert(ui_route() == 8);
     tap17(550, 96);
     assert(ui_route() == 133 && app_for_route(ui_route()) == APP_FILE_TRANSFER);
     assert(setting_category == 4);

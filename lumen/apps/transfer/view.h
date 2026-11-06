@@ -49,10 +49,17 @@ static void connect_screen(void) {
                 ui_font(UI_BODY), 542, 4);
     }
     icon_button(528, 76, IC_SETTINGS);
+    button(28, 744, 544, "Drahtloses Update", 0);
 }
 static void connect_input(const Input *in) {
     if (in->kind != INPUT_TAP)
         return;
+    if (in->x >= 28 && in->x < 572 && in->y >= 744 && in->y < 792) {
+        if (history_count < 64)
+            history[history_count++] = 8;
+        route_to(134);
+        return;
+    }
     if (in->x >= 516 && in->y >= 72 && in->y < 124) {
         if (history_count < 64)
             history[history_count++] = 8;
@@ -68,14 +75,67 @@ static void connect_input(const Input *in) {
     }
 }
 
+static char shown_update[UPDATE_DIGEST_SIZE];
+static void transfer_update_draw(void) {
+    heading("Drahtloses Update");
+    shown_update[0] = 0;
+    if (update_trial()) {
+        wrapped(28,150,"Diese Version läuft zur Probe. Wenn du sie nicht behältst, wird beim nächsten Start die vorige Version geladen.",
+                ui_font(UI_BODY),544,5);
+        button(28,610,544,"Diese Version behalten",0);
+        button(28,678,544,"Zur vorigen Version zurück",0);
+    } else if (update_fingerprint(shown_update)) {
+        wrapped(28,150,"Vergleiche den vollständigen SHA-256-Wert mit der Prüfsumme aus deiner vertrauenswürdigen Quelle.",
+                ui_font(UI_BODY),544,5);
+        char line[33];
+        for (int i=0; i<2; i++) {
+            memcpy(line,shown_update+32*i,32);
+            line[32]=0;
+            centered(28,352+42*i,544,40,line,ui_font(UI_SECONDARY));
+        }
+        wrapped(28,474,"Nach der Freigabe LUMEN erneut öffnen, um das Update zu testen.",
+                ui_font(UI_BODY),544,3);
+        button(28,648,544,"Prüfsumme stimmt · Update freigeben",0);
+    } else {
+        shown_update[0] = 0;
+        wrapped(28,150,"Starte den Transfer-Server und lade ein kompatibles LUMEN-Update im Browser hoch.",
+                ui_font(UI_BODY),544,4);
+        wrapped(28,380,"Das Update erscheint hier, sobald es vollständig übertragen wurde.",
+                ui_font(UI_SECONDARY),544,4);
+    }
+}
+static int transfer_update_input(const Input *in) {
+    if (in->kind == INPUT_STATUS) {
+        char latest[UPDATE_DIGEST_SIZE] = "";
+        if (!update_fingerprint(latest)) latest[0] = 0;
+        return strcmp(latest,shown_update) ? 1 : 2;
+    }
+    if (in->kind != INPUT_TAP || in->x < 28 || in->x >= 572) return 2;
+    if (update_trial()) {
+        if (in->y >= 610 && in->y < 658 && update_keep()) {
+            ui_message("Version behalten.");
+            return 1;
+        }
+        if (in->y >= 678 && in->y < 726) { connect_stop(); return 0; }
+    } else if (*shown_update && in->y >= 648 && in->y < 696) {
+        connect_stop();
+        if (update_approve(shown_update)) return 0;
+        ui_message("Update wurde geändert. Prüfsumme erneut vergleichen.");
+        return 1;
+    }
+    return 2;
+}
 static void transfer_draw(void) {
-    if (ui_route() == 133) {
+    if (ui_route() == 134)
+        transfer_update_draw();
+    else if (ui_route() == 133) {
         setting_category = 4;
         more_settings();
     } else
         connect_screen();
 }
 static int transfer_input(const Input *in) {
+    if (ui_route() == 134) return transfer_update_input(in);
     if (ui_route() == 133) {
         setting_category = 4;
         settings_input(in);

@@ -12,6 +12,7 @@ static int lock_mode_row(void) {
     return 0;
 }
 static const char *languages[] = {"Deutsch", "English", "Français"};
+static const char *app_icon_styles[] = {"Klassisch", "Graviert · Test"};
 typedef struct {
     const char *label;
     int category, key, min, max, step;
@@ -32,6 +33,7 @@ static SettingRow setting_rows[] = {
     {"Akku-Prozentzahl", 1, OPT_BATTERY_PERCENT, 0, 1, 1, NULL, 0},
     {"Invertierte Darstellung", 1, OPT_INVERT, 0, 1, 1, NULL, 0},
     {"Cover zuschneiden", 1, OPT_COVER_CROP, 0, 1, 1, NULL, 0},
+    {"App-Symbole", 1, OPT_APP_ICON_STYLE, 0, 1, 1, app_icon_styles, 2},
     {"Abgerundete Ecken", 1, OPT_ROUNDING, 0, 1, 1, NULL, 0},
     {"Sperrbild", 1, OPT_LOCK, 0, 5, 1, lockmodes, 6},
     {"Sperrbild-Hinweis", 1, OPT_LOCK_HINT, 0, 1, 1, NULL, 0},

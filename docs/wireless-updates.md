@@ -1,33 +1,38 @@
-# Wireless updates on the Kindle
+# Wireless updates
 
-The existing LUMEN Connect address can be the upload point for future updates.
-The browser already uploads files over the local network, and the device
-launcher already copies the executable into RAM before starting it. This gives
-the next launch a natural point to activate an update. The current installer is
-a host-side Python tool and expects a mounted Kindle filesystem.
+LUMEN 3.7 adds a local update flow in File Transfer. Install 3.7 over USB once
+to put the update-aware launcher on the Kindle. Wireless updates replace the
+LUMEN executable only. Releases that change fonts, images, the launcher or
+other bundled files still use the USB installer.
 
-A practical first version would use the same Connect page and this flow:
+1. Get a compatible `.lumen-update` file and its SHA-256 checksum from a
+   trusted source. Keep the checksum on the computer or phone for comparison.
+2. Start the server in File Transfer on the Kindle. Pair in the browser,
+   open **Update** and upload the file.
+3. Open **Wireless update** in File Transfer on the Kindle. Compare both
+   displayed lines with the trusted checksum. Approve only if all 64
+   characters match. The browser connection is local HTTP, and the pairing
+   code controls access only. It does not authenticate software publishers.
+4. Open LUMEN again to try the update. When satisfied, choose **Keep this
+   version** in the same panel. To restore the previous version, exit the
+   trial and open LUMEN again. The launcher also restores it after a failed
+   process or if a trial ends before it is kept.
 
-1. The user pairs with the Kindle and uploads a LUMEN update bundle. Connect
-   stages it separately from the active installation and personal data.
-2. A device-side verifier checks the bundle's release signature, version,
-   hardware target, paths, free space and file hashes. The release signing
-   public key is installed with the updater. A checksum from an uploaded
-   manifest alone does not authenticate who built the package.
-3. The Kindle shows the verified version and asks the user to confirm.
-   LUMEN saves its state and exits normally.
-4. The launcher activates the staged runtime on the next start. It retains the
-   previous runtime and selects it again if the new version fails its startup
-   health check. The updater and recovery entry point stay outside the files
-   being swapped. Books, notes, photos and settings stay outside both slots.
+The server can only stage a bounded ARM executable in a dedicated directory.
+The launcher rechecks the approved SHA-256 before swapping files and retains
+one previous executable until the trial is kept or rolled back. The updater
+never writes to the book or personal data directories.
 
-For the first version, the user can download the release on a phone or
-computer, then upload it over the LAN. An automatic release check can use the
-same signed bundle format later. The current pairing PIN controls access to
-Connect. It is separate from verifying a release signature.
+## Packaging a compatible update
 
-An existing Kindle needs the updater and recovery launcher installed once
-before it can receive wireless releases. Version 2.6 contains the photo and
-appearance changes and this design. Its installer still uses USB. Device-side
-verification, staged activation and rollback need implementation and testing
-on a Kindle before they can replace the current installation path.
+Build and package the release normally. With the previous installed bundle
+and the target bundle unpacked, run:
+
+```sh
+python3 tools/wireless-update.py dist/LUMEN-3.7 dist/LUMEN-3.8
+```
+
+The helper refuses changes to other runtime files or the hardware target.
+It produces the browser upload and a separate checksum file. Distribute the
+checksum through a source the user trusts independently of the transfer
+server. There is no automatic download or publisher signing in this flow.

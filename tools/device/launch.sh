@@ -59,6 +59,18 @@ date
     iptables -S 2>/dev/null
     ps | grep -E "powerd|awesome|wifid|cvm"
 } > /mnt/us/lumen/runtime-api-v5.txt 2>&1
+# An unkept trial is restored before the next launch, even after a power loss.
+rollback_wireless() {
+    [ ! -f .update/previous ] || { mv -f .update/previous bin/lumen && sync; }
+}
+rollback_wireless || exit 1
+if [ -f .update/approved ]; then
+    if ! bin/lumen --apply-wireless; then
+        echo 'wireless update rejected'
+        rm -f .update/approved .update/incoming .update/received
+        rollback_wireless || exit 1
+    fi
+fi
 # Copy the executable to RAM so exporting USB storage cannot truncate running code.
 cp /mnt/us/lumen/bin/lumen /var/tmp/lumen-native || exit 1
 chmod 700 /var/tmp/lumen-native
@@ -73,5 +85,6 @@ wait "$native_pid"
 result=$?
 native_pid=
 echo "native_exit=$result"
+[ "$result" = 0 ] || rollback_wireless
 rm -f /var/tmp/lumen-native
 exit "$result"

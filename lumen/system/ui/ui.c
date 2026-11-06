@@ -9,6 +9,7 @@
 #include "../../apps/games/api.h"
 #include "../../apps/calculator/api.h"
 #include "../connect.h"
+#include "../wireless_update.h"
 #include "../content_service.h"
 #include "../engine.h"
 #include "font_data.h"
@@ -1412,7 +1413,7 @@ static int ui_dispatch_input(const Input *in) {
             in = &normalized;
             network_poll = 1;
         } else {
-            int needs_status = ui_route() == 12 || ui_route() == 8 ||
+            int needs_status = ui_route() == 12 || ui_route() == 8 || ui_route() == 134 ||
                                ((ui_route() == 25 || ui_route() == 26) && apps_poll_interval() >= 0);
             if (action && !needs_status)
                 return action;
@@ -2081,7 +2082,7 @@ static void modal_input(const Input *in) {
 int ui_poll_interval(void) {
     if (sleeping)
         return v1_sleep_poll();
-    int wait = ui_route() >= 20 ? apps_poll_interval() : (ui_route() == 12 || ui_route() == 8 ? 2000 : -1),
+    int wait = ui_route() == 134 ? 2000 : ui_route() >= 20 ? apps_poll_interval() : (ui_route() == 12 || ui_route() == 8 ? 2000 : -1),
         other = extra_poll();
     int np = new_apps_poll();
     int pp = polish_poll();

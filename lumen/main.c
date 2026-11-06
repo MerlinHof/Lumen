@@ -3,6 +3,7 @@
 #include "system/engine.h"
 #include "system/library.h"
 #include "system/services.h"
+#include "system/wireless_update.h"
 #include "system/ui/api.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,9 +17,11 @@ static double stamp(void) {
 }
 int main(int argc, char **argv) {
     if (argc == 2 && !strcmp(argv[1], "--version")) {
-        puts("LUMEN 3.6 / MuPDF 1.28.5 / native ARMv7");
+        puts("LUMEN 3.7 / MuPDF 1.28.5 / native ARMv7");
         return 0;
     }
+    if (argc == 2 && !strcmp(argv[1], "--apply-wireless"))
+        return update_apply() ? 0 : 1;
     const char *preview = NULL, *inspect = NULL, *render = NULL;
     int screen = 0, pageno = 0;
     for (int i = 1; i < argc; i++) {
@@ -154,7 +157,7 @@ int main(int argc, char **argv) {
     device_close();
     ui_close();
     engine_shutdown();
-    fprintf(stderr, "LUMEN 3.6 clean exit\n");
+    fprintf(stderr, "LUMEN 3.7 clean exit\n");
     if (power_request)
         device_system_power(power_request == 2);
     return 0;

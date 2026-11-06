@@ -5,6 +5,7 @@ system/defaults.c
 system/engine.c
 system/device.c
 system/connect.c
+system/wireless_update.c
 system/amazon.c
 system/qrcodegen.c
 system/content_service.c

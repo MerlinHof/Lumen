@@ -5678,5 +5678,70 @@
     "Allgemein",
     "General",
     "Général"
+  ],
+  "App-Symbole": [
+    "App-Symbole",
+    "App icons",
+    "Icônes des apps"
+  ],
+  "Graviert · Test": [
+    "Graviert · Test",
+    "Engraved · Trial",
+    "Gravure · Essai"
+  ],
+  "Drahtloses Update": [
+    "Drahtloses Update",
+    "Wireless update",
+    "Mise à jour sans fil"
+  ],
+  "Diese Version läuft zur Probe. Wenn du sie nicht behältst, wird beim nächsten Start die vorige Version geladen.": [
+    "Diese Version läuft zur Probe. Wenn du sie nicht behältst, wird beim nächsten Start die vorige Version geladen.",
+    "This version is running as a trial. Unless you keep it, the previous version will load the next time you open LUMEN.",
+    "Cette version est à l’essai. Sans confirmation, la version précédente sera chargée à la prochaine ouverture de LUMEN."
+  ],
+  "Diese Version behalten": [
+    "Diese Version behalten",
+    "Keep this version",
+    "Conserver cette version"
+  ],
+  "Zur vorigen Version zurück": [
+    "Zur vorigen Version zurück",
+    "Restore previous version",
+    "Rétablir la version précédente"
+  ],
+  "Vergleiche den vollständigen SHA-256-Wert mit der Prüfsumme aus deiner vertrauenswürdigen Quelle.": [
+    "Vergleiche den vollständigen SHA-256-Wert mit der Prüfsumme aus deiner vertrauenswürdigen Quelle.",
+    "Compare the entire SHA-256 fingerprint with the checksum from your trusted source.",
+    "Comparez la somme SHA-256 complète à celle de votre source de confiance."
+  ],
+  "Nach der Freigabe LUMEN erneut öffnen, um das Update zu testen.": [
+    "Nach der Freigabe LUMEN erneut öffnen, um das Update zu testen.",
+    "After approval, reopen LUMEN to try the update.",
+    "Après confirmation, rouvrez LUMEN pour essayer la mise à jour."
+  ],
+  "Prüfsumme stimmt · Update freigeben": [
+    "Prüfsumme stimmt · Update freigeben",
+    "Checksum matches · Approve",
+    "Somme vérifiée · Autoriser"
+  ],
+  "Starte den Transfer-Server und lade ein kompatibles LUMEN-Update im Browser hoch.": [
+    "Starte den Transfer-Server und lade ein kompatibles LUMEN-Update im Browser hoch.",
+    "Start the transfer server and upload a compatible LUMEN update in your browser.",
+    "Démarrez le serveur de transfert et envoyez une mise à jour LUMEN compatible depuis votre navigateur."
+  ],
+  "Das Update erscheint hier, sobald es vollständig übertragen wurde.": [
+    "Das Update erscheint hier, sobald es vollständig übertragen wurde.",
+    "The update will appear here once the transfer completes.",
+    "La mise à jour apparaîtra ici à la fin du transfert."
+  ],
+  "Version behalten.": [
+    "Version behalten.",
+    "Version kept.",
+    "Version conservée."
+  ],
+  "Update wurde geändert. Prüfsumme erneut vergleichen.": [
+    "Update wurde geändert. Prüfsumme erneut vergleichen.",
+    "The update changed. Compare the checksum again.",
+    "La mise à jour a changé. Comparez à nouveau la somme de contrôle."
   ]
 }

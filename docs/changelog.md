@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.7
+
+- Extend the original Home sketches to the screen edges and give the date a stronger typographic hierarchy.
+- Add an experimental engraved icon style for the first eight default apps, with Classic still the default.
+- Stage compatible LUMEN binaries through File Transfer. Approve the checksum on the Kindle and keep or roll back the trial.
+
 ## 3.6
 
 - Give File Transfer its own Home icon, server controls and preferences.
