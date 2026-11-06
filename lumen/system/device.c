@@ -264,8 +264,7 @@ void device_ip(char *out, int size) {
     }
     freeifaddrs(ifs);
 }
-static void present_frame(const unsigned char *pixels, int full, int asynchronous, int press) {
-    static int previous_press;
+static void present_frame(const unsigned char *pixels, int full, int asynchronous) {
     feedback_join();
     int top = HEIGHT, bottom = 0, left = WIDTH, right = 0;
     for (int y = 0; y < HEIGHT; y++)
@@ -336,10 +335,8 @@ static void present_frame(const unsigned char *pixels, int full, int asynchronou
             }
     memcpy(previous, pixels, sizeof(previous));
     initialized = 1;
-    int wait_for_highlight = press || previous_press;
-    previous_press = press;
     char *partial[] = {"fbink", "-q",   "-W", top == 0 ? "GC16" : binary ? "DU" : "GL16",
-                       "-s",    region, wait_for_highlight ? "-w" : NULL, NULL};
+                       "-s",    region, NULL};
     char *clean[] = {"fbink", "-q", "-W", "GC16", "-f", "-s", "top=0,left=0,width=600,height=800",
                      NULL};
     if (clear)
@@ -368,10 +365,10 @@ static void present_frame(const unsigned char *pixels, int full, int asynchronou
 }
 void device_present(const unsigned char *pixels, int full, int interval) {
     (void)interval;
-    present_frame(pixels,full,0,0);
+    present_frame(pixels,full,0);
 }
-void device_present_async(const unsigned char *pixels, int press) {
-    present_frame(pixels,0,1,press);
+void device_present_async(const unsigned char *pixels) {
+    present_frame(pixels,0,1);
 }
 static int parse_event(int fd, int source, Input *input) {
     char buf[1024];
@@ -604,7 +601,7 @@ int device_wifi(int e) {
     return 1;
 }
 void device_ip(char *s, int n) { snprintf(s, n, "127.0.0.1"); }
-void device_present_async(const unsigned char *p, int press) { (void)p; (void)press; }
+void device_present_async(const unsigned char *p) { (void)p; }
 void device_present(const unsigned char *p, int f, int i) {
     (void)p;
     (void)f;

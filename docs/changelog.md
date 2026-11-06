@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.3
+
+- Submit touch feedback without waiting for an e-ink waveform to finish.
+- Rework Home with four higher-contrast illustrations, a lower app grid and normal app visibility controls.
+- Use tappable dots for pagers with up to four pages. Keep numbered arrows for larger collections.
+- Redraw Wi-Fi and Home icons and keep reading progress in Reader settings.
+
 ## 3.2
 
 - Merge Home and the app launcher. The date page rotates through seven grayscale landscapes, followed by full-height app grids.

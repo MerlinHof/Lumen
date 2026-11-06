@@ -2,7 +2,7 @@
 static int launcher_manage_indices(int *indices) {
     int n = 0;
     for (int i = 0; i < APP_COUNT; i++)
-        if (launcher_order[i] != APP_HOME && app_route_valid(app_definition(launcher_order[i])->entry))
+        if (app_route_valid(app_definition(launcher_order[i])->entry))
             indices[n++] = i;
     return n;
 }

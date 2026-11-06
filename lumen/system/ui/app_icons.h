@@ -259,10 +259,12 @@ static void app_icon(int x, int y, int app) {
         for(int i=0;i<3;i++) icon_box(x+5+(i%2)*18,y+5+(i/2)*18,16,16);
         break;
     case APP_HOME:
-        stroke(x+6,y+21,x+22,y+7,4);
-        stroke(x+22,y+7,x+38,y+21,4);
-        control_surface(x+9,y+20,26,17,4,0);
-        control_surface(x+18,y+26,8,12,2,255);
+        for (int row=0; row<15; row++)
+            rect(x+20-row,y+7+row,4+2*row,1,0);
+        stroke(x+6,y+22,x+22,y+7,5);
+        stroke(x+22,y+7,x+38,y+22,5);
+        control_surface(x+9,y+19,26,19,5,0);
+        control_surface(x+18,y+27,8,13,3,255);
         break;
     case APP_FROG:
         ui_paint_ellipse(x+22, y+34, 18, 5, 176);

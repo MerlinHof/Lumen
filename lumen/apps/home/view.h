@@ -1,4 +1,4 @@
-enum { HOME_ART_Y = 56, HOME_ART_H = 336, HOME_GRID_Y = 408,
+enum { HOME_ART_Y = 56, HOME_ART_H = 336, HOME_GRID_Y = 465,
        HOME_FULL_GRID_Y = 80, HOME_TILE_H = 126, HOME_PAGER_Y = 744 };
 static unsigned char home_art[WIDTH*HOME_ART_H];
 static int home_scene = -1, home_page;
@@ -9,7 +9,7 @@ static void home_landscape(time_t now) {
     day ^= day >> 16;
     day *= 0x7feb352du;
     day ^= day >> 15;
-    int scene = day % 7;
+    int scene = day % 4;
     if (scene != home_scene) {
         char path[2048];
         snprintf(path,sizeof(path),"%s/../home/scene-%d.pgm",data_root,scene);
@@ -98,6 +98,7 @@ static int home_input(const Input *in) {
     if (i < n) {
         AppIntent intent = {.app=ids[i],.kind=INTENT_OPEN};
         app_send(&intent);
+        if (intent.app == APP_HOME) home_page = 0;
     }
     return 1;
 }

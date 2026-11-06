@@ -204,7 +204,7 @@ int main(int argc, char **argv) {
     ui_draw();
     tap17(550, 95);
     assert(ui_route() == 3);
-    tap17(375, 766);
+    tap17(314, 766);
     assert(settings_ui.reading_page == 1);
     tap17(480, 425);
     assert(dropdown && drop_target == 916);
@@ -381,9 +381,9 @@ int main(int argc, char **argv) {
         assert(chat_append(i%2, i%2 ? long_reply : "Short message."));
     ui_draw();
     assert(chat_pages > 1 && !chat_rows[0].truncated && chat_rows[1].truncated);
-    tap17(370, CHAT_PAGER_Y + 22);
+    tap17(chat_pages <= 4 ? pager_dot_start(PAGER_X,PAGER_W,chat_pages)+45 : 370, CHAT_PAGER_Y + 22);
     assert(chat_page == 1);
-    tap17(220, CHAT_PAGER_Y + 22);
+    tap17(chat_pages <= 4 ? pager_dot_start(PAGER_X,PAGER_W,chat_pages)+15 : 220, CHAT_PAGER_Y + 22);
     assert(chat_page == 0);
     tap17(475, chat_rows[1].y + 15);
     assert(ui_route() == 2 && reader_ui.reader_document_active);
@@ -393,7 +393,7 @@ int main(int argc, char **argv) {
     route_to(128);
     chat_archive_count = 14;
     ui_draw();
-    tap17(370, 768);
+    tap17(314, 768);
     assert(chat_archive_page == 1);
     route_to(131);
     options[OPT_DATE] = options[OPT_CLOCK] = options[OPT_WIFI] = 1;
@@ -401,11 +401,12 @@ int main(int argc, char **argv) {
     ui_draw();
     assert(status_ui.status_date_x < status_ui.status_clock_x &&
            status_ui.status_clock_x < status_ui.status_wifi_x);
-    tap17(370, HOME_PAGER_Y+20);
+    int home_dots = pager_dot_start(PAGER_X,PAGER_W,pagination.count);
+    tap17(home_dots+45, HOME_PAGER_Y+20);
     assert(home_page == 1);
-    tap17(220, HOME_PAGER_Y+20);
+    tap17(home_dots+15, HOME_PAGER_Y+20);
     assert(home_page == 0);
-    tap17(80,450);
+    tap17(80,HOME_GRID_Y+24);
     assert(ui_route() == 1);
     tap17(20,52);
     assert(ui_route() == 131);

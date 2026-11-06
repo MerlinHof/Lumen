@@ -2,12 +2,11 @@ static void header(void) {
     time_t now = time(NULL);
     refresh_status(0);
     rect(0, 0, 600, STATUS_HEIGHT, 255);
-    int left = can_back() || ui_route() == 131 ? 68 : 24;
+    int left = can_back() ? 68 : 24;
     if (can_back()) {
         system_region(0, 0, 62, STATUS_HEIGHT);
         icon_sized(9, 6, IC_BACK, 44);
-    } else if (ui_route() == 131)
-        app_icon(18,6,APP_HOME);
+    }
     char date[32], clock[16], percent[24], timer[32];
     struct tm t;
     localtime_r(&now, &t);

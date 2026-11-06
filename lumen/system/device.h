@@ -27,7 +27,7 @@ void device_close(void);
 int device_wait(Input *input);
 int device_input_pending(void);
 int device_refresh_busy(void);
-void device_present_async(const unsigned char *pixels, int press);
+void device_present_async(const unsigned char *pixels);
 void device_present(const unsigned char *pixels, int full, int interval);
 void device_status(char *battery, int cap, char *wifi, int nc);
 int device_charging(void);

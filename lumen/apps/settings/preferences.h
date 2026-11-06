@@ -28,7 +28,6 @@ static SettingRow setting_rows[] = {
     {"Invertierte Darstellung", 1, OPT_INVERT, 0, 1, 1, NULL, 0},
     {"Cover zuschneiden", 1, OPT_COVER_CROP, 0, 1, 1, NULL, 0},
     {"Abgerundete Ecken", 1, OPT_ROUNDING, 0, 1, 1, NULL, 0},
-    {"Lesefortschritt", 1, OPT_PROGRESS, 0, 1, 1, NULL, 0},
     {"Sperrbild", 1, OPT_LOCK, 0, 5, 1, lockmodes, 6},
     {"Sperrbild-Hinweis", 1, OPT_LOCK_HINT, 0, 1, 1, NULL, 0},
     {"Wischen zum Blättern", 3, OPT_SWIPE, 0, 1, 1, NULL, 0},

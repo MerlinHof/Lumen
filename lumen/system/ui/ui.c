@@ -601,10 +601,10 @@ static void disc(int x, int y, int r, int color);
 static void aa_arc(int x, int y, int r, int from, int to, int thickness);
 static void aa_disc(int x, int y, int r, int color);
 static void wifi_symbol(int x, int y) {
-    /* One shared bold Wi-Fi symbol in both the header and network settings. */
-    aa_arc(x + 15, y + 27, 7, 220, 320, 3);
-    aa_arc(x + 15, y + 27, 15, 220, 320, 3);
-    aa_disc(x + 15, y + 27, 2, 0);
+    /* Three equally spaced bands radiating from the same center. */
+    for (int radius=6; radius<=16; radius+=5)
+        aa_arc(x+15,y+28,radius,217,323,2);
+    aa_disc(x+15,y+28,2,0);
 }
 static void button(int x, int y, int w, const char *label, int chosen) {
     button_h(x, y, w, 48, label, chosen);
@@ -883,17 +883,42 @@ static void pagination_move(int delta) {
     else
         *pagination.state = next;
 }
+enum { PAGER_X = 205, PAGER_W = 189, PAGER_DOT_STEP = 30 };
+static int pager_dot_start(int x, int w, int pages) {
+    return x + (w-pages*PAGER_DOT_STEP)/2;
+}
+static int pager_target(int x, int left, int width, int page, int pages) {
+    if (pages <= 4) {
+        int offset = x - pager_dot_start(left,width,pages);
+        return offset >= 0 && offset < pages*PAGER_DOT_STEP ? offset/PAGER_DOT_STEP : -1;
+    }
+    if (x >= left && x < left+44) return page > 0 ? page-1 : page;
+    if (x >= left+width-44 && x < left+width) return page+1 < pages ? page+1 : page;
+    return -1;
+}
 static int pagination_hit(const Input *in) {
-    return in->kind == INPUT_TAP && pagination.state && pagination.visible &&
-           pagination.count > 1 && in->y >= pagination.y && in->y < pagination.y + 44 &&
-           ((in->x >= 205 && in->x < 249) || (in->x >= 350 && in->x < 394));
+    if (in->kind != INPUT_TAP || !pagination.state || !pagination.visible ||
+        pagination.count <= 1 || in->y < pagination.y || in->y >= pagination.y+44)
+        return 0;
+    return pager_target(in->x,PAGER_X,PAGER_W,*pagination.state,pagination.count) >= 0;
 }
 static void pager_draw(int x, int y, int w, int page, int pages) {
-    page_arrow(x, y, IC_PREV, page > 0);
-    page_arrow(x + w - 44, y, IC_NEXT, page + 1 < pages);
+    if (pages <= 4) {
+        int start = pager_dot_start(x,w,pages);
+        for (int i=0; i<pages; i++) {
+            int left = start+i*PAGER_DOT_STEP;
+            region(left,y,PAGER_DOT_STEP,44);
+            widget_shape(left,y,PAGER_DOT_STEP,44,RADIUS_SMALL,3,1);
+            if (i == page) aa_disc(left+15,y+22,5,0);
+            else ring(left+15,y+22,5,2);
+        }
+        return;
+    }
+    page_arrow(x,y,IC_PREV,page>0);
+    page_arrow(x+w-44,y,IC_NEXT,page+1<pages);
     char text[32];
-    snprintf(text, sizeof(text), "%d / %d", page + 1, pages);
-    centered(x + 44, y, w - 88, 44, text, &caption);
+    snprintf(text,sizeof(text),"%d / %d",page+1,pages);
+    centered(x+44,y,w-88,44,text,&caption);
 }
 static void pager(int y, int *state, int pages) {
     if (*state < 0)
@@ -903,7 +928,7 @@ static void pager(int y, int *state, int pages) {
     pagination_bind(state, pages, y, 1, NULL);
     if (pages <= 1)
         return;
-    pager_draw(205, y, 189, *state, pages);
+    pager_draw(PAGER_X, y, PAGER_W, *state, pages);
 }
 static void system_loading(int target) {
     if (target != 2 && target != 79 && target != 40)
@@ -1509,7 +1534,8 @@ static int ui_dispatch_input(const Input *in) {
             return 1;
         }
         if (pagination_hit(in)) {
-            pagination_move(in->x < 300 ? -1 : 1);
+            int target = pager_target(in->x,PAGER_X,PAGER_W,*pagination.state,pagination.count);
+            if (target != *pagination.state) pagination_move(target-*pagination.state);
             return 1;
         }
     }
@@ -1975,10 +2001,9 @@ static void modal_input(const Input *in) {
         unsigned generation = drop_generation;
         if (drop_count > 5 && x >= drop_x && x < drop_x + drop_w &&
             y >= drop_y + 5 + drop_visible * 48 && y < drop_y + 5 + drop_visible * 48 + 44) {
-            if (x >= drop_x + (drop_w - 189) / 2 && x < drop_x + (drop_w - 189) / 2 + 44 && drop_first > 0)
-                drop_first -= 5;
-            else if (x >= drop_x + (drop_w - 189) / 2 + 145 && x < drop_x + (drop_w - 189) / 2 + 189 && drop_first + 5 < drop_count)
-                drop_first += 5;
+            int target = pager_target(x,drop_x+(drop_w-PAGER_W)/2,PAGER_W,
+                                      drop_first/5,(drop_count+4)/5);
+            if (target >= 0) drop_first = target*5;
             return;
         }
         if (x >= drop_x && x < drop_x + drop_w && y >= drop_y + 5 &&

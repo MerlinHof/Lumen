@@ -62,8 +62,5 @@
   "lumen/home/scene-0.pgm": "lumen/assets/home/scene-0.pgm",
   "lumen/home/scene-1.pgm": "lumen/assets/home/scene-1.pgm",
   "lumen/home/scene-2.pgm": "lumen/assets/home/scene-2.pgm",
-  "lumen/home/scene-3.pgm": "lumen/assets/home/scene-3.pgm",
-  "lumen/home/scene-4.pgm": "lumen/assets/home/scene-4.pgm",
-  "lumen/home/scene-5.pgm": "lumen/assets/home/scene-5.pgm",
-  "lumen/home/scene-6.pgm": "lumen/assets/home/scene-6.pgm"
+  "lumen/home/scene-3.pgm": "lumen/assets/home/scene-3.pgm"
 }
