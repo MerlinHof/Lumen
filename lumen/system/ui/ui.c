@@ -172,6 +172,7 @@ static void modal_input(const Input *in);
 static void connect_input(const Input *in);
 static void refresh_library(void);
 static void settings_input(const Input *in);
+static const int lock_mode_ids[6];
 static void discover_screen(void);
 static void discover_detail(void);
 static void discover_input(const Input *in);
@@ -293,14 +294,17 @@ static void open_keyboard(int target, const char *title, const char *value) {
 }
 static void open_dropdown(int target, const char **labels, int count, int selected, int x, int y,
                           int w) {
+    if (count <= 0) return;
     dropdown = 1;
     drop_generation++;
     editor_ui.keyboard = 0;
     drop_target = target;
     drop_labels = labels;
     drop_count = count;
-    drop_visible = count < 5 ? count : 5;
-    drop_first = selected >= 0 ? (selected / 5) * 5 : 0;
+    int max_rows = (790-STATUS_HEIGHT-10)/48;
+    if (count > max_rows) max_rows = (790-STATUS_HEIGHT-10-44)/48;
+    drop_visible = count < max_rows ? count : max_rows;
+    drop_first = selected >= 0 ? selected/drop_visible*drop_visible : 0;
     drop_selected = selected;
     if (w > 400)
         w = 400;
@@ -693,6 +697,7 @@ static void disc(int x, int y, int r, int color) {
 #include "corners.h"
 static void toggle(int x, int y, int on) {
     region(x - 10, y - 8, 90, 48);
+    widget_shape(x-10,y-8,90,48,RADIUS_MEDIUM,3,1);
     control_surface(x + 2, y + 1, 64, 30, 15, 0);
     if (!on)
         control_surface(x + 4, y + 3, 60, 26, 13, 255);
@@ -716,12 +721,12 @@ static void progress(int x, int y, int w, int n, int total) {
 #include "image_sampling.h"
 #include "cover_cache.h"
 static void cover_bounds(const unsigned char *p, int cw, int ch, int *x0, int *y0, int *x1,
-                         int *y1) {
+                         int *y1, int force) {
     *x0 = 0;
     *y0 = 0;
     *x1 = cw;
     *y1 = ch;
-    if (!options[OPT_COVER_CROP])
+    if (!force && !options[OPT_COVER_CROP])
         return;
     int top = ch, left = cw, bottom = 0, right = 0;
     for (int y = 0; y < ch; y++) {
@@ -785,7 +790,7 @@ static void cover_draw(Book *b, int x, int y, int w, int h, int fill) {
             size_t pixels = (size_t)cw * ch;
             if (fread(pix, 1, pixels, f) == pixels) {
                 int x0, y0, x1, y1;
-                cover_bounds(pix, cw, ch, &x0, &y0, &x1, &y1);
+                cover_bounds(pix, cw, ch, &x0, &y0, &x1, &y1, fill);
                 int sw = x1 - x0, sh = y1 - y0;
                 if (fill || options[OPT_COVER_CROP]) {
                     if (sw * h > sh * w) {
@@ -883,17 +888,17 @@ static void pagination_move(int delta) {
     else
         *pagination.state = next;
 }
-enum { PAGER_X = 205, PAGER_W = 189, PAGER_DOT_STEP = 30 };
+enum { PAGER_X = 205, PAGER_W = 189, PAGER_DOT_STEP = 24 };
 static int pager_dot_start(int x, int w, int pages) {
     return x + (w-pages*PAGER_DOT_STEP)/2;
 }
 static int pager_target(int x, int left, int width, int page, int pages) {
+    if (x >= left && x < left+44) return page > 0 ? page-1 : page;
+    if (x >= left+width-44 && x < left+width) return page+1 < pages ? page+1 : page;
     if (pages <= 4) {
         int offset = x - pager_dot_start(left,width,pages);
         return offset >= 0 && offset < pages*PAGER_DOT_STEP ? offset/PAGER_DOT_STEP : -1;
     }
-    if (x >= left && x < left+44) return page > 0 ? page-1 : page;
-    if (x >= left+width-44 && x < left+width) return page+1 < pages ? page+1 : page;
     return -1;
 }
 static int pagination_hit(const Input *in) {
@@ -903,19 +908,20 @@ static int pagination_hit(const Input *in) {
     return pager_target(in->x,PAGER_X,PAGER_W,*pagination.state,pagination.count) >= 0;
 }
 static void pager_draw(int x, int y, int w, int page, int pages) {
+    page_arrow(x,y,IC_PREV,page>0);
+    page_arrow(x+w-44,y,IC_NEXT,page+1<pages);
     if (pages <= 4) {
         int start = pager_dot_start(x,w,pages);
         for (int i=0; i<pages; i++) {
             int left = start+i*PAGER_DOT_STEP;
             region(left,y,PAGER_DOT_STEP,44);
             widget_shape(left,y,PAGER_DOT_STEP,44,RADIUS_SMALL,3,1);
-            if (i == page) aa_disc(left+15,y+22,5,0);
-            else ring(left+15,y+22,5,2);
+            int center = left+PAGER_DOT_STEP/2;
+            aa_disc(center,y+22,5,0);
+            if (i != page) aa_disc(center,y+22,3,255);
         }
         return;
     }
-    page_arrow(x,y,IC_PREV,page>0);
-    page_arrow(x+w-44,y,IC_NEXT,page+1<pages);
     char text[32];
     snprintf(text,sizeof(text),"%d / %d",page+1,pages);
     centered(x+44,y,w-88,44,text,&caption);
@@ -966,6 +972,7 @@ void ui_set_screen(int n) {
 void ui_init(void) {
     app_runtime_init(&runtime, app_leave, NULL);
     register_builtin_views();
+    amazon_background_start();
     notifications_register();
     app_endpoint_register("keyboard", keyboard_receive);
     library_settings_load();
@@ -1187,7 +1194,7 @@ static void connect_screen(void);
 static void more_settings(void);
 #include "../../apps/library/view.h"
 #include "../../apps/reader/view.h"
-#include "../../apps/settings/reading.h"
+#include "../../apps/reader/settings.h"
 #include "../../apps/reader/menus.h"
 #include "../../apps/library/details.h"
 static int centered_lines(int x, int y, int width, const char *text, const Font *font, int limit) {
@@ -1393,6 +1400,7 @@ static int ui_dispatch_input(const Input *in) {
     if (in->kind == INPUT_STATUS && sleeping)
         return v1_sleep_tick() ? 1 : 2;
     if (in->kind == INPUT_STATUS) {
+        if (amazon_background_poll() && ui_route() == 1) return 1;
         if (refresh_status(in->x == -1))
             return 1;
         int tick16 = u16_tick();
@@ -1601,6 +1609,7 @@ static int ui_dispatch_input(const Input *in) {
         return 1;
     }
     if (in->kind == INPUT_EXIT || in->kind == INPUT_USB) {
+        amazon_background_stop();
         connect_stop();
         discover_cancel();
         service_cancel();
@@ -1735,7 +1744,7 @@ static int ui_dispatch_input(const Input *in) {
         return 1;
     }
     if (in->kind == INPUT_TAP && y < STATUS_HEIGHT && (ui_route() != 2 || reader_ui.reader_chrome)) {
-        if (x < 62 && (ui_route() == 3 || ui_route() == 9) && !editor_ui.keyboard && !dropdown && !confirm_delete)
+        if (x < 62 && ui_route() == 3 && !editor_ui.keyboard && !dropdown && !confirm_delete)
             apply_reading_settings();
         if (x < 62 && ui_route() == 29 && u17_notes_depth() && !editor_ui.keyboard && !dropdown) {
             u17_notes_up();
@@ -1773,8 +1782,10 @@ static int ui_dispatch_input(const Input *in) {
                 route_to(1);
             if ((ui_route() == 2 || ui_route() == 4 || ui_route() == 5) && current < 0)
                 route_to(1);
-            if (ui_route() == 1)
-                update_view();
+            if (ui_route() == 1) {
+                if (library_ui.library_dirty) refresh_library();
+                else update_view();
+            }
             return 1;
         }
         if (status_ui.status_wifi_x >= 0 && x >= status_ui.status_wifi_x - 5 && x < status_ui.status_wifi_x + 39 &&
@@ -1830,7 +1841,7 @@ static void overlays(void) {
     }
     ui_y_offset = 0;
     if (dropdown) {
-        int height = drop_visible * 48 + 10 + (drop_count > 5 ? 44 : 0);
+        int height = drop_visible * 48 + 10 + (drop_count > drop_visible ? 44 : 0);
         if (drop_y + height > 790)
             drop_y = 790 - height;
         control_surface(drop_x, drop_y, drop_w, height, RADIUS_LARGE, 0);
@@ -1845,14 +1856,14 @@ static void overlays(void) {
                 stroke(drop_x + drop_w - 29, y + 24, drop_x + drop_w - 24, y + 29, 2);
                 stroke(drop_x + drop_w - 24, y + 29, drop_x + drop_w - 15, y + 18, 2);
             }
-            label_ellipsis(drop_x + 46, y + 3, drop_w - 85, 42,
-                           drop_labels[i], &small, 0);
+            label_ellipsis(drop_x + 46, y, drop_w - 85, 48,
+                           tr(drop_labels[i]), &small, 0);
             if (row + 1 < drop_visible)
                 rect(drop_x + 10, y + 47, drop_w - 20, 2, 190);
         }
-        if (drop_count > 5) {
+        if (drop_count > drop_visible) {
             int yy = drop_y + 5 + drop_visible * 48;
-            pager_draw(drop_x + (drop_w - 189) / 2, yy, 189, drop_first / 5, (drop_count + 4) / 5);
+            pager_draw(drop_x + (drop_w - 189) / 2, yy, 189, drop_first / drop_visible, (drop_count + drop_visible - 1) / drop_visible);
         }
     }
     if (confirm_delete) {
@@ -1882,6 +1893,8 @@ static void refresh_library(void) {
     current = -1;
     selected = -1;
     library_scan();
+    library_ui.library_dirty = 0;
+    amazon_background_start();
     update_view();
 }
 static void commit_keyboard(void) {
@@ -1999,11 +2012,11 @@ static void modal_input(const Input *in) {
     }
     if (dropdown) {
         unsigned generation = drop_generation;
-        if (drop_count > 5 && x >= drop_x && x < drop_x + drop_w &&
+        if (drop_count > drop_visible && x >= drop_x && x < drop_x + drop_w &&
             y >= drop_y + 5 + drop_visible * 48 && y < drop_y + 5 + drop_visible * 48 + 44) {
             int target = pager_target(x,drop_x+(drop_w-PAGER_W)/2,PAGER_W,
-                                      drop_first/5,(drop_count+4)/5);
-            if (target >= 0) drop_first = target*5;
+                                      drop_first/drop_visible,(drop_count+drop_visible-1)/drop_visible);
+            if (target >= 0) drop_first = target*drop_visible;
             return;
         }
         if (x >= drop_x && x < drop_x + drop_w && y >= drop_y + 5 &&
@@ -2045,7 +2058,7 @@ static void modal_input(const Input *in) {
             else if (drop_target >= 100) {
                 int option = drop_target - 100;
                 if (option >= 0 && option < OPT_COUNT)
-                    options[option] = choice;
+                    options[option] = option == OPT_LOCK ? lock_mode_ids[choice] : choice;
                 if (option == OPT_ZONE)
                     extra_zone();
                 engine_options(options[OPT_FONT], options[OPT_ALIGN], options[OPT_LETTERSPACE],
@@ -2076,6 +2089,7 @@ int ui_poll_interval(void) {
     int wait = ui_route() >= 20 ? apps_poll_interval() : (ui_route() == 12 || ui_route() == 8 ? 2000 : -1),
         other = extra_poll();
     int np = new_apps_poll();
+    if (amazon_background_busy() && (wait < 0 || wait > 1000)) wait = 1000;
     int pp = polish_poll();
     if (pp >= 0 && (np < 0 || pp < np))
         np = pp;
@@ -2177,7 +2191,7 @@ static void app_leave(AppId app, void *ctx) {
         discover_cancel();
         store_ui.store_stage = 0;
     }
-    if (app == APP_SETTINGS)
+    if (app == APP_READER && ui_route() == 3)
         apply_reading_settings();
 }
 static void route_to(int route) {
@@ -2252,6 +2266,7 @@ static int app_send(const AppIntent *intent) {
             discover_lookup(wiki_query, options[OPT_LANGUAGE]);
         }
     } else if (intent->app == APP_LIBRARY) {
+        if (library_ui.library_dirty) refresh_library();
         snprintf(library_ui.query, sizeof(library_ui.query), "%s",
                  intent->kind == INTENT_SEARCH ? runtime.intent.text : "");
         library_ui.listpage = 0;
@@ -2321,6 +2336,7 @@ static int app_read_book(int index) {
     return app_send(&request);
 }
 void ui_close(void) {
+    amazon_background_stop();
     cover_tiles_clear();
     free(weather_snapshot);
     weather_snapshot = NULL;

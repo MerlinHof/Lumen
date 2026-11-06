@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.4
+
+- Tap the hand-engraved Home illustration to switch scenes. The first page shows the first eight apps in the same ordered list as the other pages.
+- Keep pager arrows alongside same-size dots. Dropdowns fit the available screen height and translate their labels.
+- Move reading preferences into Reader and sorting into Library. Refresh changed covers automatically and prepare supported Kindle imports in the background.
+- Group lock-screen cover modes together and trim surrounding padding before filling the screen. Switches use a single state update.
+
 ## 3.3
 
 - Submit touch feedback without waiting for an e-ink waveform to finish.

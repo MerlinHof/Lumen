@@ -1,7 +1,7 @@
 enum { HOME_ART_Y = 56, HOME_ART_H = 336, HOME_GRID_Y = 465,
        HOME_FULL_GRID_Y = 80, HOME_TILE_H = 126, HOME_PAGER_Y = 744 };
 static unsigned char home_art[WIDTH*HOME_ART_H];
-static int home_scene = -1, home_page;
+static int home_scene = -1, home_page, home_scene_offset;
 
 static void home_landscape(time_t now) {
     /* A stable pseudo-random scene per local day avoids flicker during redraws. */
@@ -9,7 +9,7 @@ static void home_landscape(time_t now) {
     day ^= day >> 16;
     day *= 0x7feb352du;
     day ^= day >> 15;
-    int scene = day % 4;
+    int scene = (day%4+home_scene_offset)%4;
     if (scene != home_scene) {
         char path[2048];
         snprintf(path,sizeof(path),"%s/../home/scene-%d.pgm",data_root,scene);
@@ -31,20 +31,6 @@ static void home_landscape(time_t now) {
     }
     memcpy(ui_pixels+HOME_ART_Y*WIDTH,home_art,sizeof(home_art));
 }
-static int home_favorites(int *ids) {
-    const AppId first[] = {APP_LIBRARY, APP_CALCULATOR, APP_NOTES, APP_CALENDAR,
-                           APP_TASKS, APP_TIMER, APP_WEATHER, APP_SETTINGS};
-    int n = 0, seen[APP_COUNT] = {0};
-    for (unsigned i=0; i<sizeof(first)/sizeof(*first); i++)
-        if (launcher_visible[first[i]]) {
-            ids[n++] = first[i];
-            seen[first[i]] = 1;
-        }
-    int apps[APP_COUNT], total = v1_visible(apps);
-    for (int i=0; i<total && n<8; i++)
-        if (!seen[apps[i]]) ids[n++] = apps[i];
-    return n;
-}
 static void home_date(void) {
     static const char *weekdays[] = {"Sonntag","Montag","Dienstag","Mittwoch",
                                      "Donnerstag","Freitag","Samstag"};
@@ -65,15 +51,16 @@ static void home_date(void) {
 }
 static void home_draw(void) {
     polish_order();
-    int ids[APP_COUNT], n = v1_visible(ids), pages = 1+(n+19)/20;
+    int ids[APP_COUNT], n = v1_visible(ids), pages = 1+(n>8 ? (n-8+19)/20 : 0);
     if (home_page >= pages) home_page = pages-1;
-    int top = HOME_FULL_GRID_Y, start = (home_page-1)*20, limit = 20;
+    int top = HOME_FULL_GRID_Y, start = 8+(home_page-1)*20, limit = 20;
     if (home_page == 0) {
         home_date();
         top = HOME_GRID_Y;
         start = 0;
         limit = 8;
-        n = home_favorites(ids);
+        region(0,HOME_ART_Y,WIDTH,HOME_ART_H);
+        widget_shape(0,HOME_ART_Y,WIDTH,HOME_ART_H,0,0,1);
     }
     for (int i=0; i<limit && start+i<n; i++)
         app_tile(20+i%4*140,top+i/4*HOME_TILE_H,140,ids[start+i]);
@@ -88,12 +75,16 @@ static int home_input(const Input *in) {
         app_send(&intent);
         return 1;
     }
+    if (!home_page && in->y >= HOME_ART_Y && in->y < HOME_ART_Y+HOME_ART_H) {
+        home_scene_offset = (home_scene_offset+1)%4;
+        return 1;
+    }
     int top = home_page ? HOME_FULL_GRID_Y : HOME_GRID_Y;
     int rows = home_page ? 5 : 2;
     if (in->x < 20 || in->x >= 580 || in->y < top || in->y >= top+rows*HOME_TILE_H)
         return -1;
-    int ids[APP_COUNT], n = home_page ? v1_visible(ids) : home_favorites(ids);
-    int i = (home_page ? (home_page-1)*20 : 0) +
+    int ids[APP_COUNT], n = v1_visible(ids);
+    int i = (home_page ? 8+(home_page-1)*20 : 0) +
             (in->y-top)/HOME_TILE_H*4 + (in->x-20)/140;
     if (i < n) {
         AppIntent intent = {.app=ids[i],.kind=INTENT_OPEN};

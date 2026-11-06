@@ -4,8 +4,13 @@ static const char *categories[] = {"Schrift & Satz",    "Darstellung", "Biblioth
 static const char *fonts[] = {"Charis", "Sans Serif", "Monospace", "Times", "Noto Serif"};
 static const char *alignments[] = {"Linksbündig", "Blocksatz"};
 static const char *tapzones[] = {"Links / rechts", "Mehr Platz vorwärts"};
-static const char *lockmodes[] = {"Buchcover", "Ruhiger Text", "Uhrzeit", "Eigenes Bild",
-                                  "Fotos · stündlich", "Buchcover · Vollbild"};
+static const char *lockmodes[] = {"Buchcover", "Buchcover · Vollbild", "Uhrzeit",
+                                  "Ruhiger Text", "Eigenes Bild", "Fotos · stündlich"};
+static const int lock_mode_ids[6] = {0,5,2,1,3,4};
+static int lock_mode_row(void) {
+    for (int i=0;i<6;i++) if (lock_mode_ids[i] == options[OPT_LOCK]) return i;
+    return 0;
+}
 static const char *languages[] = {"Deutsch", "English", "Français"};
 typedef struct {
     const char *label;
@@ -35,16 +40,14 @@ static SettingRow setting_rows[] = {
     {"Connect-Port", 4, OPT_PORT, 1024, 65535, 1, NULL, 0},
     {"Inaktivität (Minuten)", 4, OPT_TIMEOUT, 1, 60, 1, NULL, 0},
 };
-static const char *settings_sections[] = {"WLAN",       "Bücher übertragen", "Lesen", "Darstellung",
-                                          "Bibliothek", "Datum & Uhrzeit", "Apps verwalten", "System"};
+static const char *settings_sections[] = {"WLAN", "Bücher übertragen", "Darstellung", "Datum & Uhrzeit", "Apps verwalten", "System"};
 static const char *settings_hints[] = {
     "Netzwerke und Verbindung",           "Webserver, Adresse und Zugriff",
-    "Schrift, Satz und Gesten",           "Sprache, Sperrbild und Statusleiste",
-    "Lesestände und Verwaltung",          "Zeit, Zeitzone und WLAN-Abgleich",
+    "Sprache, Sperrbild und Statusleiste", "Zeit, Zeitzone und WLAN-Abgleich",
     "Sichtbarkeit & Reihenfolge", "Speicher, Version und Konfiguration"};
 static void settings_home(void) {
     heading("Einstellungen");
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 6; i++) {
         int y = 134 + i * 72;
         ListLayout l = list_row(28, y, 544, 72, -1, 62, tr(settings_sections[i]),
                                 tr(settings_hints[i]), ui_font(UI_PRIMARY), 1);

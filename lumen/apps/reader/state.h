@@ -4,7 +4,7 @@ typedef struct {
 } Annotation;
 
 typedef struct {
-    int reader_document_active, reader_progress_mode, reader_chrome;
+    int reader_document_active, reader_progress_mode, reader_chrome, reading_page;
     int chapterpage, chapter_count, chaptertab;
     Chapter chapters[256];
     Annotation annotations[128];

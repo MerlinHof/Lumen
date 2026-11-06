@@ -18,7 +18,7 @@ static void library_screen(void) {
         Book *book = &library[last];
         region(28, 80, 544, 232);
         cover_size(book, 28, 80, 152, 208);
-        drawtext(206, 96, "W E I T E R L E S E N", ui_font(UI_SECONDARY), 370);
+        drawtext(206, 96, "W E I T E R L E S E N", ui_font(UI_SECONDARY), 315);
         wrapped_raw(204, 133, book->title, ui_font(UI_TITLE), 366, 2);
         {
             char author[256];
@@ -48,5 +48,6 @@ static void library_screen(void) {
     if (!library_ui.view_count && last < 0)
         wrapped(28, 180, "Deine Bücher erscheinen hier. Im Store kannst du neue Bücher entdecken.",
                 ui_font(UI_TITLE), 544, 3);
+    icon_button(528,60,IC_SETTINGS);
     pager(745, &library_ui.listpage, library_pages());
 }

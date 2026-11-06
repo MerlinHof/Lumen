@@ -15,9 +15,24 @@ static void lock_cover_full(Book *book) {
         cover_draw(book,0,0,WIDTH,HEIGHT,1);
         return;
     }
-    for (int y=0; y<HEIGHT; y++)
-        for (int x=0; x<WIDTH; x++)
-            ui_pixels[y*WIDTH+x] = theme_gray(image_tone(pixels[y*WIDTH+x],x,y));
+    int x0,y0,x1,y1;
+    cover_bounds(pixels,WIDTH,HEIGHT,&x0,&y0,&x1,&y1,1);
+    int w=x1-x0,h=y1-y0;
+    if (w*HEIGHT > h*WIDTH) {
+        int fit=h*WIDTH/HEIGHT;
+        x0+=(w-fit)/2;
+        w=fit;
+    } else {
+        int fit=w*HEIGHT/WIDTH;
+        y0+=(h-fit)/2;
+        h=fit;
+    }
+    for (int y=0;y<HEIGHT;y++)
+        for (int x=0;x<WIDTH;x++) {
+            int tone=image_bilinear(pixels+y0*WIDTH+x0,WIDTH,w,h,
+                                    (2*x+1)*w*128/WIDTH-128,(2*y+1)*h*128/HEIGHT-128);
+            ui_pixels[y*WIDTH+x]=theme_gray(image_tone(tone,x,y));
+        }
 }
 static void lock_screen_draw(void) {
     int lock_book = current >= 0 && current < library_count ? current : library_last();

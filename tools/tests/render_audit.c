@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
     options[OPT_LANGUAGE] = 1;
     route_to(3);
     for (int p = 0; p < 2; p++) {
-        settings_ui.reading_page = p;
+        reader_ui.reading_page = p;
         char name[40];
         snprintf(name, 40, "reading-%d", p);
         capture(name);

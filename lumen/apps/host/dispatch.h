@@ -1,5 +1,6 @@
 /* App view and event dispatch. Status and tab bars own their views in their app modules. */
 static void app_render(void) {
+    if (ui_route() == 132) { more_settings(); return; }
     if (app_page_draw(ui_route())) return;
     if (ui_route() >= 60) {
         new_apps_draw();
@@ -69,6 +70,7 @@ static void app_render(void) {
     }
 }
 static int app_handle_input(const Input *in) {
+    if (ui_route() == 132) { settings_input(in); return 1; }
     int x = in->x, y = in->y, old = ui_route();
     int handled = app_page_input(ui_route(), in);
     if (handled >= 0) return handled;
@@ -80,7 +82,7 @@ static int app_handle_input(const Input *in) {
         return extra_input(in);
     if (ui_route() >= 20 && ui_route() <= 26)
         return apps_input(in);
-    if (ui_route() == 13 && in->kind == INPUT_TAP && y >= 134 && y < 710) {
+    if (ui_route() == 13 && in->kind == INPUT_TAP && y >= 134 && y < 566) {
         int row = (y - 134) / 72;
         settings_ui.setting_page = 0;
         if (history_count < 64)
@@ -92,22 +94,22 @@ static int app_handle_input(const Input *in) {
         } else if (row == 1)
             route_to(8);
         else if (row == 2) {
-            route_to(3);
-            settings_ui.reading_page = 0;
-        } else if (row >= 5) {
-            if (row == 5)
-                extra_open(39);
-            else if (row == 6)
-                extra_open(83);
-            else
-                extra_open(40);
-        } else {
+            setting_category = 1;
             route_to(9);
-            setting_category = row == 3 ? 1 : row == 4 ? 2 : 5;
-        }
+        } else if (row == 3)
+            extra_open(39);
+        else if (row == 4)
+            extra_open(83);
+        else
+            extra_open(40);
         return 1;
     }
     if (ui_route() == 1 && in->kind == INPUT_TAP) {
+        if (x >= 528 && x < 572 && y >= 60 && y < 104) {
+            setting_category = 2;
+            extra_open(132);
+            return 1;
+        }
         if (y >= 745 && y < 789) {
             if (x >= 190 && x < 259 && library_ui.listpage)
                 library_ui.listpage--;
@@ -136,7 +138,7 @@ static int app_handle_input(const Input *in) {
                     route_to(4);
                     reader_ui.chapterpage = 0;
                 } else {
-                    settings_ui.reading_page = 0;
+                    reader_ui.reading_page = 0;
                     route_to(3);
                 }
             }

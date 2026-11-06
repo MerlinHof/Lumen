@@ -112,7 +112,7 @@ static void v1_draw(void) {
     case 92:
         heading("Sperrbild");
         for (int i = 0; i < 6; i++)
-            button_h(28, 154 + i * 86, 544, 65, lockmodes[i], options[OPT_LOCK] == i);
+            button_h(28, 154 + i * 86, 544, 65, lockmodes[i], options[OPT_LOCK] == lock_mode_ids[i]);
         break;
     case 93:
         heading("Tastatur");
@@ -657,7 +657,7 @@ static int v1_input(const Input *in) {
         if (y >= 154 && y < 670) {
             int i = (y - 154) / 86;
             if (i < 6) {
-                options[OPT_LOCK] = i;
+                options[OPT_LOCK] = lock_mode_ids[i];
                 ui_save();
             }
         }

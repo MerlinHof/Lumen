@@ -205,7 +205,7 @@ int main(int argc, char **argv) {
     tap17(550, 95);
     assert(ui_route() == 3);
     tap17(314, 766);
-    assert(settings_ui.reading_page == 1);
+    assert(reader_ui.reading_page == 1);
     tap17(480, 425);
     assert(dropdown && drop_target == 916);
     dropdown = 0;
@@ -406,13 +406,18 @@ int main(int argc, char **argv) {
     assert(home_page == 1);
     tap17(home_dots+15, HOME_PAGER_Y+20);
     assert(home_page == 0);
+    int original_scene=home_scene;
+    tap17(300,300);
+    assert(home_scene == (original_scene+1)%4);
+    int home_ids[APP_COUNT];
+    assert(v1_visible(home_ids) > 8);
     tap17(80,HOME_GRID_Y+24);
-    assert(ui_route() == 1);
+    assert(ui_route() == app_definition(home_ids[0])->entry);
     tap17(20,52);
     assert(ui_route() == 131);
     route_to(13);
     ui_draw();
-    tap17(530,134+6*72+30);
+    tap17(530,134+4*72+30);
     assert(ui_route() == 83 && app_for_route(83) == APP_SETTINGS);
     tap17(20,20);
     assert(ui_route() == 13);
@@ -421,6 +426,15 @@ int main(int argc, char **argv) {
     ui_draw();
     tap17(490,150);
     assert(settings_ui.setting_page == 2);
+    tap17(480,286);
+    assert(dropdown && drop_count == 6 && drop_visible == 6);
+    tap17(drop_x+70,drop_y+5+48+23);
+    assert(options[OPT_LOCK] == 5 && !dropdown);
+    route_to(1);
+    ui_draw();
+    tap17(550,83);
+    assert(ui_route() == 132 && app_for_route(132) == APP_LIBRARY);
+
     route_to(30);
     open_keyboard(30,"Notiz","First line");
     ui_draw();

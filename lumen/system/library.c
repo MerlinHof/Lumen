@@ -243,12 +243,13 @@ static void scan(const char *dir, int depth) {
         snprintf(b->format, sizeof(b->format), "%s", ext + 1);
         for (char *p = b->format; *p; p++)
             *p = (char)tolower((unsigned char)*p);
-        int hit = 0;
+        int hit = 0, changed = 0;
         for (int i = 0; i < cache_count; i++)
-            if (cache[i].id == b->id && !strcmp(cache[i].path, path) && cache[i].size == b->size &&
-                cache[i].modified == b->modified) {
-                *b = cache[i];
-                hit = 1;
+            if (cache[i].id == b->id && !strcmp(cache[i].path,path)) {
+                if (cache[i].size == b->size && cache[i].modified == b->modified) {
+                    *b=cache[i];
+                    hit=1;
+                } else changed=1;
                 break;
             }
         if (!hit) {
@@ -300,6 +301,7 @@ static void scan(const char *dir, int depth) {
         }
         char hd[2048], original[2048];
         snprintf(hd, sizeof(hd), "%s/covers/%016llx.hi.pgm", data_root, (unsigned long long)b->id);
+        if (changed) unlink(hd);
         if (access(hd, F_OK)) {
             int ready = 0;
             if (library_import_path(b, original, sizeof(original)))

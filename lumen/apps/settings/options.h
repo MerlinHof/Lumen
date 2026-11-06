@@ -19,9 +19,6 @@ static void more_settings(void) {
         drawtext(30, 145, b, ui_font(UI_TITLE), 540);
         wrapped(30, 197, "Lesestände werden automatisch gespeichert.", ui_font(UI_SECONDARY), 540, 2);
         select_row17(279, "Sortierung", sort_modes[settings.sort % 6]);
-        divider(28, 411, 544);
-        button_h(28, 449, 544, 56, "Bibliothek neu einlesen", 0);
-        button_h(28, 527, 544, 56, "Buchcover neu einlesen", 0);
         return;
     }
     if (setting_category == 3)
@@ -37,7 +34,7 @@ static void more_settings(void) {
         int y = setting_category == 1 ? 207 + index*68 : 235 + index*91;
         form_label(30, y - 4, r->choices ? 312 : 310, 48, r->label);
         char value[80];
-        int v = options[r->key];
+        int v = r->key == OPT_LOCK ? lock_mode_row() : options[r->key];
         if (r->choices) {
             snprintf(value, sizeof(value), tr("%s"), r->choices[v >= 0 && v < r->count ? v : 0]);
             dropdown_button(360, y - 4, 210, 48, value);
@@ -77,7 +74,7 @@ static void settings_input(const Input *in) {
         if (y < top || y >= top + 48)
             continue;
         if (r->choices) {
-            open_dropdown(100 + r->key, r->choices, r->count, options[r->key], 220, top + 50, 350);
+            open_dropdown(100 + r->key, r->choices, r->count, r->key == OPT_LOCK ? lock_mode_row() : options[r->key], 220, top + 50, 350);
             return;
         }
         if (r->max == 1) {
@@ -106,18 +103,6 @@ static void settings_input(const Input *in) {
         if (x >= 300 && y >= 279 && y < 327) {
             open_dropdown(900, sort_modes, 6, settings.sort, 300, 332, 272);
             return;
-        }
-        if (y >= 449 && y < 505) {
-            refresh_library();
-            ui_message("Bibliothek aktualisiert.");
-        } else if (y >= 527 && y < 583) {
-            for (int i = 0; i < library_count; i++) {
-                char path[2048];
-                library_cover_path(&library[i], path, sizeof(path));
-                unlink(path);
-            }
-            refresh_library();
-            ui_message("Buchcover neu eingelesen.");
         }
     }
 }
