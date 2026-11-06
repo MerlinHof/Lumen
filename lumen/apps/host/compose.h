@@ -75,7 +75,6 @@
 #include "ink_dispatch.h"
 #include "../settings/persistence.h"
 #include "../notes/defaults.h"
-#include "../todo/contexts.h"
 #include "preference_dispatch.h"
 #include "tools.h"
 #include "../notes/actions.h"

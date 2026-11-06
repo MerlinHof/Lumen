@@ -13,6 +13,11 @@ static void icon_chevron(int cx, int cy, int direction) {
 static void icon_native(int x, int y, int kind) {
     int c = x + 22, d = y + 22;
     switch (kind) {
+    case IC_FLAG_FILLED:
+        stroke(x+12,y+35,x+12,y+8,3);
+        if (kind == IC_FLAG_FILLED) control_surface(x+12,y+8,22,15,3,0);
+        else outline_surface(x+12,y+8,22,15,3,0);
+        break;
     case IC_HOME:
         stroke(x + 7, y + 20, c, y + 7, 3);
         stroke(c, y + 7, x + 37, y + 20, 3);
@@ -330,5 +335,6 @@ static void icon_sized(int x, int y, int kind, int size) {
 static void icon(int x,int y,int kind) { icon_sized(x+4,y+4,kind,36); }
 static void icon_button(int x, int y, int kind) {
     region(x, y, 44, 44);
+    widget_shape(x,y,44,44,RADIUS_MEDIUM,3,0);
     icon(x, y, kind);
 }

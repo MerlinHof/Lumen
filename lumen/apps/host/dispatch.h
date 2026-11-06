@@ -1,5 +1,6 @@
 /* App view and event dispatch. Status and tab bars own their views in their app modules. */
 static void app_render(void) {
+    if (ui_route() == 132) { tab_settings_draw(); return; }
     if (app_page_draw(ui_route())) return;
     if (ui_route() >= 60) {
         new_apps_draw();
@@ -71,6 +72,7 @@ static void app_render(void) {
 }
 static int app_handle_input(const Input *in) {
     int x = in->x, y = in->y, old = ui_route();
+    if (ui_route() == 132) return tab_settings_input(in);
     int handled = app_page_input(ui_route(), in);
     if (handled >= 0) return handled;
     if (ui_route() >= 60) return new_apps_input(in);
@@ -82,7 +84,7 @@ static int app_handle_input(const Input *in) {
     if (ui_route() >= 20 && ui_route() <= 26)
         return apps_input(in);
     if (ui_route() == 13 && in->kind == INPUT_TAP && y >= 134 && y < 710) {
-        int row = (y - 134) / 80;
+        int row = (y - 134) / 72;
         settings_ui.setting_page = 0;
         if (history_count < 64)
             history[history_count++] = 13;
@@ -98,9 +100,10 @@ static int app_handle_input(const Input *in) {
         } else if (row >= 5) {
             if (row == 5)
                 extra_open(39);
-            else {
+            else if (row == 6)
+                extra_open(132);
+            else
                 extra_open(40);
-            }
         } else {
             route_to(9);
             setting_category = row == 3 ? 1 : row == 4 ? 2 : 5;

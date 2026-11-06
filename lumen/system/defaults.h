@@ -24,7 +24,7 @@
     [OPT_STARTPAGE] = 0, \
     [OPT_LANGUAGE] = 0, \
     [OPT_LOCK_HINT] = 0, \
-    [OPT_DATE] = 1, \
+    [OPT_DATE] = 0, \
     [OPT_BATTERY_PERCENT] = 0, \
     [OPT_COVER_CROP] = 1, \
     [OPT_ROUNDING] = 1, \
@@ -35,6 +35,7 @@
     [OPT_AUTO_TIME] = 1, \
     [OPT_ZONE] = 0, \
     [OPT_REMOTE] = 0, \
+    [OPT_TAB_BAR] = 1, \
     [OPT_KEYBOARD_LANGUAGE] = 0, \
 }
 extern const Settings factory_settings;

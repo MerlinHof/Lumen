@@ -1,3 +1,24 @@
+static void lock_cover_full(Book *book) {
+    static unsigned char pixels[WIDTH*HEIGHT];
+    static uint64_t id;
+    static int64_t modified;
+    static int rendered;
+    if (id != book->id || modified != book->modified) {
+        char path[2048];
+        int imported = library_import_path(book,path,sizeof(path));
+        rendered = (imported || !strcmp(book->format,"epub") || !strcmp(book->format,"pdf")) &&
+                   engine_cover_fill(imported ? path : book->path,pixels,WIDTH,HEIGHT);
+        id = book->id;
+        modified = book->modified;
+    }
+    if (!rendered) {
+        cover_draw(book,0,0,WIDTH,HEIGHT,1);
+        return;
+    }
+    for (int y=0; y<HEIGHT; y++)
+        for (int x=0; x<WIDTH; x++)
+            ui_pixels[y*WIDTH+x] = theme_gray(image_tone(pixels[y*WIDTH+x],x,y));
+}
 static void lock_screen_draw(void) {
     int lock_book = current >= 0 && current < library_count ? current : library_last();
     if (options[OPT_LOCK] == 4 && v1_sleep_photo())
@@ -21,6 +42,10 @@ static void lock_screen_draw(void) {
             return;
         }
         memset(ui_pixels, 255, sizeof(ui_pixels));
+    }
+    if (lock_book >= 0 && options[OPT_LOCK] == 5) {
+        lock_cover_full(&library[lock_book]);
+        return;
     }
     if (lock_book >= 0 && options[OPT_LOCK] == 0) {
         cover_size(&library[lock_book], 162, 113, 276, 377);

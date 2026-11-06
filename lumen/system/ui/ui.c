@@ -97,7 +97,6 @@ static void tasks_draw18(void);
 static int tasks_input18(const Input *in);
 static int keyboard_intercept18(const Input *in);
 static int u16_apps_draw(void), u16_apps_input(const Input *), u16_jobs_tick(void);
-static int task_matches16(int);
 static void note_delete16(int);
 static int calc_precision16 = 10;
 static int u16_input(const Input *), u16_draw(void), u16_commit(int, const char *), u16_tick(void);
@@ -144,7 +143,8 @@ static int hit(int x, int y) {
 }
 static void region(int x, int y, int w, int h) {
     if (widget_count < 1000)
-        widgets[widget_count++] = (Widget){.x=x, .y=y+ui_y_offset, .w=w, .h=h};
+        widgets[widget_count++] = (Widget){.x=x, .y=y+ui_y_offset, .w=w, .h=h,
+                                           .radius=RADIUS_SMALL, .sides=3};
 }
 static void widget_shape(int x, int y, int w, int h, int radius, int sides, int quiet) {
     if (!widget_count) return;
@@ -190,8 +190,11 @@ static void apps_page_turned(void);
 static void open_store(void);
 static void store_search(void);
 static int tasks_fullscreen;
+static void tabs_load(void);
+static int tab_at(int x);
 static int has_tabs(void) {
-    return (ui_route() == 2 && reader_ui.reader_chrome) || !app_route_fullscreen(ui_route());
+    return options[OPT_TAB_BAR] && ((ui_route() == 2 && reader_ui.reader_chrome) ||
+                                  !app_route_fullscreen(ui_route()));
 }
 static void turn(int);
 static void system_loading(int);
@@ -709,7 +712,8 @@ static void key_outline(int x, int y, int w, int h) {
 static int can_back(void) {
     return editor_ui.keyboard || dropdown || confirm_delete || battery_popup ||
            (ui_route() == 29 && u17_notes_depth()) || (ui_route() == 10 && store_ui.opds_depth) ||
-           (ui_route() != 1 && ui_route() != 13 && ui_route() != 10 && ui_route() != 20);
+           history_count || (ui_route() != 131 &&
+           (!has_tabs() || (ui_route() != 1 && ui_route() != 13 && ui_route() != 10 && ui_route() != 20)));
 }
 static void progress(int x, int y, int w, int n, int total) {
     rect(x, y, w, 4, 180);
@@ -757,8 +761,8 @@ static void cover_bounds(const unsigned char *p, int cw, int ch, int *x0, int *y
         *y1 = bottom;
     }
 }
-static void cover_size(Book *b, int x, int y, int w, int h) {
-    rounded_clip_begin(x, y, w, h);
+static void cover_draw(Book *b, int x, int y, int w, int h, int fill) {
+    if (!fill) rounded_clip_begin(x, y, w, h);
     char path[2048];
     library_cover_path(b, path, sizeof(path));
     char hd[2048];
@@ -773,10 +777,10 @@ static void cover_size(Book *b, int x, int y, int w, int h) {
     }
     if (f) {
         struct stat source;
-        int cacheable = !fstat(fileno(f), &source);
+        int cacheable = !fill && !fstat(fileno(f), &source);
         if (cacheable && cover_tile_get(&source, x, y, w, h)) {
             fclose(f);
-            rounded_clip_end(x, y, w, h);
+            if (!fill) rounded_clip_end(x, y, w, h);
             return;
         }
         char magic[3];
@@ -790,7 +794,7 @@ static void cover_size(Book *b, int x, int y, int w, int h) {
                 int x0, y0, x1, y1;
                 cover_bounds(pix, cw, ch, &x0, &y0, &x1, &y1);
                 int sw = x1 - x0, sh = y1 - y0;
-                if (options[OPT_COVER_CROP]) {
+                if (fill || options[OPT_COVER_CROP]) {
                     if (sw * h > sh * w) {
                         int nw = sh * w / h;
                         x0 += (sw - nw) / 2;
@@ -813,7 +817,7 @@ static void cover_size(Book *b, int x, int y, int w, int h) {
                     }
                 if (cacheable)
                     cover_tile_put(&source, x, y, w, h);
-                rounded_clip_end(x, y, w, h);
+                if (!fill) rounded_clip_end(x, y, w, h);
                 fclose(f);
                 return;
             }
@@ -840,7 +844,10 @@ static void cover_size(Book *b, int x, int y, int w, int h) {
     centered(x + 8, y + h / 4, w - 16, h / 2, initial, face);
     if (w > 100)
         centered(x + 12, y + h - 42, w - 24, 26, b->format, &caption);
-    rounded_clip_end(x, y, w, h);
+    if (!fill) rounded_clip_end(x, y, w, h);
+}
+static void cover_size(Book *b, int x, int y, int w, int h) {
+    cover_draw(b,x,y,w,h,0);
 }
 static void cover(Book *b, int x, int y, int scale) {
     cover_size(b, x, y, scale == 2 ? 52 : 120 / scale, scale == 2 ? 72 : 164 / scale);
@@ -944,6 +951,7 @@ void ui_init(void) {
     notifications_register();
     app_endpoint_register("keyboard", keyboard_receive);
     library_settings_load();
+    tabs_load();
     apps_init();
     extra_init();
     new_apps_init();
@@ -954,10 +962,8 @@ void ui_init(void) {
     settings.filter = 0;
 
     library_ui.query[0] = 0;
-    route_to(1);
+    route_to(131);
     update_view();
-    if (options[OPT_STARTPAGE])
-        route_to(1);
     char sourcepath[2048];
     snprintf(sourcepath, sizeof(sourcepath), tr("%s/opds-source.txt"), data_root);
     FILE *source = fopen(sourcepath, "r");
@@ -1343,17 +1349,19 @@ static int ui_dispatch_input(const Input *in) {
                      (ui_route() != 2 || reader_ui.reader_chrome);
     int system_pager = !sleeping && !editor_ui.keyboard && !dropdown && !confirm_delete &&
                        pagination_hit(in);
-    int update17 = (status_tap || system_pager) ? -1 : u17_input(in);
+    int system_tab = !sleeping && !editor_ui.keyboard && !dropdown && !confirm_delete &&
+                     in->kind == INPUT_TAP && in->y >= 736 && has_tabs() && !polish_photo_full();
+    int update17 = (status_tap || system_pager || system_tab) ? -1 : u17_input(in);
     if (update17 >= 0) {
         pressed = -1;
         return update17;
     }
-    int update16 = (status_tap || system_pager) ? -1 : u16_input(in);
+    int update16 = (status_tap || system_pager || system_tab) ? -1 : u16_input(in);
     if (update16 >= 0) {
         pressed = -1;
         return update16;
     }
-    int update15 = (status_tap || system_pager) ? -1 : u15_input(in);
+    int update15 = (status_tap || system_pager || system_tab) ? -1 : u15_input(in);
     if (update15 >= 0) {
         pressed = -1;
         return update15;
@@ -1732,7 +1740,7 @@ static int ui_dispatch_input(const Input *in) {
                     discover_start(store_ui.opds_history[store_ui.opds_depth], NULL);
                 return 1;
             }
-            int target = 1;
+            int target = 131;
             navigation_rewinds++;
             while (history_count) {
                 int candidate = history[--history_count];
@@ -1779,10 +1787,9 @@ static int ui_dispatch_input(const Input *in) {
             apply_reading_settings();
         navigation_rewinds++;
         history_count = 0;
-        int tab = x / (options[OPT_APPS] ? 150 : 200);
-        const AppId tabs[] = {APP_LIBRARY, APP_SETTINGS, APP_STORE, APP_LAUNCHER};
-        if (tab >= 0 && tab < (options[OPT_APPS] ? 4 : 3)) {
-            AppIntent request = {.app = tabs[tab], .kind = INTENT_OPEN};
+        int tab = tab_at(x);
+        if (tab >= 0) {
+            AppIntent request = {.app = tab, .kind = INTENT_OPEN};
             app_send(&request);
             history_count = 0;
         }
@@ -2097,6 +2104,7 @@ static void wikipedia_screen(void) {
 
 #include "../../apps/reader/annotations_store.h"
 #include "../../apps/host/compose.h"
+#include "../../apps/home/view.h"
 void ui_paint_heading(const char *text, int actions) { heading_actions(text, actions); }
 void ui_paint_icon_button(int x, int y, int id) { icon_button(x, y, id); }
 void ui_paint_hitbox(int x, int y, int w, int h) { region(x, y, w, h); }
@@ -2131,6 +2139,7 @@ int64_t ui_clock_millis(void) { return extra_millis(); }
 static void register_builtin_views(void) {
     app_view_register(APP_STATUS_BAR, header, NULL);
     app_view_register(APP_TAB_BAR, tabbar, NULL);
+    app_page_register(APP_HOME, home_draw, home_input, NULL);
     app_view_register(APP_LOCK_SCREEN, lock_screen_draw, NULL);
     app_view_register(APP_KEYBOARD, keyboard_draw18, NULL);
     slide_3d_register();

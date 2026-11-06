@@ -560,6 +560,9 @@ static int extra_input(const Input *in) {
     if (ui_route() == 41) {
         if (y >= 455 && y < 503) {
             library_defaults();
+            tabs = default_tabs;
+            tab_settings_page = 0;
+            app_state_save("tab-bar-v1.bin", &tabs, sizeof(tabs));
             extra_zone();
             apply_reading_settings();
             char p[2048];

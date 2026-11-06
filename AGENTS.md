@@ -2,9 +2,11 @@
 
 ## Start here
 
-LUMEN turns a small, slow, monochrome Kindle into a calm reading device and a
-collection of thoughtful paper-like tools. It is a native C application shell
-running on Kindle firmware, not a Linux distribution, Android app or website.
+LUMEN is a small, calm, personal computer for paper-like screens. Its purpose is
+to give the user time back through deliberate, local tools. Home should offer
+a quiet sense of the day and easy access to things worth doing. Keep the date,
+illustration and app grid in a clear hierarchy, with generous room to breathe.
+The shell is native C on Kindle firmware.
 
 The repository belongs to Merlin Hof. Work only inside this project directory.
 Read `README.md`, `docs/architecture.md` and the relevant source before editing.

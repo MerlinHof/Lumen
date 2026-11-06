@@ -5678,5 +5678,30 @@
     "+1000 J",
     "+1000 y",
     "+1000 ans"
+  ],
+  "Buchcover · Vollbild": [
+    "Buchcover · Vollbild",
+    "Book cover · Full screen",
+    "Couverture · Plein écran"
+  ],
+  "Apps wählen und anordnen": [
+    "Apps wählen und anordnen",
+    "Choose and reorder apps",
+    "Choisir et réorganiser les apps"
+  ],
+  "Tableiste anzeigen": [
+    "Tableiste anzeigen",
+    "Show tab bar",
+    "Afficher la barre d’onglets"
+  ],
+  "Bis zu acht Apps in der Tableiste.": [
+    "Bis zu acht Apps in der Tableiste.",
+    "The tab bar holds up to eight apps.",
+    "La barre peut contenir huit apps."
+  ],
+  "Mindestens eine App auswählen.": [
+    "Mindestens eine App auswählen.",
+    "Select at least one app.",
+    "Sélectionnez au moins une app."
   ]
 }

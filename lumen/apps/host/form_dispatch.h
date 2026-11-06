@@ -44,8 +44,7 @@ static int u17_commit(int target, const char *text) {
     if (target == 180) {
         if (todo_ui.task_edit17 >= 0 && todo_ui.task_edit17 < task_count && *text) {
             snprintf(tasks[todo_ui.task_edit17].title, 200, "%s", text);
-            v1_dirty = 1;
-            v1_save();
+            tasks_save();
         }
         return 1;
     }

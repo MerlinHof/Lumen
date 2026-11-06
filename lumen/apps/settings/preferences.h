@@ -5,7 +5,7 @@ static const char *fonts[] = {"Charis", "Sans Serif", "Monospace", "Times", "Not
 static const char *alignments[] = {"Linksbündig", "Blocksatz"};
 static const char *tapzones[] = {"Links / rechts", "Mehr Platz vorwärts"};
 static const char *lockmodes[] = {"Buchcover", "Ruhiger Text", "Uhrzeit", "Eigenes Bild",
-                                  "Fotos · stündlich"};
+                                  "Fotos · stündlich", "Buchcover · Vollbild"};
 static const char *languages[] = {"Deutsch", "English", "Français"};
 typedef struct {
     const char *label;
@@ -26,12 +26,11 @@ static SettingRow setting_rows[] = {
     {"Akkusymbol", 1, OPT_BATTERY, 0, 1, 1, NULL, 0},
     {"Akku-Prozentzahl", 1, OPT_BATTERY_PERCENT, 0, 1, 1, NULL, 0},
     {"Invertierte Darstellung", 1, OPT_INVERT, 0, 1, 1, NULL, 0},
-    {"Apps-Tab", 1, OPT_APPS, 0, 1, 1, NULL, 0},
     {"Tab-Beschriftungen", 1, OPT_TAB_LABELS, 0, 1, 1, NULL, 0},
     {"Cover zuschneiden", 1, OPT_COVER_CROP, 0, 1, 1, NULL, 0},
     {"Abgerundete Ecken", 1, OPT_ROUNDING, 0, 1, 1, NULL, 0},
     {"Lesefortschritt", 1, OPT_PROGRESS, 0, 1, 1, NULL, 0},
-    {"Sperrbild", 1, OPT_LOCK, 0, 4, 1, lockmodes, 5},
+    {"Sperrbild", 1, OPT_LOCK, 0, 5, 1, lockmodes, 6},
     {"Sperrbild-Hinweis", 1, OPT_LOCK_HINT, 0, 1, 1, NULL, 0},
     {"Wischen zum Blättern", 3, OPT_SWIPE, 0, 1, 1, NULL, 0},
     {"Tippzonen", 3, OPT_TAP, 0, 1, 1, tapzones, 2},
@@ -39,17 +38,17 @@ static SettingRow setting_rows[] = {
     {"Inaktivität (Minuten)", 4, OPT_TIMEOUT, 1, 60, 1, NULL, 0},
 };
 static const char *settings_sections[] = {"WLAN",       "Bücher übertragen", "Lesen", "Darstellung",
-                                          "Bibliothek", "Datum & Uhrzeit",   "System"};
+                                          "Bibliothek", "Datum & Uhrzeit", "Tableiste", "System"};
 static const char *settings_hints[] = {
     "Netzwerke und Verbindung",           "Webserver, Adresse und Zugriff",
     "Schrift, Satz und Gesten",           "Sprache, Sperrbild und Statusleiste",
     "Lesestände und Verwaltung",          "Zeit, Zeitzone und WLAN-Abgleich",
-    "Speicher, Version und Konfiguration"};
+    "Apps wählen und anordnen", "Speicher, Version und Konfiguration"};
 static void settings_home(void) {
     heading("Einstellungen");
-    for (int i = 0; i < 7; i++) {
-        int y = 134 + i * 80;
-        ListLayout l = list_row(28, y, 544, 80, -1, 62, tr(settings_sections[i]),
+    for (int i = 0; i < 8; i++) {
+        int y = 134 + i * 72;
+        ListLayout l = list_row(28, y, 544, 72, -1, 62, tr(settings_sections[i]),
                                 tr(settings_hints[i]), ui_font(UI_PRIMARY), 1);
         icon(526, l.action_y, IC_NEXT);
     }

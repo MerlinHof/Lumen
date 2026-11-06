@@ -14,27 +14,12 @@ static void header(void) {
     strftime(clock, sizeof(clock), "%H:%M", &t);
     snprintf(percent, sizeof(percent), "%d%%", atoi(status_ui.battery));
     status_ui.status_date_w = status_ui.status_clock_w = 0;
-    if (options[OPT_DATE]) {
-        status_ui.status_date_x = left - (left == 68 ? 6 : 8);
-        status_ui.status_date_w = textwidth(date, &small) + 10;
-        system_region(status_ui.status_date_x, 0, status_ui.status_date_w, 48);
-        centered(left - 8, 0, textwidth(date, &small) + 16, 44, date, &small);
-        left += textwidth(date, &small) + 12;
-    }
-    if (options[OPT_CLOCK]) {
-        status_ui.status_clock_x = left - (left == 68 ? 6 : 8);
-        status_ui.status_clock_w = textwidth(clock, &small) + 10;
-        system_region(status_ui.status_clock_x, 0, status_ui.status_clock_w, 48);
-        centered(left - 8, 0, textwidth(clock, &small) + 16, 44, clock, &small);
-        left += textwidth(clock, &small) + 12;
-    }
     int right = 576, previous = -1;
     status_ui.status_wifi_x = status_ui.status_battery_x = -1;
     for (int element = 0; element < 3; element++) {
         int enabled = element == 0   ? options[OPT_BATTERY]
                       : element == 1 ? options[OPT_BATTERY_PERCENT]
-                      : element == 2 ? options[OPT_WIFI]
-                                     : options[OPT_DATE];
+                      : options[OPT_WIFI];
         if (!enabled)
             continue;
         int gap = previous < 0 ? 0 : element == 1 ? 8 : 16;
@@ -81,6 +66,33 @@ static void header(void) {
         right = x;
         previous = element;
     }
+    if (options[OPT_CLOCK]) {
+        int w = textwidth_raw(clock,&small);
+        right -= previous < 0 ? 0 : 13;
+        status_ui.status_clock_x = right-w-4;
+        status_ui.status_clock_w = w+8;
+        system_region(status_ui.status_clock_x,0,w+8,48);
+        centered(right-w-8,0,w+16,44,clock,&small);
+        right -= w;
+        previous = 3;
+    }
+    if (options[OPT_DATE]) {
+        int w = textwidth_raw(date,&small);
+        right -= previous < 0 ? 0 : 12;
+        status_ui.status_date_x = right-w-4;
+        status_ui.status_date_w = w+8;
+        system_region(status_ui.status_date_x,0,w+8,48);
+        centered(right-w-8,0,w+16,44,date,&small);
+        right -= w;
+    }
+    const AppDefinition *app = app_definition(app_for_route(ui_route()));
+    const char *name = app ? tr(app->name) : "";
+    int name_width = textwidth_raw(name,&small);
+    if (name_width > 195) name_width = 195;
+    if (name_width > right-left-12) name_width = right-left-12;
+    if (name_width > 0)
+        label_ellipsis(left,0,name_width,44,name,&small,0);
+    left += name_width+12;
     status_ui.status_timer_x = -1;
     extra_timer_label(timer, sizeof(timer));
     char alarm[16];

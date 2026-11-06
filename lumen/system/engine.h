@@ -19,6 +19,7 @@ int engine_render(int page, unsigned char *pixels, int stride, int width, int he
                   float panx, float pany);
 int engine_outline(Chapter *items, int max);
 int engine_thumbnail(const char *path, const char *output);
+int engine_cover_fill(const char *, unsigned char *, int, int);
 int engine_thumbnail_hd(const char *, const char *);
 const char *engine_error(void);
 int engine_image_fit(const char *path, const char *output, int width, int height);

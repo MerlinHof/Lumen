@@ -16,13 +16,11 @@ static void tasks_layout18(void) {
     int max_pages = 1;
     for (int col = 0; col < (task_board ? 2 : 1); col++) {
         int y = task_board ? 195 : 201, page18 = 0;
-        for (int i = 0; i < task_count; i++) {
-            if (!task_matches16(i))
-                continue;
-            if (task_board ? (tasks[i].state == 2) != col
-                           : ((task_tab == 1) != (tasks[i].state == 2)))
-                continue;
-            int h = task_text_height(i, task_board ? 184 : 365) + 22;
+        for (int order = 0; order < task_count*2; order++) {
+            int i = task_count - 1 - order % task_count;
+            if (!!(tasks[i].state & TASK_FLAG) != (order < task_count)) continue;
+            if (!!(tasks[i].state & TASK_DONE) != (task_board ? col : task_tab)) continue;
+            int h = task_text_height(i, task_board ? 148 : 365) + 22;
             if (h < 68) h = 68;
             if (y + h > 720 && y > (task_board ? 195 : 201)) {
                 page18++;
@@ -46,12 +44,6 @@ static void tasks_draw18(void) {
     heading_actions("ToDo", 2);
     icon_button(528, 74, IC_PLUS);
     icon_button(468, 74, IC_GRID);
-    dropdown_button(175, 74, 275, 44, *todo_ui.task_context16 ? todo_ui.task_context16 : "Alle Kontexte");
-    for (int i = 0; i < task_count; i++)
-        if (tasks[i].state == 1) {
-            tasks[i].state = 0;
-            v1_dirty = 1;
-        }
     const char *tabs[] = {"ToDo", "Erledigt"};
     if (task_tab > 1)
         task_tab = 1;
@@ -69,21 +61,20 @@ static void tasks_draw18(void) {
     }
     for (int r = 0; r < task_rows_count18; r++) {
         TaskRow18 row = task_rows18[r];
-        int i = row.index, done = tasks[i].state == 2;
+        int i = row.index, done = !!(tasks[i].state & TASK_DONE);
         region(row.x, row.y, row.w, row.h);
         if (task_board)
             key_outline(row.x, row.y, row.w, row.h);
         else
             rect(row.x, row.y + row.h, row.w, 1, 205);
         int center = row.y + row.h/2;
-        int width = task_board ? 184 : 365;
+        int width = task_board ? 148 : 365;
         checkbox(row.x + (task_board ? 8 : 1), center - 15, done);
         text_flow_draw(row.x + (task_board ? 60 : 52), center - task_text_height(i,width)/2,
                        width, tasks[i].title, ui_font(UI_BODY), 27, 14, done);
-        if (!task_board) {
-            icon_button(458, center - 22, IC_FOLDER);
-            icon_button(522, center - 22, IC_TRASH);
-        }
+        icon_button(task_board ? row.x+212 : 458, center - 22,
+                    tasks[i].state & TASK_FLAG ? IC_FLAG_FILLED : IC_FLAG);
+        if (!task_board) icon_button(522, center - 22, IC_TRASH);
     }
     pager(746, &task_page, task_pages18);
 }
@@ -117,14 +108,16 @@ static int tasks_input18(const Input *in) {
         int i = row.index;
         if (x >= row.x + (task_board ? 8 : 1) && x < row.x + (task_board ? 52 : 45) &&
             y >= row.y + row.h/2 - 24 && y < row.y + row.h/2 + 24) {
-            tasks[i].state = tasks[i].state == 2 ? 0 : 2;
-            v1_dirty = 1;
-            v1_save();
+            tasks[i].state ^= TASK_DONE;
+            tasks_save();
         } else if (!task_board && x >= 510)
             v1_delete = 1000 + i;
-        else if (!task_board && x >= 450) {
-            todo_ui.category_task16 = i;
-            open_keyboard(170, "Kategorie (leer = keine)", todo_ui.task_categories16[i]);
+        else if (x >= (task_board ? row.x+212 : 458) &&
+                 x < (task_board ? row.x+256 : 502) &&
+                 abs(y - (row.y + row.h/2)) < 22) {
+            tasks[i].state ^= TASK_FLAG;
+            task_page = 0;
+            tasks_save();
         } else {
             todo_ui.task_edit17 = i;
             open_keyboard(180, "Aufgabe bearbeiten", tasks[i].title);

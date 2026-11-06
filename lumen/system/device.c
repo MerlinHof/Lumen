@@ -34,6 +34,13 @@ static int xcode = ABS_MT_POSITION_X, ycode = ABS_MT_POSITION_Y;
 static unsigned char previous[WIDTH * HEIGHT];
 static int initialized;
 static pid_t feedback_pid = -1;
+int device_refresh_busy(void) {
+    if (feedback_pid <= 0) return 0;
+    pid_t status = waitpid(feedback_pid,NULL,WNOHANG);
+    if (status == 0 || (status < 0 && errno == EINTR)) return 1;
+    feedback_pid = -1;
+    return 0;
+}
 static void feedback_join(void) {
     if (feedback_pid > 0) {
         while (waitpid(feedback_pid, NULL, 0) < 0 && errno == EINTR) {
@@ -257,9 +264,8 @@ void device_ip(char *out, int size) {
     }
     freeifaddrs(ifs);
 }
-void device_present(const unsigned char *pixels, int full, int interval) {
+static void present_frame(const unsigned char *pixels, int full, int asynchronous) {
     feedback_join();
-    (void)interval;
     int top = HEIGHT, bottom = 0, left = WIDTH, right = 0;
     for (int y = 0; y < HEIGHT; y++)
         for (int x = 0; x < WIDTH; x++)
@@ -334,32 +340,34 @@ void device_present(const unsigned char *pixels, int full, int interval) {
                      NULL};
     if (clear)
         fprintf(stderr, "display_clear_coverage=%d\n", coverage);
-    execute("/mnt/us/libkh/bin/fbink", clear ? clean : partial);
-}
-/* Queue the pressed frame independently of input/app work. Before presenting
- * the resulting view we join this small worker, preserving framebuffer order.
- * Coverage, waveforms and the existing refresh engine are otherwise unchanged. */
-void device_present_feedback(const unsigned char *pixels) {
-    feedback_join();
-    pid_t parent = getpid(), child = fork();
+    char **args = clear ? clean : partial;
+    const char *path = "/mnt/us/libkh/bin/fbink";
+    if (!asynchronous) {
+        execute(path, args);
+        return;
+    }
+    /* The framebuffer is ready. Let fbink submit it while input keeps running. */
+    pid_t parent = getpid();
+    pid_t child = fork();
     if (child < 0) {
-        device_present(pixels, 0, 0);
+        execute(path, args);
         return;
     }
     if (child == 0) {
-        feedback_pid = -1;
         prctl(PR_SET_PDEATHSIG, SIGTERM);
-        if (getppid() != parent)
-            _exit(0);
+        if (getppid() != parent) _exit(0);
         signal(SIGTERM, SIG_DFL);
-        device_present(pixels, 0, 0);
-        _exit(0);
+        execv(path,args);
+        _exit(127);
     }
     feedback_pid = child;
-    /* Logical previous frame must include the pressed state, so a release that
-       otherwise changes nothing still restores every pressed pixel. */
-    memcpy(previous, pixels, sizeof(previous));
-    initialized = 1;
+}
+void device_present(const unsigned char *pixels, int full, int interval) {
+    (void)interval;
+    present_frame(pixels,full,0);
+}
+void device_present_async(const unsigned char *pixels) {
+    present_frame(pixels,0,1);
 }
 static int parse_event(int fd, int source, Input *input) {
     char buf[1024];
@@ -553,6 +561,7 @@ int device_wait(Input *input) {
 }
 #else
 int device_input_pending(void) { return 0; }
+int device_refresh_busy(void) { return 0; }
 void device_poll_interval(int ms) { (void)ms; }
 int device_init(void) { return 1; }
 void device_close(void) {}
@@ -577,7 +586,7 @@ int device_wifi(int e) {
     return 1;
 }
 void device_ip(char *s, int n) { snprintf(s, n, "127.0.0.1"); }
-void device_present_feedback(const unsigned char *p) { (void)p; }
+void device_present_async(const unsigned char *p) { (void)p; }
 void device_present(const unsigned char *p, int f, int i) {
     (void)p;
     (void)f;

@@ -4,7 +4,7 @@
 
 ### A quieter kind of Kindle.
 
-**A native, paper-like reading environment — with a little more room to think.**
+**A quiet personal computer for a paper-like screen. Read, think and make things at your own pace.**
 
 [Download](https://github.com/MerlinHof/Lumen/releases/latest) ·
 [Install](docs/installation.md) ·
@@ -133,8 +133,9 @@ not hardware photographs or claims about measured E-Ink response time.*
 4. Wait for copy verification, safely eject, disconnect and open **LUMEN** once.
 
 The first launch checks native EPUB rendering and installs autostart on the
-supported firmware. Reader size starts at **24 px**; the Apps tab and automatic
-time sync are enabled. Keyboard language is independent of system language.
+supported firmware. Reader size starts at **24 px**. The bottom bar starts with
+Home, Library and Apps. Automatic time sync is enabled, and keyboard language
+is independent of system language.
 Existing preferences and personal content survive updates.
 
 **[Read the complete installation guide →](docs/installation.md)**

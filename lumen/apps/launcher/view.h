@@ -9,6 +9,18 @@ static int v1_visible(int *out) {
     }
     return n;
 }
+static void app_tile(int x, int y, int width, int id) {
+    int tile_x = x + (width-78)/2;
+    region(tile_x, y+2, 78, 78);
+    widget_shape(tile_x,y+2,78,78,32,3,0);
+    control_surface(tile_x,y+2,78,78,32,0);
+    control_surface(tile_x+2,y+4,74,74,30,255);
+    app_icon(tile_x+17, y+17, id);
+    const char *name = tr(app_definition(id)->name);
+    const Font *font = textwidth_raw(name,ui_font(UI_BODY)) < width-12 ?
+                       ui_font(UI_BODY) : ui_font(UI_SECONDARY);
+    centered(x,y+78,width,35,name,font);
+}
 static void v1_launcher(void) {
     polish_order();
     heading_actions("Apps", 1);
@@ -19,15 +31,7 @@ static void v1_launcher(void) {
         launcher_page = pages ? pages - 1 : 0;
     for (int r = 0; r < 12 && launcher_page * 12 + r < n; r++) {
         int id = ids[launcher_page * 12 + r], x = 53 + (r % 3) * 172, y = 137 + (r / 3) * 130;
-        region(x, y, 150, 122);
-        control_surface(x+36,y+2,78,78,32,0);
-        control_surface(x+38,y+4,74,74,30,255);
-        app_icon(x + 53, y + 17, id);
-        const char *name = tr(app_definition(id)->name);
-        if (textwidth_raw(name, ui_font(UI_BODY)) <= 148)
-            centered(x, y + 78, 150, 35, name, ui_font(UI_BODY));
-        else
-            centered(x, y + 78, 150, 35, name, ui_font(UI_SECONDARY));
+        app_tile(x, y, 150, id);
     }
     if (!n)
         wrapped(28, 210, "Apps über das Zahnrad einblenden.", ui_font(UI_PRIMARY), 544, 3);

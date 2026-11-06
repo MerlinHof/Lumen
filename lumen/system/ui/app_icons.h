@@ -261,6 +261,9 @@ static void app_icon(int x, int y, int app) {
     case APP_SIGNAL:
         for(int i=0;i<3;i++) icon_box(x+5+(i%2)*18,y+5+(i/2)*18,16,16);
         break;
+    case APP_HOME:
+        icon(x, y, IC_HOME);
+        break;
     case APP_FROG:
         ui_paint_ellipse(x+22, y+34, 18, 5, 176);
         ui_paint_ellipse(x+22, y+26, 17, 12, 48);

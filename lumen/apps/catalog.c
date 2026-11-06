@@ -56,7 +56,8 @@ static const AppDefinition definitions[APP_COUNT] = {
     {APP_RPG, "", -1, 1, 3},
     {APP_LLM, "OpenAI", 122, 1, 3},
     {APP_SIGNAL, "Slide 3D", 129, 1, 3},
-    {APP_FROG, "Frosch-Solitär", 130, 1, 3}};
+    {APP_FROG, "Frosch-Solitär", 130, 1, 3},
+    {APP_HOME, "Startseite", 131, 0, 0}};
 static const AppRoute routes[] = {
     {0, APP_LIBRARY, 0},      {1, APP_LIBRARY, 0},         {2, APP_READER, 0},
     {3, APP_SETTINGS, 0},     {4, APP_READER, 0},          {5, APP_READER, 0},
@@ -92,7 +93,7 @@ static const AppRoute routes[] = {
     {117, APP_KNIGHTS, 0},    {118, APP_SOKOBAN, 0},       {119, APP_MAZE, 0},
     {120, APP_CROSSWORD, 0},             {122, APP_LLM, 0}, {128, APP_LLM, 1},
     {123, APP_LLM, 1},        {125, APP_PLANETARIUM, 1},   {126, APP_JOURNAL, 1},
-    {127, APP_STUDY, 1}, {129, APP_SIGNAL, 1}, {130, APP_FROG, 1}};
+    {127, APP_STUDY, 1}, {129, APP_SIGNAL, 1}, {130, APP_FROG, 1}, {131, APP_HOME, 0}, {132, APP_SETTINGS, 0}};
 const AppDefinition *app_definition(AppId id) {
     return id >= 0 && id < APP_COUNT ? &definitions[id] : 0;
 }

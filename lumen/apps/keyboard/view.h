@@ -58,6 +58,11 @@ static void keyboard_add18(int x, int y, int w, int h, int action, const char *t
         keyboard_case18(k->text);
 }
 static void keyboard_layout18(void) {
+    static int previous_layout = -1;
+    int language = preferences_keyboard_language();
+    int layout = language*16 + editor_ui.keyboard_symbols*2 + editor_ui.keyboard_shift;
+    if (layout == previous_layout) return;
+    previous_layout = layout;
     keyboard_count18 = 0;
     for (int i = 0; i < 10; i++) {
         char b[2] = {(char)('0' + (i + 1) % 10), 0};
@@ -72,7 +77,7 @@ static void keyboard_layout18(void) {
         {"€", "£", "¥", "°", "±", "×", "÷", "√", "π", "∞", "~", "`",  "•", "…", "≤",
          "≥", "≠", "²", "³", "µ", ".", ",", ":", ";", "?", "'", "\"", "©", "®", "§"}};
     for (int row = 0; row < 3; row++) {
-        int n = editor_ui.keyboard_symbols ? 10 : (int)strlen(rows[preferences_keyboard_language()][row]);
+        int n = editor_ui.keyboard_symbols ? 10 : (int)strlen(rows[language][row]);
         int step = 59;
         int x0 = (600 - (n * step - 5)) / 2;
         for (int i = 0; i < n; i++) {
@@ -80,7 +85,7 @@ static void keyboard_layout18(void) {
             if (editor_ui.keyboard_symbols)
                 snprintf(b, 8, "%s", symbols[editor_ui.keyboard_symbols - 1][row * 10 + i]);
             else {
-                b[0] = rows[preferences_keyboard_language()][row][i];
+                b[0] = rows[language][row][i];
             }
             keyboard_add18(x0 + i * step, 558 + row * 60, 54, 52, KEY_TEXT18, b);
         }
@@ -94,7 +99,7 @@ static void keyboard_layout18(void) {
                    : editor_ui.keyboard_symbols == 2 ? "ABC"
                                            : "123");
     const char *langs[] = {"DE", "EN", "FR"};
-    keyboard_add18(80, 742, 62, 56, KEY_LANGUAGE18, langs[preferences_keyboard_language()]);
+    keyboard_add18(80, 742, 62, 56, KEY_LANGUAGE18, langs[language]);
     keyboard_add18(150, 742, 272, 56, KEY_SPACE18, "");
     keyboard_add18(430, 742, 62, 56, editor_ui.keyboard_symbols ? KEY_DELETE18 : KEY_TEXT18,
                    editor_ui.keyboard_symbols ? "" : ".");

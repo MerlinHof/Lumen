@@ -63,6 +63,8 @@ static void u15_note_editor_draw(void) {
     if (!editing)
         editor_ui.note_view_start = extra_page * 23;
     int left = editing && editor_ui.keyboard_target != 30 ? 28 : 48;
+    for (int r = 0; r < rows; r++)
+        rect(left, 78 + r*29, 572-left, 1, 231);
     for (int r = 0; r < rows && editor_ui.note_view_start + r < note_rows; r++) {
         int i = editor_ui.note_view_start + r;
         char b[1024];

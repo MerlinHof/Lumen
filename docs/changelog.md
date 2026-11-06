@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.1
+
+- Start on Home with a live date, a lakeside pencil sketch and a paged app grid.
+- Choose, reorder or hide the bottom tab bar. App names sit on the left of the status bar and time sits beside the connectivity indicators.
+- Process keyboard input independently of pending e-ink refreshes and batch rapid edits into the latest frame.
+- Flag ToDo items, with newest first inside each group. Notes use faint ruled lines.
+- Crop the original cover to fill the lock screen when available and fall back to the sharpest cached cover.
+
 ## 3.0
 
 - Fix shared pager dispatch in OpenAI conversations and archives. Long messages open in Reader from the sender row.

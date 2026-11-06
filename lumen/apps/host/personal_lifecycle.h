@@ -7,11 +7,11 @@ static void v1_init(void) {
     v1_ready = 1;
     for (int i = 0; i < APP_COUNT; i++) {
         launcher_order[i] = i;
-        launcher_visible[i] = (i >= APP_CALENDAR && i <= APP_HEX) || i >= APP_JOURNAL;
+        launcher_visible[i] = i == APP_LIBRARY || i == APP_SETTINGS || i == APP_STORE || (i >= APP_CALENDAR && i <= APP_HEX) || i >= APP_JOURNAL;
     }
     launcher_count = APP_COUNT;
     int config[APP_COUNT * 2];
-    for (int old_count = APP_FROG; old_count >= APP_SIGNAL; old_count--) {
+    for (int old_count = APP_HOME; old_count >= APP_SIGNAL; old_count--) {
         if (!app_state_load("launcher-16.bin", config, sizeof(int) * old_count * 2))
             continue;
         int good = 1, seen[APP_COUNT] = {0};
@@ -34,6 +34,18 @@ static void v1_init(void) {
             for (int i = 0; i < APP_COUNT; i++) {
                 launcher_order[i] = config[i];
                 launcher_visible[i] = config[i + APP_COUNT] != 0;
+            }
+    }
+    if (!app_state_load("launcher-31.bin", config, sizeof(config))) {
+        launcher_visible[APP_LIBRARY] = launcher_visible[APP_SETTINGS] = launcher_visible[APP_STORE] = 1;
+    } else {
+        int seen[APP_COUNT] = {0}, valid = 1;
+        for (int i = 0; i < APP_COUNT; i++)
+            if (config[i] < 0 || config[i] >= APP_COUNT || seen[config[i]]++) valid = 0;
+        if (valid)
+            for (int i = 0; i < APP_COUNT; i++) {
+                launcher_order[i] = config[i];
+                launcher_visible[i] = !!config[i + APP_COUNT];
             }
     }
     launcher_visible[APP_NUMSCRATCH] = 0;
@@ -64,7 +76,8 @@ static void v1_init(void) {
             tasks[i].title[199] = 0;
             if (*tasks[i].title)
                 task_count = i + 1;
-            tasks[i].state = tasks[i].state >= 0 && tasks[i].state < 3 ? tasks[i].state : 0;
+            tasks[i].state = tasks[i].state >= 0 && tasks[i].state <= (TASK_DONE | TASK_FLAG) ?
+                             tasks[i].state & (TASK_DONE | TASK_FLAG) : 0;
         }
     if (app_state_load("flashcards-1.bin", flashcards, sizeof(flashcards)))
         for (int i = 0; i < 512; i++) {
@@ -130,9 +143,8 @@ static void v1_save(void) {
         cfg[i] = launcher_order[i];
         cfg[i + APP_COUNT] = launcher_visible[i];
     }
-    app_state_save("launcher-16.bin", cfg, sizeof(cfg));
+    app_state_save("launcher-31.bin", cfg, sizeof(cfg));
     app_state_save("note-tree-1.bin", &note_tree, sizeof(note_tree));
-    app_state_save("tasks-1.bin", tasks, sizeof(tasks));
     app_state_save("flashcards-1.bin", flashcards, sizeof(flashcards));
     app_state_save("wordle-1.bin", &wordle_game, sizeof(wordle_game));
     unsigned char h[123];

@@ -53,6 +53,7 @@ enum {
     OPT_ZONE,
     OPT_REMOTE,
     OPT_KEYBOARD_LANGUAGE,
+    OPT_TAB_BAR,
     OPT_COUNT
 };
 extern int options[OPT_COUNT];

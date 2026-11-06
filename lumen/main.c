@@ -16,7 +16,7 @@ static double stamp(void) {
 }
 int main(int argc, char **argv) {
     if (argc == 2 && !strcmp(argv[1], "--version")) {
-        puts("LUMEN 3.0 / MuPDF 1.28.5 / native ARMv7");
+        puts("LUMEN 3.1 / MuPDF 1.28.5 / native ARMv7");
         return 0;
     }
     const char *preview = NULL, *inspect = NULL, *render = NULL;
@@ -113,23 +113,35 @@ int main(int argc, char **argv) {
     int profile = getenv("LUMEN_PROFILE") && !strcmp(getenv("LUMEN_PROFILE"), "1");
     Input input;
     device_poll_interval(ui_poll_interval());
+    int redraw_pending = 0;
     while (device_wait(&input)) {
         double began = stamp();
         int action = ui_input(&input);
-        device_poll_interval(ui_poll_interval());
         if (!action)
             break;
-        if (action == 2)
+        if (action == 1)
+            redraw_pending = 1;
+        int batching = ui_batch_input();
+        int poll = ui_poll_interval();
+        device_poll_interval(redraw_pending && (poll < 0 || poll > 24) ? 24 : poll);
+        if ((action == 3 || redraw_pending) && device_input_pending())
             continue;
-        if (ui_batch_input() && device_input_pending())
+        if ((action == 3 || redraw_pending) && device_refresh_busy())
             continue;
-        if (action == 3) {
+        if (action == 3 && !batching && !redraw_pending) {
             ui_feedback_draw();
-            device_present_feedback(ui_pixels);
+            device_present_async(ui_pixels);
             continue;
         }
+        if (!redraw_pending)
+            continue;
+        redraw_pending = 0;
         ui_draw();
-        device_present(ui_pixels, ui_full_refresh(), settings.refresh);
+        int full_refresh = ui_full_refresh();
+        if (!full_refresh)
+            device_present_async(ui_pixels);
+        else
+            device_present(ui_pixels, full_refresh, settings.refresh);
         if (profile)
             fprintf(stderr, "action=%d render_ms=%.1f\n", input.kind, (stamp() - began) * 1000);
     }
@@ -143,7 +155,7 @@ int main(int argc, char **argv) {
     device_close();
     ui_close();
     engine_shutdown();
-    fprintf(stderr, "LUMEN 3.0 clean exit\n");
+    fprintf(stderr, "LUMEN 3.1 clean exit\n");
     if (power_request)
         device_system_power(power_request == 2);
     return 0;

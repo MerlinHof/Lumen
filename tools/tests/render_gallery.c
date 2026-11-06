@@ -68,7 +68,6 @@ int main(void) {
     picture("notes-list");
     task_count = 3;
     task_tab = task_board = task_page = 0;
-    todo_ui.task_context16[0] = 0;
     snprintf(tasks[0].title, 200, "Read one chapter\nLeave a sentence in the journal");
     tasks[0].state = 0;
     snprintf(tasks[1].title, 200, "Try a recipe for the weekend");

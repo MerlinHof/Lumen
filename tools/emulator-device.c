@@ -96,8 +96,9 @@ void device_present(const unsigned char *pixels, int full, int interval) {
     (void)interval;
     present(pixels, full);
 }
-void device_present_feedback(const unsigned char *pixels) { present(pixels, 0); }
+void device_present_async(const unsigned char *pixels) { present(pixels, 0); }
 void device_poll_interval(int ms) { timeout_ms = ms; }
+int device_refresh_busy(void) { return 0; }
 int device_input_pending(void) {
     struct pollfd fd = {STDIN_FILENO, POLLIN, 0};
     return poll(&fd, 1, 0) > 0 && (fd.revents & POLLIN);

@@ -5,9 +5,6 @@ static int64_t activity16;
 
 static const char *sleep_choices16[] = {"5 min", "10 min", "15 min", "30 min", "60 min", "Nie"};
 static const int sleep_minutes16[] = {5, 10, 15, 30, 60, 0};
-static char context_names16[258][64];
-static const char *context_labels16[258];
-static int context_count16;
 static void u16_load(void) {
     if (u16_ready)
         return;
@@ -21,9 +18,6 @@ static void u16_load(void) {
                 auto_sleep_minutes = n;
         free(s);
     }
-    app_state_load("task-categories16.bin", todo_ui.task_categories16, sizeof(todo_ui.task_categories16));
-    for (int i = 0; i < 256; i++)
-        todo_ui.task_categories16[i][63] = 0;
     s = service_read("calc-precision16.txt", 20);
     if (s) {
         int n = atoi(s);

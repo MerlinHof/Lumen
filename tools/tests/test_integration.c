@@ -81,23 +81,18 @@ int main(int argc, char **argv) {
     tap17(42, 235);
     assert(tasks[0].state == 2);
     shot17("todo");
-    for (int i = 0; i < 12; i++) {
+    task_count = 3;
+    for (int i = 0; i < task_count; i++) {
         strcpy(tasks[i].title, "Task");
-        snprintf(todo_ui.task_categories16[i], 64, "Context %d", i);
+        tasks[i].state = 0;
     }
-    task_count = 12;
-    contexts16();
-    route_to(74);
     ui_draw();
-    tap17(250, 90);
-    assert(dropdown && drop_count == 13 && drop_visible == 5);
-    ui_draw();
-    shot17("contexts");
-    tap17(drop_x + (drop_w - 189) / 2 + 166, drop_y + 5 + 5 * 48 + 15);
-    assert(drop_first == 5);
-    tap17(drop_x + 80, drop_y + 25);
-    assert(!strcmp(todo_ui.task_context16, context_names16[5]));
-    todo_ui.task_context16[0] = 0;
+    assert(task_rows18[0].index == 2 && task_rows18[1].index == 1);
+    tap17(479, task_rows18[2].y + task_rows18[2].h/2);
+    assert(tasks[0].state & TASK_FLAG);
+    assert(task_rows18[0].index == 0 && task_rows18[1].index == 2);
+    tap17(42, task_rows18[0].y + task_rows18[0].h/2);
+    assert(tasks[0].state == (TASK_FLAG | TASK_DONE));
     route_to(100);
     ui_draw();
     shot17("calc-settings");
@@ -400,6 +395,30 @@ int main(int argc, char **argv) {
     ui_draw();
     tap17(370, 768);
     assert(chat_archive_page == 1);
+    route_to(131);
+    options[OPT_TAB_BAR] = options[OPT_DATE] = options[OPT_CLOCK] = options[OPT_WIFI] = 1;
+    ui_draw();
+    assert(tab_at(10) == APP_HOME && tab_at(240) == APP_LIBRARY && tab_at(480) == APP_LAUNCHER);
+    assert(status_ui.status_date_x < status_ui.status_clock_x &&
+           status_ui.status_clock_x < status_ui.status_wifi_x);
+    tap17(370, 700);
+    assert(home_page == 1);
+    tap17(220, 700);
+    assert(home_page == 0);
+    tap17(80, 450);
+    assert(ui_route() == 1);
+    tap17(70, 770);
+    assert(ui_route() == 131);
+    route_to(132);
+    ui_draw();
+    tap17(550,TAB_ROW_Y+TAB_ROW_H*3+28);
+    assert(tabs.count == 4 && tabs.apps[3] == APP_READER);
+    tap17(435,TAB_ROW_Y+TAB_ROW_H*3+28);
+    assert(tabs.apps[2] == APP_READER);
+    tabs_load();
+    assert(tabs.apps[2] == APP_READER);
+    tap17(530,153);
+    assert(!has_tabs());
     ui_close();
     engine_shutdown();
     puts("PASS Home Assistant UTF-8 device search, chat/archive paging and inline Reader action.");

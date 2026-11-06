@@ -112,8 +112,8 @@ static void v1_draw(void) {
         break;
     case 92:
         heading("Sperrbild");
-        for (int i = 0; i < 5; i++)
-            button_h(28, 160 + i * 100, 544, 65, lockmodes[i], options[OPT_LOCK] == i);
+        for (int i = 0; i < 6; i++)
+            button_h(28, 154 + i * 86, 544, 65, lockmodes[i], options[OPT_LOCK] == i);
         break;
     case 93:
         heading("Tastatur");
@@ -165,11 +165,10 @@ static int v1_commit(int target, const char *text) {
     if (target == 110) {
         if (*text && task_count < 256) {
             snprintf(tasks[task_count].title, 200, "%s", text);
-            snprintf(todo_ui.task_categories16[task_count], 64, "%s", todo_ui.task_context16);
-            app_state_save("task-categories16.bin", todo_ui.task_categories16, sizeof(todo_ui.task_categories16));
             tasks[task_count].created = time(NULL);
             tasks[task_count++].state = 0;
-            v1_dirty = 1;
+            task_page = task_tab = 0;
+            tasks_save();
         }
         return 1;
     }
@@ -351,14 +350,9 @@ static int v1_input(const Input *in) {
                 if (v1_delete >= 1000) {
                     int i = v1_delete - 1000;
                     if (i < task_count) {
-                        memmove(todo_ui.task_categories16 + i, todo_ui.task_categories16 + i + 1,
-                                (task_count - i - 1) * 64);
-                        memset(todo_ui.task_categories16[task_count - 1], 0, 64);
-                        app_state_save("task-categories16.bin", todo_ui.task_categories16,
-                                  sizeof(todo_ui.task_categories16));
                         memmove(&tasks[i], &tasks[i + 1], (task_count - i - 1) * sizeof(tasks[0]));
                         memset(&tasks[--task_count], 0, sizeof(tasks[0]));
-                        v1_dirty = 1;
+                        tasks_save();
                     }
                 }
             }
@@ -662,9 +656,9 @@ static int v1_input(const Input *in) {
         settings_input(in);
         break;
     case 92:
-        if (y >= 160 && y < 625) {
-            int i = (y - 160) / 100;
-            if (i < 5) {
+        if (y >= 154 && y < 670) {
+            int i = (y - 154) / 86;
+            if (i < 6) {
                 options[OPT_LOCK] = i;
                 ui_save();
             }

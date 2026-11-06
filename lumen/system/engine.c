@@ -256,6 +256,67 @@ int engine_outline(Chapter *items, int max) {
     fz_catch(ctx) { seterr(); }
     return n;
 }
+/* A separate document handle leaves the active reader page and cache intact. */
+int engine_cover_fill(const char *path, unsigned char *pixels, int width, int height) {
+    fz_document *book = NULL;
+    fz_page *page = NULL;
+    fz_stext_page *text = NULL;
+    fz_pixmap *pix = NULL;
+    fz_device *dev = NULL;
+    int ok = 0;
+    fz_var(book);
+    fz_var(page);
+    fz_var(text);
+    fz_var(pix);
+    fz_var(dev);
+    fz_var(ok);
+    fz_try(ctx) {
+        book = fz_open_document(ctx,path);
+        fz_layout_document(ctx,book,544,728,22);
+        page = fz_load_page(ctx,book,0);
+        fz_rect bounds = fz_bound_page(ctx,page);
+        float w = bounds.x1-bounds.x0, h = bounds.y1-bounds.y0;
+        fz_image *cover = NULL;
+        if (fz_is_document_reflowable(ctx,book)) {
+            fz_stext_options opts = {.flags = FZ_STEXT_PRESERVE_IMAGES};
+            text = fz_new_stext_page_from_page(ctx,page,&opts);
+            float area = w*h/5;
+            for (fz_stext_block *block = text->first_block; block; block = block->next) {
+                if (block->type != FZ_STEXT_BLOCK_IMAGE) continue;
+                float size = (block->bbox.x1-block->bbox.x0)*(block->bbox.y1-block->bbox.y0);
+                if (size > area) {
+                    cover = block->u.i.image;
+                    area = size;
+                }
+            }
+            if (!cover) fz_throw(ctx,FZ_ERROR_FORMAT,"No embedded cover on the first page");
+            w = cover->w;
+            h = cover->h;
+        }
+        if (w <= 0 || h <= 0) fz_throw(ctx,FZ_ERROR_FORMAT,"Invalid cover dimensions");
+        pix = fz_new_pixmap_with_data(ctx,fz_device_gray(ctx),width,height,NULL,0,width,pixels);
+        fz_clear_pixmap_with_value(ctx,pix,255);
+        dev = fz_new_draw_device(ctx,fz_identity,pix);
+        float scale = fmaxf(width/w,height/h);
+        float x = (width-w*scale)/2, y = (height-h*scale)/2;
+        if (cover)
+            fz_fill_image(ctx,dev,cover,fz_make_matrix(w*scale,0,0,h*scale,x,y),1,fz_default_color_params);
+        else
+            fz_run_page(ctx,page,dev,fz_make_matrix(scale,0,0,scale,x-bounds.x0*scale,y-bounds.y0*scale),NULL);
+        fz_close_device(ctx,dev);
+        ok = 1;
+    }
+    fz_always(ctx) {
+        fz_drop_device(ctx,dev);
+        fz_drop_pixmap(ctx,pix);
+        fz_drop_stext_page(ctx,text);
+        fz_drop_page(ctx,page);
+        fz_drop_document(ctx,book);
+    }
+    fz_catch(ctx) { ok = 0; }
+    return ok;
+}
+
 int engine_thumbnail(const char *path, const char *output) {
     if (doc)
         return 0;

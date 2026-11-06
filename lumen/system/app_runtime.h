@@ -61,6 +61,7 @@ typedef enum {
     APP_LLM,
     APP_SIGNAL,
     APP_FROG,
+    APP_HOME,
     APP_COUNT
 } AppId;
 typedef enum { INTENT_OPEN, INTENT_BOOK, INTENT_SEARCH, INTENT_SETTINGS } IntentKind;
