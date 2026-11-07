@@ -15,8 +15,7 @@ static void app_time_settings(void) {
 
     } else {
         button_h(28, 387, 544, 54, "Datum und Uhrzeit setzen", 0);
-        label_at(30, 480, 220, 52, tr("Zeitzone"), ui_font(UI_BODY));
-        dropdown_button(270, 480, 302, 52, zone_names[options[OPT_ZONE] % 5]);
+        select_row17(480,"Zeitzone",zone_names[options[OPT_ZONE] % 5]);
     }
 }
 static uint64_t directory_bytes(const char *p, int depth) {
@@ -73,7 +72,7 @@ static void system_screen(void) {
     const char *tabs[] = {"Speicher & Version", "Verwaltung"};
     segments(28, 133, 544, 44, tabs, 2, extra_page);
     if (!extra_page) {
-        drawtext(30, 205, "LUMEN 3.4", ui_font(UI_TITLE), 540);
+        drawtext(30, 205, "LUMEN " LUMEN_VERSION, ui_font(UI_TITLE), 540);
         drawtext(30, 253, "Kindle KT2 · 600 × 800", ui_font(UI_SECONDARY), 540);
         wrapped(30, 289,
                 "Diese Software wurde Ende 2026 von GPT-6.1 Sol entwickelt unter Aufsicht und "
@@ -96,6 +95,7 @@ static void system_screen(void) {
         storage_size(size, sizeof(size), total);
         snprintf(b, sizeof(b), "%s %s", size, tr("Gesamt"));
         drawtext(30, 383, b, ui_font(UI_PRIMARY), 540);
+        rounded_clip_begin(28,438,544,28);
         rect(28, 438, 544, 28, 255);
         int x = 28;
         for (int i = 0; i < 5; i++) {
@@ -107,6 +107,7 @@ static void system_screen(void) {
                 rect(x, 438, 2, 28, 255);
             x += w;
         }
+        rounded_clip_end(28,438,544,28);
         key_outline(28, 438, 544, 28);
         for (int i = 0; i < 5; i++) {
             int xx = 30 + (i % 2) * 282, y = 486 + (i / 2) * 67;

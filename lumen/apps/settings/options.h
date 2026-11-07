@@ -36,7 +36,7 @@ static void more_settings(void) {
         char value[80];
         int v = r->key == OPT_LOCK ? lock_mode_row() : options[r->key];
         if (r->choices) {
-            snprintf(value, sizeof(value), tr("%s"), r->choices[v >= 0 && v < r->count ? v : 0]);
+            snprintf(value, sizeof(value), tr("%s"), r->key == OPT_LOCK && options[OPT_LOCK] == 3 ? "Foto aus Fotos" : r->choices[v >= 0 && v < r->count ? v : 0]);
             dropdown_button(360, y - 4, 210, 48, value);
         } else if (r->min == 0 && r->max == 1) {
             toggle(492, y + 4, v);

@@ -87,12 +87,8 @@ static int new_apps_input(const Input *in) {
     }
     if (in->kind != INPUT_TAP)
         return 2;
-    if (ui_route() == 60) {
-        if (y >= 716 && y < 764) {
-            ha_plot_hours = x < 210 ? 1 : x < 390 ? 6 : 24;
-        }
-        return 1;
-    }
+    if (ui_route() == 60) return sensor_graph_input(in);
+
     if (ui_route() == 61) {
         if (y >= 128 && y < 178)
             open_keyboard(80, "y = f(x)", calc_expr);

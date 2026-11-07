@@ -39,6 +39,10 @@ cleanup() {
         esac
     fi
     rmdir /tmp/lumen-session 2>/dev/null
+    if [ -f /mnt/us/lumen/.update/relaunch ]; then
+        rm -f /mnt/us/lumen/.update/relaunch
+        nohup setsid /bin/sh /mnt/us/lumen/launch.sh >/dev/null 2>&1 </dev/null &
+    fi
 }
 trap cleanup EXIT
 trap 'exit 0' INT HUP TERM

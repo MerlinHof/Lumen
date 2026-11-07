@@ -2,9 +2,7 @@
 static int calendar_layout17(void) {
     if (ui_route() != 21 || calendar_view16 == 2 || calendar_view16 == 3)
         return 0;
-    heading_width("Kalender", 194);
-    const char *views[] = {"Tag", "Woche", "Monat", "Jahr"};
-    dropdown_button(250, 74, 145, 44, views[calendar_view16]);
+    calendar_header();
     icon_button(468, 74, IC_TODAY);
     icon_button(528, 74, IC_NOTE_PLUS);
     icon_button(28, 136, IC_PREV);

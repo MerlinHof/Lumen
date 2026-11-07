@@ -16,7 +16,6 @@ static void wifi_screen(void) {
     heading("WLAN");
     label_at(30, 137, 430, 48, tr("WLAN"), ui_font(UI_PRIMARY));
     toggle(492, 145, wifi_ui.wifi_enabled);
-    divider(28, 209, 544);
     if (!wifi_ui.wifi_enabled) {
         wrapped(28, 258, "WLAN ist ausgeschaltet.", ui_font(UI_TITLE), 544, 2);
         return;

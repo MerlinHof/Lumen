@@ -35,16 +35,19 @@ static int apps_poll_interval(void) {
 static int apps_input(const Input *in) {
     int x = in->x, y = in->y;
     if (in->kind == INPUT_STATUS) {
-        if (ui_route() == 25 && !block_game.paused && !block_game.over) {
+        int changed=0;
+        if (ui_route() == 25 && !block_game.paused && !block_game.over && app_millis() >= app_next_tick) {
+            changed=1;
             blocks_tick(&block_game);
             app_next_tick = app_millis() + 650;
         }
-        if (ui_route() == 26 && !snake_game.paused && !snake_game.over) {
+        if (ui_route() == 26 && !snake_game.paused && !snake_game.over && app_millis() >= app_next_tick) {
+            changed=1;
             snake_tick(&snake_game);
             app_next_tick = app_millis() + 550;
         }
-        app_records();
-        return 1;
+        if (changed) app_records();
+        return changed ? 1 : 2;
     }
     if (ui_route() == 23 && in->kind == INPUT_HOLD && y >= 170 && y < 750 && x >= 30 && x < 570) {
         mines_flag(&mine_game, ((y - 170) / 58) * 9 + (x - 30) / 60);

@@ -6,6 +6,7 @@ static void app_mines(void) {
     snprintf(b, sizeof(b), "%d / 12", mine_game.flags);
     drawtext(30, 129, b, ui_font(UI_BODY), 300);
     button_h(414, 122, 158, 36, mine_flags ? "Aufdecken" : "Fahne", mine_flags);
+    outline_surface(28,168,544,584,RADIUS_SMALL,104);
     for (int i = 0; i < 90; i++) {
         int x = 30 + (i % 9) * 60, y = 170 + (i / 9) * 58;
         if (!mine_game.open[i]) {
@@ -14,14 +15,20 @@ static void app_mines(void) {
                 region(x, y, 58, 56);
         } else {
             rect(x, y, 58, 56, 255);
-            rect(x, y + 55, 58, 1, 230);
+
         }
+        rect(x+58,y,2,58,174);
+        rect(x,y+56,60,2,174);
         if (mine_game.flag[i])
             icon(x + 3, y + 2, IC_FLAG);
         else if (mine_game.bomb[i] && mine_game.over) {
-            ring(x + 29, y + 28, 8, 3);
-            stroke(x + 12, y + 28, x + 38, y + 28, 2);
-            stroke(x + 29, y + 11, x + 29, y + 37, 2);
+            for (int k=0;k<8;k++) {
+                double a=k*3.141592653589793/4;
+                stroke(x+29+cos(a)*8,y+28+sin(a)*8,
+                       x+29+cos(a)*16,y+28+sin(a)*16,3);
+            }
+            aa_disc(x+29,y+28,10,0);
+            aa_disc(x+26,y+24,3,255);
         } else if (mine_game.open[i]) {
             int n = mines_adjacent(&mine_game, i);
             if (n) {

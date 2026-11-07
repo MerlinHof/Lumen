@@ -1,6 +1,7 @@
 #include "i18n.h"
 #define _GNU_SOURCE
 #include "connect.h"
+#include "version.h"
 #include "wireless_update.h"
 #include "engine.h"
 #include "library.h"
@@ -534,7 +535,7 @@ static void handle(int fd) {
     char *query = strchr(url, '?');
     if (query)
         *query++ = 0;
-    if (!strcmp(method, "PUT") && !strcmp(url, "/api/update")) {
+    if (!strcmp(method, "PUT") && (!strcmp(url, "/api/update") || !strcmp(url, "/api/custom-app"))) {
         char digest[UPDATE_DIGEST_SIZE], result[128];
         int status = haslength ? update_receive(fd,length,body,bodyn,digest) : 411;
         if (status == 201)
@@ -542,6 +543,45 @@ static void handle(int fd) {
         else
             snprintf(result,sizeof(result),"{\"error\":\"Update upload rejected\"}");
         response(fd,status,"application/json",result);
+        return;
+    }
+    if (!strcmp(method,"GET") && !strcmp(url,"/api/custom-app/status")) {
+        char result[100];
+        snprintf(result,sizeof(result),"{\"version\":\"%s\",\"trial\":%s}",LUMEN_VERSION,update_trial() ? "true" : "false");
+        response(fd,200,"application/json",result);
+        return;
+    }
+    if (!strcmp(method,"GET") && !strcmp(url,"/api/custom-app/guide")) {
+        char path[2048], guide[24000];
+        snprintf(path,sizeof(path),"%s/../system/custom-app-guide.txt",data_root);
+#ifdef LUMEN_HOST
+        FILE *f=fopen("lumen/assets/web/custom-app-guide.txt","rb");
+#else
+        FILE *f=fopen(path,"rb");
+#endif
+        if (!f) { response(fd,404,"text/plain","Guide unavailable");return; }
+        size_t n=fread(guide,1,sizeof(guide)-1,f);
+        fclose(f);
+        guide[n]=0;
+        response(fd,200,"text/plain; charset=utf-8",guide);
+        return;
+    }
+    if (!strcmp(method,"POST") && !strcmp(url,"/api/custom-app/keep")) {
+        response(fd,update_keep() ? 200 : 409,"application/json","{}");
+        return;
+    }
+    if (!strcmp(method,"POST") && (!strcmp(url,"/api/custom-app/install") ||
+                                  !strcmp(url,"/api/custom-app/rollback"))) {
+        char digest[65], path[2048];
+        int install=!strcmp(url,"/api/custom-app/install");
+        int ok=install ? arg(query,"sha256",digest,sizeof(digest)) && strlen(digest)==64 &&
+                         update_approve(digest) : update_trial();
+        snprintf(path,sizeof(path),"%s/../.update/relaunch",data_root);
+        if (ok) ok=atomic_write(path,"1",1);
+        response(fd,ok ? 200 : 409,"application/json","{}");
+#ifndef LUMEN_HOST
+        if (ok) kill(getppid(),SIGUSR1);
+#endif
         return;
     }
     if (!strcmp(method, "GET") && !strcmp(url, "/api/notes")) {
@@ -672,7 +712,7 @@ static void handle(int fd) {
                 snprintf(
                     h, sizeof(h),
                     "HTTP/1.1 200 OK\r\nContent-Type: image/x-portable-graymap\r\nContent-Length: "
-                    "%zu\r\nConnection: close\r\nCache-Control: private, max-age=3600\r\n\r\n",
+                    "%zu\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n",
                     bytes);
                 writeall(fd, h, strlen(h));
                 writeall(fd, tiny, bytes);
@@ -691,23 +731,6 @@ static void handle(int fd) {
             fclose(f);
             return;
         }
-    }
-    if (!strcmp(method, "PUT") && !strcmp(url, "/api/lockscreen")) {
-        if (!haslength) {
-            response(fd, 411, "text/plain", "Content-Length required");
-            return;
-        }
-        upload(fd, "name=lockscreen-image", length, body, bodyn, 1);
-        return;
-    }
-    if (!strcmp(method, "DELETE") && !strcmp(url, "/api/lockscreen")) {
-        char path[2048];
-        snprintf(path, sizeof(path), "%s/lockscreen.pgm", data_root);
-        if (unlink(path) && errno != ENOENT)
-            response(fd, 500, "text/plain", "Could not remove image");
-        else
-            response(fd, 200, "application/json", "{\"ok\":true}");
-        return;
     }
     if (!strcmp(method, "GET") && !strcmp(url, "/api/books")) {
         listing(fd);

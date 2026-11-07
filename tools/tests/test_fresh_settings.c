@@ -13,6 +13,7 @@ int main(void) {
     assert(options[OPT_AUTO_TIME]&&options[OPT_AUTOSTART]);
     assert(options[OPT_COVER_CROP]&&options[OPT_ROUNDING]&&!options[OPT_BATTERY_PERCENT]);
     assert(!options[OPT_KEYBOARD_LANGUAGE]);
+    assert(options[OPT_APP_ICON_STYLE]);
     assert(options[OPT_CLOCK] && options[OPT_WIFI] && options[OPT_BATTERY]);
     assert(!options[OPT_DATE] && !options[OPT_BATTERY_PERCENT]);
     assert(access("build/tests/fresh-data/settings.txt",F_OK)==0);

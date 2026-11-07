@@ -1,7 +1,7 @@
 /* Focused paper apps. Networking runs in a bounded child, never in the input loop. */
 #include <fcntl.h>
 static int companion_page16, companion_route16 = -1;
-static int calendar_view16 = 2, calendar_loaded16, calendar_day_page16;
+static int calendar_loaded16, calendar_day_page16;
 static char files_dir16[4096], explorer_dir16[4096], file_names16[512][256];
 static int explorer_page16;
 static unsigned char file_dirs16[512];
@@ -927,24 +927,33 @@ static int u16_apps_draw(void) {
     if (ui_route() == 115) {
         elements_init16();
         heading("Periodensystem");
-        const char **e = elements16[element_selected16 - 1];
-        snprintf(b, sizeof(b), "%d  %s · %s", element_selected16, e[0], element_name(element_selected16));
-        button_h(28, 138, 544, 52, b, 0);
-        for (int y = 0; y < 9; y++)
-            for (int x = 0; x < 18; x++) {
-                int n = element_grid16[y][x];
-                if (!n)
-                    continue;
-                int xx = 12 + x * 32, yy = 220 + y * 54;
-                key_outline(xx, yy, 32, 49);
-                region(xx, yy, 32, 49);
-                if (n == element_selected16)
-                    rect(xx + 2, yy + 2, 28, 45, 0);
-                ink_color = n == element_selected16 ? 255 : 0;
-                drawtext_raw(xx + (32 - textwidth_raw(elements16[n - 1][0], ui_font(UI_SECONDARY))) / 2, yy + 13,
-                             elements16[n - 1][0], ui_font(UI_SECONDARY), 32);
-                ink_color = 0;
+        const char **e=elements16[element_selected16-1];
+        for (int row=0;row<9;row++)
+            for (int col=0;col<18;col++) {
+                int n=element_grid16[row][col];
+                if (!n) continue;
+                int x=12+col*32,y=138+row*36;
+                region(x,y,31,34);
+                control_surface(x,y,31,34,RADIUS_SMALL,n==element_selected16 ? 0 : 244);
+                ink_color=n==element_selected16 ? 255 : 0;
+                centered(x,y,31,34,elements16[n-1][0],ui_font(UI_SECONDARY));
+                ink_color=0;
             }
+        snprintf(b,sizeof(b),"%d  %s · %s",element_selected16,e[0],element_name(element_selected16));
+        type_label(28,486,544,44,b,UI_TITLE);
+        snprintf(b,sizeof(b),"%s · %s",tr(e[9]),tr(e[5]));
+        type_label(28,531,544,30,b,UI_SECONDARY);
+        const char *labels[]={"Atommasse","Dichte","Elektronegativität","Entdeckung","Schmelzpunkt","Siedepunkt"};
+        const char *values[]={e[2],e[8],e[4],e[10],e[6],e[7]};
+        const char *units[]={"u","g/cm³","","","K","K"};
+        for (int i=0;i<6;i++) {
+            int x=28+i%2*282,y=575+i/2*57;
+            type_label(x,y,262,24,labels[i],UI_SECONDARY);
+            snprintf(b,sizeof(b),"%s %s",*values[i] ? tr(values[i]) : "—",units[i]);
+            type_label(x,y+24,262,28,b,UI_BODY);
+        }
+        divider(28,751,544);
+        label_ellipsis(28,760,544,30,e[3],ui_font(UI_SECONDARY),0);
         return 1;
     }
     if (ui_route() == 116) {
@@ -997,9 +1006,9 @@ static int u16_apps_input(const Input *in) {
     if (ui_route() == 21) {
         if (y >= 74 && y < 118) {
 
-            if (x >= 250 && x < 395) {
-                static const char *views[] = {"Tag", "Woche", "Monat", "Jahr"};
-                open_dropdown(920, views, 4, calendar_view16, 250, 123, 145);
+            if (x >= 28 && x < 438) {
+                calendar_view16=(x-28)*4/410;
+                calendar_day_page16=0;
                 return 1;
             }
         }
@@ -1086,15 +1095,9 @@ static int u16_apps_input(const Input *in) {
     }
 
     if (ui_route() == 115) {
-        if (y >= 138 && y < 190) {
-            element_open16(element_selected16);
-            return 1;
-        }
-        if (x >= 12 && x < 588 && y >= 220 && y < 706) {
-            int n = element_grid16[(y - 220) / 54][(x - 12) / 32];
-            if (n)
-                element_selected16 = n;
-            return 1;
+        if (x>=12 && x<588 && y>=138 && y<462) {
+            int n=element_grid16[(y-138)/36][(x-12)/32];
+            if (n) element_selected16=n;
         }
         return 1;
     }

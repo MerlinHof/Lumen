@@ -202,8 +202,8 @@ static int chat_preview(int i, char *out, size_t size) {
     while (isspace((unsigned char)*p)) p++;
     return *p != 0;
 }
-enum { CHAT_TOP = 166, CHAT_ROWS_END = 656, CHAT_PAGER_Y = 667,
-       CHAT_COMPOSE_Y = 722, CHAT_COMPOSE_H = 66 };
+enum { CHAT_TOP = 166, CHAT_ROWS_END = 676, CHAT_PAGER_Y = 686,
+       CHAT_COMPOSE_Y = 738, CHAT_COMPOSE_H = 50 };
 static int chat_preview_lines(const char *text, int bot, FlowLine *lines) {
     return text_flow(text, ui_font(UI_BODY), 454, lines, bot ? 5 : 3);
 }
@@ -257,7 +257,7 @@ static void chat_draw(void) {
         char b[2048];
         chat_preview(i, b, sizeof(b));
         int x = bot ? 28 : 92;
-        outline_surface(x, y, 480, chat_rows[row].height, RADIUS_LARGE, bot ? 180 : 128);
+        outline_surface(x, y, 480, chat_rows[row].height, RADIUS_LARGE, bot ? 168 : 112);
         ink_color = UI_SECONDARY_INK;
         label_at(x+13, y+6, 454, 24, tr(bot ? "OpenAI" : "Du"), ui_font(UI_SECONDARY));
         ink_color = 0;
@@ -280,12 +280,12 @@ static void chat_draw(void) {
     ink_color = *llm_prompt16 ? 0 : UI_SECONDARY_INK;
     const char *hint = job_pid16 > 0 && job_kind16 == 2 ? "Antwort wird geschrieben …" :
                        "Nachricht schreiben …";
-    wrapped_raw(42, CHAT_COMPOSE_Y+8, *llm_prompt16 ? llm_prompt16 : tr(hint),
-                ui_font(UI_BODY), 452, 2);
+    label_ellipsis(42, CHAT_COMPOSE_Y,452,CHAT_COMPOSE_H,
+                   *llm_prompt16 ? llm_prompt16 : tr(hint),ui_font(UI_BODY),0);
     ink_color = 0;
     region(520, CHAT_COMPOSE_Y, 52, CHAT_COMPOSE_H);
-    key_outline(520, CHAT_COMPOSE_Y, 52, CHAT_COMPOSE_H);
-    icon(524, CHAT_COMPOSE_Y+11, IC_SEND);
+    widget_shape(520,CHAT_COMPOSE_Y,52,CHAT_COMPOSE_H,RADIUS_MEDIUM,0,1);
+    icon(524, CHAT_COMPOSE_Y+3, IC_SEND);
     pager(CHAT_PAGER_Y, &chat_page, chat_pages);
 }
 static int chat_input(const Input *in) {

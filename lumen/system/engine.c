@@ -73,6 +73,7 @@ static void style(int leading, int margin) {
              "line-height:%.2f !important; text-align:%s !important; letter-spacing:%.2fpx "
              "!important; } "
              "p { orphans:2; widows:2; margin-top:0 !important; margin-bottom:%dpx !important; } "
+             "em, i { font-style:italic !important; } strong, b { font-weight:bold !important; } "
              "img { max-width:100%%; height:auto; }",
              margin,
              preferred_font == 1   ? "sans-serif"
@@ -626,7 +627,7 @@ int engine_photo_thumbnail(const char *source, const char *output) {
     char magic[3];
     int w, h, max;
     int ok = fscanf(f, "%2s %d %d %d", magic, &w, &h, &max) == 4 && !strcmp(magic, "P5") &&
-             w == 600 && h == 800 && max == 255;
+             ((w == 600 && h == 800) || (w == 800 && h == 600)) && max == 255;
     unsigned char *raw = NULL, *tiny = NULL;
     if (ok) {
         fgetc(f);
@@ -640,11 +641,11 @@ int engine_photo_thumbnail(const char *source, const char *output) {
         free(tiny);
         return 0;
     }
-    int top = 0, bot = 799, left = 0, right = 599;
-    for (; top < 799; top++) {
+    int top = 0, bot = h-1, left = 0, right = w-1;
+    for (; top < h-1; top++) {
         int nonwhite = 0;
-        for (int x = 0; x < 600; x++)
-            if (raw[top * 600 + x] < 247) {
+        for (int x = 0; x < w; x++)
+            if (raw[top * w + x] < 247) {
                 nonwhite = 1;
                 break;
             }
@@ -653,18 +654,18 @@ int engine_photo_thumbnail(const char *source, const char *output) {
     }
     for (; bot > top; bot--) {
         int nonwhite = 0;
-        for (int x = 0; x < 600; x++)
-            if (raw[bot * 600 + x] < 247) {
+        for (int x = 0; x < w; x++)
+            if (raw[bot * w + x] < 247) {
                 nonwhite = 1;
                 break;
             }
         if (nonwhite)
             break;
     }
-    for (; left < 599; left++) {
+    for (; left < w-1; left++) {
         int nonwhite = 0;
         for (int y = top; y <= bot; y++)
-            if (raw[y * 600 + left] < 247) {
+            if (raw[y * w + left] < 247) {
                 nonwhite = 1;
                 break;
             }
@@ -674,7 +675,7 @@ int engine_photo_thumbnail(const char *source, const char *output) {
     for (; right > left; right--) {
         int nonwhite = 0;
         for (int y = top; y <= bot; y++)
-            if (raw[y * 600 + right] < 247) {
+            if (raw[y * w + right] < 247) {
                 nonwhite = 1;
                 break;
             }
@@ -683,8 +684,8 @@ int engine_photo_thumbnail(const char *source, const char *output) {
     }
     if (right - left < 10 || bot - top < 10) {
         top = left = 0;
-        bot = 799;
-        right = 599;
+        bot = h-1;
+        right = w-1;
     }
     int side = right - left + 1;
     if (bot - top + 1 < side)
@@ -693,7 +694,7 @@ int engine_photo_thumbnail(const char *source, const char *output) {
     top += (bot - top + 1 - side) / 2;
     for (int y = 0; y < 136; y++)
         for (int x = 0; x < 136; x++)
-            tiny[y * 136 + x] = raw[(top + y * side / 136) * 600 + left + x * side / 136];
+            tiny[y * 136 + x] = raw[(top + y * side / 136) * w + left + x * side / 136];
     char temp[4096];
     snprintf(temp, sizeof(temp), "%s.tmp-XXXXXX", output);
     int fd = mkstemp(temp);

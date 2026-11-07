@@ -59,9 +59,8 @@ static void clock_face(int fullscreen) {
 }
 static void clock_show_face(void) { timer_panel = 0; }
 static void app_timer(void) {
-    heading_width("Uhr", 128);
     const char *tabs[] = {"Uhr", "Timer", "Wecker"};
-    segments(166, 74, 406, 44, tabs, 3, timer_panel);
+    segments(28, 74, 544, 44, tabs, 3, timer_panel);
     char b[80];
     if (!timer_panel) {
         static const char *styles[] = {"Klassisch", "Minimal", "Digital", "Digital · Dunkel", "Klassisch · Ziffern"};

@@ -5743,5 +5743,55 @@
     "Update wurde geändert. Prüfsumme erneut vergleichen.",
     "The update changed. Compare the checksum again.",
     "La mise à jour a changé. Comparez à nouveau la somme de contrôle."
+  ],
+  "Zu Ordner hinzufügen": [
+    "Zu Ordner hinzufügen",
+    "Add to folder",
+    "Ajouter à un dossier"
+  ],
+  "Als Sperrbild verwenden": [
+    "Als Sperrbild verwenden",
+    "Use as lock screen",
+    "Utiliser comme écran de veille"
+  ],
+  "Als Sperrbild gespeichert.": [
+    "Als Sperrbild gespeichert.",
+    "Saved as lock screen.",
+    "Enregistré comme écran de veille."
+  ],
+  "Foto aus Fotos": [
+    "Foto aus Fotos",
+    "Photo from Photos",
+    "Photo de Photos"
+  ],
+  "Atommasse": [
+    "Atommasse",
+    "Atomic mass",
+    "Masse atomique"
+  ],
+  "Dichte": [
+    "Dichte",
+    "Density",
+    "Densité"
+  ],
+  "Elektronegativität": [
+    "Elektronegativität",
+    "Electronegativity",
+    "Électronégativité"
+  ],
+  "Entdeckung": [
+    "Entdeckung",
+    "Discovered",
+    "Découverte"
+  ],
+  "Schmelzpunkt": [
+    "Schmelzpunkt",
+    "Melting point",
+    "Point de fusion"
+  ],
+  "Siedepunkt": [
+    "Siedepunkt",
+    "Boiling point",
+    "Point d’ébullition"
   ]
 }

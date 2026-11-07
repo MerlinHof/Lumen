@@ -23,7 +23,10 @@ static void v1_init(void) {
     for (int i = 0; i < APP_COUNT; i++)
         launcher_visible[i] = i == APP_LIBRARY || i == APP_SETTINGS || i == APP_STORE ||
             i == APP_FILE_TRANSFER || (i >= APP_CALENDAR && i <= APP_HEX) || i >= APP_JOURNAL;
-    if (!launcher_load("launcher-36.bin", APP_COUNT)) {
+    int launcher_loaded=0;
+    for (int count=APP_COUNT;count>=APP_HOME+1 && !launcher_loaded;count--)
+        launcher_loaded=launcher_load("launcher-36.bin",count);
+    if (!launcher_loaded) {
         if (!launcher_load("launcher-31.bin", APP_COUNT)) {
             for (int count = APP_COUNT; count >= APP_SIGNAL; count--)
                 if (launcher_load("launcher-16.bin", count))

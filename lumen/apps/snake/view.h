@@ -12,20 +12,33 @@ static void app_snake(void) {
              0);
     int x0 = 30, y0 = 180, cell = 30;
     key_outline(x0 - 1, y0 - 1, 542, 482);
-    if (snake_game.food >= 0)
-        disc(x0 + (snake_game.food % 18) * cell + 15, y0 + (snake_game.food / 18) * cell + 15, 5,
-             0);
-    for (int i = 0; i < snake_game.length; i++) {
-        int c = snake_game.cells[i];
-        board_tile(x0 + (c % 18) * cell, y0 + (c / 18) * cell, cell, 0);
+    if (snake_game.food >= 0) {
+        int fx=x0+(snake_game.food%18)*cell+15, fy=y0+(snake_game.food/18)*cell+15;
+        ui_paint_ellipse(fx-4,fy+1,7,9,16);
+        ui_paint_ellipse(fx+4,fy+1,7,9,16);
+        stroke(fx,fy-8,fx+1,fy-14,2);
+        ui_paint_ellipse(fx+5,fy-12,5,2,104);
+        stroke(fx-5,fy-3,fx-6,fy+2,2);
     }
-    if (snake_game.length) {
-        int head = snake_game.cells[0], hx = x0 + (head % 18) * cell + 15,
-            hy = y0 + (head / 18) * cell + 15;
-        disc(hx + snake_game.dx * 5 - snake_game.dy * 4, hy + snake_game.dy * 5 + snake_game.dx * 4,
-             2, 255);
-        disc(hx + snake_game.dx * 5 + snake_game.dy * 4, hy + snake_game.dy * 5 - snake_game.dx * 4,
-             2, 255);
+    for (int i=snake_game.length-1;i>=0;i--) {
+        int at=snake_game.cells[i], cx=x0+(at%18)*cell+15, cy=y0+(at/18)*cell+15;
+        if (i+1<snake_game.length) {
+            int next=snake_game.cells[i+1], nx=x0+(next%18)*cell+15, ny=y0+(next/18)*cell+15;
+            stroke_color(cx,cy,nx,ny,22,24);
+            stroke_color(cx,cy,nx,ny,16,112);
+        }
+        aa_disc(cx,cy,i ? 11 : 13,24);
+        aa_disc(cx-2,cy-2,i ? 7 : 9,112);
+        if (i) {
+            stroke_color(cx-5,cy-2,cx,cy+2,2,48);
+            stroke_color(cx,cy+2,cx+5,cy-2,2,48);
+        } else {
+            int dx=snake_game.dx,dy=snake_game.dy;
+            aa_disc(cx+dx*5-dy*5,cy+dy*5+dx*5,4,255);
+            aa_disc(cx+dx*5+dy*5,cy+dy*5-dx*5,4,255);
+            aa_disc(cx+dx*6-dy*5,cy+dy*6+dx*5,2,0);
+            aa_disc(cx+dx*6+dy*5,cy+dy*6-dx*5,2,0);
+        }
     }
     if (snake_game.paused || snake_game.over) {
         rect(166, 329, 268, 98, 255);

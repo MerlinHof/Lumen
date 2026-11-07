@@ -14,6 +14,8 @@ try:
    return r.status,r.read()
   except urllib.error.HTTPError as e:return e.code,e.read()
  assert req('/api/books')[0]==200
+ status,state=req('/api/custom-app/status');assert status==200 and 'version' in json.loads(state)
+ status,guide=req('/api/custom-app/guide');assert status==200 and b'app_page_register' in guide
  status,data=req('/api/notes');assert status==200 and len(json.loads(data)['notes'])==1
  assert req('/api/note?id=123')[1].startswith(b'# Example')
  status,pdf=req('/api/note?id=123&format=pdf');assert status==200 and pdf.startswith(b'%PDF')
@@ -27,9 +29,12 @@ try:
  binary[:7]=b'\x7fELF\x01\x01\x01'
  binary[16]=2
  binary[18]=40
- status,receipt=req('/api/update','PUT',bytes(binary))
+ status,receipt=req('/api/custom-app','PUT',bytes(binary))
  assert status==201 and json.loads(receipt)['sha256']==hashlib.sha256(binary).hexdigest()
  assert (sandbox/'bin/lumen').read_bytes()==b'old executable'
+ assert req('/api/custom-app/install?sha256='+'0'*64,'POST')[0]==409
+ assert req('/api/custom-app/install?sha256='+hashlib.sha256(binary).hexdigest(),'POST')[0]==200
+ assert (sandbox/'.update/relaunch').is_file()
  command='u'
  for i in range(5):assert req('/api/books',auth='WRNG')[0]==401
  assert req('/api/books',auth='WRNG')[0]==429

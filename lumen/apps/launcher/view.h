@@ -8,10 +8,10 @@ static int v1_visible(int *out) {
     }
     return n;
 }
-enum { ENGRAVED_ICON_SIDE = 76, MANAGE_ICON_SIDE = 44 };
+enum { ENGRAVED_ICON_SIDE = 76, MANAGE_ICON_SIDE = 44, ENGRAVED_ATLAS_COUNT = APP_HOME+1 };
 static int engraved_app_icon(int x, int y, int side, int id) {
     if (side != ENGRAVED_ICON_SIDE && side != MANAGE_ICON_SIDE) return 0;
-    static unsigned char sheet[APP_COUNT][ENGRAVED_ICON_SIDE*ENGRAVED_ICON_SIDE];
+    static unsigned char sheet[ENGRAVED_ATLAS_COUNT][ENGRAVED_ICON_SIDE*ENGRAVED_ICON_SIDE];
     static int loaded;
     if (!loaded) {
         char path[2048];
@@ -23,7 +23,7 @@ static int engraved_app_icon(int x, int y, int side, int id) {
         loaded=file && fread(sheet,1,sizeof(sheet),file) == sizeof(sheet) && fgetc(file) == EOF ? 1 : -1;
         if (file) fclose(file);
     }
-    if (loaded < 0 || id < 0 || id >= APP_COUNT) return 0;
+    if (loaded < 0 || id < 0 || id >= ENGRAVED_ATLAS_COUNT) return 0;
     if (side == ENGRAVED_ICON_SIDE) {
         ui_paint_image(x,y,side,side,sheet[id]);
         return 1;

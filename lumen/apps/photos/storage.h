@@ -34,20 +34,9 @@ static void v1_photos_scan(void) {
             }
 }
 static int v1_pgm(const char *name, unsigned char *out) {
-    char p[2048], m[3];
-    local_path(p, sizeof(p), name);
-    FILE *f = fopen(p, "rb");
-    if (!f)
-        return 0;
-    int w, h, max,
-        ok = fscanf(f, "%2s %d %d %d", m, &w, &h, &max) == 4 && !strcmp(m, "P5") && w == 600 &&
-             h == 800 && max == 255;
-    if (ok) {
-        fgetc(f);
-        ok = fread(out, 1, 480000, f) == 480000;
-    }
-    fclose(f);
-    return ok;
+    char path[2048];
+    local_path(path,sizeof(path),name);
+    return photo_image_read(path,out);
 }
 static unsigned char *photo_pixels;
 static int v1_photo_load(int i) {

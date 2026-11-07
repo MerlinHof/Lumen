@@ -123,13 +123,16 @@ static void outline_surface(int x, int y, int w, int h, int r, int color) {
 static unsigned char clip_background[4][RADIUS_LARGE * RADIUS_LARGE];
 static void rounded_clip_apply(int x, int y, int w, int h, int background) {
     int profile = rounding_profile();
-    if (!profile || w < 2*RADIUS_LARGE || h < 2*RADIUS_LARGE) return;
-    const unsigned char *mask = corner_mask(RADIUS_LARGE, profile);
-    for (int j = 0; j < RADIUS_LARGE; j++)
-        for (int i = 0; i < RADIUS_LARGE; i++) {
+    if (!profile || w<4 || h<4) return;
+    int radius=h<2*RADIUS_LARGE ? RADIUS_MEDIUM : RADIUS_LARGE;
+    if (radius>(w-1)/2) radius=(w-1)/2;
+    if (radius>(h-1)/2) radius=(h-1)/2;
+    const unsigned char *mask = corner_mask(radius, profile);
+    for (int j = 0; j < radius; j++)
+        for (int i = 0; i < radius; i++) {
             int xx[4] = {x + i, x + w - 1 - i, x + i, x + w - 1 - i},
                 yy[4] = {y + j, y + j, y + h - 1 - j, y + h - 1 - j};
-            int alpha = mask[j * RADIUS_LARGE + i];
+            int alpha = mask[j * radius + i];
             for (int c = 0; c < 4; c++)
                 if (xx[c] >= 0 && xx[c] < WIDTH && yy[c] >= 0 && yy[c] < HEIGHT) {
                     int k = yy[c] * WIDTH + xx[c], v = ui_pixels[k];
@@ -142,9 +145,12 @@ static void rounded_clip_end(int x, int y, int w, int h) {
     rounded_clip_apply(x,y,w,h,-1);
 }
 static void rounded_clip_begin(int x, int y, int w, int h) {
-    if (!rounding_profile() || w < 2*RADIUS_LARGE || h < 2*RADIUS_LARGE) return;
-    for (int j = 0; j < RADIUS_LARGE; j++)
-        for (int i = 0; i < RADIUS_LARGE; i++) {
+    if (!rounding_profile() || w<4 || h<4) return;
+    int radius=h<2*RADIUS_LARGE ? RADIUS_MEDIUM : RADIUS_LARGE;
+    if (radius>(w-1)/2) radius=(w-1)/2;
+    if (radius>(h-1)/2) radius=(h-1)/2;
+    for (int j = 0; j < radius; j++)
+        for (int i = 0; i < radius; i++) {
             int xx[4] = {x + i, x + w - 1 - i, x + i, x + w - 1 - i},
                 yy[4] = {y + j, y + j, y + h - 1 - j, y + h - 1 - j};
             for (int c = 0; c < 4; c++)

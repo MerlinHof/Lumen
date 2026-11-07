@@ -9,6 +9,8 @@
 #include "../../apps/games/api.h"
 #include "../../apps/calculator/api.h"
 #include "../connect.h"
+#include "../photo_image.h"
+#include "../version.h"
 #include "../wireless_update.h"
 #include "../content_service.h"
 #include "../engine.h"
@@ -173,7 +175,7 @@ static void modal_input(const Input *in);
 static void connect_input(const Input *in);
 static void refresh_library(void);
 static void settings_input(const Input *in);
-static const int lock_mode_ids[6];
+static const int lock_mode_ids[5];
 static void discover_screen(void);
 static void discover_detail(void);
 static void discover_input(const Input *in);
@@ -277,6 +279,10 @@ static int photo_grid_hit(int x, int y);
 static void photo_grid_input(int x, int y);
 static void photo_open_folder_menu(int assign, int index);
 static void photo_folder_choice(int target, int choice);
+static int sensor_graph_input(const Input *in);
+static void photo_actions_open(int index);
+static void photo_actions_choice(int choice);
+static void photo_setting_choice(int target,int choice);
 static void photo_create_folder(const char *name);
 static void photo_duration_choice(int choice);
 static int photo_gallery_active(void), photo_back(void), ha_back(void);
@@ -918,8 +924,7 @@ static void pager_draw(int x, int y, int w, int page, int pages) {
             region(left,y,PAGER_DOT_STEP,44);
             widget_shape(left,y,PAGER_DOT_STEP,44,RADIUS_SMALL,3,1);
             int center = left+PAGER_DOT_STEP/2;
-            aa_disc(center,y+22,5,0);
-            if (i != page) aa_disc(center,y+22,3,255);
+            aa_disc(center,y+22,5,i == page ? 0 : 172);
         }
         return;
     }
@@ -1175,11 +1180,14 @@ int ui_open(int index) {
 static int refresh_status(int force) {
     time_t now = time(NULL);
     if (force || !status_ui.status_time || now < status_ui.status_time || now - status_ui.status_time >= 30) {
+        char previous_wifi[sizeof(status_ui.wifi)], previous_battery[sizeof(status_ui.battery)];
+        memcpy(previous_wifi,status_ui.wifi,sizeof(previous_wifi));
+        memcpy(previous_battery,status_ui.battery,sizeof(previous_battery));
         device_status(status_ui.battery, sizeof(status_ui.battery), status_ui.wifi, sizeof(status_ui.wifi));
         int before = status_ui.battery_charging;
         status_ui.battery_charging = device_charging();
         status_ui.status_time = status_ui.charging_checked = now;
-        return before != status_ui.battery_charging;
+        return before != status_ui.battery_charging || strcmp(previous_wifi,status_ui.wifi) || strcmp(previous_battery,status_ui.battery);
     }
     if (now < status_ui.charging_checked || now - status_ui.charging_checked >= (status_ui.battery_charging ? 5 : 30)) {
         int before = status_ui.battery_charging;
@@ -1351,7 +1359,7 @@ static int ui_dispatch_input(const Input *in) {
         !dropdown && !editor_ui.keyboard) {
         int index = photo_grid_hit(in->x, in->y);
         if (index >= 0) {
-            photo_open_folder_menu(1, index);
+            photo_actions_open(index);
             selection_release = 1;
             return 1;
         }
@@ -1413,7 +1421,7 @@ static int ui_dispatch_input(const Input *in) {
             in = &normalized;
             network_poll = 1;
         } else {
-            int needs_status = ui_route() == 12 || ui_route() == 8 || ui_route() == 134 ||
+            int needs_status = ui_route() == 12 || ui_route() == 8 ||
                                ((ui_route() == 25 || ui_route() == 26) && apps_poll_interval() >= 0);
             if (action && !needs_status)
                 return action;
@@ -1436,9 +1444,9 @@ static int ui_dispatch_input(const Input *in) {
             index = featured();
         else if (in->x >= 28 && in->y >= top) {
             int col = (in->x - 28) / 188;
-            int row = (in->y - top) / 278;
+            int row = (in->y - top) / library_row_height();
             int cell = row * 3 + col;
-            if (col < 3 && (in->x - 28) % 188 < 168 && (in->y - top) % 278 < 274 &&
+            if (col < 3 && (in->x - 28) % 188 < 168 && (in->y - top) % library_row_height() < library_row_height()-4 &&
                 cell < library_per() && begin + cell < library_ui.view_count)
                 index = library_ui.view[begin + cell];
         }
@@ -1562,10 +1570,17 @@ static int ui_dispatch_input(const Input *in) {
                 network_results();
             wifi_ui.wifi_scanning = 0;
         }
-        refresh_status(0);
+        refresh_status(1);
         return 1;
     }
     if (in->kind == INPUT_NETWORK) {
+        char restart[2048];
+        snprintf(restart,sizeof(restart),"%s/../.update/relaunch",data_root);
+        if (!access(restart,F_OK)) {
+            connect_stop();
+            ui_save();
+            return 0;
+        }
         int done = discover_complete();
         if (network_poll && !done)
             return 2;
@@ -2022,7 +2037,11 @@ static void modal_input(const Input *in) {
                 dropdown = 0;
                 return;
             }
-            if (drop_target >= 931 && drop_target <= 950) {
+            if (drop_target == 941 || drop_target == 942) {
+                photo_setting_choice(drop_target,choice);
+            } else if (drop_target == 940) {
+                photo_actions_choice(choice);
+            } else if (drop_target >= 931 && drop_target <= 950) {
                 u17_choice(drop_target, choice);
             } else if (drop_target >= 910 && drop_target <= 930) {
                 u16_dropdown(drop_target, choice);
@@ -2082,7 +2101,7 @@ static void modal_input(const Input *in) {
 int ui_poll_interval(void) {
     if (sleeping)
         return v1_sleep_poll();
-    int wait = ui_route() == 134 ? 2000 : ui_route() >= 20 ? apps_poll_interval() : (ui_route() == 12 || ui_route() == 8 ? 2000 : -1),
+    int wait = ui_route() >= 20 ? apps_poll_interval() : (ui_route() == 12 || ui_route() == 8 ? 2000 : -1),
         other = extra_poll();
     int np = new_apps_poll();
     int pp = polish_poll();
@@ -2175,6 +2194,7 @@ static void app_leave(AppId app, void *ctx) {
         commit_keyboard();
     if (app == APP_NOTES)
         v1_save();
+    if (app == APP_TASKS) memset(task_recent_done,0,sizeof(task_recent_done));
 
 
     if (app == APP_BLOCKS || app == APP_SNAKE)
@@ -2282,8 +2302,15 @@ static int app_send(const AppIntent *intent) {
         recipe_archive16();
     } else if (app_definition(intent->app)->entry >= 27)
         extra_prepare(ui_route());
-    else if (intent->app == APP_CALENDAR)
+    else if (intent->app == APP_CALENDAR) {
+        time_t now=time(NULL);
+        struct tm today;
+        localtime_r(&now,&today);
+        calendar_year=today.tm_year+1900;
+        calendar_month=today.tm_mon+1;
+        calendar_day=today.tm_mday;
         app_calendar_load();
+    }
     else if (ui_route() >= 23 && ui_route() <= 26)
         app_open(ui_route());
     if (intent->app == APP_NOTES && intent->object_id) {

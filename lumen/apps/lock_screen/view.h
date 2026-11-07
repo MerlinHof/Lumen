@@ -39,24 +39,18 @@ static void lock_screen_draw(void) {
     if (options[OPT_LOCK] == 4 && v1_sleep_photo())
         return;
     if (options[OPT_LOCK] == 3) {
-        char path[2048], magic[3];
-        int w, h, max;
-        snprintf(path, sizeof(path), "%s/lockscreen.pgm", data_root);
-        FILE *f = fopen(path, "rb");
-        int ok = 0;
-        if (f) {
-            if (fscanf(f, "%2s %d %d %d", magic, &w, &h, &max) == 4 && !strcmp(magic, "P5") &&
-                w == WIDTH && h == HEIGHT && max == 255) {
-                fgetc(f);
-                ok = fread(ui_pixels, 1, sizeof(ui_pixels), f) == sizeof(ui_pixels);
+        char name[256],path[2048];
+        name[0]=0;
+        snprintf(path,sizeof(path),"%s/lock-photo.txt",data_root);
+        FILE *file=fopen(path,"rb");
+        if (file) {fgets(name,sizeof(name),file);fclose(file);}
+        if (*name && !strchr(name,'/') && !strchr(name,'\\')) {
+            snprintf(path,sizeof(path),"%s/photos/%s",data_root,name);
+            if (photo_image_read(path,ui_pixels)) {
+                image_contrast_pixels(ui_pixels,sizeof(ui_pixels));
+                return;
             }
-            fclose(f);
         }
-        if (ok) {
-            image_contrast_pixels(ui_pixels, sizeof(ui_pixels));
-            return;
-        }
-        memset(ui_pixels, 255, sizeof(ui_pixels));
     }
     if (lock_book >= 0 && options[OPT_LOCK] == 5) {
         lock_cover_full(&library[lock_book]);

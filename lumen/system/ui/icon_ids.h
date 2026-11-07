@@ -56,6 +56,7 @@ enum {
     IC_CHAT,
     IC_SEND,
     IC_FLAG_FILLED,
-    IC_LAST = IC_FLAG_FILLED
+    IC_DISH,
+    IC_LAST = IC_DISH
 };
 #endif

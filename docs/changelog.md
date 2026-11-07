@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.9
+
+- Fix game simulation deadlines, Wi-Fi status updates and calendar reopening.
+- Refine shared list, dropdown, pager, icon and rounded storage rendering; expand the library and app management layouts.
+- Consolidate Calendar, Clock and ToDo title bars, compact app forms and the OpenAI composer.
+- Keep completed ToDos visible for the current app session and edit tasks in the attached keyboard field.
+- Store photo rotations losslessly and select a lock-screen photo directly in Photos.
+- Show eight Home Assistant cards and a sensor graph trace by touch.
+- Use the shared Markdown Reader for Notes; show periodic element details under the table.
+- Refine Minesweeper, Snake, Tetris, Hangman, warehouse generation and maze trails.
+- Replace visible wireless update controls with custom app installation and an AI development guide in Connect.
+
 ## 3.8
 
 - Default to a high-contrast engraved icon set for every launchable app. Classic remains available in Appearance.

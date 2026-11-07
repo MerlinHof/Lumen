@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "system/device.h"
+#include "system/version.h"
 #include "system/engine.h"
 #include "system/library.h"
 #include "system/services.h"
@@ -17,7 +18,7 @@ static double stamp(void) {
 }
 int main(int argc, char **argv) {
     if (argc == 2 && !strcmp(argv[1], "--version")) {
-        puts("LUMEN 3.8 / MuPDF 1.28.5 / native ARMv7");
+        puts("LUMEN " LUMEN_VERSION " / MuPDF 1.28.5 / native ARMv7");
         return 0;
     }
     if (argc == 2 && !strcmp(argv[1], "--apply-wireless"))
@@ -157,7 +158,7 @@ int main(int argc, char **argv) {
     device_close();
     ui_close();
     engine_shutdown();
-    fprintf(stderr, "LUMEN 3.8 clean exit\n");
+    fprintf(stderr, "LUMEN " LUMEN_VERSION " clean exit\n");
     if (power_request)
         device_system_power(power_request == 2);
     return 0;

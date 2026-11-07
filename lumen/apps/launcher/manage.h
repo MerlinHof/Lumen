@@ -10,8 +10,8 @@ static void v1_launcher_settings(void) {
     heading("Apps verwalten");
     drawtext(30, 127, "Sichtbarkeit & Reihenfolge", ui_font(UI_SECONDARY), 540);
     int indices[APP_COUNT], count = launcher_manage_indices(indices);
-    for (int r = 0; r < 7 && launcher_settings_page * 7 + r < count; r++) {
-        int pos = launcher_settings_page * 7 + r, i = indices[pos], id = launcher_order[i],
+    for (int r = 0; r < 8 && launcher_settings_page * 8 + r < count; r++) {
+        int pos = launcher_settings_page * 8 + r, i = indices[pos], id = launcher_order[i],
             y = 174 + r * 68;
         if (!options[OPT_APP_ICON_STYLE] || !engraved_app_icon(28,y+10,MANAGE_ICON_SIDE,id))
             app_icon(28, y + 10, id);
@@ -21,5 +21,5 @@ static void v1_launcher_settings(void) {
         toggle(492, y + 16, launcher_visible[id]);
         divider(28, y + 67, 544);
     }
-    pager(745, &launcher_settings_page, (count + 6) / 7);
+    pager(745, &launcher_settings_page, (count + 7) / 8);
 }

@@ -6,7 +6,7 @@ typedef struct {
 } Warehouse17;
 static Warehouse17 warehouse17, undo_warehouse17, initial_warehouse17;
 static int warehouse_ready17, warehouse_undo17, warehouse_facing17 = 4;
-static unsigned char maze17[33 * 35];
+static unsigned char maze17[33 * 35], maze_trace17[33 * 35];
 static int maze_ready17, maze_x17 = 1, maze_y17 = 1, maze_moves17, maze_win17;
 static int box17(int v) {
     return v == 3 || v == 5;
@@ -25,10 +25,12 @@ static void warehouse_new17(int level) {
     s->h = 13 + scale * 2;
     if (s->h > 19)
         s->h = 19;
-    int boxes = 2 + (level - 1) / 2;
+    int boxes = 3 + (level - 1) / 2;
     if (boxes > 8)
         boxes = 8;
-    for (int attempt = 0; attempt < 30; attempt++) {
+    Warehouse17 best;
+    int best_score=-1;
+    for (int attempt = 0; attempt < 24; attempt++) {
         memset(s->board, 0, sizeof(s->board));
         for (int y = 0; y < s->h; y++)
             for (int x = 0; x < s->w; x++)
@@ -77,9 +79,21 @@ static void warehouse_new17(int level) {
         for (int i = 0; i < s->w * s->h; i++)
             if (s->board[i] == 3)
                 off++;
-        if (pulls > 8 && off)
-            break;
+        int distance=0;
+        for (int at=0;at<s->w*s->h;at++) if (box17(s->board[at])) {
+            int nearest=s->w+s->h;
+            for (int goal=0;goal<s->w*s->h;goal++)
+                if (s->board[goal]==2 || s->board[goal]==5) {
+                    int d=abs(at%s->w-goal%s->w)+abs(at/s->w-goal/s->w);
+                    if (d<nearest) nearest=d;
+                }
+            distance+=nearest;
+        }
+        int score=distance+off*4;
+        if (pulls>8 && score>best_score) { best=*s;best_score=score; }
+        if (off==boxes && distance>=boxes*(3+scale)) break;
     }
+    if (best_score>=0) *s=best;
     s->moves = 0;
     initial_warehouse17 = *s;
     warehouse_ready17 = 1;

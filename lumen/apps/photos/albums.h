@@ -80,3 +80,33 @@ static void photo_folder_choice(int target, int choice) {
         v1_photos_scan();
     }
 }
+
+static int photo_action_index;
+static void photo_actions_open(int index) {
+    static const char *actions[]={"Zu Ordner hinzufügen","Als Sperrbild verwenden"};
+    photo_action_index=index;
+    open_dropdown(940,actions,2,-1,28,188,400);
+}
+static void photo_set_lock(void) {
+    if (photo_action_index<0 || photo_action_index>=photo_count) return;
+    char name[256],path[2048];
+    snprintf(name,sizeof(name),"%s",photo_names[photo_action_index]);
+    snprintf(path,sizeof(path),"%s/lock-photo.txt",data_root);
+    if (atomic_write(path,name,strlen(name))) {
+        options[OPT_LOCK]=3;
+        library_options_save();
+        ui_message("Als Sperrbild gespeichert.");
+    }
+}
+
+static void photo_actions_choice(int choice) {
+    if (!choice) photo_open_folder_menu(1,photo_action_index);
+    else photo_set_lock();
+}
+
+static void photo_setting_choice(int target,int choice) {
+    int *value=target==941 ? &photo_catalog.fill : &photo_catalog.landscape;
+    int previous=*value;
+    *value=choice;
+    if (!photo_catalog_save()) *value=previous;
+}

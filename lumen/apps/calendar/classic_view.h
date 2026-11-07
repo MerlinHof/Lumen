@@ -4,17 +4,12 @@ static int calendar_draw16(void) {
     calendar_parse16();
     if (calendar_view16 == 2) {
         app_calendar();
-
-        const char *names[] = {"Tag", "Woche", "Monat", "Jahr"};
-        dropdown_button(250, 74, 145, 44, names[calendar_view16]);
         return 1;
     }
-    heading_actions("Kalender", 2);
+    calendar_header();
 
     icon_button(468, 74, IC_TODAY);
     icon_button(528, 74, IC_NOTE_PLUS);
-    const char *names[] = {"Tag", "Woche", "Monat", "Jahr"};
-    dropdown_button(250, 74, 145, 44, names[calendar_view16]);
     char b[100];
     snprintf(b, 100, "%02d.%02d.%04d", calendar_day, calendar_month, calendar_year);
     centered(90, 135, 420, 46, b, ui_font(UI_PRIMARY));

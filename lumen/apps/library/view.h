@@ -31,17 +31,17 @@ static void library_screen(void) {
     drawtext(28, last >= 0 && library_ui.listpage == 0 ? 326 : 76, "M E I N E  B Ü C H E R", ui_font(UI_SECONDARY), 420);
     for (int r = 0; r < per && begin + r < library_ui.view_count; r++) {
         Book *book = &library[library_ui.view[begin + r]];
-        int x = 28 + (r % 3) * 188, y = top + (r / 3) * 278;
-        region(x, y, 168, 274);
-        cover_size(book, x + 8, y, 140, 191);
+        int x = 28 + (r % 3) * 188, y = top + (r / 3) * library_row_height();
+        region(x, y, 168, library_row_height()-4);
+        cover_size(book, x, y, 164, 224);
         if (book->favorite) {
             control_surface(x + 109, y + 7, 32, 32, 7, 255);
             icon_sized(x + 111, y + 9, IC_PIN, 28);
         }
-        wrapped_raw(x + 8, y + 195, book->title, ui_font(UI_BODY), 164, 2);
+        wrapped_raw(x + 8, y + 229, book->title, ui_font(UI_BODY), 164, 2);
         {
             char author[256];
-            drawtext_raw(x + 8, y + 250, author_label(book->author, author, sizeof(author)),
+            drawtext_raw(x + 8, y + 278, author_label(book->author, author, sizeof(author)),
                          ui_font(UI_SECONDARY), 164);
         }
     }

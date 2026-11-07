@@ -32,3 +32,5 @@ system/dictionary.c
 apps/frog/app.c
 apps/slide_3d/app.c
 system/app_storage.c
+
+system/photo_image.c

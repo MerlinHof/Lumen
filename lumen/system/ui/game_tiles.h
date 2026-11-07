@@ -8,9 +8,7 @@ static void paper_sources_init17(void) {
     paper_ready17 = 1;
     for (int y = 0; y < 32; y++)
         for (int x = 0; x < 32; x++) {
-            int at = y * 32 + x, floor = (x == 0 || y == 0) ? 220 : 248;
-            if (x > 1 && y > 1 && (x * 13 + y * 7) % 113 == 0)
-                floor = 240;
+            int at = y * 32 + x, floor = 255;
             for (int t = 0; t < 10; t++)
                 paper_sources17[t][at] = floor;
             int row = y / 8, xx = (x + (row % 2) * 8) % 16, yy = y % 8,

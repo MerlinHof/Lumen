@@ -40,7 +40,7 @@ static void input_tests18(void) {
     snprintf(tasks[0].title,200,"One line");snprintf(tasks[1].title,200,"First line\nSecond line\nThird line");tasks[0].state=0;tasks[1].state=2;
     route_to(74);ui_draw();tasks_layout18();assert(task_rows_count18==1);task_tab=1;tasks_layout18();assert(task_rows_count18==1&&task_rows18[0].h>68);
     shot17("tasks-multiline");Input edit_task={.kind=INPUT_TAP,.x=100,.y=task_rows18[0].y+15};ui_input(&edit_task);
-    assert(editor_ui.keyboard&&editor_ui.keyboard_target==180&&keyboard_multiline());assert(strstr(editor_ui.edit,"Second line"));
+    assert(editor_ui.keyboard&&editor_ui.keyboard_target==180&&!keyboard_multiline());assert(strstr(editor_ui.edit,"Second line"));
     editor_ui.note_cursor=strlen(editor_ui.edit);keyboard_insert("\nFourth line");commit_keyboard();assert(strstr(tasks[1].title,"Fourth line"));
     open_keyboard(0,"Search","");ui_draw();
     int i=keyboard_hit18(35,580);assert(i>=0);Input down={.kind=INPUT_DOWN,.x=35,.y=580};Input tap={.kind=INPUT_TAP,.x=35,.y=580};

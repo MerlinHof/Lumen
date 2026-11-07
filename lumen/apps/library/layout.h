@@ -14,3 +14,5 @@ static int library_pages(void) {
     return featured() >= 0 ? 1 + (library_ui.view_count > 3 ? (library_ui.view_count - 3 + 5) / 6 : 0)
                            : (library_ui.view_count ? (library_ui.view_count + 5) / 6 : 1);
 }
+
+static int library_row_height(void) { return library_per()==3 ? 354 : 304; }

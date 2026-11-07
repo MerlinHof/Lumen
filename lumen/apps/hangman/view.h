@@ -31,7 +31,7 @@ static void app_hangman(void) {
             xx = (600 - cols * 54) / 2 + col * 54, y = 455 + row * 58;
         char key[2] = {(char)('A' + i), 0};
         if (word_game.guesses & (1u << i)) {
-            rect(xx, y, 48, 48, 220);
+            control_surface(xx, y, 48, 48, RADIUS_MEDIUM, 220);
             centered(xx, y, 48, 48, key, ui_font(UI_BODY));
         } else
             button_h(xx, y, 48, 48, key, 0);

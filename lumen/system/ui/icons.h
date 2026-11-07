@@ -13,6 +13,15 @@ static void icon_chevron(int cx, int cy, int direction) {
 static void icon_native(int x, int y, int kind) {
     int c = x + 22, d = y + 22;
     switch (kind) {
+    case IC_DISH:
+        ui_paint_ellipse(c,d+8,17,6,0);
+        ui_paint_ellipse(c,d+6,14,4,255);
+        aa_arc(c,d+5,12,180,360,3);
+        aa_disc(c-3,d,4,0);
+        stroke(c+2,d-3,c+9,d-6,3);
+        stroke(c-10,y+9,c-11,y+15,2);
+        stroke(c,y+5,c-1,y+12,2);
+        break;
     case IC_FLAG_FILLED:
         stroke(x+12,y+35,x+12,y+8,3);
         if (kind == IC_FLAG_FILLED) control_surface(x+12,y+8,22,15,3,0);
@@ -158,7 +167,6 @@ static void icon_native(int x, int y, int kind) {
     case IC_ROTATE_PHOTO:
     case IC_RESTART:
     case IC_REBOOT:
-    case IC_HISTORY:
     case IC_UNDO:
         if (kind == IC_UNDO || kind == IC_HISTORY) {
             aa_arc(c, d, 14, 210, 360, 3);
@@ -176,9 +184,17 @@ static void icon_native(int x, int y, int kind) {
             stroke(c, d, x + 28, y + 26, 3);
         }
         break;
+    case IC_HISTORY:
+        aa_arc(c+2,d+1,14,215,360,3);
+        aa_arc(c+2,d+1,14,0,175,3);
+        stroke(x+7,y+9,x+7,y+20,3);
+        stroke(x+7,y+20,x+17,y+20,3);
+        stroke(c+2,d+1,c+2,d-7,3);
+        stroke(c+2,d+1,c+9,d+5,3);
+        break;
     case IC_FLAG:
         stroke(x + 12, y + 5, x + 12, y + 39, 3);
-        control_surface(x + 12, y + 6, 24, 17, 4, 0);
+        outline_surface(x + 12, y + 6, 24, 17, 3, 0);
         break;
     case IC_CLOSE:
         stroke(x + 12, y + 12, x + 32, y + 32, 3);

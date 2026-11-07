@@ -347,7 +347,7 @@ static int recipes_draw17(void) {
                      recipes17[i].lang);
         else
             snprintf(source, sizeof(source), "%s", tr("Offline verfügbar"));
-        list_row(28, y, 544, 80, IC_BOOK, 0,
+        list_row(28, y, 544, 80, IC_DISH, 0,
                  recipe_search16 ? recipes17[i].title : recipe_recent16[i].title, source, ui_font(UI_BODY),
                  2);
     }

@@ -1,6 +1,8 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 static void maze_new17(void) {
     memset(maze17, 1, sizeof(maze17));
+    memset(maze_trace17,0,sizeof(maze_trace17));
+    maze_trace17[34]=1;
     int stack[300], top = 0;
     stack[top++] = 34;
     maze17[34] = 0;
@@ -31,6 +33,7 @@ static void maze_step17(int dx, int dy, int steps) {
             break;
         maze_x17 = x;
         maze_y17 = y;
+        maze_trace17[y*33+x]=1;
         maze_moves17++;
         if (x == 31 && y == 33) {
             maze_win17 = 1;

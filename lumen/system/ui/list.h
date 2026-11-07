@@ -21,7 +21,7 @@ static ListLayout list_layout(int x, int y, int w, int h, int leading, int trail
         top + primary + 6,
         secondary,
         w - (leading ? 56 : 2) - trailing - 10,
-        (top + (line_height - 44) / 2 < y + 4 ? y + 4 : top + (line_height - 44) / 2),
+        y + (h - 44) / 2,
         y + (h - 44) / 2};
 }
 static int list_text(int x, int y, int width, const char *text, const Font *font, int limit) {

@@ -416,17 +416,20 @@ int network_disconnect(void) {
     char out[1024];
     return command("DISCONNECT", out, sizeof(out));
 }
-void network_status(char *ssid, int size) {
+int network_status(char *ssid, int size) {
     char out[4096];
     ssid[0] = 0;
     if (!command("STATUS", out, sizeof(out)))
-        return;
+        return -1;
+    if (!strstr(out,"wpa_state=")) return -1;
+    if (!strstr(out,"wpa_state=COMPLETED")) return 0;
     char *state, *line = strtok_r(out, "\n", &state);
     while (line) {
         if (!strncmp(line, "ssid=", 5))
             decode_ssid(line + 5, ssid, (size_t)size);
         line = strtok_r(NULL, "\n", &state);
     }
+    return 1;
 }
 
 static int firmware_profile(const char *property, const char *ssid) {

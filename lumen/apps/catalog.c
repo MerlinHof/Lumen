@@ -90,7 +90,7 @@ static const AppRoute routes[] = {
     {117, APP_KNIGHTS},    {118, APP_SOKOBAN},       {119, APP_MAZE},
     {120, APP_CROSSWORD},             {122, APP_LLM}, {128, APP_LLM},
     {123, APP_LLM},        {125, APP_PLANETARIUM},   {126, APP_JOURNAL},
-    {127, APP_STUDY}, {129, APP_SIGNAL}, {130, APP_FROG}, {131, APP_HOME}, {132, APP_LIBRARY}, {133, APP_FILE_TRANSFER}, {134, APP_FILE_TRANSFER}};
+    {127, APP_STUDY}, {129, APP_SIGNAL}, {130, APP_FROG}, {131, APP_HOME}, {132, APP_LIBRARY}, {133, APP_FILE_TRANSFER}};
 const AppDefinition *app_definition(AppId id) {
     return id >= 0 && id < APP_COUNT ? &definitions[id] : 0;
 }

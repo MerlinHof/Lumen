@@ -5,11 +5,11 @@ static const char *fonts[] = {"Charis", "Sans Serif", "Monospace", "Times", "Not
 static const char *alignments[] = {"Linksbündig", "Blocksatz"};
 static const char *tapzones[] = {"Links / rechts", "Mehr Platz vorwärts"};
 static const char *lockmodes[] = {"Buchcover", "Buchcover · Vollbild", "Uhrzeit",
-                                  "Ruhiger Text", "Eigenes Bild", "Fotos · stündlich"};
-static const int lock_mode_ids[6] = {0,5,2,1,3,4};
+                                  "Ruhiger Text", "Fotos · stündlich"};
+static const int lock_mode_ids[5] = {0,5,2,1,4};
 static int lock_mode_row(void) {
-    for (int i=0;i<6;i++) if (lock_mode_ids[i] == options[OPT_LOCK]) return i;
-    return 0;
+    for (int i=0;i<5;i++) if (lock_mode_ids[i] == options[OPT_LOCK]) return i;
+    return -1;
 }
 static const char *languages[] = {"Deutsch", "English", "Français"};
 static const char *app_icon_styles[] = {"Klassisch", "Graviert"};
@@ -35,7 +35,7 @@ static SettingRow setting_rows[] = {
     {"Cover zuschneiden", 1, OPT_COVER_CROP, 0, 1, 1, NULL, 0},
     {"App-Symbole", 1, OPT_APP_ICON_STYLE, 0, 1, 1, app_icon_styles, 2},
     {"Abgerundete Ecken", 1, OPT_ROUNDING, 0, 1, 1, NULL, 0},
-    {"Sperrbild", 1, OPT_LOCK, 0, 5, 1, lockmodes, 6},
+    {"Sperrbild", 1, OPT_LOCK, 0, 5, 1, lockmodes, 5},
     {"Sperrbild-Hinweis", 1, OPT_LOCK_HINT, 0, 1, 1, NULL, 0},
     {"Wischen zum Blättern", 3, OPT_SWIPE, 0, 1, 1, NULL, 0},
     {"Tippzonen", 3, OPT_TAP, 0, 1, 1, tapzones, 2},

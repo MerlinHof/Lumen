@@ -1,38 +1,38 @@
-# Wireless updates
+# Custom app installation over Wi-Fi
 
-LUMEN 3.7 adds a local update flow in File Transfer. Install 3.7 over USB once
-to put the update-aware launcher on the Kindle. Wireless updates replace the
-LUMEN executable only. Releases that change fonts, images, the launcher or
-other bundled files still use the USB installer.
+Starting in 3.9, File Transfer's web page includes **Install custom apps**.
+Open the server on the Kindle, pair from a phone or computer, and create a
+prompt for an AI coding agent. The prompt includes the live address and
+temporary pairing code, the installed version, the source repository, build
+steps, UI conventions, icon guidance and installation endpoints.
 
-1. Get a compatible `.lumen-update` file and its SHA-256 checksum from a
-   trusted source. Keep the checksum on the computer or phone for comparison.
-2. Start the server in File Transfer on the Kindle. Pair in the browser,
-   open **Update** and upload the file.
-3. Open **Wireless update** in File Transfer on the Kindle. Compare both
-   displayed lines with the trusted checksum. Approve only if all 64
-   characters match. The browser connection is local HTTP, and the pairing
-   code controls access only. It does not authenticate software publishers.
-4. Open LUMEN again to try the update. When satisfied, choose **Keep this
-   version** in the same panel. To restore the previous version, exit the
-   trial and open LUMEN again. The launcher also restores it after a failed
-   process or if a trial ends before it is kept.
+Describe the app at the end of the prompt and give it to your agent. The agent
+adds an app to the native LUMEN executable. Apps currently share a process.
+This is not a sandboxed plugin system. Keep the pairing code private and
+install code only from an agent or source you trust.
 
-The server can only stage a bounded ARM executable in a dedicated directory.
-The launcher rechecks the approved SHA-256 before swapping files and retains
-one previous executable until the trial is kept or rolled back. The updater
-never writes to the book or personal data directories.
+The agent builds a compatible executable-only package, verifies its local
+SHA-256 against the upload receipt and requests installation. LUMEN saves its
+state and restarts into the trial. The old executable is retained. After trying
+the app, open File Transfer again and pair with its new code. Use the web panel
+to keep the trial or restore the previous version. An unkept trial is restored
+on the next launch, including after a reboot.
 
-## Packaging a compatible update
+The package helper checks that every non-executable runtime file still matches
+the installed bundle. If scripts, fonts or other assets change, use the USB
+installer. New custom icon pixels can be embedded in the app's source.
+The server only stages a bounded ARM executable and only a paired session may
+request installation. Books and personal content are outside the update paths.
 
-Build and package the release normally. With the previous installed bundle
-and the target bundle unpacked, run:
+## For developers
 
-```sh
-python3 tools/wireless-update.py dist/LUMEN-3.7 dist/LUMEN-3.8
-```
+Read the full generated guide in
+[lumen/assets/web/custom-app-guide.txt](../lumen/assets/web/custom-app-guide.txt).
 
-The helper refuses changes to other runtime files or the hardware target.
-It produces the browser upload and a separate checksum file. Distribute the
-checksum through a source the user trusts independently of the transfer
-server. There is no automatic download or publisher signing in this flow.
+Run python3 tools/wireless-update.py with the installed and target bundle folders.
+
+Authenticate requests with the current pairing code. PUT package bytes to
+/api/custom-app, compare the returned SHA-256 with the local checksum, then POST
+/api/custom-app/install?sha256=<checksum>. Status, keep and rollback use
+/api/custom-app/status, /api/custom-app/keep and /api/custom-app/rollback.
+The server closes during activation.

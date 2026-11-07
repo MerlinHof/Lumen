@@ -16,6 +16,7 @@ static Hangman word_game;
 static Blocks block_game;
 static Snake snake_game;
 static int apps_dirty, app_ready[7], mine_flags, mine_release, mine_recorded, word_recorded;
+static int calendar_view16=2;
 static int calendar_year, calendar_month, calendar_day;
 static char calendar_note[512];
 static unsigned calendar_note_days;

@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "device.h"
+#include "network.h"
 #include "refresh.h"
 #include <errno.h>
 #include <fcntl.h>
@@ -190,7 +191,14 @@ void device_status(char *battery, int cap, char *wifi, int nc) {
     getprop("com.lab126.powerd", "battLevel", battery, cap);
     char state[64] = "";
     getprop("com.lab126.wifid", "cmState", state, sizeof(state));
-    snprintf(wifi, (size_t)nc, "%s", !strcmp(state, "CONNECTED") ? "WLAN" : "Offline");
+    char ssid[128] = "";
+    int connection=network_status(ssid,sizeof(ssid));
+    if (connection>=0)
+        snprintf(wifi,(size_t)nc,"%s",connection ? "WLAN" : "Offline");
+    else if (!strcasecmp(state,"CONNECTED"))
+        snprintf(wifi,(size_t)nc,"WLAN");
+    else if (!*wifi)
+        snprintf(wifi,(size_t)nc,"Offline");
 }
 int device_charging(void) {
     char value[16];

@@ -15,16 +15,16 @@ static void tasks_layout18(void) {
     task_pages18 = 1;
     int max_pages = 1;
     for (int col = 0; col < (task_board ? 2 : 1); col++) {
-        int y = task_board ? 195 : 201, page18 = 0;
+        int y = task_board ? 195 : 137, page18 = 0;
         for (int order = 0; order < task_count*2; order++) {
             int i = task_count - 1 - order % task_count;
             if (!!(tasks[i].state & TASK_FLAG) != (order < task_count)) continue;
-            if (!!(tasks[i].state & TASK_DONE) != (task_board ? col : task_tab)) continue;
+            if ((!!(tasks[i].state & TASK_DONE) ^ (!task_board && task_recent_done[i])) != (task_board ? col : task_tab)) continue;
             int h = task_text_height(i, task_board ? 148 : 365) + 22;
             if (h < 68) h = 68;
-            if (y + h > 720 && y > (task_board ? 195 : 201)) {
+            if (y + h > 720 && y > (task_board ? 195 : 137)) {
                 page18++;
-                y = task_board ? 195 : 201;
+                y = task_board ? 195 : 137;
             }
             if (page18 == task_page && task_rows_count18 < 256)
                 task_rows18[task_rows_count18++] =
@@ -41,14 +41,13 @@ static void tasks_layout18(void) {
     }
 }
 static void tasks_draw18(void) {
-    heading_actions("ToDo", 2);
     icon_button(528, 74, IC_PLUS);
     icon_button(468, 74, IC_GRID);
     const char *tabs[] = {"ToDo", "Erledigt"};
     if (task_tab > 1)
         task_tab = 1;
     if (!task_board)
-        segments(28, 137, 544, 44, tabs, 2, task_tab);
+        segments(28, 74, 410, 44, tabs, 2, task_tab);
     else {
         centered(28, 139, 262, 44, "ToDo", ui_font(UI_PRIMARY));
         centered(310, 139, 262, 44, "Erledigt", ui_font(UI_PRIMARY));
@@ -82,6 +81,11 @@ static int tasks_input18(const Input *in) {
     if (in->kind != INPUT_TAP)
         return 2;
     int x = in->x, y = in->y;
+    if (!task_board && y >= 74 && y < 118 && x >= 28 && x < 438) {
+        task_tab=(x-28)*2/410;
+        task_page=0;
+        return 1;
+    }
     if (y >= 74 && y < 118) {
         if (x >= 516)
             open_keyboard(110, "Neue Aufgabe", "");
@@ -90,13 +94,6 @@ static int tasks_input18(const Input *in) {
             task_tab = 0;
             task_page = 0;
         }
-        return 1;
-    }
-    if (!task_board && y >= 137 && y < 181 && x >= 28 && x < 572) {
-        task_tab = (x - 28) / (544 / 2);
-        if (task_tab > 1)
-            task_tab = 1;
-        task_page = 0;
         return 1;
     }
     tasks_layout18();
@@ -108,6 +105,7 @@ static int tasks_input18(const Input *in) {
         if (x >= row.x + (task_board ? 8 : 1) && x < row.x + (task_board ? 52 : 45) &&
             y >= row.y + row.h/2 - 24 && y < row.y + row.h/2 + 24) {
             tasks[i].state ^= TASK_DONE;
+            if (!task_board && task_tab == 0) task_recent_done[i]=!!(tasks[i].state & TASK_DONE);
             tasks_save();
         } else if (!task_board && x >= 510)
             v1_delete = 1000 + i;

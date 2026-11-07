@@ -10,16 +10,16 @@ static const char *reader_labels[] = {
 static void settings_screen(void) {
     heading("Lesen");
     drawtext(30, 121, reader_ui.reading_page ? "Abstände & Gesten" : "Schrift & Satz", ui_font(UI_SECONDARY), 540);
-    for (int row = 0; row < 6 && reader_ui.reading_page * 6 + row < 10; row++) {
-        int id = reader_ui.reading_page * 6 + row, y = 155 + row * 84;
-        form_label(30, y, 310, 44, reader_labels[id]);
+    for (int row = 0; row < 8 && reader_ui.reading_page * 8 + row < 10; row++) {
+        int id = reader_ui.reading_page * 8 + row, y = 155 + row * 68;
+        form_label(30, y, 312, 48, reader_labels[id]);
         if (id == 0 || id == 4 || id == 8) {
             const char *value = id == 0   ? reader_families[options[OPT_FONT] % 5]
                                 : id == 4 ? reader_align[options[OPT_ALIGN] % 2]
                                           : reader_zones[options[OPT_TAP] % 2];
-            dropdown_button(350, y, 222, 44, value);
+            dropdown_button(360, y, 210, 48, value);
         } else if (id == 9)
-            dropdown_button(350, y, 222, 44, progress15[options[OPT_PROGRESS] ? reader_ui.reader_progress_mode : 5]);
+            dropdown_button(360, y, 210, 48, progress15[options[OPT_PROGRESS] ? reader_ui.reader_progress_mode : 5]);
         else if (id == 7)
             toggle(492, y + 6, options[OPT_SWIPE]);
         else {
@@ -36,7 +36,7 @@ static void settings_screen(void) {
             centered(444, y, 78, 44, value, ui_font(UI_BODY));
             button_h(524, y, 48, 44, "+", 0);
         }
-        divider(28, y + 66, 544);
+        divider(28, y + 62, 544);
     }
     pager(745, &reader_ui.reading_page, 2);
 }
@@ -48,13 +48,13 @@ static void reading_input(const Input *in) {
         reader_ui.reading_page = x >= 300 ? 1 : 0;
         return;
     }
-    if (y < 155 || y >= 659)
+    if (y < 155 || y >= 699)
         return;
-    int row = (y - 155) / 84, id = reader_ui.reading_page * 6 + row, top = 155 + row * 84;
-    if (id >= 10 || y >= top + 44)
+    int row = (y - 155) / 68, id = reader_ui.reading_page * 8 + row, top = 155 + row * 68;
+    if (id >= 10 || y >= top + 48)
         return;
     if (id == 0 || id == 4 || id == 8) {
-        if (x < 350)
+        if (x < 360)
             return;
         int opt = id == 0 ? OPT_FONT : id == 4 ? OPT_ALIGN : OPT_TAP;
         const char **labels = id == 0 ? reader_families : id == 4 ? reader_align : reader_zones;
@@ -62,7 +62,7 @@ static void reading_input(const Input *in) {
         return;
     }
     if (id == 9) {
-        if (x >= 350)
+        if (x >= 360)
             open_dropdown(916, progress15, 7, options[OPT_PROGRESS] ? reader_ui.reader_progress_mode : 5,
                           220, top + 50, 350);
         return;

@@ -1,7 +1,7 @@
 /* App view and event dispatch. Status and tab bars own their views in their app modules. */
 static void app_render(void) {
     if (ui_route() == 132) { more_settings(); return; }
-    if ((ui_route() == 133 || ui_route() == 134)) { transfer_draw(); return; }
+    if (ui_route() == 133) { transfer_draw(); return; }
     if (app_page_draw(ui_route())) return;
     if (ui_route() >= 60) {
         new_apps_draw();
@@ -69,7 +69,7 @@ static void app_render(void) {
 }
 static int app_handle_input(const Input *in) {
     if (ui_route() == 132) { settings_input(in); return 1; }
-    if ((ui_route() == 133 || ui_route() == 134)) return transfer_input(in);
+    if (ui_route() == 133) return transfer_input(in);
     int x = in->x, y = in->y, old = ui_route();
     int handled = app_page_input(ui_route(), in);
     if (handled >= 0) return handled;
@@ -114,8 +114,8 @@ static int app_handle_input(const Input *in) {
                 library_ui.listpage++;
         } else if (featured() >= 0 && library_ui.listpage == 0 && y >= 80 && y < 312)
             app_read_book(featured());
-        else if (y >= library_top() && y < 679 && x >= 28 && x < 572) {
-            int slot = ((y - library_top()) / 278) * 3 + (x - 28) / 188,
+        else if (y >= library_top() && y < 733 && x >= 28 && x < 572) {
+            int slot = ((y - library_top()) / library_row_height()) * 3 + (x - 28) / 188,
                 idx = library_begin() + slot;
             if (slot >= 0 && slot < library_per() && idx < library_ui.view_count)
                 app_read_book(library_ui.view[idx]);

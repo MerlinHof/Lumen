@@ -98,7 +98,8 @@ static void v1_draw(void) {
         v1_folder_picker_draw();
         break;
     case 85:
-        v1_markdown_draw();
+        reader_markdown17("Notizen",note_text,30);
+        reader();
         break;
     case 86:
         v1_archive_draw();
@@ -111,7 +112,7 @@ static void v1_draw(void) {
         break;
     case 92:
         heading("Sperrbild");
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < 5; i++)
             button_h(28, 154 + i * 86, 544, 65, lockmodes[i], options[OPT_LOCK] == lock_mode_ids[i]);
         break;
     case 93:
@@ -164,6 +165,7 @@ static int v1_commit(int target, const char *text) {
     if (target == 110) {
         if (*text && task_count < 256) {
             snprintf(tasks[task_count].title, 200, "%s", text);
+            task_recent_done[task_count]=0;
             tasks[task_count].created = time(NULL);
             tasks[task_count++].state = 0;
             task_page = task_tab = 0;
@@ -350,7 +352,9 @@ static int v1_input(const Input *in) {
                     int i = v1_delete - 1000;
                     if (i < task_count) {
                         memmove(&tasks[i], &tasks[i + 1], (task_count - i - 1) * sizeof(tasks[0]));
+                        memmove(task_recent_done+i,task_recent_done+i+1,(size_t)(task_count-i-1));
                         memset(&tasks[--task_count], 0, sizeof(tasks[0]));
+                        task_recent_done[task_count]=0;
                         tasks_save();
                     }
                 }
@@ -575,7 +579,7 @@ static int v1_input(const Input *in) {
     case 83: {
         int indices[APP_COUNT], count = launcher_manage_indices(indices);
         if (y >= 174 && y < 650) {
-            int pos = launcher_settings_page * 7 + (y - 174) / 68;
+            int pos = launcher_settings_page * 8 + (y - 174) / 68;
             if (pos < count) {
                 int i = indices[pos], id = launcher_order[i];
                 if (x >= 460)
@@ -594,7 +598,7 @@ static int v1_input(const Input *in) {
         } else if (y >= 745 && y < 789) {
             if (x < 300 && launcher_settings_page)
                 launcher_settings_page--;
-            else if (x >= 300 && (launcher_settings_page + 1) * 7 < count)
+            else if (x >= 300 && (launcher_settings_page + 1) * 8 < count)
                 launcher_settings_page++;
         }
         break;
@@ -654,9 +658,9 @@ static int v1_input(const Input *in) {
         settings_input(in);
         break;
     case 92:
-        if (y >= 154 && y < 670) {
+        if (y >= 154 && y < 584) {
             int i = (y - 154) / 86;
-            if (i < 6) {
+            if (i < 5) {
                 options[OPT_LOCK] = lock_mode_ids[i];
                 ui_save();
             }

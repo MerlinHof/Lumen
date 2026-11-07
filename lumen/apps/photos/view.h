@@ -69,14 +69,10 @@ static void polish_photos_grid(void) {
         const char *formats[] = {"Hochformat", "Querformat"};
         char seconds[32];
         snprintf(seconds, sizeof(seconds), "%d s", photo_catalog.seconds);
-        type_label(28, 143, 544, 54, "Diashow", UI_HEADING);
-        type_label(28, 221, 240, 44, "Dauer pro Foto", UI_PRIMARY);
-        dropdown_button(335, 221, 237, 44, seconds);
-        type_label(28, 292, 544, 38, "Bildformat", UI_PRIMARY);
-        segments(28, 337, 544, 48, fits, 2, photo_catalog.fill);
-        type_label(28, 411, 544, 38, "Bildausrichtung", UI_PRIMARY);
-        segments(28, 456, 544, 48, formats, 2, photo_catalog.landscape);
-        wrapped(28, 555, "Tippe während der Diashow, um zum Ordner zurückzukehren.", ui_font(UI_SECONDARY), 544, 3);
+        select_row17(203,"Dauer pro Foto",seconds);
+        select_row17(271,"Bildformat",fits[photo_catalog.fill]);
+        select_row17(339,"Bildausrichtung",formats[photo_catalog.landscape]);
+        wrapped(30,435,"Tippe während der Diashow, um zum Ordner zurückzukehren.",ui_font(UI_SECONDARY),540,3);
         return;
     }
     dropdown_button(28, 133, 328, 44,
@@ -143,17 +139,15 @@ static void photo_grid_input(int x, int y) {
         return;
     }
     if (photo_settings) {
-        if (y >= 221 && y < 265 && x >= 335) {
-            static const char *times[] = {"5 s", "10 s", "20 s", "30 s", "60 s", "120 s"};
-            open_dropdown(905, times, 6, -1, 335, 270, 237);
-        } else if (y >= 337 && y < 385 && x >= 28 && x < 572) {
-            int old = photo_catalog.fill;
-            photo_catalog.fill = x >= 300;
-            if (!photo_catalog_save()) photo_catalog.fill = old;
-        } else if (y >= 456 && y < 504 && x >= 28 && x < 572) {
-            int old = photo_catalog.landscape;
-            photo_catalog.landscape = x >= 300;
-            if (!photo_catalog_save()) photo_catalog.landscape = old;
+        if (x>=360 && x<572 && y>=203 && y<251) {
+            static const char *times[]={"5 s","10 s","20 s","30 s","60 s","120 s"};
+            open_dropdown(905,times,6,-1,360,256,210);
+        } else if (x>=360 && x<572 && y>=271 && y<319) {
+            static const char *fits[]={"Einpassen","Ausfüllen"};
+            open_dropdown(941,fits,2,photo_catalog.fill,360,324,210);
+        } else if (x>=360 && x<572 && y>=339 && y<387) {
+            static const char *formats[]={"Hochformat","Querformat"};
+            open_dropdown(942,formats,2,photo_catalog.landscape,360,392,210);
         }
         return;
     }
@@ -267,8 +261,17 @@ static int polish_photo_input(const Input *in) {
         } else if (x > 500 && photo_selected + 1 < photo_count) {
             photo_selected++;
             photo_rotation = 0;
-        } else if (x >= 135 && x < 210)
-            photo_rotation = (photo_rotation + 1) % 4;
+        } else if (x >= 135 && x < 210) {
+            char path[2048], thumb[2048];
+            snprintf(path,sizeof(path),"%s/photos/%s",data_root,photo_names[photo_selected]);
+            snprintf(thumb,sizeof(thumb),"%s/photos/.thumbs/%s",data_root,photo_names[photo_selected]);
+            if (photo_image_rotate(path)) {
+                unlink(thumb);
+                photo_scan_generation++;
+                photo_loaded[0]=photo_bounds_key[0]=0;
+                photo_rotation=0;
+            } else ui_message("Speichern fehlgeschlagen.");
+        }
         else if (x >= 216 && x < 260)
             photo_open_folder_menu(1, photo_selected);
         else if (x >= 278 && x < 322)

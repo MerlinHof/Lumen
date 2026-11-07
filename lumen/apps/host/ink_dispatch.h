@@ -52,14 +52,12 @@ static void u15_reader_progress(void) {
 static int u15_draw(void) {
     if (ui_route() == 100) {
         heading("Rechner · Einstellungen");
-        select_row17(155, "Winkelmaß", calc_degrees ? "DEG" : "RAD");
-        select_row17(245, "Ergebnisstellen",
+        select_row17(203, "Winkelmaß", calc_degrees ? "DEG" : "RAD");
+        select_row17(271, "Ergebnisstellen",
                      calc_precision16 == 6    ? "6"
                      : calc_precision16 == 15 ? "15"
                                               : "10");
-        button_h(28, 460, 544, 52, "Verlauf öffnen", 0);
-        button_h(28, 530, 544, 52, "Verlauf löschen", 0);
-        button_h(28, 600, 544, 52, "Speicher löschen", 0);
+        button_h(28, 367, 544, 48, "Verlauf löschen", 0);
         return 1;
     }
     if (ui_route() == 101) {
@@ -168,24 +166,20 @@ static int u15_input(const Input *in) {
         return 1;
     }
     if (ui_route() == 100) {
-        if (y >= 155 && y < 203 && x >= 300) {
+        if (y >= 203 && y < 251 && x >= 360) {
             static const char *t[] = {"DEG", "RAD"};
             open_dropdown(931, t, 2, !calc_degrees, 300, 208, 272);
-        } else if (y >= 245 && y < 293 && x >= 300) {
+        } else if (y >= 271 && y < 319 && x >= 360) {
             static const char *p[] = {"6", "10", "15"};
             open_dropdown(919, p, 3,
                           calc_precision16 == 6    ? 0
                           : calc_precision16 == 15 ? 2
                                                    : 1,
                           300, 298, 272);
-        } else if (y >= 460 && y < 512) {
-            extra_page = 0;
-            extra_open(42);
-        } else if (y >= 530 && y < 582) {
+        } else if (y >= 367 && y < 415) {
             calc_history_count = 0;
             extra_write_text("calculator-history.txt", "");
-        } else if (y >= 600 && y < 652)
-            calc_memory = 0;
+        }
         return y >= 120 ? 1 : -1;
     }
     if (ui_route() == 101 && !editor_ui.keyboard && !dropdown && y < 48 && x < 62) {

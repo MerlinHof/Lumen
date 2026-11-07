@@ -112,6 +112,7 @@ static void games_save17(void) {
         int state[] = {maze_x17, maze_y17, maze_moves17};
         memcpy(b + sizeof(maze17), state, 12);
         app_state_save("maze17.bin", b, sizeof(b));
+        app_state_save("maze-trace.bin",maze_trace17,sizeof(maze_trace17));
     }
 }
 static int u17_games_draw(void) {
@@ -158,7 +159,11 @@ static int u17_games_draw(void) {
         icon_button(528, 74, IC_RESTART);
         for (int y = 0; y < 35; y++)
             for (int x = 0; x < 33; x++)
-                paper_tile17(36 + x * 16, 140 + y * 16, 16, maze17[y * 33 + x] ? 1 : 0);
+                {
+                    paper_tile17(36+x*16,140+y*16,16,maze17[y*33+x] ? 1 : 0);
+                    if (maze_trace17[y*33+x] && !maze17[y*33+x])
+                        aa_disc(44+x*16,148+y*16,2,136);
+                }
         paper_tile17(36 + 31 * 16, 140 + 33 * 16, 16, 9);
         paper_tile17(36 + maze_x17 * 16, 140 + maze_y17 * 16, 16, 4);
         region(36, 140, 528, 560);

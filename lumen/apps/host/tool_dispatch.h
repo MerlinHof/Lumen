@@ -223,6 +223,7 @@ static void extra_commit(int target, const char *text) {
 
 #include "../timer/input.h"
 static int extra_input(const Input *in) {
+    if (ui_route()==60) return sensor_graph_input(in);
     int x = in->x, y = in->y;
     if (ui_route() == 48 || ui_route() == 49 || ui_route() == 50)
         return games_input(in);
@@ -367,7 +368,7 @@ static int extra_input(const Input *in) {
         return v1_notes_input(in);
     if (ui_route() == 30) {
         if (y >= 54 && y < 98 && x >= 524) {
-            extra_open(85);
+            reader_markdown17("Notizen",note_text,30);
             return 1;
         }
         if (y >= 54 && y < 740) {
@@ -413,12 +414,12 @@ static int extra_input(const Input *in) {
         else if (ha_select && y >= 187 && y < 235) {
             open_keyboard(61, "Geräte suchen", ha_search);
         } else if ((ha_select ? y >= 250 && y < 658
-                              : y >= 198 && y < 660 && ((y - 198) % 154 < 140) &&
+                              : y >= 148 && y < 708 && ((y - 148) % 140 < 126) &&
                                     (x < 290 || x >= 310)) &&
                    x >= 28 && x < 572) {
             int v[512], n = ha_visible(v);
-            int cell = ha_select ? (y - 250) / 68 : ((y - 198) / 154) * 2 + (x >= 310);
-            int row = ha_page * 6 + cell;
+            int cell = ha_select ? (y - 250) / 68 : ((y - 148) / 140) * 2 + (x >= 310);
+            int row = ha_page * (ha_select ? 6 : 8) + cell;
             if (row < n) {
                 HAEntity *e = &ha_entities[v[row]];
                 if (ha_select) {
@@ -449,7 +450,7 @@ static int extra_input(const Input *in) {
                 ha_page--;
             else if (x >= 300) {
                 int view[512], n = ha_visible(view);
-                if ((ha_page + 1) * 6 < n)
+                if ((ha_page + 1) * (ha_select ? 6 : 8) < n)
                     ha_page++;
             }
         }

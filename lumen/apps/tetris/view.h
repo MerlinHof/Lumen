@@ -1,6 +1,6 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 static void board_tile(int x, int y, int size, int color) {
-    rect(x + 1, y + 1, size - 2, size - 2, color);
+    control_surface(x + 1, y + 1, size - 2, size - 2, RADIUS_SMALL, color);
 }
 static void app_blocks(void) {
     heading("Tetris");
@@ -11,8 +11,7 @@ static void app_blocks(void) {
                                  : "Pause",
              0);
     int x0 = 28, y0 = 132, cell = 36;
-    rect(x0 - 1, y0 - 1, 362, 578, 170);
-    rect(x0, y0, 360, 576, 255);
+    outline_surface(x0 - 2, y0 - 2, 364, 580, RADIUS_MEDIUM, 128);
     for (int y = 0; y < 16; y++)
         for (int x = 0; x < 10; x++)
             if (block_game.board[y][x])

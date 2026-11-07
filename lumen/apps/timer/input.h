@@ -1,7 +1,7 @@
 static int clock_input(int x, int y) {
     if (ui_route() == 28) {
-        if (y >= 74 && y < 118 && x >= 166 && x < 572) {
-            timer_panel = (x - 166) * 3 / 406;
+        if (y >= 74 && y < 118 && x >= 28 && x < 572) {
+            timer_panel = (x - 28) * 3 / 544;
             return 1;
         }
         if (!timer_panel) {

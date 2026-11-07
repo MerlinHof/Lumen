@@ -1,6 +1,12 @@
 /* App-owned module; assembled by apps/host/compose.h. */
+static void calendar_header(void) {
+    const char *views[] = {"Tag", "Woche", "Monat", "Jahr"};
+    segments(28,74,410,44,views,4,calendar_view16);
+    icon_button(468,74,IC_TODAY);
+    icon_button(528,74,IC_NOTE_PLUS);
+}
 static void app_calendar(void) {
-    heading_width("Kalender", 194);
+    calendar_header();
     icon_button(468, 74, IC_TODAY);
     icon_button(528, 74, IC_NOTE_PLUS);
     const char *months[] = {"Januar", "Februar", "März",      "April",   "Mai",      "Juni",

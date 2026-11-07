@@ -344,3 +344,22 @@ The canonical source tree is `lumen/`. Use `python3 compile.py` for Kindle or
 `python3 compile.py host` for native preview. Device scripts, source manifests,
 packaging and tests live under `tools/`. The package mapping explicitly
 separates repository paths from on-device installation paths.
+
+## 3.9 interaction contracts
+
+Snake and Tetris only step after their monotonic simulation deadline, never on
+every INPUT_STATUS event. Status events may arrive for unrelated display and
+firmware work. An early event must not move a piece or request a new frame.
+
+Photos stores rotation in the raster itself, losslessly alternating 600x800 and
+800x600 files. Use system/photo_image for the shared display canvas. Invalidate
+native and web thumbnails after rotation. A selected lock photo is a reference
+to the photo's filename, so edits are reflected on the lock screen.
+Markdown previews use the shared Reader and system/markdown converter. Do not
+build an independent Markdown parser in Notes.
+
+Custom app installation is in the authenticated Connect web panel. Apps still
+compile into the shared LUMEN executable; this is not a dynamic plugin API.
+The generated AI guide describes append-only IDs, app lifecycle, shared UI,
+translations and embedded engraved icon artwork. Wireless installs only replace
+the executable and retain a trial rollback. Existing runtime assets must match.
