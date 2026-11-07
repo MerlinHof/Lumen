@@ -1,6 +1,27 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 #include "catalog.h"
 static unsigned photo_scan_generation;
+static void photo_seed_default(void) {
+    char marker[2048],source[2048],destination[2048];
+    local_path(marker,sizeof(marker),"photo-default-seeded");
+    if (!access(marker,F_OK)) return;
+    local_path(destination,sizeof(destination),"photos/LUMEN - Alpine Dawn.pgm");
+    if (!access(destination,F_OK)) { atomic_write(marker,"1",1);return; }
+    snprintf(source,sizeof(source),"%s/../photos/alpine-dawn.pgm",data_root);
+    FILE *file=fopen(source,"rb");
+#ifdef LUMEN_HOST
+    if (!file) file=fopen("lumen/assets/photos/alpine-dawn.pgm","rb");
+#endif
+    if (!file) return;
+    unsigned char *data=malloc(480064);
+    size_t n=data ? fread(data,1,480064,file) : 0;
+    int complete=!ferror(file) && feof(file);
+    fclose(file);
+    if (data && complete && n>480000 && !memcmp(data,"P5\n600 800\n255\n",15) &&
+        atomic_write(destination,data,n))
+        atomic_write(marker,"1",1);
+    free(data);
+}
 static void v1_photos_scan(void) {
     photo_catalog_load();
     photo_scan_generation++;
@@ -10,6 +31,7 @@ static void v1_photos_scan(void) {
     char path[2048];
     local_path(path, sizeof(path), "photos");
     mkdir(path, 0700);
+    photo_seed_default();
     DIR *d = opendir(path);
     if (!d)
         return;

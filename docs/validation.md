@@ -1,4 +1,4 @@
-# Validation · LUMEN 3.9
+# Validation · LUMEN 4.0
 
 ## 3.9 verification
 
@@ -161,3 +161,7 @@ The two round profiles share the same cached coverage raster path. The small
 frame-level difference between them is within the spread of the samples.
 The measurements cover raster CPU time on the Mac. Physical E-Ink refresh
 and Kindle input latency require hardware measurements.
+
+## 4.0 focused checks
+
+Connect is tested with idle and incomplete browser connections alongside active requests. CommonMark/GFM rules, tables and nested lists and the one-time Photos seed have targeted checks. Physical Wi-Fi reliability still requires confirmation on the device.

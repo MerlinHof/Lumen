@@ -250,7 +250,7 @@ static void ha_dashboard(void) {
         }
         widget_shape(x, y, 262, 126, RADIUS_LARGE, 3, 0);
         outline_surface(x, y, 262, 126, RADIUS_LARGE, 48);
-        label_ellipsis(x + 13, y + 8, 236, 32, e->name, ui_font(UI_PRIMARY), 0);
+        label_ellipsis(x + 13, y + 8, 236, 28, e->name, ui_font(UI_BODY), 0);
         if (e->sensor) {
             char v[100], value[72];
             char *end;

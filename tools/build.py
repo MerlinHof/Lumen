@@ -24,6 +24,9 @@ def build(target):
     for source in sources():
         obj=object_path(target,source);obj.parent.mkdir(parents=True,exist_ok=True);dep=obj.with_suffix('.d');signature=obj.with_suffix('.command.json')
         unit_flags=flags+(['-O2'] if target=='kindle' and source in ('system/ui/ui.c','system/device.c','system/unicode.c') else [])
+        if source=='system/markdown.c':
+            unit_flags += ['-DCMARK_GFM_STATIC_DEFINE'] + ['-I'+str(mupdf/path) for path in
+                ('thirdparty/cmark-gfm/src','scripts/cmark-gfm','thirdparty/cmark-gfm/extensions')]
         cmd=compiler+unit_flags+['-MMD','-MF',str(dep),'-c',str(ROOT/'lumen'/source),'-o',str(obj)]
         stale=not obj.exists() or not dep.exists() or not signature.exists()
         if not stale:

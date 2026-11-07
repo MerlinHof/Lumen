@@ -5,8 +5,9 @@ Never commit the code, device IP, private notes, books, API keys or other person
 data. The code expires when File Transfer restarts.
 
 1. Read the current LUMEN source and AGENTS.md at
-https://github.com/MerlinHof/Lumen. Use my local Desktop/Lumen checkout if present.
-Get a clean checkpoint before editing and preserve my uncommitted work.
+https://github.com/MerlinHof/Lumen. Clone the repository into a suitable workspace on this computer, or use the
+user’s existing checkout after verifying its origin and installed version.
+Create a clean checkpoint and preserve any uncommitted work.
 Keep VERSION and system/version.h consistent when making a versioned release.
 Read docs/building.md and docs/architecture.md. Match the installed release.
 LUMEN apps currently share one native ARMv7 process. You are integrating an app

@@ -374,3 +374,11 @@ installation/default/package-size figures. Regenerate public native screenshots
 when visible UI changes, especially Home, icon style and navigation. Use original
 demo data only and identify previews as native software renders. Keep the release
 notes and source tag aligned with the published package.
+
+## 4.0 network and Markdown contracts
+
+Connect must never block waiting for the first bytes on a newly accepted socket.
+Collect headers with bounded slots and deadlines before entering the request body
+handler. Keep idle sleep prevention owned by the server and restore it on exit.
+CommonMark rendering uses the cmark-gfm library from the pinned MuPDF source.
+Do not reintroduce an ad-hoc Markdown parser.

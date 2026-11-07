@@ -1,5 +1,5 @@
 from pathlib import Path
-import sys,subprocess,urllib.request,urllib.error,string,json,shutil,hashlib
+import sys,subprocess,urllib.request,urllib.error,urllib.parse,string,json,shutil,hashlib,socket,time
 sandbox=Path('build/tests/http-sandbox');shutil.rmtree(sandbox,ignore_errors=True)
 root=sandbox/'data';(root/'notes').mkdir(parents=True)
 (sandbox/'bin').mkdir();(sandbox/'bin/lumen').write_bytes(b'old executable')
@@ -13,7 +13,18 @@ try:
    r=urllib.request.urlopen(urllib.request.Request(url+path,data=body,method=method,headers={'Authorization':'Bearer '+(auth or code)}),timeout=30)
    return r.status,r.read()
   except urllib.error.HTTPError as e:return e.code,e.read()
+ address=urllib.parse.urlsplit(url)
+ idle=[socket.create_connection((address.hostname,address.port),timeout=3) for _ in range(6)]
+ partial=socket.create_connection((address.hostname,address.port),timeout=3)
+ partial.sendall(('GET /api/books HTTP/1.1\r\nHost: '+address.netloc+'\r\nAuthorization: Bearer '+code+'\r\n').encode())
+ started=time.monotonic()
  assert req('/api/books')[0]==200
+ assert time.monotonic()-started<3, 'Idle browser connections blocked the server'
+ partial.sendall(b'\r\n')
+ assert b'200 OK' in partial.recv(1024)
+ partial.close()
+ for connection in idle:connection.close()
+
  status,state=req('/api/custom-app/status');assert status==200 and 'version' in json.loads(state)
  status,guide=req('/api/custom-app/guide');assert status==200 and b'app_page_register' in guide
  status,data=req('/api/notes');assert status==200 and len(json.loads(data)['notes'])==1

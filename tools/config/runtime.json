@@ -61,5 +61,7 @@
   "lumen/dictionary/deu-fra.idx": "lumen/assets/dictionaries/deu-fra.idx",
   "lumen/home/scene-0.pgm": "lumen/assets/home/scene-0.pgm",
   "lumen/home/engraved.gray": "lumen/assets/home/engraved.gray",
-  "lumen/system/custom-app-guide.txt": "lumen/assets/web/custom-app-guide.txt"
+  "lumen/system/custom-app-guide.txt": "lumen/assets/web/custom-app-guide.txt",
+  "lumen/photos/alpine-dawn.pgm": "lumen/assets/photos/alpine-dawn.pgm",
+  "lumen/CMARK-LICENSE.txt": "lumen/assets/licenses/CMARK-LICENSE.txt"
 }

@@ -63,6 +63,8 @@ static int file_open16(const char *path, int origin) {
     memset(b, 0, sizeof(*b));
     b->id = press_id(path);
     snprintf(b->path, sizeof(b->path), "%s", path);
+    struct stat document_stat;
+    if (!stat(path,&document_stat)) b->size=document_stat.st_size;
     const char *n = strrchr(path, '/');
     snprintf(b->title, sizeof(b->title), "%s", n ? n + 1 : path);
     library_restore_state(b);

@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.0
+
+- Prevent idle browser sockets from blocking Connect and keep the device awake while its server is running.
+- Replace the small Markdown parser with the pinned CommonMark/GFM library already bundled with MuPDF.
+- Remove the loading waveform wait and bypass loading feedback for small text documents.
+- Keep Home app names at the same size and ink, wrapping up to two lines. Refine Home Assistant titles, Notes list alignment and the dish icon.
+- Remove the web Appearance tab and make the custom-app prompt independent of a particular user or computer.
+- Seed Photos once with an original 600 × 800 alpine pencil sketch. Deleting it does not make it reappear.
+
 ## 3.9
 
 - Fix game simulation deadlines, Wi-Fi status updates and calendar reopening.

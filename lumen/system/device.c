@@ -241,6 +241,21 @@ int device_system_power(int restart) {
     char *busy[] = {"busybox", restart ? "reboot" : "poweroff", NULL};
     return execute("/bin/busybox", busy) == 0;
 }
+void device_hold_awake(int enabled) {
+    static int owned;
+    if (enabled && !owned) {
+        char previous[16]="";
+        getprop("com.lab126.powerd","preventScreenSaver",previous,sizeof(previous));
+        if (!strcmp(previous,"0")) {
+            char *args[]={"lipc-set-prop","-i","com.lab126.powerd","preventScreenSaver","1",NULL};
+            owned=execute("/usr/bin/lipc-set-prop",args)==0;
+        }
+    } else if (!enabled && owned) {
+        char *args[]={"lipc-set-prop","-i","com.lab126.powerd","preventScreenSaver","0",NULL};
+        execute("/usr/bin/lipc-set-prop",args);
+        owned=0;
+    }
+}
 int device_wifi_enabled(void) {
     char value[32];
     getprop("com.lab126.cmd", "wirelessEnable", value, sizeof(value));
@@ -603,6 +618,7 @@ int device_system_power(int restart) {
     (void)restart;
     return 1;
 }
+void device_hold_awake(int enabled) { (void)enabled; }
 int device_wifi_enabled(void) { return 1; }
 int device_wifi(int e) {
     (void)e;

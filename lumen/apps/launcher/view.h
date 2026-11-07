@@ -55,7 +55,15 @@ static void app_tile(int x, int y, int width, int id) {
         app_icon(tile_x+17,y+17,id);
     }
     const char *name = tr(app_definition(id)->name);
-    const Font *font = textwidth_raw(name,ui_font(UI_BODY)) < width-12 ?
-                       ui_font(UI_BODY) : ui_font(UI_SECONDARY);
-    centered(x,y+78,width,35,name,font);
+    FlowLine lines[2];
+    const Font *font=ui_font(UI_BODY);
+    int n=text_flow(name,font,width-16,lines,2);
+    int previous_ink=ink_color;
+    ink_color=UI_INK;
+    for (int i=0;i<n;i++) {
+        char line[256];
+        snprintf(line,sizeof(line),"%.*s",lines[i].end-lines[i].start,name+lines[i].start);
+        centered(x,y+79+i*22,width,24,line,font);
+    }
+    ink_color=previous_ink;
 }

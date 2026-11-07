@@ -14,13 +14,11 @@ static void icon_native(int x, int y, int kind) {
     int c = x + 22, d = y + 22;
     switch (kind) {
     case IC_DISH:
-        ui_paint_ellipse(c,d+8,17,6,0);
-        ui_paint_ellipse(c,d+6,14,4,255);
-        aa_arc(c,d+5,12,180,360,3);
-        aa_disc(c-3,d,4,0);
-        stroke(c+2,d-3,c+9,d-6,3);
-        stroke(c-10,y+9,c-11,y+15,2);
-        stroke(c,y+5,c-1,y+12,2);
+        aa_arc(c,d+6,16,0,180,3);
+        stroke(x+5,y+27,x+39,y+27,3);
+        aa_arc(c,d+4,12,180,360,3);
+        stroke(x+10,y+26,x+34,y+26,3);
+        aa_disc(c,y+12,2,0);
         break;
     case IC_FLAG_FILLED:
         stroke(x+12,y+35,x+12,y+8,3);

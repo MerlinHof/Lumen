@@ -25,6 +25,7 @@ int main(int argc, char **argv) {
     data_root = "build/tests/test-data";
     mkdir(data_root, 0700);
     assert(engine_init());
+    assert(atomic_write("build/tests/test-data/photo-default-seeded","1",1));
     ui_init();
     assert(!app_route_valid(124));
     if (argc > 1) {
@@ -497,10 +498,23 @@ int main(int argc, char **argv) {
     char *html=NULL;
     size_t html_size=0;
     FILE *md=open_memstream(&html,&html_size);
-    markdown_render17(md,"**Bold** and *italic*.");
+    markdown_render17(md,"**Bold** and *italic*.\n\n---\n\n- Outer\n  - Inner\n\n| A | B |\n|---|---|\n| 1 | 2 |\n");
     fclose(md);
     assert(strstr(html,"<strong>Bold</strong>") && strstr(html,"<em>italic</em>"));
+    assert(strstr(html,"<hr") && strstr(html,"<table>") && strstr(html,"<ul>"));
     free(html);
+    const char *previous_data_root=data_root;
+    data_root="build/tests/default-photo";
+    mkdir(data_root,0700);
+    mkdir("build/tests/default-photo/photos",0700);
+    unlink("build/tests/default-photo/photo-default-seeded");
+    unlink("build/tests/default-photo/photos/LUMEN - Alpine Dawn.pgm");
+    photo_seed_default();
+    assert(!access("build/tests/default-photo/photos/LUMEN - Alpine Dawn.pgm",R_OK));
+    unlink("build/tests/default-photo/photos/LUMEN - Alpine Dawn.pgm");
+    photo_seed_default();
+    assert(access("build/tests/default-photo/photos/LUMEN - Alpine Dawn.pgm",F_OK));
+    data_root=previous_data_root;
     char restart_dir[2048], restart_path[2048];
     snprintf(restart_dir,sizeof(restart_dir),"%s/../.update",data_root);
     mkdir(restart_dir,0700);

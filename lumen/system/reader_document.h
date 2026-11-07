@@ -111,6 +111,8 @@ static int document_open(const char *title, const char *author, const char *sour
     memset(b, 0, sizeof(*b));
     b->id = id;
     snprintf(b->path, sizeof(b->path), "%s", path);
+    struct stat document_stat;
+    if (!stat(path,&document_stat)) b->size=document_stat.st_size;
     snprintf(b->title, sizeof(b->title), "%s", title);
     snprintf(b->author, sizeof(b->author), "%s", author);
     snprintf(b->format, sizeof(b->format), "html");

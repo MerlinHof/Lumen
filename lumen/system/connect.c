@@ -1,6 +1,7 @@
 #include "i18n.h"
 #define _GNU_SOURCE
 #include "connect.h"
+#include "device.h"
 #include "version.h"
 #include "wireless_update.h"
 #include "engine.h"
@@ -427,15 +428,17 @@ static void upload(int fd, const char *query, uint64_t length, const char *initi
 #include "connect_web.h"
 #include "markdown.h"
 #include "connect_notes.h"
-static void handle(int fd) {
+static void handle(int fd,const char *initial,size_t initial_size) {
     authenticated = 0;
     struct timeval tv = {20, 0};
     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
     setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
     char request[16385];
-    size_t used = 0;
-    char *end = NULL;
-    while (used < 16384) {
+    size_t used = initial_size;
+    memcpy(request,initial,used);
+    request[used]=0;
+    char *end = strstr(request,"\r\n\r\n");
+    while (!end && used < 16384) {
         ssize_t n = recv(fd, request + used, 16384 - used, 0);
         if (n <= 0)
             return;
@@ -984,42 +987,71 @@ int connect_start(int port, int timeout) {
         close(ready[1]);
         if (!success)
             _exit(1);
-        time_t last = time(NULL);
+        struct Pending {
+            int fd;
+            int64_t accepted;
+            size_t used;
+            char header[16385];
+        } pending[12];
+        memset(pending,0,sizeof(pending));
+        for (int i=0;i<12;i++) pending[i].fd=-1;
+        struct timespec clock;
+        clock_gettime(CLOCK_MONOTONIC,&clock);
+        int64_t last=(int64_t)clock.tv_sec*1000+clock.tv_nsec/1000000;
+        device_hold_awake(1);
         while (live) {
-            int remain = timeout * 60 - (int)(time(NULL) - last);
-            if (remain <= 0)
-                break;
-            struct pollfd p = {listenfd, POLLIN, 0};
-            int result = poll(&p, 1, remain * 1000);
-            if (result < 0 && errno == EINTR)
-                continue;
-            if (result <= 0)
-                break;
-            struct sockaddr_in peer;
-            socklen_t size = sizeof(peer);
-            int fd = accept(listenfd, (void *)&peer, &size);
-            if (fd < 0)
-                continue;
-            client_fd = fd;
-            fprintf(stderr, "connect_peer=%s\n", inet_ntoa(peer.sin_addr));
-            if (private_ip(peer.sin_addr.s_addr)) {
-                handle(fd);
-                shutdown(fd, SHUT_WR);
-                struct pollfd drain = {fd, POLLIN, 0};
-                char discard[4096];
-                size_t drained = 0;
-                while (drained < 65536 && poll(&drain, 1, 100) > 0) {
-                    ssize_t got = recv(fd, discard, sizeof(discard), MSG_DONTWAIT);
-                    if (got <= 0)
-                        break;
-                    drained += (size_t)got;
+            clock_gettime(CLOCK_MONOTONIC,&clock);
+            int64_t now=(int64_t)clock.tv_sec*1000+clock.tv_nsec/1000000;
+            if (now-last >= (int64_t)timeout*60000) break;
+            struct pollfd sockets[13]={{listenfd,POLLIN,0}};
+            for (int i=0;i<12;i++) {
+                if (pending[i].fd>=0 && now-pending[i].accepted>=10000) {
+                    close(pending[i].fd);
+                    pending[i].fd=-1;
                 }
-                if (authenticated)
-                    last = time(NULL);
+                sockets[i+1]=(struct pollfd){pending[i].fd,POLLIN,0};
             }
-            close(fd);
-            client_fd = -1;
+            int result=poll(sockets,13,500);
+            if (result<0) { if (errno==EINTR) continue;break; }
+            if (sockets[0].revents&POLLIN) {
+                struct sockaddr_in peer;
+                socklen_t size=sizeof(peer);
+                int fd=accept(listenfd,(void *)&peer,&size), slot=-1;
+                for (int i=0;i<12;i++) if (pending[i].fd<0) {slot=i;break;}
+                if (fd>=0) {
+                    if (slot<0 || !private_ip(peer.sin_addr.s_addr)) close(fd);
+                    else {
+                        pending[slot].fd=fd;
+                        pending[slot].accepted=now;
+                        pending[slot].used=0;
+                    }
+                }
+            }
+            for (int i=0;i<12 && live;i++) {
+                struct Pending *client=&pending[i];
+                if (client->fd<0 || !sockets[i+1].revents) continue;
+                ssize_t n=recv(client->fd,client->header+client->used,
+                               16384-client->used,MSG_DONTWAIT);
+                if (n<0 && (errno==EAGAIN || errno==EINTR)) continue;
+                if (n>0) {
+                    client->used+=(size_t)n;
+                    client->header[client->used]=0;
+                    if (!strstr(client->header,"\r\n\r\n") && client->used<16384) continue;
+                    client_fd=client->fd;
+                    handle(client->fd,client->header,client->used);
+                    shutdown(client->fd,SHUT_WR);
+                    if (authenticated) {
+                        clock_gettime(CLOCK_MONOTONIC,&clock);
+                        last=(int64_t)clock.tv_sec*1000+clock.tv_nsec/1000000;
+                    }
+                    client_fd=-1;
+                }
+                close(client->fd);
+                client->fd=-1;
+            }
         }
+        for (int i=0;i<12;i++) if (pending[i].fd>=0) close(pending[i].fd);
+        device_hold_awake(0);
         close(listenfd);
         firewall(0);
         _exit(0);

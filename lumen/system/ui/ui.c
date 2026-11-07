@@ -948,7 +948,7 @@ static void system_loading(int target) {
 #ifndef LUMEN_HOST
     memset(ui_pixels, 255, sizeof(ui_pixels));
     aa_arc(300, 370, 15, 35, 310, 3);
-    device_present(ui_pixels, 0, 0);
+    device_present_async(ui_pixels);
 #endif
 }
 #include "widgets.h"
@@ -1117,7 +1117,7 @@ int ui_open(int index) {
         library_progress(&library[current], page, engine_count());
         save_anchor(&library[current], page, -1);
     }
-    system_loading(2);
+    if (b->size > 128*1024 || (index != BOOK_LIMIT && strcmp(b->format,"txt") && strcmp(b->format,"html"))) system_loading(2);
     engine_close();
     if (index != BOOK_LIMIT)
         reader_ui.reader_document_active = 0;
@@ -2221,7 +2221,7 @@ static void route_to(int route) {
         current = selected = -1;
         reader_ui.reader_document_active = 0;
     }
-    if (app_for_route(route) != app_for_route(ui_route()))
+    if (route != 2 && app_for_route(route) != app_for_route(ui_route()))
         system_loading(route);
     /* Legacy route IDs remain stable for persisted navigation and native tests. */
     app_runtime_route(&runtime, route);
@@ -2263,7 +2263,7 @@ static int app_send(const AppIntent *intent) {
     if ((intent->app == APP_NUMSCRATCH || intent->app == APP_DRAWING))
         return 0;
     if (intent->app != app_for_route(ui_route()))
-        system_loading(app_definition(intent->app)->entry);
+        if (intent->app != APP_READER) system_loading(app_definition(intent->app)->entry);
     AppId previous = app_for_route(ui_route());
     int old = ui_route();
     if (!app_runtime_deliver(&runtime, intent))
