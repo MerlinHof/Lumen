@@ -31,6 +31,8 @@ int main(void) {
     route_to(1);
     picture("library");
     route_to(131);
+    home_page = 0;
+    picture("home");
     home_page = 1;
     picture("apps");
     route_to(27);
@@ -41,6 +43,13 @@ int main(void) {
     picture("calculator");
     route_to(13);
     picture("settings");
+    route_to(28);
+    timer_panel=0;
+    picture("clock");
+    route_to(129);
+    picture("slide-3d");
+    route_to(130);
+    picture("frog-solitaire");
     warehouse_new17(1);
     route_to(118);
     picture("sokoban");

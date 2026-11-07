@@ -8,5 +8,5 @@ keyboard language, Wi-Fi, automatic time and the autostart switch.
 Books and personal app data are preserved by updates. Two recent managed
 runtime backups are retained under lumen/backups; unknown folders are preserved.
 
-Transfer: same Wi-Fi on both devices, start Books Transfer, use the displayed
+Transfer: same Wi-Fi on both devices, open File Transfer and start the server, use the displayed
 address and four-character connection code. No cloud account is required.

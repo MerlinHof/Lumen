@@ -14,7 +14,7 @@ Do not use the package as a firmware update or copy it to the Kindle's update sl
 
 ## First installation
 
-1. Download **LUMEN-2.0.zip** from [Releases](https://github.com/MerlinHof/Lumen/releases/latest).
+1. Download **LUMEN-3.9.zip** from [Releases](https://github.com/MerlinHof/Lumen/releases/latest).
 2. Extract the complete folder. Connect the prepared Kindle by USB and open its storage.
 3. **macOS:** open `Install-LUMEN.command`. Alternatively, on macOS/Linux with Python 3.9+:
    ```sh
@@ -39,9 +39,9 @@ be disabled under **Settings → System → Management**.
 | Reader text | 24 px, Charis, left aligned |
 | Library | Grid; recently read first |
 | System / keyboard | German / independent German QWERTZ |
-| Apps tab | Enabled; icon labels hidden |
+| Home | Illustrated first page, then a full app grid; engraved icons |
 | Time | Automatic network sync; Berlin time zone |
-| Status bar | Date, time, Wi-Fi and battery icon; percentage hidden |
+| Status bar | Time, Wi-Fi and battery icon; date and percentage hidden |
 | Covers | Cropped and rounded |
 | Auto sleep | 10 minutes |
 | Transfer server | Off; port 8080 when started |

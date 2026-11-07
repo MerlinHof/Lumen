@@ -2,210 +2,187 @@
 
 # LUMEN
 
-### A quieter kind of Kindle.
+### A calm personal computer for your Kindle.
 
-**A quiet personal computer for a paper-like screen. Read, think and make things at your own pace.**
+An illustrated Home, a shared Reader, and useful tools for a paper screen.
 
-[Download](https://github.com/MerlinHof/Lumen/releases/latest) ·
-[Install](docs/installation.md) ·
+[**Download 3.9**](https://github.com/MerlinHof/Lumen/releases/tag/v3.9) ·
+[Release notes](docs/releases/3.9.md) ·
+[Installation](docs/installation.md) ·
 [Build](docs/building.md) ·
-[Architecture](docs/architecture.md) ·
 [Agent guide](AGENTS.md)
 
-![LUMEN library, immersive reader and app launcher](docs/images/hero.png)
+![LUMEN 3.9 — native Home, library and calculator screens](docs/images/hero.png)
 
-`Native C` &nbsp; `Monochrome E-Ink` &nbsp; `Local first` &nbsp; `DE · EN · FR`
+**Native C · 600 × 800 E-Ink · Local first · Deutsch / English / Français**
 
 </div>
 
----
+## A little room for your day
 
-## New in 2.6
-
-Photos has folders and a slideshow with timing, framing and orientation controls.
-The appearance setting for rounded corners applies across shared controls, app
-tiles, covers and photos. The [wireless update design](docs/wireless-updates.md)
-explains how LUMEN Connect could stage signed updates for the device launcher.
-
-## New in 2.5
-
-The shared controls use antialiased superellipse corners. Segmented tabs share
-one continuous outline and Frog Solitaire has newly illustrated grayscale pieces.
-The [render benchmark](docs/validation.md#25-control-corners) compares all three
-corner profiles. Standalone game pages use the app runtime, shared drawing API
-and app-state storage service.
-
-## New in 2.4
-
-Slide 3D replaces Signal with a sliding-tile puzzle rendered at the Kindle's
-native viewport resolution. Frog Solitaire is a separate peg-jumping game.
-Clock offers analog and digital faces, full screen, a timer and an alarm.
-Offline reading lookups include German–French, English–French and French–English
-FreeDict data and a small set of original definitions.
-
-<img src="docs/images/slide-3d.png" width="260" alt="Slide 3D native-rendered puzzle">
-<img src="docs/images/frog-solitaire.png" width="260" alt="Frog Solitaire lily pads">
-<img src="docs/images/clock.png" width="260" alt="Clock with the classic analog face">
-
-## UI refinement in 2.2
-
-Smaller system action icons with generous touch targets, repaired navigation
-arrows, icons in every dropdown, better Notes list alignment and a black Timer
-start action. Photos receive a slightly stronger contrast lift. Launcher icon
-sizes remain unchanged.
-
-## Design foundation in 2.1
-
-A quieter, more confident design: semantic typography, rounded shared icons,
-continuous launcher squircles, restrained black primary actions and tactile
-floating notifications. Photos gain a gentle display-only contrast lift.
-
-App sources are organized by app; shared UI and services stay in the system.
-Notification close gestures cannot reach buttons underneath. Supported
-Amazon books are detected automatically and prepared locally on first opening,
-including metadata and covers; unsupported protection retains the Kindle-reader
-fallback. The converter adds about 20 MiB and is unpacked only when needed.
-Target-side conversion and the revised firmware UI pause still need hardware
-verification; see [validation](docs/validation.md).
-
-<details><summary><strong>A consistent rhythm, from system settings to your notes</strong></summary>
-<br>
-<table><tr><td><img src="docs/images/wifi.png" width="280" alt="Wi-Fi list with aligned status and actions"></td><td><img src="docs/images/settings.png" width="280" alt="System settings with shared list geometry"></td><td><img src="docs/images/notes-list.png" width="280" alt="Notes folders with direct item counts"></td></tr></table>
-</details>
-
-## A small computer that knows when to be quiet
-
-LUMEN gives a Kindle a clean library, an immersive reader and a collection of
-thoughtful tools. Open a book. Write something down. Look up a word. Set a study
-timer. Play a small puzzle. Then return to the page.
-
-It is built around **clear typography, recognizable shapes and immediate touch
-feedback**. No endless feed, no account required for local reading, and no need
-to turn a monochrome device into a tiny imitation phone.
-
-> **Current target:** Kindle Touch 2 · firmware **5.12.2.2** · ARMv7 · 600 × 800.
-> LUMEN runs on prepared Kindle firmware. It does **not** jailbreak a stock device.
-> Read the [installation requirements](docs/installation.md) before downloading.
-
-## On the page, and beyond it
-
-| Read & explore | Write & organize | A little more |
-|---|---|---|
-| Library with Continue Reading | Notes, folders, Markdown and ink | Scientific calculator and graphing |
-| Shared configurable reader | Multiline ToDos and contexts | Weather and Home Assistant |
-| Wikipedia and saved articles | Journaling and a local calendar | Timer, photos and planetarium |
-| News, recipes and quotations | Flashcards and study tools | Chess, Sokoban, Sudoku and more |
-
-Some online features depend on their providers and require Wi-Fi. Home Assistant
-and OpenAI need your own configuration. The games and local tools do not require
-an account. Protected Amazon formats are not universally readable; access to the
-original Kindle reader remains available.
+Home opens with the date, an engraved landscape and the tools you use most.
+The first eight apps share the same grid as the pages that follow. Fifty
+illustrated app icons are drawn as small physical objects, with deep blacks
+and open white space. Classic icons remain available in Appearance.
 
 <table>
 <tr>
-<td align="center" width="33%"><img src="docs/images/calculator.png" alt="Scientific calculator with typeset formula" width="270"><br><b>Think clearly.</b><br>Typeset formulas, editable input and graphing.</td>
-<td align="center" width="33%"><img src="docs/images/notes.png" alt="LUMEN notes editor" width="270"><br><b>Leave a little space.</b><br>Notes, Markdown and drawings together.</td>
-<td align="center" width="33%"><img src="docs/images/sokoban.png" alt="Sokoban with a worker, wooden crates and brick walls" width="270"><br><b>Play something small.</b><br>Detailed monochrome shapes, made for E-Ink.</td>
+<td width="50%" align="center"><img src="docs/images/home.png" width="300" alt="LUMEN Home with an alpine lake, deer, date and eight engraved app icons"><br><strong>Home</strong><br>A quiet beginning, with everything within reach.</td>
+<td width="50%" align="center"><img src="docs/images/apps.png" width="300" alt="A full page of the engraved app grid"><br><strong>Your tools</strong><br>The same grid continues across full app pages.</td>
 </tr>
 </table>
 
 <details>
-<summary><strong>A closer look at input and settings</strong></summary>
+<summary><strong>See all 50 engraved icons</strong></summary>
 <br>
-<table><tr>
-<td align="center"><img src="docs/images/keyboard.png" alt="Staggered keyboard with number row" width="300"><br>Independent keyboard language, accents on long press, cursor editing and copy/paste.</td>
-<td align="center"><img src="docs/images/settings.png" alt="LUMEN settings categories" width="300"><br>Shared controls, compact selectors and one place for system preferences.</td>
-</tr></table>
+<img src="docs/images/icons.png" alt="All 50 LUMEN engraved app icons, displayed at their native 76 by 76 pixels">
 </details>
 
-*Screenshots are native software renders using original demo content. They are
-not hardware photographs or claims about measured E-Ink response time.*
+## Read, write, think
 
-## Install in a few steps
+Your library has Continue Reading, covers, authors, pinned books and saved
+progress. Reader preferences apply to books and the shared reading view for
+articles, recipes, Markdown notes and model answers.
 
-1. Prepare the supported Kindle with its compatible jailbreak and `.sh`
-   launcher/FBInk installation.
-2. Download and extract the [latest release](https://github.com/MerlinHof/Lumen/releases/latest).
-3. Connect USB and run **Install-LUMEN.command** on macOS, or:
-   ```sh
-   python3 Install-LUMEN.py --kindle /path/to/Kindle
-   ```
-4. Wait for copy verification, safely eject, disconnect and open **LUMEN** once.
+Notes combines folders, text and drawing. ToDo keeps flagged items at the top
+and lets a checked task remain visible for the current session. The calculator
+offers editable formulas, scientific functions, graphing and history.
 
-The first launch checks native EPUB rendering and installs autostart on the
-supported firmware. Reader size starts at **24 px**. Home starts with an illustrated date page and opens
-into a paged app grid. Automatic time sync is enabled, and keyboard language
-is independent of system language.
-Existing preferences and personal content survive updates.
+<table>
+<tr>
+<td width="33%" align="center"><img src="docs/images/reader.png" width="270" alt="The shared Reader showing original demo prose"><br><strong>Reader</strong></td>
+<td width="33%" align="center"><img src="docs/images/notes.png" width="270" alt="Notes with ruled text and a line-number gutter"><br><strong>Notes</strong></td>
+<td width="33%" align="center"><img src="docs/images/calculator.png" width="270" alt="Calculator with a typeset formula and editable input"><br><strong>Calculator</strong></td>
+</tr>
+</table>
 
-**[Read the complete installation guide →](docs/installation.md)**
+| Read & explore | Write & organize | Tools & play |
+|---|---|---|
+| Library, Reader and quotations | Notes, folders, Markdown and ink | Scientific calculator and graphs |
+| Wikipedia and archived articles | ToDo, journal and local calendar | Clock, timer, alarms and photos |
+| News and recipes | Flashcards and study tools | Weather and Home Assistant |
+| Planetarium and periodic table | Basic language practice | Chess, Sudoku, Sokoban, Snake and more |
 
-### Small runtime. Personal data stays personal.
+Online features depend on their providers. Home Assistant and OpenAI use your
+own server or account configuration. The calendar is local. Timers provide a
+visual interruption while LUMEN is awake and cannot wake the Kindle from deep sleep.
 
-The packaged runtime is approximately **28 MiB**; actual size is printed when
-packaging. A Kindle's `lumen` folder also includes personal data, caches and old
-rollback copies. The installer now retains **two recognized runtime backups**
-after a successful update, while leaving unknown folders and user data alone.
-No image, font or book quality is reduced.
+## What's new in 3.9
 
-## Build it yourself
+- Correct game timing for Snake and Tetris, more reliable Wi-Fi status, and a
+  calendar that opens on the current date.
+- Compact title bars and forms, quieter pager dots, a larger library shelf,
+  eight rows in Manage Apps, and clearer system icons.
+- Eight Home Assistant dashboard cards per page and touch inspection of graph values.
+- Lossless photo rotation and a photo menu for choosing the lock-screen image.
+- Notes previews through the shared Markdown Reader, periodic-table details
+  below the table, and a more compact OpenAI composer.
+- Refined game artwork, harder generated Sokoban positions and a maze trail.
+- **Install custom apps** in the File Transfer web page, with an AI development
+  prompt containing the connection details, build steps and LUMEN design guidance.
 
-```sh
+[Full 3.9 release notes](docs/releases/3.9.md) · [Version history](docs/changelog.md)
+
+<table>
+<tr>
+<td width="33%" align="center"><img src="docs/images/todo.png" width="270" alt="ToDo with a compact segmented title bar and checkboxes"><br><strong>ToDo</strong></td>
+<td width="33%" align="center"><img src="docs/images/clock.png" width="270" alt="Clock with a large analog face"><br><strong>Clock</strong></td>
+<td width="33%" align="center"><img src="docs/images/sokoban.png" width="270" alt="Sokoban with a worker, crates and brick walls"><br><strong>Sokoban</strong></td>
+</tr>
+</table>
+
+*These are current native software renders with original demo content.
+Each individual screen is 600 × 800 pixels. They are software previews;
+physical E-Ink appearance and response time depend on the Kindle.*
+
+## Install LUMEN 3.9
+
+**Current hardware target — Kindle Touch 2 (KT2), firmware 5.12.2.2, ARMv7.**
+
+A compatible jailbreak, the Kindle .sh launcher and FBInk must already be
+installed. LUMEN's installer checks these prerequisites.
+
+1. [Download LUMEN-3.9.zip](https://github.com/MerlinHof/Lumen/releases/download/v3.9/LUMEN-3.9.zip)
+   and extract the complete folder.
+2. Connect the prepared Kindle over USB.
+3. Open **Install-LUMEN.command** on macOS, or run the Python installer with
+   the mounted Kindle's path.
+4. Wait for file verification, safely eject, disconnect USB and open LUMEN.
+
+~~~sh
+python3 Install-LUMEN.py --kindle /path/to/Kindle
+~~~
+
+Fresh installations use the illustrated Home, engraved icons, 24 px reading
+text, automatic time sync and independent keyboard language. The status bar
+shows time, Wi-Fi and a battery icon. Books and existing preferences survive updates.
+
+The 3.9 package has **63 runtime files**, about **51.8 MiB installed** and
+**34.2 MiB downloaded**. Personal books, app data, caches and rollback copies
+are additional. The installer prunes only recognized runtime backups and
+preserves unknown content.
+
+[Complete installation and recovery guide](docs/installation.md)
+
+## Transfer from your phone. Build something of your own.
+
+Open **File Transfer** on the Kindle, start the server, and open the displayed
+address on a phone or computer on the same Wi-Fi. Pair with the four-character code.
+
+Upload books and photos, export notes, or open **Install custom apps**.
+That panel creates a prompt for an AI coding agent, including the live connection
+details and instructions for the app runtime, shared controls, engraved icons,
+translations and deployment.
+
+Custom apps are compiled into LUMEN's shared executable. Compatible builds can
+be installed over Wi-Fi as a trial with a previous executable kept for rollback.
+Changes to bundled assets or the launcher still require USB.
+
+[Custom app and wireless installation guide](docs/wireless-updates.md)
+
+## Build and explore
+
+~~~sh
 git clone https://github.com/MerlinHof/Lumen.git
 cd Lumen
 python3 tools/setup.py host
-python3 tools/build.py host
+python3 compile.py host
 python3 tools/setup.py kindle
-python3 tools/build.py kindle
+python3 compile.py
 python3 tools/check.py
 python3 tools/package.py
-```
+~~~
 
-The setup step fetches pinned official dependencies and verifies their checksums.
-Subsequent builds are local and incremental. See [Build and develop](docs/building.md)
-for prerequisites, testing, preview generation and the optional local HTTP check.
+Dependencies are pinned and checksum-checked. Build products, device reports,
+personal content and toolchains stay outside the tracked source tree.
 
-```text
+~~~text
 Lumen/
-├── compile.py        Kindle and native preview build entry point
+├── compile.py
 ├── lumen/
-│   ├── system/       app runtime, device, shared UI, storage and image rendering
-│   ├── apps/         app-owned models, endpoints and views
-│   ├── assets/       dictionaries, fonts, catalogues, certificates and web UI
-│   └── vendor/       embedded third-party code
-├── tools/            build, packaging, installer, device scripts and tests
-└── docs/             guides and native screenshots
-```
+│   ├── apps/         app models, views, state and adapters
+│   ├── system/       runtime, Reader engine, UI, input, storage and network
+│   ├── assets/       artwork, fonts, dictionaries, certificates and web UI
+│   └── vendor/       credited embedded dependencies
+├── tools/            builds, packaging, installer, emulator and tests
+└── docs/             guides, release notes and native screenshots
+~~~
 
-Dependencies live in ignored `.local/`, outputs in `build/`, packages in `dist/`.
-No compilers, copied release trees, device logs or private library reports are
-part of the public source tree.
+[Architecture](docs/architecture.md) · [Build guide](docs/building.md) ·
+[Validation and limitations](docs/validation.md) · [Contributing principles](AGENTS.md)
 
-## A few honest boundaries
-
-LUMEN is a substantial personal software project, not an official Amazon product
-or a universal replacement firmware. Apps share one native process; older views
-are still being separated into clearer modules. Host checks and simulated fresh
-installs do not replace physical validation of sleep/wake, touch latency, battery
-life or individual account integrations. See [Validation](docs/validation.md).
-
-The calendar is local; Apple/Google cloud sync is not included. The timer is
-visual and cannot wake deep sleep. Article images and available books depend on
-the source. The basic language-learning and tools are intentionally small.
-
-## Contributing with care
-
-Start with **[AGENTS.md](AGENTS.md)** — it describes both the engineering rules and
-the feeling of the project. Prefer one coherent shared component to several
-slightly different implementations. Keep the reader central, preserve personal
-files, and make the next action obvious on a slow monochrome screen.
+Apps share a native process, and some view fragments remain coupled through
+the shell. The custom-app flow is an integration and rebuild workflow.
+Hardware behavior, provider integrations and unsupported Kindle firmware need
+their own validation. Supported Amazon imports reuse locally prepared copies;
+protection variants that the converter cannot handle retain the original-reader fallback.
 
 ## Credits & license
 
 Developed in late 2026 by **GPT-6.1 Sol**, under the supervision, prompting and
 license of **Merlin Hof**.
 
-LUMEN is distributed under **[AGPL-3.0](LICENSE)**. Third-party notices are in
-[licenses](licenses/), including MuPDF, fonts, libmobi, astronomy and scheduling
-components. Home Assistant and Wikipedia identities belong to their respective
-owners; no affiliation is implied.
+Distributed under **[AGPL-3.0](LICENSE)**. Third-party notices are in
+[licenses](lumen/assets/licenses/), including MuPDF, fonts, libmobi, astronomy and scheduling
+components. Artwork shown here is included in the repository. Home Assistant
+and Wikipedia identities are credited in the bundled notices.

@@ -1,4 +1,4 @@
-# LUMEN 2.1 · System und Apps
+# LUMEN 3.9 · System und Apps
 
 LUMEN ist ein natives ARMv7-Programm mit gemeinsamer App-Laufzeit. Apps sind
 Quellmodule mit stabilen IDs und Routen; sie laufen im selben Prozess. Sie sind
@@ -9,8 +9,7 @@ beschrieben, statt eine vollständige Prozess- oder Datenisolation zu behaupten.
 ## System
 
 `lumen/system/app_runtime.{c,h}` verwaltet Aktivierung, App-Wechsel und
-Lebenszyklus. `AppDefinition` beschreibt ID, Einstiegsroute, Vollbildstrategie
-und zugehörigen Systemtab. `lumen/apps/catalog.c` enthält die App-Registrierung.
+Lebenszyklus. `AppDefinition` beschreibt die stabile ID, den Namen und die Einstiegsroute. `lumen/apps/catalog.c` enthält die App-Registrierung.
 IDs bleiben stabil, damit gespeicherte Launcherreihenfolgen nicht verrutschen.
 Die zurückgezogenen Drawing-/NumScratch-IDs bleiben dafür reserviert.
 
@@ -21,7 +20,7 @@ auf den Suchtext einer anderen App. Der gemeinsame Reader öffnet Bücher,
 Artikel, Rezepte, Antworten und Anleitungen mit derselben Darstellung.
 
 `preferences_reader()` liefert einen Wert-Snapshot der Leseeinstellungen.
-Die Einstellungs-App schreibt die zentralen Einstellungen; der Reader vergleicht
+Die Reader-App bearbeitet ihre eigenen Leseeinstellungen im zentralen Modell; der Reader vergleicht
 beim Anwenden den Snapshot mit seinem Layoutstand und bricht nur bei Änderungen
 neu um. Der Reader liest keine Steuerelemente oder privaten Variablen der
 Einstellungsansicht. Tastatursprache ist eine separate persistente Option.
@@ -40,7 +39,7 @@ HTTP-Transfer sowie gemeinsame Schriften und Übersetzungen.
 
 `lumen/system/ui/ui.c` ist die Shell und integriert die Ansichten. Die anderen
 Header in diesem Ordner liefern Widgets, Dropdowns, Checkboxen, verbundene
-Tabselectoren, Icons, Status-/Tabbar, Bilddarstellung und Spielfeldkacheln.
+Tabselectoren, Icons, Statusleiste, Bilddarstellung und Spielfeldkacheln.
 `text_flow.h` misst und zeichnet dieselben Zeilenbereiche für dynamische Listen.
 
 `keyboard.h` besitzt genau ein Layout für Zeichnen und Trefferprüfung:
@@ -62,13 +61,12 @@ Touch-down-Feedback läuft weiterhin unabhängig von der anschließenden App-Akt
 Neue Ansichten kommen nach `lumen/apps`, wiederverwendbare UI nach `system/ui`.
 Bestehende Widgets und Dienste verwenden, keine zweite Tastatur oder Kopie eines
 Dropdowns einführen. Netzwerk und aufwendige Aufgaben gehören in die vorhandenen
-begrenzten Hintergrundjobs. Vollbild ist eine App-/Routenentscheidung, nicht eine
-Eigenschaft der Status- oder Tabbar. Zustände beim Verlassen sichern; keine
+begrenzten Hintergrundjobs. Die Statusleiste ist gemeinsames System-Chrome. Es gibt keine untere Navigationsleiste. Zustände beim Verlassen sichern; keine
 synchronen Dateischreibvorgänge pro Tastendruck einführen.
 
 ## Repository and installation boundaries
 
-`device` contains target-only launcher/autostart code; `tools` host-side build and installation code. Dependencies live in ignored `.local`; generated objects are in `build/<target>/obj` and explicit source lists prevent stale objects from linking. `tools/config/runtime.json` is independent of all old releases. Shared `system/defaults` defines fresh boot, reset and option bounds. The installer validates every file first and prunes only recognized runtime-only backups after successful verification.
+`tools/device` contains target-only launcher/autostart code; `tools` host-side build and installation code. Dependencies live in ignored `.local`; generated objects are in `build/<target>/obj` and explicit source lists prevent stale objects from linking. `tools/config/runtime.json` is independent of all old releases. Shared `system/defaults` defines fresh boot, reset and option bounds. The installer validates every file first and prunes only recognized runtime-only backups after successful verification.
 
 ## Shared quality and rendering contracts
 
@@ -140,3 +138,20 @@ Reader, library, store, Wi-Fi, settings, Clock, editor, notes, tasks, status bar
 and Wikipedia each declare their view state in their app directories. Their
 legacy adapters still compile together and can access one another's state.
 Reader document lifecycle and legacy route dispatch still run in the shell.
+
+
+## Home and custom apps in 3.9
+
+Home owns the illustration, date and paged app grid. Its first eight apps are
+the first entries of the same launcher list. Settings owns visibility and order.
+The engraved icon atlas has a stable base row count; new app icons may be embedded
+in code for an executable-only custom install.
+
+The paired File Transfer web page supplies a development guide with live connection
+details. Custom apps are compiled into LUMEN. The updater stages one executable,
+checks its approved SHA-256 and retains a trial rollback. It does not dynamically
+load app binaries. Non-executable runtime changes require the USB installer.
+
+Photos uses system/photo_image for lossless raster rotation and a shared display
+canvas. Selected lock-screen photos reference their source file. Notes opens rich
+Markdown through the same Reader document pipeline as other text apps.

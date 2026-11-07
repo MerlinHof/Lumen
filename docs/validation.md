@@ -1,6 +1,22 @@
-# Validation · LUMEN 2.6
+# Validation · LUMEN 3.9
 
-## 3D puzzle checks
+## 3.9 verification
+
+Host and static ARM builds passed. Focused checks cover simulation deadlines for
+Snake/Tetris, a four-turn lossless photo rotation, shared Markdown emphasis,
+UI/default/input flows, local HTTP pairing and custom-app staging, approval and
+restart handoff. The public gallery is rendered from current native code and
+original demo content. All 63 runtime files were verified during device installation,
+with existing books and personal files unchanged.
+
+Physical Wi-Fi behavior, live Home Assistant interactions and the custom-app
+restart flow still need on-device review. Host views and sanitizer checks do
+not measure E-Ink latency or battery life.
+
+The 3.9 allowlist contains **63 files**, about **51.8 MiB installed** and
+**34.2 MiB downloaded**, excluding personal data and rollback copies.
+
+## Earlier 3D puzzle checks
 
 Focused ASan/UBSan tests cover deterministic rendering, legal moves and the
 victory state.
@@ -59,7 +75,7 @@ It is not an 81% Kindle speed or E-Ink refresh claim.
 
 ## Measured package size
 
-The runtime allowlist currently contains **48 files**, approximately **27.6 MiB**
+The earlier 2.x runtime allowlist contained **48 files**, approximately **27.6 MiB**
 expanded and **13.2 MiB** zipped. Personal app data and rollback backups are not
 included. Backup retention reduces accumulated runtime copies without reducing
 image/font/book quality.

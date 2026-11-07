@@ -363,3 +363,14 @@ compile into the shared LUMEN executable; this is not a dynamic plugin API.
 The generated AI guide describes append-only IDs, app lifecycle, shared UI,
 translations and embedded engraved icon artwork. Wireless installs only replace
 the executable and retain a trial rollback. Existing runtime assets must match.
+
+
+## Public release completion
+
+A source push alone does not finish a versioned public update. Publish the matching
+GitHub release with the verified ZIP and SHA-256 asset, and verify its version and
+latest-release status before reporting completion. Inspect the current README and
+installation/default/package-size figures. Regenerate public native screenshots
+when visible UI changes, especially Home, icon style and navigation. Use original
+demo data only and identify previews as native software renders. Keep the release
+notes and source tag aligned with the published package.
