@@ -5,6 +5,7 @@
 #include "system/library.h"
 #include "system/services.h"
 #include "system/wireless_update.h"
+#include "system/system_update.h"
 #include "system/ui/api.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,6 +24,8 @@ int main(int argc, char **argv) {
     }
     if (argc == 2 && !strcmp(argv[1], "--apply-wireless"))
         return update_apply() ? 0 : 1;
+    if(argc==2 && !strcmp(argv[1],"--system-maintenance"))return system_update_maintenance()?0:1;
+    if(argc==2 && !strcmp(argv[1],"--system-rollback"))return system_update_rollback()?0:1;
     const char *preview = NULL, *inspect = NULL, *render = NULL;
     int screen = 0, pageno = 0;
     for (int i = 1; i < argc; i++) {

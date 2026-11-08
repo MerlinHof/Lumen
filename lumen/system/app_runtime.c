@@ -54,7 +54,7 @@ typedef struct {
     void (*checkpoint)(void);
     int standalone;
 } AppView;
-static AppView views[APP_COUNT];
+static AppView views[APP_LIMIT];
 
 void app_view_register(AppId id, void (*draw)(void), int (*input)(const Input *)) {
     if (app_definition(id)) views[id] = (AppView){.draw = draw, .input = input};
@@ -90,5 +90,5 @@ void app_page_checkpoint(AppId id) {
     if (app_definition(id) && views[id].checkpoint) views[id].checkpoint();
 }
 void app_pages_checkpoint(void) {
-    for (int i = 0; i < APP_COUNT; i++) app_page_checkpoint((AppId)i);
+    for (int i = 0; i < APP_LIMIT; i++) app_page_checkpoint((AppId)i);
 }

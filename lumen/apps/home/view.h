@@ -47,7 +47,7 @@ static void home_date(void) {
     centered(267,207,66,36,year,&caption);
 }
 static void home_draw(void) {
-    int ids[APP_COUNT], n = v1_visible(ids), pages = 1+(n>8 ? (n-8+19)/20 : 0);
+    int ids[APP_LIMIT], n = v1_visible(ids), pages = 1+(n>8 ? (n-8+19)/20 : 0);
     if (home_page >= pages) home_page = pages-1;
     int top = HOME_FULL_GRID_Y, start = 8+(home_page-1)*20, limit = 20;
     if (home_page == 0) {
@@ -73,7 +73,7 @@ static int home_input(const Input *in) {
     int rows = home_page ? 5 : 2;
     if (in->x < 20 || in->x >= 580 || in->y < top || in->y >= top+rows*HOME_TILE_H)
         return -1;
-    int ids[APP_COUNT], n = v1_visible(ids);
+    int ids[APP_LIMIT], n = v1_visible(ids);
     int i = (home_page ? 8+(home_page-1)*20 : 0) +
             (in->y-top)/HOME_TILE_H*4 + (in->x-20)/140;
     if (i < n) {

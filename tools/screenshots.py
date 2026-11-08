@@ -7,7 +7,7 @@ import build
 from check import compile_test,OUT
 from PIL import Image,ImageDraw,ImageFont
 os.chdir(ROOT);folder=ROOT/'build/gallery';folder.mkdir(parents=True,exist_ok=True)
-shutil.rmtree(folder/'data',ignore_errors=True);(folder/'data').mkdir();(folder/'books').mkdir(exist_ok=True)
+shutil.rmtree(folder/'apps',ignore_errors=True);shutil.rmtree(folder/'data',ignore_errors=True);(folder/'data').mkdir();(folder/'books').mkdir(exist_ok=True)
 books=[('The Quiet Hours','LUMEN Studio'),('Field Notes','LUMEN Studio'),('A Walk Through Light','LUMEN Studio'),('Small Worlds','LUMEN Studio')]
 serif=next(p for p in ['/System/Library/Fonts/Supplemental/Georgia.ttf','/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf'] if Path(p).exists())
 sans=next(p for p in ['/System/Library/Fonts/Supplemental/Arial.ttf','/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'] if Path(p).exists())

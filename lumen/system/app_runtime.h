@@ -64,6 +64,7 @@ typedef enum {
     APP_HOME,
     APP_COUNT
 } AppId;
+enum { APP_LIMIT=APP_COUNT+32 };
 typedef enum { INTENT_OPEN, INTENT_BOOK, INTENT_SEARCH, INTENT_SETTINGS } IntentKind;
 typedef struct {
     AppId app;
@@ -91,6 +92,7 @@ typedef struct {
     void *context;
 } AppRuntime;
 const AppDefinition *app_definition(AppId id);
+const AppDefinition *app_factory_definition(AppId id);
 AppId app_for_route(int route);
 int app_route_valid(int route);
 void app_runtime_init(AppRuntime *rt, void (*leave)(AppId, void *), void *context);

@@ -97,3 +97,5 @@
 #include "../openai/conversation.h"
 #include "../notifications/view.h"
 // clang-format on
+
+#include "../../system/ui/package_app.h"

@@ -1,44 +1,47 @@
-# Custom app installation over Wi-Fi
+# Apps and full system updates
 
-Starting in 3.9, File Transfer's web page includes **Install custom apps**.
-Open the server on the Kindle, pair from a phone or computer, and create a
-prompt for an AI coding agent. The prompt includes the live address and
-temporary pairing code, the installed version, the source repository, build
-steps, UI conventions, icon guidance and installation endpoints.
+## Install apps
 
-Describe the app at the end of the prompt and give it to your agent. The agent
-adds an app to the native LUMEN executable. Apps currently share a process.
-This is not a sandboxed plugin system. Keep the pairing code private and
-install code only from an agent or source you trust.
+File Transfer → Apps provides an AI development prompt, the user's live LAN
+address/code and a package upload. The agent builds only the app using the SDK,
+then uploads `.lumen-app`. LUMEN does not restart or rebuild. Shipped and separately
+installed implementations share IDs, the catalog and installation contract.
+See [App packages](app-packages.md).
 
-The agent builds a compatible executable-only package, verifies its local
-SHA-256 against the upload receipt and requests installation. LUMEN saves its
-state and restarts into the trial. The old executable is retained. After trying
-the app, open File Transfer again and pair with its new code. Use the web panel
-to keep the trial or restore the previous version. An unkept trial is restored
-on the next launch, including after a reboot.
+## Update LUMEN from GitHub
 
-The package helper checks that every non-executable runtime file still matches
-the installed bundle. If scripts, fonts or other assets change, use the USB
-installer. New custom icon pixels can be embedded in the app's source.
-The server only stages a bounded ARM executable and only a paired session may
-request installation. Books and personal content are outside the update paths.
+Settings → System → Update checks the latest public GitHub release, shows the
+version and last check, and installs after an explicit tap. This now downloads a
+**complete LUMEN runtime**, including the main program, fonts, images, dictionaries,
+launcher scripts and shipped app packages. It does not update Amazon firmware.
 
-## For developers
+The client verifies the downloaded SHA-256, manifest, individual file hashes,
+sizes and paths before activation. Extraction cannot write to personal data,
+books, separately installed app folders or rollback control files. Symlinks and
+traversal paths are rejected. Personal app state stays outside the runtime.
 
-Read the full generated guide in
-[lumen/assets/web/custom-app-guide.txt](../lumen/assets/web/custom-app-guide.txt).
+The installer runs from a durable helper, not the file being replaced. Before
+changing anything it copies changed originals and commits a write-ahead journal.
+An interrupted activation is recovered on the next launch. A successful update
+is a trial: keep it in System → Update or the web interface. Otherwise the next
+launch restores the previous runtime, including resources and scripts. Keeping
+the update removes its rollback copy; updates do not accumulate old full bundles.
 
-Run python3 tools/wireless-update.py with the installed and target bundle folders.
+This release needs one USB install to establish the full-runtime updater. Later
+compatible LUMEN releases use this GitHub path even when their assets change.
+Live activation on the physical Kindle still needs observation outside USB mode.
 
-Authenticate requests with the current pairing code. PUT package bytes to
-/api/custom-app, compare the returned SHA-256 with the local checksum, then POST
-/api/custom-app/install?sha256=<checksum>. Status, keep and rollback use
-/api/custom-app/status, /api/custom-app/keep and /api/custom-app/rollback.
-The server closes during activation.
+## Publish an update
 
-## GitHub releases (4.1)
+Bump VERSION and system/version.h, write docs/releases/<version>.md, commit and
+push to main. The existing Native checks workflow must succeed. The new
+Publish Kindle update workflow then builds and publishes the missing version's
+release automatically. It uploads:
 
-Settings → System → Update checks the latest public release and records the last check. Install downloads the release's `.wireless.json`, compares its required resources with local files, verifies the ARM executable's SHA-256 and size, and uses the same trial restart. Keep the trial on this page or in Connect. Otherwise the next launch restores the previous binary.
+- USB ZIP and its SHA-256 sidecar;
+- `.lumen-system` runtime ZIP and `.wireless.json` metadata;
+- standalone SDK ZIP and the independent shipped `.lumen-app` packages.
 
-Only executable-compatible updates use this path. If required scripts, fonts, images or other runtime resources differ, the UI explicitly requires USB. This is deliberate: a binary must never be installed against incompatible resources. The release publisher uploads the ZIP, ZIP checksum, `.lumen-update` and `.wireless.json` together. Personal files never enter either update asset.
+Only a tested main-branch commit from this repository can trigger publication.
+An already published version is not overwritten. You can also dispatch the
+workflow manually. A source push without a new VERSION does not create a release.

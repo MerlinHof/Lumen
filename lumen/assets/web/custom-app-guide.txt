@@ -1,82 +1,58 @@
-Build and install the custom LUMEN app I describe below.
+Build and install the LUMEN app I describe below. Do not rebuild or replace LUMEN.
+The address/code above belong to this user's Kindle on this LAN. Never commit
+connection codes, addresses, personal content or credentials.
 
-The connection address and temporary pairing code above belong to my own Kindle.
-Never commit the code, device IP, private notes, books, API keys or other personal
-data. The code expires when File Transfer restarts.
+APP PROTOCOL 1 — one package identity and contract for all apps:
+1. Get the SDK from the installed LUMEN release at
+https://github.com/MerlinHof/Lumen. Read tools/sdk/lumen_app.h,
+tools/build-app.py and docs/app-packages.md. Use the matching SDK release.
+No MuPDF build or system compilation is needed. The SDK is a small C client.
+The SDK ZIP release includes a ready-to-use standalone build script and examples.
+2. Make a folder containing your C sources and package.json:
+{"format":"lumen-app-1","api":1,"id":"your.reverse-domain.app",
+ "name":"Your App","version":"1.0.0","sources":["main.c"]}
+Use a stable ID. Updating an existing app uses that SAME ID, never a duplicate.
+Apps shipped with LUMEN have IDs such as lumen.calculator, lumen.notes and
+lumen.sliding-puzzle; the same package mechanism can replace their implementation.
+Do not replace an existing app unless the user requested it.
+3. Build only this app with:
+python3 tools/build-app.py path/to/package.json --target kindle
+The standalone SDK uses python3 build-app.py package.json instead.
+Use the pinned Zig compiler or set ZIG to its executable. Target ARMv7 static
+musl; do not depend on Amazon libraries or access the framebuffer/input devices.
+4. Runtime protocol is bounded newline JSON on stdin/stdout. Use lumen_run,
+lumen_begin/end and ui_paint_* wrappers from the SDK. Receive open, input,
+pause, resume and text events. UI is 600x800; the shared status bar owns y<56.
+Use the system's text roles, heading, buttons, icon controls, surfaces, ellipses,
+lines and hitboxes. You send UI descriptions; LUMEN renders with its own rounding,
+antialiasing, typography, touch feedback and refresh engine. No private refresh
+loops, delays or background animations. Keep stdout exclusively for protocol.
+5. For keyboard input send lumen_request("input",title,current_text,action).
+Read the returned text event. For a rich document use the "reader" request with
+Markdown in text and a title; LUMEN opens its shared Reader with user preferences.
+"notify" shows the shared notification. Use the protocol's "open" intent for
+navigation to another app. Do not implement another keyboard or Reader.
+6. Store personal state only under LUMEN_APP_DATA; it survives app/system updates.
+Use validated, bounded files and atomic saves. Keep work asynchronous and finite.
+Apps run as separate processes, but are TRUSTED native programs, not security
+sandboxes. Do not start/stop firmware services. Do not read unrelated user data.
+7. Design: calm paper-native tools; white space, dark ink, confident serif headings,
+quiet secondary text, comfortable 44px touch targets, consistent 28px margins.
+Use the shared UI rather than a generic web/phone aesthetic. Black primary accents
+are deliberate; no faint hairlines. Use the system icons at toolbar sizes.
+For a launcher icon add icon.pgm as an asset: binary P5, exactly 76x76 grayscale,
+header "P5\n76 76\n255\n". Match the engraved pencil/ink objects: deep blacks,
+open white paper, uniform detail density, no squircle frame baked into the image.
+Provide DE/EN/FR text according to the open event's language (0/1/2).
+8. Test the app's input/state and host build briefly. Keep all generated files,
+SDK dependencies and local credentials out of Git. Do not modify the OS to add
+an app. The result is a .lumen-app ZIP with its manifest, executable and assets.
+9. Install with a single authenticated PUT:
+PUT DEVICE_URL/api/apps/install
+Authorization: Bearer PAIRING_CODE
+Content-Type: application/octet-stream
+Body: the .lumen-app bytes. Expect HTTP 201. GET /api/apps lists the unified
+catalog. The app appears in Home; LUMEN does NOT restart. If the code expires,
+ask for the current code. Do not guess it or retry unauthenticated repeatedly.
 
-1. Read the current LUMEN source and AGENTS.md at
-https://github.com/MerlinHof/Lumen. Clone the repository into a suitable workspace on this computer, or use the
-user’s existing checkout after verifying its origin and installed version.
-Create a clean checkpoint and preserve any uncommitted work.
-Keep VERSION and system/version.h consistent when making a versioned release.
-Read docs/building.md and docs/architecture.md. Match the installed release.
-LUMEN apps currently share one native ARMv7 process. You are integrating an app
-into that executable, not installing an isolated binary plugin.
-
-2. Keep the entire app in lumen/apps/<app_name>/ with its state, model, view,
-and icon. Append a stable AppId before APP_COUNT in system/app_runtime.h.
-Never change old enum values, old route numbers, persisted structs or defaults.
-Register a unique unused route in apps/catalog.c. Use app_page_register and the
-AppIntent contract, and add explicit source paths to tools/config/sources.txt.
-Keep the existing launcher order, visibility and personal data intact.
-Use app_state_load/save for bounded validated private app state. Do not change
-system settings or start firmware services just to support this app.
-
-3. Target the actual 600x800 monochrome screen with the system status bar.
-Use the system UI library, titlebar, list_row, segments, dropdown_button,
-select_row17, checkbox, toggles, pager and semantic icons. Keep touch targets at
-least 44px, use the established margins and font roles in theme.h.
-Use shared editable fields so the system keyboard owns input, caret and clipboard.
-Use reader_markdown17 or AppIntent for documents and rich text instead of writing
-a separate reader. Use anchored dropdowns, not full-screen selection pages.
-Use the system Back history. Do not leave space for a bottom navigation bar.
-
-4. Design a calm personal paper computer: white paper, confident black accents,
-legible gray secondary type, deliberate equal spacing, clean aligned baselines.
-Use rounded shapes from the one global rounding renderer and semantic radii.
-Keep screens finite and purposeful. Provide clear empty, error and loading states.
-Show immediate touch feedback without artificial delays or blocking input.
-Use bounded background work for network and heavy tasks. Preserve the existing
-adaptive screen refresh engine and firmware power, Wi-Fi and USB ownership.
-
-5. Give the app a beautiful skeuomorphic monochrome icon: engraved physical
-object, strong recognizable silhouette, deep charcoal blacks, moderate uniform
-crosshatching, pure white background, consistent with the other LUMEN app icons.
-No squircle or rectangular frame. Design at 76x76 and check at native pixels.
-For a wireless code-only install, embed its grayscale raster in the app's C source
-and extend the system app_icon mapping to call the app-owned icon. Existing
-engraved icons remain in the installed atlas. Do not modify existing asset files.
-Avoid external dependencies, new runtime files, scripts or permissions.
-
-6. Translate all new user-facing text into German, English and French in the
-shared catalogue and regenerate it. Keep user content untranslated. Save data
-atomically and validate data from older installations. Test the app's actual
-entry point and Back behavior, including empty content and failed requests.
-Use a host native screenshot to inspect alignment and contrast at 600x800.
-Run the smallest relevant checks, then build the Kindle target using compile.py.
-Do not call host rendering a measurement of physical Kindle latency.
-
-7. This wireless installer can replace the executable only. Keep every other
-installed runtime asset and script identical. Build and package from the exact
-installed source baseline, then use tools/wireless-update.py with the installed
-and target bundles to verify compatibility. If any other runtime file changes,
-stop deployment and explain that the release requires USB. Do not silently ship
-missing assets. Preserve the source modifications and a usable build.
-
-8. Upload the generated .lumen-update bytes using HTTP PUT to
-<DEVICE_URL>/api/custom-app with Authorization: Bearer <PAIRING_CODE>.
-The server returns JSON with the received sha256. Independently compute SHA-256
-locally and require an exact match. HTTP errors are failures, not success.
-Then POST /api/custom-app/install?sha256=<FULL_SHA256> with the same header.
-LUMEN saves its current state and restarts into a trial with the old executable
-retained. The server stops during restart. Do not endlessly retry an expired code.
-After I have tried the app, I can start File Transfer again and use its web page
-to keep the trial, or restore the previous version. The next launch also restores
-an unkept trial. Do not keep a trial without verifying it with me.
-
-9. Commit the finished app and describe what changed, what was actually checked,
-how it is opened, any limitations, and whether the device install succeeded.
-Do not claim it is installed just because it compiled or uploaded.
-Ask me for the app's purpose and behavior if I have not provided them below.
-
-My custom app:
+MY APP IDEA:

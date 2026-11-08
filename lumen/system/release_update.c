@@ -4,6 +4,7 @@
 #include "services.h"
 #include "version.h"
 #include "wireless_update.h"
+#include "system_update.h"
 #include "mupdf/fitz/crypt.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -65,7 +66,7 @@ static void check_worker(int install,pid_t parent) {
     path(api,"release-api.tmp");path(meta,"release-meta.tmp");
     snprintf(binary,sizeof(binary),"%s/../.update/github-download",data_root);
     Json json;JsonToken tokens[4096];char *text=NULL;
-    char tag[32]="",url[2048]="",hash[65]="",relative[1024],expected[65],actual[65];
+    char tag[32]="",url[2048]="",hash[65]="",actual[65];
     const char *failure="GitHub nicht erreichbar. WLAN prüfen.";
     if(!download("https://api.github.com/repos/MerlinHof/Lumen/releases/latest",api,262144))goto failed;
     text=read_json(api,&json,tokens,4096);if(!text)goto failed;
@@ -88,37 +89,21 @@ static void check_worker(int install,pid_t parent) {
     text=read_json(meta,&json,tokens,4096);if(!text)goto failed;
     char v[32];json_string(&json,json_get(&json,0,"version"),v,sizeof(v));
     if(strcmp(v,tag+1))goto failed;
-    int resources=json_get(&json,0,"resources");
-    if(resources<0 || json.tokens[resources].type!='[' || json.tokens[resources].count<10)goto failed;
-    for(int i=0;i<json.tokens[resources].count;i++) {
-        int item=json_at(&json,resources,i);char local[2048];
-        json_string(&json,json_get(&json,item,"path"),relative,sizeof(relative));
-        json_string(&json,json_get(&json,item,"sha256"),expected,sizeof(expected));
-        if(!*relative || relative[0]=='/' || strstr(relative,"..") || strchr(relative,'\\') ||
-           !strncmp(relative,"data/",5) || strlen(expected)!=64)goto failed;
-        snprintf(local,sizeof(local),"%s/../%s",data_root,relative);
-        if(!digest_file(local,actual) || strcmp(expected,actual))goto failed;
-    }
+    char format[40];json_string(&json,json_get(&json,0,"format"),format,sizeof(format));
+    if(strcmp(format,"lumen-system-1"))goto failed;
     json_string(&json,json_get(&json,0,"url"),url,sizeof(url));
     json_string(&json,json_get(&json,0,"sha256"),hash,sizeof(hash));
     long length=(long)json_number(&json,json_get(&json,0,"size"));
-    if(strncmp(url,RELEASE_ROOT,strlen(RELEASE_ROOT)) || strlen(hash)!=64 || length<4096 || length>64*1024*1024)goto failed;
+    if(strncmp(url,RELEASE_ROOT,strlen(RELEASE_ROOT)) || strlen(hash)!=64 || length<4096 || length>128*1024*1024)goto failed;
     failure="Update konnte nicht geprüft werden. Bitte erneut versuchen.";
     if(update_trial()){failure="Zuerst das installierte Test-Update bestätigen.";goto failed;}
-    struct statvfs disk;if(statvfs(data_root,&disk) || (uint64_t)disk.f_bavail*disk.f_frsize<(uint64_t)length+8*1024*1024)goto failed;
+    struct statvfs disk;if(statvfs(data_root,&disk) || (uint64_t)disk.f_bavail*disk.f_frsize<(uint64_t)length+2*(uint64_t)json_number(&json,json_get(&json,0,"installed_size"))+16*1024*1024)goto failed;
     char dir[2048];snprintf(dir,sizeof(dir),"%s/../.update",data_root);mkdir(dir,0700);
-    if(!download(url,binary,64*1024*1024) || !digest_file(binary,actual) || strcmp(actual,hash))goto failed;
+    if(!download(url,binary,128*1024*1024) || !digest_file(binary,actual) || strcmp(actual,hash))goto failed;
     struct stat info;if(stat(binary,&info) || info.st_size!=length)goto failed;
-    FILE *executable=fopen(binary,"rb");unsigned char head[20];
-    int valid=executable && fread(head,1,sizeof(head),executable)==sizeof(head) &&
-              !memcmp(head,"\177ELF\1\1\1",7) && head[16]==2 && !head[17] && head[18]==40 && !head[19];
-    if(executable)fclose(executable);if(!valid)goto failed;
-    if(getppid()!=parent)goto failed;
-    char incoming[2048],receipt[2048],restart[2048];
-    snprintf(incoming,sizeof(incoming),"%s/incoming",dir);
-    snprintf(receipt,sizeof(receipt),"%s/received",dir);
-    snprintf(restart,sizeof(restart),"%s/relaunch",dir);
-    if(rename(binary,incoming) || !atomic_write(receipt,hash,64) || !update_approve(hash) || !atomic_write(restart,"1",1))goto failed;
+    if(getppid()!=parent || !system_update_stage(binary,tag+1))goto failed;
+    char restart[2048];snprintf(restart,sizeof(restart),"%s/../.update/relaunch",data_root);
+    if(!atomic_write(restart,"1",1))goto failed;
     result(3,tag,"");kill(parent,SIGUSR1);goto done;
 failed: result(-1,tag,failure);
 done: free(text);unlink(api);unlink(meta);unlink(binary);_exit(0);

@@ -1,7 +1,7 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 static int v1_visible(int *out) {
     int n = 0;
-    for (int i = 0; i < APP_COUNT; i++) {
+    for (int i = 0; i < APP_LIMIT; i++) {
         int id = launcher_order[i];
         if (app_definition(id)->entry >= 0 && launcher_visible[id])
             out[n++] = id;
@@ -22,6 +22,12 @@ static int engraved_app_icon(int x, int y, int side, int id) {
 #endif
         loaded=file && fread(sheet,1,sizeof(sheet),file) == sizeof(sheet) && fgetc(file) == EOF ? 1 : -1;
         if (file) fclose(file);
+    }
+    unsigned char installed[76*76];
+    if(app_package_icon(id,installed)) {
+        if(side==76)ui_paint_image(x,y,76,76,installed);
+        else for(int yy=0;yy<side;yy++)for(int xx=0;xx<side;xx++)rect(x+xx,y+yy,1,1,installed[yy*76/side*76+xx*76/side]);
+        return 1;
     }
     if (loaded < 0 || id < 0 || id >= ENGRAVED_ATLAS_COUNT) return 0;
     if (side == ENGRAVED_ICON_SIDE) {

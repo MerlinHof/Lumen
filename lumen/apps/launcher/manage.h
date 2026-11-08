@@ -1,7 +1,7 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 static int launcher_manage_indices(int *indices) {
     int n = 0;
-    for (int i = 0; i < APP_COUNT; i++)
+    for (int i = 0; i < APP_LIMIT; i++)
         if (app_route_valid(app_definition(launcher_order[i])->entry))
             indices[n++] = i;
     return n;
@@ -9,7 +9,7 @@ static int launcher_manage_indices(int *indices) {
 static void v1_launcher_settings(void) {
     heading("Apps verwalten");
     drawtext(30, 127, "Sichtbarkeit & Reihenfolge", ui_font(UI_SECONDARY), 540);
-    int indices[APP_COUNT], count = launcher_manage_indices(indices);
+    int indices[APP_LIMIT], count = launcher_manage_indices(indices);
     for (int r = 0; r < 8 && launcher_settings_page * 8 + r < count; r++) {
         int pos = launcher_settings_page * 8 + r, i = indices[pos], id = launcher_order[i],
             y = 174 + r * 68;

@@ -1,4 +1,4 @@
-# Validation · LUMEN 4.2
+# Validation · LUMEN 4.3
 
 ## 3.9 verification
 
@@ -173,3 +173,7 @@ Native and ARM builds; existing native interaction suite plus fraction-axis pixe
 ## 4.2 focused checks
 
 Native/ARM builds; native interaction suite including all fourteen clock-face render paths and native-resolution serif display text; updated Clock/alarm screenshots and a face comparison sheet. These are software renders, not claims of a physical panel timing or wake test.
+
+## 4.3 package checks
+
+The package tests exercise complete runtime asset changes, rollback after an unkept trial, a simulated process interruption after the second file replacement, Keep, private/traversal path rejection, native app rendering/input and app replacement leaving the system executable and user state unchanged. HTTP checks include app package upload/catalog without a restart marker. Native/ARM builds and existing UI/default/input checks are included. These do not claim a physical Kindle OTA activation test.

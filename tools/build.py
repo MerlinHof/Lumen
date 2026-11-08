@@ -15,6 +15,7 @@ def dependencies(target):
     return mupdf,zig,libs
 def object_path(target,source):return ROOT/'build'/target/'obj'/Path(source).with_suffix('.o')
 def build(target):
+    subprocess.run([os.sys.executable,str(ROOT/"tools/embed-runtime.py")],check=True)
     mupdf,zig,libs=dependencies(target)
     env=dict(os.environ,ZIG_GLOBAL_CACHE_DIR=str(ROOT/'.local/cache/zig'),ZIG_LOCAL_CACHE_DIR=str(ROOT/'.local/cache/zig-local'))
     compiler=['clang'] if target=='host' else [str(zig),'cc','-target','arm-linux-musleabi','-mcpu=cortex_a9']
@@ -39,6 +40,8 @@ def build(target):
     binary=ROOT/'build'/target/('lumen-host' if target=='host' else 'lumen')
     link=['clang++'] if target=='host' else [str(zig),'c++','-target','arm-linux-musleabi','-mcpu=cortex_a9','-static','-s','-Wl,--gc-sections']
     subprocess.run(link+[str(p) for p in objects+libs]+['-lm']+(['-lpthread'] if target=='host' else [])+['-o',str(binary)],env=env,check=True)
+    for app in ('frog','sliding_puzzle'):
+        subprocess.run([os.sys.executable,str(ROOT/'tools/build-app.py'),str(ROOT/'lumen/apps'/app/'package.json'),'--target',target],env=env,check=True)
     print(binary)
     return binary
 if __name__=='__main__':

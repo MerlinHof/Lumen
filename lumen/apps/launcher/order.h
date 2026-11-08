@@ -17,7 +17,7 @@ static const AppId launcher_games[] = {
 };
 
 static void launcher_defaults(void) {
-    int n = 0, reserved[APP_COUNT] = {0};
+    int n = 0, reserved[APP_LIMIT] = {0};
     for (size_t i = 0; i < sizeof(launcher_first)/sizeof(*launcher_first); i++) {
         AppId id = launcher_first[i];
         launcher_order[n++] = id;
@@ -25,7 +25,7 @@ static void launcher_defaults(void) {
     }
     for (size_t i = 0; i < sizeof(launcher_games)/sizeof(*launcher_games); i++)
         reserved[launcher_games[i]] = 1;
-    for (int id = 0; id < APP_COUNT; id++)
+    for (int id = 0; id < APP_LIMIT; id++)
         if (!reserved[id])
             launcher_order[n++] = id;
     for (size_t i = 0; i < sizeof(launcher_games)/sizeof(*launcher_games); i++)

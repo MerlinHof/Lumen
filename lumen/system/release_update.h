@@ -1,7 +1,7 @@
 #ifndef LUMEN_RELEASE_UPDATE_H
 #define LUMEN_RELEASE_UPDATE_H
 #include <time.h>
-/* GitHub updates are binary-only and require an exact runtime-resource match. */
+/* Full verified runtime packages from GitHub, with durable rollback. */
 int release_start(int install);
 int release_poll(void);
 void release_cancel(void);

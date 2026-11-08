@@ -1,9 +1,15 @@
+#ifdef LUMEN_PACKAGED
+#include "lumen_app.h"
+#include "api.h"
+#else
 #include "api.h"
 #include "../../system/app_runtime.h"
 #include "../../system/app_storage.h"
 #include "../../system/ui/paint.h"
 #include <stdio.h>
 #include <time.h>
+#endif
+
 static SignalGame signal_game;
 static int signal_ready, signal_dirty;
 
@@ -14,7 +20,11 @@ static void signal_save(void) {
 static void signal_open(void) {
     if (signal_ready) return;
     signal_ready = 1;
-    if (app_state_load("slide3d-v1.bin", &signal_game, sizeof(signal_game))) {
+    int loaded=app_state_load("slide3d-v1.bin", &signal_game, sizeof(signal_game));
+#ifdef LUMEN_PACKAGED
+    if(!loaded){const char*state=getenv("LUMEN_APP_DATA");char old[2048];snprintf(old,sizeof(old),"%s/../../slide3d-v1.bin",state?state:"");FILE*f=fopen(old,"rb");if(f){unsigned h[2];loaded=fread(h,sizeof(h),1,f)==1&&h[0]==0x4c554d16&&h[1]==sizeof(signal_game)&&fread(&signal_game,1,sizeof(signal_game),f)==sizeof(signal_game);fclose(f);}}
+#endif
+    if (loaded) {
         unsigned seen = 0;
         for (int i = 0; i < 16; i++)
             if (signal_game.tiles[i] >= 0 && signal_game.tiles[i] < 16)
@@ -61,6 +71,11 @@ static int signal_input(const Input *in) {
     return 1;
 }
 
+#ifdef LUMEN_PACKAGED
+int main(void){lumen_run(signal_draw,signal_input,signal_save);return 0;}
+#else
 void sliding_puzzle_register(void) {
     app_page_register(APP_SIGNAL, signal_draw, signal_input, signal_save);
 }
+
+#endif

@@ -20,7 +20,10 @@ enum {
     INPUT_STATUS,
     INPUT_POWER,
     INPUT_HOLD,
-    INPUT_CANCEL
+    INPUT_CANCEL,
+    INPUT_BACK,
+    INPUT_TEXT,
+    INPUT_SELECT
 };
 int device_init(void);
 void device_close(void);

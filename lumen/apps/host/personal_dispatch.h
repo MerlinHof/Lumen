@@ -577,7 +577,7 @@ static int v1_input(const Input *in) {
         }
         break;
     case 83: {
-        int indices[APP_COUNT], count = launcher_manage_indices(indices);
+        int indices[APP_LIMIT], count = launcher_manage_indices(indices);
         if (y >= 174 && y < 650) {
             int pos = launcher_settings_page * 8 + (y - 174) / 68;
             if (pos < count) {

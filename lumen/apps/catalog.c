@@ -1,4 +1,5 @@
 #include "../system/app_runtime.h"
+#include "../system/app_packages.h"
 static const AppDefinition definitions[APP_COUNT] = {
     {APP_LIBRARY, "Bibliothek", 1},
     {APP_READER, "Lesen", 2},
@@ -91,16 +92,22 @@ static const AppRoute routes[] = {
     {120, APP_CROSSWORD},             {122, APP_LLM}, {128, APP_LLM},
     {123, APP_LLM},        {125, APP_PLANETARIUM},   {126, APP_JOURNAL},
     {127, APP_STUDY}, {129, APP_SIGNAL}, {130, APP_FROG}, {131, APP_HOME}, {132, APP_LIBRARY}, {133, APP_FILE_TRANSFER}};
-const AppDefinition *app_definition(AppId id) {
+const AppDefinition *app_factory_definition(AppId id) {
     return id >= 0 && id < APP_COUNT ? &definitions[id] : 0;
 }
+const AppDefinition *app_definition(AppId id) {
+    const AppDefinition *installed=app_package_definition(id);
+    return installed ? installed : app_factory_definition(id);
+}
 int app_route_valid(int route) {
+    if(route>=1000 && route<1000+APP_LIMIT-APP_COUNT)return app_package_installed(APP_COUNT+route-1000);
     for (unsigned i = 0; i < sizeof(routes) / sizeof(*routes); i++)
         if (routes[i].route == route)
             return 1;
     return 0;
 }
 AppId app_for_route(int route) {
+    if(route>=1000 && route<1000+APP_LIMIT-APP_COUNT)return APP_COUNT+route-1000;
     for (unsigned i = 0; i < sizeof(routes) / sizeof(*routes); i++)
         if (routes[i].route == route)
             return routes[i].app;

@@ -182,6 +182,7 @@ static int extra_poll(void) {
     if (ui_route() == 36 && *discover_lookup_image() && !wiki_image_available() &&
         wiki_image_attempts < 3)
         return 1000;
+    if (app_package_installed(app_for_route(ui_route())))return 25;
     if (release_state()==1 || service_busy() || service_history_busy() || discover_busy())
         return 250;
     if (ui_route() == 33 || ui_route() == 60)
@@ -210,7 +211,7 @@ static int extra_poll(void) {
     return wait;
 }
 static int extra_tick(void) {
-    int changed = release_poll() | new_apps_tick() | v1_tick() | v1_chess_tick(), done = service_poll();
+    int changed = package_ui_poll() | release_poll() | new_apps_tick() | v1_tick() | v1_chess_tick(), done = service_poll();
     if (done == SERVICE_WEATHER || done == -SERVICE_WEATHER)
         weather_snapshot_valid = 0;
     changed |= notification_tick(extra_millis());

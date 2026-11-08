@@ -17,7 +17,7 @@ def destination(root,relative):
     return target
 
 def runtime_path(relative):
-    return relative=='documents/LUMEN.sh' or (relative.startswith('lumen/') and not relative.startswith(('lumen/data/','lumen/backups/')))
+    return relative=='documents/LUMEN.sh' or (relative.startswith('lumen/') and not relative.startswith(('lumen/data/','lumen/backups/','lumen/apps/','lumen/.update/')))
 
 def storage(root):
     sizes={}

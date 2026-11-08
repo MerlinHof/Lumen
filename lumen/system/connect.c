@@ -4,6 +4,8 @@
 #include "device.h"
 #include "version.h"
 #include "wireless_update.h"
+#include "app_packages.h"
+#include "packages.h"
 #include "engine.h"
 #include "library.h"
 #include "services.h"
@@ -538,6 +540,27 @@ static void handle(int fd,const char *initial,size_t initial_size) {
     char *query = strchr(url, '?');
     if (query)
         *query++ = 0;
+    if(!strcmp(method,"GET") && !strcmp(url,"/api/apps")) {
+        app_packages_scan();char*body=NULL;size_t size=0;FILE*f=open_memstream(&body,&size);fputs("{\"apps\":[",f);int first=1;
+        for(int i=0;i<APP_LIMIT;i++) {
+            const AppDefinition*a=app_definition(i);if(!a||a->entry<0)continue;
+            if(!first)fputc(',',f);first=0;fputs("{\"id\":",f);json(f,app_package_key(i));fputs(",\"name\":",f);json(f,a->name);fputs(",\"names\":[",f);for(int l=0;l<3;l++){if(l)fputc(',',f);json(f,tr_language(a->name,l));}fputs("],\"version\":",f);json(f,app_package_version(i));fputc('}',f);
+        }
+        fputs("]}",f);fclose(f);response(fd,200,"application/json",body);free(body);return;
+    }
+    if(!strcmp(method,"PUT") && !strcmp(url,"/api/apps/install")) {
+        if(!haslength || length<100 || length>64*1024*1024 || bodyn>length){response(fd,400,"application/json","{}");return;}
+        struct statvfs space;if(statvfs(data_root,&space) || (uint64_t)space.f_bavail*space.f_frsize<3*length+8*1024*1024){response(fd,507,"application/json","{}");return;}
+        char dir[2048],archive[2048];snprintf(dir,sizeof(dir),"%s/../apps",data_root);package_mkdirs(dir);snprintf(archive,sizeof(archive),"%s/.upload-%ld",dir,(long)getpid());
+        unlink(archive);int out=open(archive,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW,0600),ok=out>=0;uint64_t left=length;char bytes[32768];
+        while(ok && left){const char*p=body;size_t n=bodyn;if(!n){ssize_t got=recv(fd,bytes,left<sizeof(bytes)?left:sizeof(bytes),0);if(got<=0){ok=0;break;}p=bytes;n=got;}size_t sent=0;while(sent<n){ssize_t w=write(out,p+sent,n-sent);if(w<=0){ok=0;break;}sent+=w;}left-=n;bodyn=0;}
+        if(out>=0){if(fsync(out))ok=0;if(close(out))ok=0;}
+        if(ok)ok=app_package_install(archive);unlink(archive);response(fd,ok?201:400,"application/json",ok?"{\"installed\":true}":"{\"error\":\"Invalid app package\"}");
+#ifndef LUMEN_HOST
+        if(ok)kill(getppid(),SIGUSR1);
+#endif
+        return;
+    }
     if (!strcmp(method, "PUT") && (!strcmp(url, "/api/update") || !strcmp(url, "/api/custom-app"))) {
         char digest[UPDATE_DIGEST_SIZE], result[128];
         int status = haslength ? update_receive(fd,length,body,bodyn,digest) : 411;
@@ -548,13 +571,13 @@ static void handle(int fd,const char *initial,size_t initial_size) {
         response(fd,status,"application/json",result);
         return;
     }
-    if (!strcmp(method,"GET") && !strcmp(url,"/api/custom-app/status")) {
+    if (!strcmp(method,"GET") && (!strcmp(url,"/api/custom-app/status") || !strcmp(url,"/api/system/status"))) {
         char result[100];
         snprintf(result,sizeof(result),"{\"version\":\"%s\",\"trial\":%s}",LUMEN_VERSION,update_trial() ? "true" : "false");
         response(fd,200,"application/json",result);
         return;
     }
-    if (!strcmp(method,"GET") && !strcmp(url,"/api/custom-app/guide")) {
+    if (!strcmp(method,"GET") && (!strcmp(url,"/api/custom-app/guide") || !strcmp(url,"/api/apps/guide"))) {
         char path[2048], guide[24000];
         snprintf(path,sizeof(path),"%s/../system/custom-app-guide.txt",data_root);
 #ifdef LUMEN_HOST
@@ -569,7 +592,7 @@ static void handle(int fd,const char *initial,size_t initial_size) {
         response(fd,200,"text/plain; charset=utf-8",guide);
         return;
     }
-    if (!strcmp(method,"POST") && !strcmp(url,"/api/custom-app/keep")) {
+    if (!strcmp(method,"POST") && (!strcmp(url,"/api/custom-app/keep") || !strcmp(url,"/api/system/keep"))) {
         response(fd,update_keep() ? 200 : 409,"application/json","{}");
         return;
     }

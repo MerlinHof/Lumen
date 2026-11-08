@@ -1,0 +1,53 @@
+name: Publish Kindle update
+on:
+  workflow_run:
+    workflows: [Native checks]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: lumen-release
+  cancel-in-progress: false
+jobs:
+  release:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - name: Check release version
+        id: version
+        run: |
+          VERSION=$(cat VERSION)
+          python3 -c 'import sys;sys.path.insert(0,"tools");from package import validate_version;validate_version(open("VERSION").read().strip())'
+          echo "number=$VERSION" >> "$GITHUB_OUTPUT"
+          if gh release view "v$VERSION" >/dev/null 2>&1; then echo 'publish=false' >> "$GITHUB_OUTPUT"; else echo 'publish=true' >> "$GITHUB_OUTPUT"; fi
+      - name: Install build tools
+        if: steps.version.outputs.publish == 'true'
+        run: sudo apt-get update && sudo apt-get install -y clang make build-essential pkg-config
+      - uses: actions/cache@v4
+        if: steps.version.outputs.publish == 'true'
+        with:
+          path: .local
+          key: kindle-${{ runner.os }}-${{ hashFiles('tools/config/dependencies.json', 'tools/vendor/*', 'tools/prepare-amazon.py') }}
+      - name: Build complete release
+        if: steps.version.outputs.publish == 'true'
+        run: |
+          python3 tools/setup.py kindle
+          python3 tools/build.py kindle
+          python3 tools/package.py
+          python3 tools/export-sdk.py
+      - name: Publish verified update assets
+        if: steps.version.outputs.publish == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.number }}
+        run: |
+          if gh release view "v$VERSION" >/dev/null 2>&1; then exit 0; fi
+          test -f "docs/releases/$VERSION.md"
+          gh release create "v$VERSION" --target "$(git rev-parse HEAD)" --latest --title "LUMEN $VERSION" --notes-file "docs/releases/$VERSION.md" "dist/LUMEN-$VERSION.zip" "dist/LUMEN-$VERSION.zip.sha256" "dist/LUMEN-$VERSION.lumen-system" "dist/LUMEN-$VERSION.wireless.json" "dist/LUMEN-$VERSION-sdk.zip" build/apps/kindle/*/*.lumen-app

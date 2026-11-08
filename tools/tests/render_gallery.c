@@ -4,6 +4,7 @@
 #include <assert.h>
 static void picture(const char *name) {
     notification_dismiss();
+    if(app_package_installed(app_for_route(ui_route()))){app_process_open(app_for_route(ui_route()));for(int i=0;i<100&&!*app_process_frame();i++){usleep(10000);app_process_poll();}}
     ui_draw();
     char path[256];
     snprintf(path, sizeof(path), "build/gallery/%s.pgm", name);

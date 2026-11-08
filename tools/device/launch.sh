@@ -67,6 +67,10 @@ date
 rollback_wireless() {
     [ ! -f .update/previous ] || { mv -f .update/previous bin/lumen && sync; }
 }
+# The durable helper runs from .update, so replacing bin/lumen and launch.sh is safe.
+if [ -x .update/system-installer ]; then
+    .update/system-installer --system-maintenance || exit 1
+fi
 rollback_wireless || exit 1
 if [ -f .update/approved ]; then
     if ! bin/lumen --apply-wireless; then

@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "wireless_update.h"
+#include "system_update.h"
 #include "library.h"
 #include "mupdf/fitz/crypt.h"
 #include <errno.h>
@@ -44,7 +45,7 @@ static int kindle_executable(const unsigned char *head) {
 int update_trial(void) {
     char previous[2048];
     update_path(previous,"previous");
-    return access(previous,F_OK) == 0;
+    return system_update_trial() || access(previous,F_OK) == 0;
 }
 int update_fingerprint(char digest[UPDATE_DIGEST_SIZE]) {
     char incoming[2048];
@@ -57,6 +58,7 @@ int update_approve(const char *digest) {
            !strcmp(current,digest) && save_digest("approved",digest);
 }
 int update_keep(void) {
+    if(system_update_trial())return system_update_keep();
     char previous[2048];
     update_path(previous,"previous");
     return unlink(previous) == 0;

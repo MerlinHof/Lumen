@@ -1,6 +1,6 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 static int launcher_load(const char *name, int count) {
-    int config[APP_COUNT * 2], seen[APP_COUNT] = {0};
+    int config[APP_LIMIT * 2], seen[APP_LIMIT] = {0};
     if (!app_state_load(name, config, sizeof(int) * count * 2))
         return 0;
     for (int i = 0; i < count; i++)
@@ -10,7 +10,7 @@ static int launcher_load(const char *name, int count) {
         launcher_order[i] = config[i];
         launcher_visible[i] = !!config[i + count];
     }
-    for (int i = count; i < APP_COUNT; i++)
+    for (int i = count; i < APP_LIMIT; i++)
         launcher_order[i] = i;
     return 1;
 }
@@ -20,10 +20,10 @@ static void v1_init(void) {
         return;
     v1_ready = 1;
     launcher_defaults();
-    for (int i = 0; i < APP_COUNT; i++)
+    for (int i = 0; i < APP_LIMIT; i++)
         launcher_visible[i] = i == APP_LIBRARY || i == APP_SETTINGS || i == APP_STORE ||
             i == APP_FILE_TRANSFER || (i >= APP_CALENDAR && i <= APP_HEX) || i >= APP_JOURNAL;
-    int launcher_loaded=0;
+    int launcher_loaded=launcher_load("launcher-packages.bin",APP_LIMIT);
     for (int count=APP_COUNT;count>=APP_HOME+1 && !launcher_loaded;count--)
         launcher_loaded=launcher_load("launcher-36.bin",count);
     if (!launcher_loaded) {
@@ -112,12 +112,12 @@ static void v1_init(void) {
 static void v1_save(void) {
     if (!v1_ready || !v1_dirty)
         return;
-    int cfg[APP_COUNT * 2];
-    for (int i = 0; i < APP_COUNT; i++) {
+    int cfg[APP_LIMIT * 2];
+    for (int i = 0; i < APP_LIMIT; i++) {
         cfg[i] = launcher_order[i];
-        cfg[i + APP_COUNT] = launcher_visible[i];
+        cfg[i + APP_LIMIT] = launcher_visible[i];
     }
-    app_state_save("launcher-36.bin", cfg, sizeof(cfg));
+    app_state_save("launcher-packages.bin", cfg, sizeof(cfg));
     app_state_save("note-tree-1.bin", &note_tree, sizeof(note_tree));
     app_state_save("flashcards-1.bin", flashcards, sizeof(flashcards));
     app_state_save("wordle-1.bin", &wordle_game, sizeof(wordle_game));

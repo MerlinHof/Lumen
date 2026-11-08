@@ -24,7 +24,7 @@ article{display:flex;align-items:center;justify-content:space-between;gap:24px;p
 <div id="updatePanel" hidden><h2 id="updateTitle"></h2><p id="updateHint"></p>
 <button id="makeAppPrompt"></button><textarea id="appPrompt" hidden readonly rows="16" style="width:100%;margin:18px 0;line-height:1.5"></textarea><button id="copyAppPrompt" hidden></button>
 <div id="appTrial" hidden><p id="trialHint"></p><button id="keepApp"></button><button id="rollbackApp"></button></div>
-<p id="appUploadHint" style="margin-top:28px"></p><input id="updateFile" type="file" accept=".lumen-update"><button id="updateUpload"></button></div>
+<p id="appUploadHint" style="margin-top:28px"></p><input id="updateFile" type="file" accept=".lumen-app"><button id="updateUpload"></button><details style="margin-top:28px"><summary id="catalogTitle">Apps</summary><div id="appCatalog"></div></details></div>
 <progress id="progress" value="0" max="100" hidden></progress><p id="status" role="status" aria-live="polite"></p><button id="logout" data-t="disconnect"></button></section><footer class="muted" data-t="credit"></footer></main>
 <script>
 let token='',books=[],lang=localStorage.getItem('lumen-language')||navigator.language.split('-')[0];if(!['de','en','fr','zh'].includes(lang))lang='en';const $=s=>document.querySelector(s);
@@ -69,16 +69,18 @@ for(let i=0;i<tabIds16.length;i++){const option=document.createElement('option')
 mobileNav17.onchange=()=>$('#'+tabIds16[+mobileNav17.value]).click();
 const extraWords17={de:['Notizen','Einrichtung','Lernen','Notizen & Zeichnungen','TXT: nur Text. PDF: formatiertes Markdown mit Zeichnungen.','Lernmaterial','PDF, EPUB oder Text hochladen. Danach Lernen auf dem Kindle öffnen.','OpenAI API-Schlüssel','Modell-ID','Auf Kindle speichern'],en:['Notes','Setup','Study','Notes & drawings','TXT: text only. PDF: formatted Markdown with drawings.','Study material','Upload PDF, EPUB or text. Then open Study on Kindle.','OpenAI API key','Model ID','Save on Kindle'],fr:['Notes','Configuration','Étudier','Notes et dessins','TXT : texte seul. PDF : Markdown mis en forme avec dessins.','Documents d’étude','Importez un PDF, EPUB ou texte, puis ouvrez Étudier sur le Kindle.','Clé API OpenAI','Identifiant du modèle','Enregistrer sur le Kindle']};
 const updateWords={
-de:['Eigene Apps installieren','Gib diesen Prompt deinem KI-Agenten. Er entwickelt und installiert eine eigene App für dein LUMEN-Gerät. Beschreibe am Ende des Prompts deine Idee.','Prompt erstellen','Prompt kopieren','Vertraute App-Datei auswählen und installieren','App installieren','LUMEN startet mit der neuen App. Danach kannst du hier die Probeversion behalten.','Die App läuft zur Probe. Nach dem Ausprobieren behalten oder die vorige Version wiederherstellen.','App behalten','Vorige Version wiederherstellen'],
-en:['Install custom apps','Give this prompt to your AI agent and it will build and install a custom app on your LUMEN device. Describe your idea at the end of the prompt.','Create prompt','Copy prompt','Select a trusted app file to install','Install app','LUMEN is restarting with the new app. You can keep the trial here afterwards.','This app is a trial. After trying it, keep it or restore the previous version.','Keep app','Restore previous version'],
-fr:['Installer des apps','Donnez ce prompt à votre agent IA. Il développera et installera une app sur votre appareil LUMEN. Décrivez votre idée à la fin du prompt.','Créer le prompt','Copier le prompt','Choisir un fichier d’app de confiance à installer','Installer l’app','LUMEN redémarre avec la nouvelle app. Vous pourrez ensuite la conserver ici.','Cette app est à l’essai. Après l’essai, conservez-la ou rétablissez la version précédente.','Conserver l’app','Rétablir la version précédente']};
+de:['Apps installieren und aktualisieren','Gib diesen Prompt deinem KI-Agenten. Er entwickelt und installiert eine eigene App für dein LUMEN-Gerät. Beschreibe am Ende des Prompts deine Idee.','Prompt erstellen','Prompt kopieren','Vertraute App-Datei auswählen und installieren','App installieren','App installiert. Öffne sie auf der Startseite.','Die App läuft zur Probe. Nach dem Ausprobieren behalten oder die vorige Version wiederherstellen.','App behalten','Vorige Version wiederherstellen'],
+en:['Install and update apps','Give this prompt to your AI agent and it will build and install a custom app on your LUMEN device. Describe your idea at the end of the prompt.','Create prompt','Copy prompt','Select a trusted app file to install','Install app','App installed. Open it from Home.','This app is a trial. After trying it, keep it or restore the previous version.','Keep app','Restore previous version'],
+fr:['Installer des apps','Donnez ce prompt à votre agent IA. Il développera et installera une app sur votre appareil LUMEN. Décrivez votre idée à la fin du prompt.','Créer le prompt','Copier le prompt','Choisir un fichier d’app de confiance à installer','Installer l’app','App installée. Ouvrez-la depuis l’accueil.','Cette app est à l’essai. Après l’essai, conservez-la ou rétablissez la version précédente.','Conserver l’app','Rétablir la version précédente']};
 let deviceVersion="";
 async function appTrial(){
- const state=await(await api('/api/custom-app/status')).json();deviceVersion=state.version;$('#appTrial').hidden=!state.trial;
+ const state=await(await api('/api/system/status')).json();deviceVersion=state.version;$('#appTrial').hidden=!state.trial;
+ const catalog=await(await api('/api/apps')).json();$('#appCatalog').replaceChildren();
+ for(const a of catalog.apps){const row=document.createElement('article'),name=document.createElement('strong'),version=document.createElement('small');name.textContent=a.names?.[['de','en','fr'].indexOf(lang)]||a.name;version.textContent=a.version;row.append(name,version);$('#appCatalog').append(row);}
 }
 $('#makeAppPrompt').onclick=()=>action($('#makeAppPrompt'),async()=>{
  await appTrial();
- const guide=await(await api('/api/custom-app/guide')).text();
+ const guide=await(await api('/api/apps/guide')).text();
  $('#appPrompt').hidden=$('#copyAppPrompt').hidden=false;
  $('#appPrompt').value='My LUMEN connection for this session\nINSTALLED_VERSION: '+deviceVersion+'\nDEVICE_URL: '+location.origin+'\nPAIRING_CODE: '+token+'\n\n'+guide;
  await appTrial();
@@ -87,23 +89,23 @@ $('#copyAppPrompt').onclick=()=>{
  const field=$('#appPrompt');field.focus();field.select();
  if(!document.execCommand('copy'))$('#status').textContent=lang==='de'?'Markierten Text kopieren.':lang==='fr'?'Copiez le texte sélectionné.':'Copy the selected text.';
 };
-$('#keepApp').onclick=()=>action($('#keepApp'),async()=>{await api('/api/custom-app/keep',{method:'POST'});await appTrial();});
+$('#keepApp').onclick=()=>action($('#keepApp'),async()=>{await api('/api/system/keep',{method:'POST'});await appTrial();});
 $('#rollbackApp').onclick=()=>action($('#rollbackApp'),async()=>{await api('/api/custom-app/rollback',{method:'POST'});$('#status').textContent=updateWords[lang][6];});
 $('#updateUpload').onclick=()=>action($('#updateUpload'),async()=>{
- const file=$('#updateFile').files[0];if(!file||!file.name.endsWith('.lumen-update'))throw Error(t('inputError'));
+ const file=$('#updateFile').files[0];if(!file||!file.name.endsWith('.lumen-app'))throw Error(t('inputError'));
  const progress=$('#progress');progress.hidden=false;progress.value=0;
  try{
-  const receipt=await new Promise((resolve,reject)=>{
-   const req=new XMLHttpRequest();req.open('PUT','/api/custom-app');req.setRequestHeader('Authorization','Bearer '+token);
+  await new Promise((resolve,reject)=>{
+   const req=new XMLHttpRequest();req.open('PUT','/api/apps/install');req.setRequestHeader('Authorization','Bearer '+token);
    req.upload.onprogress=e=>{if(e.lengthComputable)progress.value=100*e.loaded/e.total};
    req.onload=()=>req.status===201?resolve(JSON.parse(req.responseText)):reject(Error(t(req.status===401?'pairError':req.status===409?'conflictError':req.status===507?'storageError':'inputError')));
    req.onerror=()=>reject(Error(t('networkError')));req.send(file);
   });
-  await api('/api/custom-app/install?sha256='+receipt.sha256,{method:'POST'});
+  await appTrial();
   $('#status').textContent=updateWords[lang][6];$('#updateFile').value='';
  }finally{progress.hidden=true;}
 });
-const oldLanguage17=language;language=function(){if(!extraWords17[lang])lang='de';oldLanguage17();const w=extraWords17[lang],u=updateWords[lang];$('#updateTab').textContent='Apps';$('#updateTitle').textContent=u[0];$('#updateHint').textContent=u[1];$('#makeAppPrompt').textContent=u[2];$('#copyAppPrompt').textContent=u[3];$('#appUploadHint').textContent=u[4];$('#updateUpload').textContent=u[5];$('#trialHint').textContent=u[7];$('#keepApp').textContent=u[8];$('#rollbackApp').textContent=u[9];for(const[id,i]of [['notesTab',0],['setupTab',1],['studyTab',2]])$('#'+id).textContent=w[i];$('#notesPanel h2').textContent=w[3];$('#notesPanel p').textContent=w[4];$('#studyPanel h2').textContent=w[5];$('#studyPanel p').textContent=w[6];$('#llmKey').previousElementSibling.textContent=w[7];$('#llmModel').previousElementSibling.textContent=w[8];$('#llmForm button').textContent=w[9];$('#llmForm p').textContent=lang==='de'?'Schlüssel und Modell bleiben auf deinem Kindle. Anfragen werden erst beim Senden in der App an OpenAI geschickt.':lang==='fr'?'La clé et le modèle restent sur votre Kindle. Les demandes sont envoyées à OpenAI uniquement après votre envoi dans l’application.':'Key and model stay on your Kindle. Requests are sent to OpenAI only when you press Send in the app.';for(let i=0;i<tabIds16.length;i++)mobileNav17.options[i].textContent=$('#'+tabIds16[i]).textContent};language();
+const oldLanguage17=language;language=function(){if(!extraWords17[lang])lang='de';oldLanguage17();const w=extraWords17[lang],u=updateWords[lang];$('#updateTab').textContent='Apps';$('#catalogTitle').textContent=lang==='de'?'Apps auf diesem Kindle':lang==='fr'?'Apps sur ce Kindle':'Apps on this Kindle';$('#updateTitle').textContent=u[0];$('#updateHint').textContent=u[1];$('#makeAppPrompt').textContent=u[2];$('#copyAppPrompt').textContent=u[3];$('#appUploadHint').textContent=u[4];$('#updateUpload').textContent=u[5];$('#trialHint').textContent=u[7];$('#keepApp').textContent=u[8];$('#rollbackApp').textContent=u[9];for(const[id,i]of [['notesTab',0],['setupTab',1],['studyTab',2]])$('#'+id).textContent=w[i];$('#notesPanel h2').textContent=w[3];$('#notesPanel p').textContent=w[4];$('#studyPanel h2').textContent=w[5];$('#studyPanel p').textContent=w[6];$('#llmKey').previousElementSibling.textContent=w[7];$('#llmModel').previousElementSibling.textContent=w[8];$('#llmForm button').textContent=w[9];$('#llmForm p').textContent=lang==='de'?'Schlüssel und Modell bleiben auf deinem Kindle. Anfragen werden erst beim Senden in der App an OpenAI geschickt.':lang==='fr'?'La clé et le modèle restent sur votre Kindle. Les demandes sont envoyées à OpenAI uniquement après votre envoi dans l’application.':'Key and model stay on your Kindle. Requests are sent to OpenAI only when you press Send in the app.';for(let i=0;i<tabIds16.length;i++)mobileNav17.options[i].textContent=$('#'+tabIds16[i]).textContent};language();
 
 const initialCode=location.hash.slice(1);if(initialCode){$('#code').value=initialCode;history.replaceState(null,'',location.pathname);$('#login').click()}
 </script></html>

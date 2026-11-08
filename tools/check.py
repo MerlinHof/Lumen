@@ -19,10 +19,12 @@ def compile_test(name,source,ui=False):
 def run(http=False,native_only=False):
     os.chdir(ROOT);OUT.mkdir(parents=True,exist_ok=True)
     shutil.rmtree(OUT/'test-data',ignore_errors=True)
+    shutil.rmtree(OUT/'apps',ignore_errors=True)
     binary=compile_test('integration','tools/tests/test_integration.c',True);subprocess.run([str(binary)],check=True)
     binary=compile_test('fresh-settings','tools/tests/test_fresh_settings.c');subprocess.run([str(binary)],check=True)
     signal=OUT/'signal';subprocess.run(['clang','-O1','-g','-fsanitize=address,undefined','tools/tests/test_signal.c','lumen/apps/sliding_puzzle/engine.c','-lm','-o',str(signal)],check=True);subprocess.run([str(signal)],check=True)
     binary=compile_test('release-client','tools/tests/test_release_update.c');subprocess.run([str(binary)],check=True)
+    subprocess.run([sys.executable,'tools/tests/test_packages.py'],check=True)
     if not native_only: subprocess.run([sys.executable,'tools/tests/test_installation.py'],check=True)
     if http:
         binary=compile_test('http','tools/tests/http_server.c');subprocess.run([sys.executable,'tools/tests/test_http.py',str(binary)],check=True)

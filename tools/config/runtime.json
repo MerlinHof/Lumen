@@ -63,5 +63,7 @@
   "lumen/home/engraved.gray": "lumen/assets/home/engraved.gray",
   "lumen/system/custom-app-guide.txt": "lumen/assets/web/custom-app-guide.txt",
   "lumen/photos/alpine-dawn.pgm": "lumen/assets/photos/alpine-dawn.pgm",
-  "lumen/CMARK-LICENSE.txt": "lumen/assets/licenses/CMARK-LICENSE.txt"
+  "lumen/CMARK-LICENSE.txt": "lumen/assets/licenses/CMARK-LICENSE.txt",
+  "lumen/app-packages/lumen.frog-solitaire.lumen-app": "build/apps/kindle/lumen.frog-solitaire/lumen.frog-solitaire.lumen-app",
+  "lumen/app-packages/lumen.sliding-puzzle.lumen-app": "build/apps/kindle/lumen.sliding-puzzle/lumen.sliding-puzzle.lumen-app"
 }

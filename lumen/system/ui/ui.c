@@ -2,8 +2,6 @@
 #define _GNU_SOURCE
 #include "api.h"
 #include "paint.h"
-#include "../../apps/frog/app.h"
-#include "../../apps/sliding_puzzle/api.h"
 #include "../../apps/notifications/api.h"
 #include "../amazon.h"
 #include "../../apps/games/api.h"
@@ -13,6 +11,7 @@
 #include "../version.h"
 #include "../wireless_update.h"
 #include "../release_update.h"
+#include "../app_packages.h"
 #include "../content_service.h"
 #include "../engine.h"
 #include "font_data.h"
@@ -60,6 +59,11 @@ static int ui_route(void) { return runtime.route; }
 static void app_leave(AppId app, void *ctx);
 static void route_to(int route);
 static int app_send(const AppIntent *intent);
+static int package_ui_poll(void);
+static void package_ui_draw(void);
+static int package_ui_input(const Input *);
+static int package_ui_commit(int target,const char *text);
+static void package_ui_choice(int choice);
 static int app_read_book(int index);
 static void extra_prepare(int target);
 static int app_handle_input(const Input *in);
@@ -718,7 +722,7 @@ static void key_outline(int x, int y, int w, int h) {
     outline_surface(x, y, w, h, RADIUS_MEDIUM, 48);
 }
 static int can_back(void) {
-    return editor_ui.keyboard || dropdown || confirm_delete || battery_popup ||
+    return (app_package_installed(app_for_route(ui_route())) && strstr(app_process_frame(),"\"back\":true")) || editor_ui.keyboard || dropdown || confirm_delete || battery_popup ||
            (ui_route() == 29 && u17_notes_depth()) || (ui_route() == 10 && store_ui.opds_depth) ||
            history_count || ui_route() != 131;
 }
@@ -978,6 +982,7 @@ void ui_set_screen(int n) {
     full = 1;
 }
 void ui_init(void) {
+    app_packages_scan();app_packages_seed();
     app_runtime_init(&runtime, app_leave, NULL);
     register_builtin_views();
     notifications_register();
@@ -1259,6 +1264,12 @@ void ui_draw(void) {
         app_view_draw(APP_LOCK_SCREEN);
         return;
     }
+    if(app_package_installed(app_for_route(ui_route()))) {
+        app_view_draw(APP_STATUS_BAR);
+        package_ui_draw();
+        if(editor_ui.keyboard){memcpy(editor_ui.keyboard_background18,ui_pixels,sizeof(ui_pixels));editor_ui.keyboard_background_valid18=1;}
+        goto input_overlays18;
+    }
     if (ui_route() == 28 && clock_ui.clock_fullscreen) {
         clock_face(1);
         return;
@@ -1357,7 +1368,7 @@ static int ui_dispatch_input(const Input *in) {
     int pm = polish_power(in);
     if (pm)
         return pm == 2 ? 0 : pm == 3 ? 3 : 1;
-    if (!sleeping && in->kind == INPUT_HOLD && photo_gallery_active() &&
+    if (!sleeping && !app_package_installed(APP_PHOTOS) && in->kind == INPUT_HOLD && photo_gallery_active() &&
         !dropdown && !editor_ui.keyboard) {
         int index = photo_grid_hit(in->x, in->y);
         if (index >= 0) {
@@ -1374,7 +1385,7 @@ static int ui_dispatch_input(const Input *in) {
         if (in->kind == INPUT_DOWN || in->kind == INPUT_MOVE || in->kind == INPUT_HOLD)
             return 2;
     }
-    if (polish_photo_full() && in->kind == INPUT_TAP)
+    if (!app_package_installed(APP_PHOTOS) && polish_photo_full() && in->kind == INPUT_TAP)
         return polish_photo_input(in);
     int input18 = keyboard_intercept18(in);
     if (input18 >= 0)
@@ -1382,20 +1393,20 @@ static int ui_dispatch_input(const Input *in) {
     int back_release = pressed >= 0 && press_bounds.system && press_bounds.x == 0 &&
                        press_bounds.y == 0 && press_bounds.w == 62 && in->y < STATUS_HEIGHT+8 && in->x < 70;
     int status_tap = in->kind == INPUT_TAP && (in->y < STATUS_HEIGHT || back_release) &&
-                     (ui_route() != 2 || reader_ui.reader_chrome);
+                     (ui_route() != 2 || reader_ui.reader_chrome || app_package_installed(APP_READER));
     int system_pager = !sleeping && !editor_ui.keyboard && !dropdown && !confirm_delete &&
                        pagination_hit(in);
-    int update17 = (status_tap || system_pager) ? -1 : u17_input(in);
+    int update17 = (status_tap || system_pager || app_package_installed(app_for_route(ui_route()))) ? -1 : u17_input(in);
     if (update17 >= 0) {
         pressed = -1;
         return update17;
     }
-    int update16 = (status_tap || system_pager) ? -1 : u16_input(in);
+    int update16 = (status_tap || system_pager || app_package_installed(app_for_route(ui_route()))) ? -1 : u16_input(in);
     if (update16 >= 0) {
         pressed = -1;
         return update16;
     }
-    int update15 = (status_tap || system_pager) ? -1 : u15_input(in);
+    int update15 = (status_tap || system_pager || app_package_installed(app_for_route(ui_route()))) ? -1 : u15_input(in);
     if (update15 >= 0) {
         pressed = -1;
         return update15;
@@ -1439,7 +1450,7 @@ static int ui_dispatch_input(const Input *in) {
     if (intercepted >= 0)
         return intercepted;
 
-    if (!sleeping && !dropdown && (ui_route() == 0 || ui_route() == 1) && in->kind == INPUT_HOLD) {
+    if (!sleeping && !app_package_installed(APP_LIBRARY) && !dropdown && (ui_route() == 0 || ui_route() == 1) && in->kind == INPUT_HOLD) {
         int index = -1, top = library_top(), begin = library_begin();
         if (featured() >= 0 && library_ui.listpage == 0 && in->x >= 28 && in->x < 572 &&
             in->y >= 80 && in->y < 312)
@@ -1462,9 +1473,9 @@ static int ui_dispatch_input(const Input *in) {
             return 1;
         }
     }
-    if (ui_route() == 23 && in->kind == INPUT_HOLD && !sleeping)
+    if (!app_package_installed(APP_MINES) && ui_route() == 23 && in->kind == INPUT_HOLD && !sleeping)
         return apps_input(in);
-    if (!sleeping && ui_route() == 2 && in->kind == INPUT_HOLD && !reader_ui.reader_chrome && in->y > 60 &&
+    if (!sleeping && !app_package_installed(APP_READER) && ui_route() == 2 && in->kind == INPUT_HOLD && !reader_ui.reader_chrome && in->y > 60 &&
         in->y < 735) {
         reader_ui.selection_last_x = reader_ui.selection_x = in->x;
         reader_ui.selection_last_y = reader_ui.selection_y = in->y;
@@ -1576,6 +1587,7 @@ static int ui_dispatch_input(const Input *in) {
         return 1;
     }
     if (in->kind == INPUT_NETWORK) {
+        app_packages_scan();
         char restart[2048];
         snprintf(restart,sizeof(restart),"%s/../.update/relaunch",data_root);
         if (!access(restart,F_OK)) {
@@ -1631,6 +1643,7 @@ static int ui_dispatch_input(const Input *in) {
         return 0;
     }
     if (in->kind == INPUT_SLEEP) {
+        app_process_pause();
         apps_pause();
         extra_save();
         service_cancel();
@@ -1731,6 +1744,8 @@ static int ui_dispatch_input(const Input *in) {
         return 1;
     }
 
+    if(app_package_installed(app_for_route(ui_route())) && !editor_ui.keyboard && !dropdown && !confirm_delete &&
+       ((in->kind==INPUT_TAP && y>=STATUS_HEIGHT) || in->kind==INPUT_SWIPE || in->kind==INPUT_HOLD))return package_ui_input(in);
     if (in->kind == INPUT_TAP && ui_route() == 2 && reader_ui.reader_chrome && y >= READER_TOOLBAR_END) {
         reader_ui.reader_chrome = 0;
         return 1;
@@ -1739,7 +1754,7 @@ static int ui_dispatch_input(const Input *in) {
         reader_ui.reader_chrome = 1;
         return 1;
     }
-    if (in->kind == INPUT_TAP && y < STATUS_HEIGHT && (ui_route() != 2 || reader_ui.reader_chrome) &&
+    if (in->kind == INPUT_TAP && y < STATUS_HEIGHT && (ui_route() != 2 || reader_ui.reader_chrome || app_package_installed(APP_READER)) &&
         !editor_ui.keyboard && !dropdown && !confirm_delete && !battery_popup) {
         int date = x >= status_ui.status_date_x && x < status_ui.status_date_x + status_ui.status_date_w;
         int clock = x >= status_ui.status_clock_x && x < status_ui.status_clock_x + status_ui.status_clock_w;
@@ -1750,22 +1765,23 @@ static int ui_dispatch_input(const Input *in) {
             return 1;
         }
     }
-    if (in->kind == INPUT_TAP && y < STATUS_HEIGHT && (ui_route() != 2 || reader_ui.reader_chrome) &&
+    if (in->kind == INPUT_TAP && y < STATUS_HEIGHT && (ui_route() != 2 || reader_ui.reader_chrome || app_package_installed(APP_READER)) &&
         !editor_ui.keyboard && !dropdown && !confirm_delete && !battery_popup && status_ui.status_timer_x >= 0 &&
         x >= status_ui.status_timer_x && x < status_ui.status_timer_x + status_ui.status_timer_width) {
         AppIntent request = {.app = APP_TIMER, .kind = INTENT_OPEN};
         app_send(&request);
         return 1;
     }
-    if (in->kind == INPUT_TAP && y < STATUS_HEIGHT && (ui_route() != 2 || reader_ui.reader_chrome)) {
+    if (in->kind == INPUT_TAP && y < STATUS_HEIGHT && (ui_route() != 2 || reader_ui.reader_chrome || app_package_installed(APP_READER))) {
         if (x < 62 && ui_route() == 3 && !editor_ui.keyboard && !dropdown && !confirm_delete)
             apply_reading_settings();
-        if (x < 62 && ui_route() == 29 && u17_notes_depth() && !editor_ui.keyboard && !dropdown) {
+        if (x < 62 && !app_package_installed(APP_NOTES) && ui_route() == 29 && u17_notes_depth() && !editor_ui.keyboard && !dropdown) {
             u17_notes_up();
             return 1;
         }
-        if (x < 62 && !editor_ui.keyboard && !dropdown && !confirm_delete && (photo_back() || recipes_back() || ha_back()))
+        if (x < 62 && !editor_ui.keyboard && !dropdown && !confirm_delete && !app_package_installed(app_for_route(ui_route())) && (photo_back() || recipes_back() || ha_back()))
             return 1;
+        if(x<62 && app_package_installed(app_for_route(ui_route())) && strstr(app_process_frame(),"\"back\":true") && !editor_ui.keyboard && !dropdown){app_process_send("{\"event\":\"back\"}");return 2;}
         if (x < 62 && can_back()) {
             apps_pause();
             if (editor_ui.keyboard || dropdown || confirm_delete) {
@@ -1815,7 +1831,7 @@ static int ui_dispatch_input(const Input *in) {
     if (in->kind == INPUT_TAP && y < STATUS_HEIGHT && !editor_ui.keyboard && !dropdown && !confirm_delete &&
         (options[OPT_BATTERY] || options[OPT_BATTERY_PERCENT]) &&
         status_ui.status_battery_x >= 0 && x >= status_ui.status_battery_x - 6 && x < status_ui.status_battery_right + 6 &&
-        (ui_route() != 2 || reader_ui.reader_chrome)) {
+        (ui_route() != 2 || reader_ui.reader_chrome || app_package_installed(APP_READER))) {
         battery_popup = 1;
         return 1;
     }
@@ -2039,7 +2055,8 @@ static void modal_input(const Input *in) {
                 dropdown = 0;
                 return;
             }
-            if (drop_target == 941 || drop_target == 942) {
+            if(drop_target==2001){package_ui_choice(choice);}
+            else if (drop_target == 941 || drop_target == 942) {
                 photo_setting_choice(drop_target,choice);
             } else if (drop_target == 940) {
                 photo_actions_choice(choice);
@@ -2181,12 +2198,13 @@ static void register_builtin_views(void) {
     app_page_register(APP_FILE_TRANSFER, transfer_draw, transfer_input, NULL);
     app_view_register(APP_LOCK_SCREEN, lock_screen_draw, NULL);
     app_view_register(APP_KEYBOARD, keyboard_draw18, NULL);
-    sliding_puzzle_register();
-    frog_register();
+
+
 }
 
 
 static void app_leave(AppId app, void *ctx) {
+    app_process_pause();
     app_page_checkpoint(app);
     if (app == APP_PHOTOS) photo_app_leave();
     (void)ctx;
@@ -2238,7 +2256,7 @@ static int app_send(const AppIntent *intent) {
         return 0;
     if (intent->kind == INTENT_BOOK && intent->app != APP_READER)
         return 0;
-    if (intent->app == APP_READER && intent->kind == INTENT_OPEN) {
+    if (intent->app == APP_READER && intent->kind == INTENT_OPEN && !app_package_installed(APP_READER)) {
         int i = current >= 0 ? current : featured();
         if (i >= 0)
             return app_read_book(i);
@@ -2276,6 +2294,11 @@ static int app_send(const AppIntent *intent) {
         return 0;
     if (previous != intent->app && history_count < 64)
         history[history_count++] = old;
+    if(app_package_installed(intent->app)){
+        int ok=app_process_open(intent->app);char*event=NULL;size_t n=0;FILE*f=open_memstream(&event,&n);
+        fprintf(f,"{\"event\":\"intent\",\"kind\":%d,\"object\":%llu,\"text\":",intent->kind,(unsigned long long)intent->object_id);json_escape16(f,intent->text);fputc('}',f);fclose(f);if(ok)app_process_send(event);free(event);return ok;
+    }
+    app_process_pause();
     if (intent->app == APP_STORE) {
         snprintf(store_ui.store_query, sizeof(store_ui.store_query), "%s", runtime.intent.text);
         open_store();
@@ -2365,6 +2388,7 @@ static int app_read_book(int index) {
     return app_send(&request);
 }
 void ui_close(void) {
+    app_process_close();
     release_cancel();
     cover_tiles_clear();
     free(weather_snapshot);

@@ -119,6 +119,7 @@ static void extra_return(int target) {
     route_to(target);
 }
 static void extra_commit(int target, const char *text) {
+    if(package_ui_commit(target,text))return;
     if (u15_commit(target, text))
         return;
     if (new_apps_commit(target, text))

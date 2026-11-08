@@ -5943,5 +5943,20 @@
     "Nacht",
     "Night",
     "Nuit"
+  ],
+  "App wird geöffnet …": [
+    "App wird geöffnet …",
+    "Opening app …",
+    "Ouverture de l’app …"
+  ],
+  "App wurde beendet. Bitte erneut öffnen.": [
+    "App wurde beendet. Bitte erneut öffnen.",
+    "The app stopped. Please open it again.",
+    "L’app s’est arrêtée. Ouvrez-la à nouveau."
+  ],
+  "App-Ausgabe zu groß.": [
+    "App-Ausgabe zu groß.",
+    "The app output is too large.",
+    "La sortie de l’app est trop volumineuse."
   ]
 }

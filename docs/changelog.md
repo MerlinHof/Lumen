@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.3
+
+Independent app packages and SDK; unified catalog; full GitHub runtime updates with interruption recovery and trial rollback; automated release publishing after Native checks. [Release notes](releases/4.3.md).
+
 ## 4.2
 
 Native-resolution serif alarm typography; fourteen refined clock faces; bolder round-cornered fullscreen icon. [Release notes](releases/4.2.md).

@@ -1,7 +1,12 @@
+#ifdef LUMEN_PACKAGED
+#include "lumen_app.h"
+#else
 #include "app.h"
 #include "../../system/app_runtime.h"
 #include "../../system/ui/paint.h"
 #include <stdlib.h>
+
+#endif
 
 /* English-style peg solitaire, using a cross of lily pads. */
 static unsigned long long frog_board, frog_undo[32];
@@ -101,6 +106,14 @@ static int frog_input(const Input *in) {
     return 1;
 }
 
+#ifdef LUMEN_PACKAGED
+static void frog_save(void){struct{unsigned long long board,undo[32];int selected,moves;}s={frog_board,{0},frog_selected,frog_moves};memcpy(s.undo,frog_undo,sizeof(frog_undo));if(frog_ready)app_state_save("game.bin",&s,sizeof(s));}
+int main(void){struct{unsigned long long board,undo[32];int selected,moves;}s;
+ if(app_state_load("game.bin",&s,sizeof(s))&&s.moves>=0&&s.moves<=32&&s.selected>=-1&&s.selected<49){frog_board=s.board;memcpy(frog_undo,s.undo,sizeof(frog_undo));frog_selected=s.selected;frog_moves=s.moves;frog_ready=1;}
+ lumen_run(frog_draw,frog_input,frog_save);return 0;}
+#else
 void frog_register(void) {
     app_page_register(APP_FROG, frog_draw, frog_input, NULL);
 }
+
+#endif

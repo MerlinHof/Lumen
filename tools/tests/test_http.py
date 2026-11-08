@@ -26,7 +26,13 @@ try:
  for connection in idle:connection.close()
 
  status,state=req('/api/custom-app/status');assert status==200 and 'version' in json.loads(state)
- status,guide=req('/api/custom-app/guide');assert status==200 and b'app_page_register' in guide
+ status,guide=req('/api/custom-app/guide');assert status==200 and b'lumen-app-1' in guide
+ app_package=Path('build/apps/host/lumen.sliding-puzzle/lumen.sliding-puzzle.lumen-app').read_bytes()
+ assert req('/api/apps/install','PUT',app_package)[0]==201
+ status,catalog=req('/api/apps');assert status==200
+ apps=json.loads(catalog)['apps'];assert len([a for a in apps if a['id']=='lumen.sliding-puzzle'])==1
+ assert(sandbox/'bin/lumen').read_bytes()==b'old executable'
+ assert not(sandbox/'.update/relaunch').exists()
  status,data=req('/api/notes');assert status==200 and len(json.loads(data)['notes'])==1
  assert req('/api/note?id=123')[1].startswith(b'# Example')
  status,pdf=req('/api/note?id=123&format=pdf');assert status==200 and pdf.startswith(b'%PDF')

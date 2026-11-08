@@ -146,10 +146,7 @@ lumen/
   vendor/       clearly credited embedded third-party source
 ```
 
-Apps currently share a process. Some older views remain grouped in header
-fragments included by the shell; do not pretend they are sandboxed plugins.
-Improve boundaries incrementally and preserve existing app IDs, file formats
-and navigation. New code should be named by responsibility, not release number.
+All app identities use one catalog and installation contract. New apps are independent executable packages using Protocol 1, never another linked view. Read docs/app-packages.md first. Preserve existing IDs, state, navigation and package API compatibility. Frog Solitaire and Sliding Puzzle use the package contract already. Other existing views retain linked compatibility implementations; they can be replaced by packages under the same ID, but their source migration is not complete. Be precise about that boundary. Process isolation is not a security sandbox.
 
 Use `AppIntent` for navigation/data delivery: copied text, stable book IDs and
 value-based reading positions. Do not retain pointers to another app's temporary
@@ -330,15 +327,9 @@ arrowheads and arc endpoints coherent. Dropdowns share option icons and a separa
 right-side selection tick; new action menus must provide meaningful semantics in
 `system/ui/dropdown_icons.h`, rather than drawing private menu rows.
 
-## Slide 3D game
+## Shipped app packages
 
-`apps/slide_3d` owns its engine, model and view. Preserve event-driven rendering:
-no animation timer, permanent repaint loop or refresh-engine changes. Geometry
-uses near-plane clipping and perspective inverse depth; outlines and spatial AA
-are bounded post-processes. Cache the presented frame between actions. Game
-state is local personal data; launcher IDs stay append-only and old order files
-must remain readable when adding apps. Never describe host render timing as
-Kindle touch/display latency.
+Frog Solitaire and Sliding Puzzle compile independently with tools/build-app.py. The system build also produces their .lumen-app release assets. Their data belongs to LUMEN_APP_DATA. Other linked compatibility views must be migrated through this same package API; do not add another origin-specific app class or special installer.
 
 The canonical source tree is `lumen/`. Use `python3 compile.py` for Kindle or
 `python3 compile.py host` for native preview. Device scripts, source manifests,
@@ -358,11 +349,7 @@ to the photo's filename, so edits are reflected on the lock screen.
 Markdown previews use the shared Reader and system/markdown converter. Do not
 build an independent Markdown parser in Notes.
 
-Custom app installation is in the authenticated Connect web panel. Apps still
-compile into the shared LUMEN executable; this is not a dynamic plugin API.
-The generated AI guide describes append-only IDs, app lifecycle, shared UI,
-translations and embedded engraved icon artwork. Wireless installs only replace
-the executable and retain a trial rollback. Existing runtime assets must match.
+App installation is in the authenticated File Transfer web panel. Protocol 1 packages compile only their own sources and install without restarting or recompiling LUMEN. Existing app IDs accept the same packages. The generated AI guide must describe the SDK and /api/apps/install, never ask an agent to modify the system to add an app. Full GitHub updates include changed runtime resources and use a write-ahead journal plus trial rollback.
 
 
 ## Public release completion
@@ -389,9 +376,15 @@ Do not reintroduce an ad-hoc Markdown parser.
 - The featured Library page uses the exact lower-row grid of subsequent pages. Home labels remain single-line, same font/ink, UTF-8-safe ellipsis.
 - Notes ink and text share the same viewport offset, including adjacent page rasters. Never pin drawing overlays to screen coordinates while text scrolls.
 - Sleep timeout belongs only to Appearance → Sleep screen. Cropping cover padding is unconditional. Lock time/date overlays apply to every mode.
-- The GitHub update worker is asynchronous, bounded, cancellable and HTTPS-only. Verify resource identity, version, digest, size and ARM ELF before approval. Reuse existing trial rollback; never silently skip resource checks. Publish the wireless JSON and binary alongside ZIP/SHA releases.
-- Be explicit about architecture: source modules share one executable, including custom apps. No independent plugin installation or binary ABI exists yet.
+- The GitHub update worker is asynchronous, bounded, cancellable and HTTPS-only. Verify complete package identity, version, digest, size, paths and ARM ELF before approval. Preserve app/user data. Publish full-runtime ZIP, wireless metadata, SDK and app artifacts alongside the USB ZIP/SHA.
+- Independent app processes use the versioned SDK and one origin-neutral catalog. Linked compatibility views remain for older implementations; do not claim they are all extracted. Every ID may accept an independent replacement.
 
 ## 4.2 clock and typography contracts
 
 LUMEN's large time displays are typography, not fake seven-segment numerals. Use the shared native-size `type_display` renderer and bounded cache; never scale up small UI bitmap glyphs. Faces should have deliberate numeral placement, balanced hand weights, recognizable visual families and restrained details. Preserve stored face IDs when changing display order. Use the central fullscreen icon with rounded joins and strong small-size contrast.
+
+## 4.3 package/update safety
+
+App package IDs are identities, never an origin/privilege class. Match existing IDs when updating shipped apps; no duplicate tiles. App installation must leave the system executable unchanged. Keep code/assets separate from user state. Use queued nonblocking IPC, shared UI, keyboard, selection menus, Reader requests and lifecycle messages. Bound frames/commands and reap children. Never inherit framebuffer/input descriptors into app executables.
+
+The complete runtime updater must preserve books, data and installed app directories, including when runtime assets change. Validate every staged file before changes, durably copy originals, commit the journal before writes, and durably commit Keep before deleting backups. Preserve interruption/rollback tests. Do not overwrite an executing helper. Future main-branch releases are automatically built/published only after Native checks pass and VERSION changes. Keep the generated SDK/guide aligned with actual supported protocol operations.

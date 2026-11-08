@@ -4,6 +4,7 @@
 static void tap17(int x, int y) {
     Input in = {.kind = INPUT_TAP, .x = x, .y = y};
     ui_input(&in);
+    if(app_package_installed(app_for_route(ui_route())))for(int i=0;i<30;i++){usleep(5000);package_ui_poll();}
     ui_draw();
 }
 static void shot17(const char *n) {
@@ -242,6 +243,8 @@ int main(int argc, char **argv) {
     quality_tests();
     route_to(130);
     ui_draw();
+    for(int i=0;i<100&&!*app_process_frame();i++){usleep(10000);package_ui_poll();}
+    ui_draw();
     static unsigned char frog_preview[540 * WIDTH];
     memcpy(frog_preview, ui_pixels + 135 * WIDTH, sizeof(frog_preview));
     tap17(145, 405);
@@ -413,7 +416,7 @@ int main(int argc, char **argv) {
     assert(home_page == 0);
     tap17(300,300);
     assert(ui_route() == 131 && home_page == 0);
-    int home_ids[APP_COUNT];
+    int home_ids[APP_LIMIT];
     assert(v1_visible(home_ids) > 8);
     assert(!memcmp(home_ids, launcher_first, sizeof(launcher_first)));
     assert(HOME_GRID_Y == HOME_FULL_GRID_Y + 3 * HOME_TILE_H);

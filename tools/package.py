@@ -8,14 +8,14 @@ def validate_runtime_mapping(mapping):
     for destination,source in mapping.items():
         parts=PurePosixPath(destination)
         if parts.is_absolute() or '..' in parts.parts or any(p.startswith('._') for p in parts.parts):raise RuntimeError('Unsafe package destination')
-        if destination!='documents/LUMEN.sh' and (not destination.startswith('lumen/') or (destination in ('lumen/data','lumen/backups') or destination.startswith(('lumen/data/','lumen/backups/')))):raise RuntimeError('Personal data or backups must never enter a release')
+        if destination!='documents/LUMEN.sh' and (not destination.startswith('lumen/') or (destination in ('lumen/data','lumen/backups','lumen/apps') or destination.startswith(('lumen/data/','lumen/backups/','lumen/apps/','lumen/.update/')))):raise RuntimeError('Personal data or backups must never enter a release')
         path=(ROOT/source).resolve()
         if not path.is_relative_to(ROOT):raise RuntimeError('Unsafe package source')
         relative=path.relative_to(ROOT);parts=relative.parts
         if not (relative.is_relative_to('lumen/assets') or relative.is_relative_to('tools/device')
                 or parts[0] in {'docs', 'build', 'LICENSE'}):
             raise RuntimeError('Non-runtime package source')
-        if parts[0]=='build' and relative.as_posix() not in {'build/kindle/lumen','build/kindle/mobitool','build/kindle/amazon-runtime.tar.gz'}:raise RuntimeError('Build/test data must never enter a release')
+        if parts[0]=='build' and not relative.is_relative_to('build/apps/kindle') and relative.as_posix() not in {'build/kindle/lumen','build/kindle/mobitool','build/kindle/amazon-runtime.tar.gz'}:raise RuntimeError('Build/test data must never enter a release')
         if any(p in {'.git','.local','dist','backups','data'} for p in parts):raise RuntimeError('Unsafe package source')
 
 def validate_version(version):
@@ -54,14 +54,16 @@ exit "$result"
         for p in sorted(bundle.rglob('*')):
             if p.is_file():z.write(p,Path(bundle.name)/p.relative_to(bundle))
     (archive.with_suffix('.zip.sha256')).write_text(hashlib.sha256(archive.read_bytes()).hexdigest()+'  '+archive.name+'\n')
-    binary=dist/('LUMEN-'+version+'.lumen-update')
-    shutil.copy2(payload/'lumen/bin/lumen',binary)
-    resources=[{'path':rel.removeprefix('lumen/'),'sha256':sha}
-               for rel,sha in sorted(manifest.items()) if rel.startswith('lumen/')
-               and rel!='lumen/bin/lumen' and not rel.endswith(('.md','.txt'))
-               and not rel.endswith('/LICENSE')]
-    wireless={'version':version,'url':f'https://github.com/MerlinHof/Lumen/releases/download/v{version}/{binary.name}',
-              'size':binary.stat().st_size,'sha256':hashlib.sha256(binary.read_bytes()).hexdigest(),'resources':resources}
+    system_archive=dist/f'LUMEN-{version}.lumen-system'
+    system_manifest={'format':'lumen-system-1','version':version,'files':[
+        {'path':rel,'size':(payload/rel).stat().st_size,'sha256':sha} for rel,sha in sorted(manifest.items())]}
+    with zipfile.ZipFile(system_archive,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
+        z.writestr('manifest.json',json.dumps(system_manifest))
+        for rel in sorted(manifest):z.write(payload/rel,'payload/'+rel)
+    wireless={'format':'lumen-system-1','version':version,
+              'url':f'https://github.com/MerlinHof/Lumen/releases/download/v{version}/{system_archive.name}',
+              'size':system_archive.stat().st_size,'installed_size':sum((payload/r).stat().st_size for r in manifest),
+              'sha256':hashlib.sha256(system_archive.read_bytes()).hexdigest()}
     (dist/f'LUMEN-{version}.wireless.json').write_text(json.dumps(wireless,indent=2)+'\n')
     size=sum((payload/r).stat().st_size for r in manifest)
     print(f'{len(manifest)} runtime files; {size/1048576:.1f} MiB installed; {archive.stat().st_size/1048576:.1f} MiB download.\n{archive}')
