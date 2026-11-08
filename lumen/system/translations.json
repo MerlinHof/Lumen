@@ -5793,5 +5793,110 @@
     "Siedepunkt",
     "Boiling point",
     "Point d’ébullition"
+  ],
+  "Schiebepuzzle": [
+    "Schiebepuzzle",
+    "Sliding Puzzle",
+    "Taquin"
+  ],
+  "Orbit": [
+    "Orbit",
+    "Orbit",
+    "Orbite"
+  ],
+  "Blütenzeit": [
+    "Blütenzeit",
+    "Petal dial",
+    "Cadran floral"
+  ],
+  "Stunden · Minuten": [
+    "Stunden · Minuten",
+    "Hours · Minutes",
+    "Heures · Minutes"
+  ],
+  "Uhrzeit auf Sperrbild": [
+    "Uhrzeit auf Sperrbild",
+    "Sleep screen time",
+    "Heure en veille"
+  ],
+  "Datum auf Sperrbild": [
+    "Datum auf Sperrbild",
+    "Sleep screen date",
+    "Date en veille"
+  ],
+  "Update": [
+    "Update",
+    "Update",
+    "Mise à jour"
+  ],
+  "Zuletzt geprüft": [
+    "Zuletzt geprüft",
+    "Last checked",
+    "Dernière vérification"
+  ],
+  "Wird geprüft …": [
+    "Wird geprüft …",
+    "Checking …",
+    "Vérification …"
+  ],
+  "LUMEN ist aktuell.": [
+    "LUMEN ist aktuell.",
+    "LUMEN is up to date.",
+    "LUMEN est à jour."
+  ],
+  "Neue Version verfügbar": [
+    "Neue Version verfügbar",
+    "New version available",
+    "Nouvelle version disponible"
+  ],
+  "Updates über GitHub": [
+    "Updates über GitHub",
+    "Updates from GitHub",
+    "Mises à jour via GitHub"
+  ],
+  "Nach Updates suchen": [
+    "Nach Updates suchen",
+    "Check for updates",
+    "Rechercher une mise à jour"
+  ],
+  "Update installieren": [
+    "Update installieren",
+    "Install update",
+    "Installer la mise à jour"
+  ],
+  "Update behalten": [
+    "Update behalten",
+    "Keep update",
+    "Conserver la mise à jour"
+  ],
+  "GitHub nicht erreichbar. WLAN prüfen.": [
+    "GitHub nicht erreichbar. WLAN prüfen.",
+    "Cannot reach GitHub. Check Wi-Fi.",
+    "GitHub inaccessible. Vérifiez le Wi-Fi."
+  ],
+  "Dieses Update benötigt USB: Laufzeitdateien unterscheiden sich.": [
+    "Dieses Update benötigt USB: Laufzeitdateien unterscheiden sich.",
+    "This update needs USB: runtime resources differ.",
+    "Cette mise à jour nécessite USB : les ressources diffèrent."
+  ],
+  "Update konnte nicht geprüft werden. Bitte erneut versuchen.": [
+    "Update konnte nicht geprüft werden. Bitte erneut versuchen.",
+    "Could not verify update. Please try again.",
+    "Impossible de vérifier la mise à jour. Réessayez."
+  ],
+  "Zuerst das installierte Test-Update bestätigen.": [
+    "Zuerst das installierte Test-Update bestätigen.",
+    "Keep the current trial update first.",
+    "Confirmez d’abord la mise à jour en cours d’essai."
+  ],
+  "Bücher und Fotos übertragen, Notizen exportieren und eigene Apps installieren. Aktiviere den Server und öffne den QR-Code im selben WLAN.": [
+    "Bücher und Fotos übertragen, Notizen exportieren und eigene Apps installieren. Aktiviere den Server und öffne den QR-Code im selben WLAN.",
+    "Transfer books and photos, export notes and install custom apps. Enable the server and scan the QR code on the same Wi-Fi network.",
+    "Transférez des livres et photos, exportez vos notes et installez des apps. Activez le serveur et scannez le code QR sur le même réseau Wi-Fi."
+  ],
+  "Speicher": [
+    "Speicher",
+    "Storage",
+    "Stockage"
   ]
 }

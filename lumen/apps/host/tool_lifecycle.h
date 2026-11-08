@@ -1,6 +1,9 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 static void extra_init(void) {
     extra_zone();
+    char *last_time=service_read("time-last-success.txt",32);
+    if(last_time){last_time_success=(time_t)atoll(last_time);free(last_time);}
+    if(last_time_success<=time(NULL))last_sync=last_time_success;
     char stale[2048];
     local_path(stale, sizeof(stale), "service-private.tmp");
     unlink(stale);
@@ -31,7 +34,7 @@ static void extra_init(void) {
     long long due = 0;
     sscanf(b, "%d %d %d %d %lld %d %d", &alarm_hour, &alarm_minute, &alarm_enabled, &timer_minutes,
            &due, &reading_goal, &clock_ui.clock_style);
-    if (clock_ui.clock_style < 0 || clock_ui.clock_style > 4) clock_ui.clock_style = 0;
+    if (clock_ui.clock_style < 0 || clock_ui.clock_style > 6) clock_ui.clock_style = 0;
     if (alarm_hour < 0 || alarm_hour > 23)
         alarm_hour = 7;
     if (alarm_minute < 0 || alarm_minute > 59)
@@ -179,7 +182,7 @@ static int extra_poll(void) {
     if (ui_route() == 36 && *discover_lookup_image() && !wiki_image_available() &&
         wiki_image_attempts < 3)
         return 1000;
-    if (service_busy() || service_history_busy() || discover_busy())
+    if (release_state()==1 || service_busy() || service_history_busy() || discover_busy())
         return 250;
     if (ui_route() == 33 || ui_route() == 60)
         return 500;
@@ -207,7 +210,7 @@ static int extra_poll(void) {
     return wait;
 }
 static int extra_tick(void) {
-    int changed = new_apps_tick() | v1_tick() | v1_chess_tick(), done = service_poll();
+    int changed = release_poll() | new_apps_tick() | v1_tick() | v1_chess_tick(), done = service_poll();
     if (done == SERVICE_WEATHER || done == -SERVICE_WEATHER)
         weather_snapshot_valid = 0;
     changed |= notification_tick(extra_millis());
@@ -242,7 +245,8 @@ static int extra_tick(void) {
     if (done) {
         changed = 1;
         if (done < 0) {
-            if (done != -SERVICE_WIKI_IMAGE && done != -SERVICE_HA_HISTORY)
+            if (done != -SERVICE_WIKI_IMAGE && done != -SERVICE_HA_HISTORY &&
+                (done != -SERVICE_TIME || time(NULL)-last_time_success>172800))
                 ui_message(service_error());
             if (done == -SERVICE_TIME)
                 last_sync = time(NULL) - 82800;
@@ -257,7 +261,10 @@ static int extra_tick(void) {
         else if (done == SERVICE_TIME) {
             last_sync = time(NULL);
             status_ui.status_time = 0;
-            ui_message("Uhrzeit synchronisiert.");
+            last_time_success=last_sync;
+            char stamp[32],path[2048];snprintf(stamp,sizeof(stamp),"%lld",(long long)last_sync);
+            local_path(path,sizeof(path),"time-last-success.txt");atomic_write(path,stamp,strlen(stamp));
+            /* Routine successful sync is deliberately silent. */
         }
     }
     if ((ui_route() == 33 || ui_route() == 60) && !ha_select && !service_busy()) {

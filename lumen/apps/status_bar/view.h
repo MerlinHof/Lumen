@@ -90,8 +90,13 @@ static void header(void) {
     int name_width = textwidth_raw(name,&small);
     if (name_width > 195) name_width = 195;
     if (name_width > right-left-12) name_width = right-left-12;
-    if (name_width > 0)
-        label_ellipsis(left,0,name_width,STATUS_HEIGHT,name,&small,0);
+    if (name_width > 0) {
+        int reference_height, reference_top=ink_top("Hg",&small,&reference_height);
+        int name_height, name_top=ink_top(name,&small,&name_height);
+        int baseline_y=(STATUS_HEIGHT-reference_height)/2-reference_top;
+        label_ellipsis(left,baseline_y+name_top-(STATUS_HEIGHT-name_height)/2,
+                       name_width,STATUS_HEIGHT,name,&small,0);
+    }
     left += name_width+12;
     status_ui.status_timer_x = -1;
     extra_timer_label(timer, sizeof(timer));

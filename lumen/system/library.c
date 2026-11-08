@@ -527,6 +527,7 @@ void library_settings_load(void) {
         options[OPT_UI_REV] = 9;
     }
     options[OPT_UI_REV] = 11;
+    options[OPT_COVER_CROP] = 1;
     if (new_options || new_settings) library_settings_save();
 }
 void library_settings_save(void) {
@@ -692,6 +693,7 @@ int library_config_import(const char *path) {
     settings = (Settings){candidate[0], candidate[1], candidate[2], candidate[3],
                           candidate[4], candidate[5], candidate[6]};
     memcpy(options, copy, sizeof(copy));
+    options[OPT_COVER_CROP] = 1;
     library_settings_save();
     return 1;
 }

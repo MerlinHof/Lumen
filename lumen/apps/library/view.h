@@ -28,7 +28,7 @@ static void library_screen(void) {
         snprintf(b, sizeof(b), tr("%d%%"), book->total ? 100 * (book->page + 1) / book->total : 0);
         drawtext(506, 268, b, ui_font(UI_BODY), 65);
     }
-    drawtext(28, last >= 0 && library_ui.listpage == 0 ? 326 : 76, "M E I N E  B Ü C H E R", ui_font(UI_SECONDARY), 420);
+    drawtext(28, last >= 0 && library_ui.listpage == 0 ? 376 : 76, "M E I N E  B Ü C H E R", ui_font(UI_SECONDARY), 420);
     for (int r = 0; r < per && begin + r < library_ui.view_count; r++) {
         Book *book = &library[library_ui.view[begin + r]];
         int x = 28 + (r % 3) * 188, y = top + (r / 3) * library_row_height();

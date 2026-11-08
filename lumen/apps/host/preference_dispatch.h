@@ -58,14 +58,5 @@ static int u16_input(const Input *in) {
         activity16 = extra_millis();
     if (sleeping || editor_ui.keyboard || dropdown)
         return -1;
-    if (in->kind == INPUT_TAP) {
-        int y = in->y;
-
-        if (ui_route() == 9 && setting_category == 3 && y >= 590 && y < 642) {
-            u17_sleep_select(590);
-            return 1;
-        }
-
-    }
     return u16_apps_input(in);
 }

@@ -45,9 +45,15 @@ int main(void) {
     picture("settings");
     route_to(28);
     timer_panel=0;
+    clock_ui.clock_style=4;
     picture("clock");
+    timer_panel=2;
+    picture("alarm");
+    timer_panel=0;
+    route_to(40);
+    extra_page=0;picture("system-update");
     route_to(129);
-    picture("slide-3d");
+    picture("sliding-puzzle");
     route_to(130);
     picture("frog-solitaire");
     warehouse_new17(1);

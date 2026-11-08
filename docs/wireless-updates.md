@@ -36,3 +36,9 @@ Authenticate requests with the current pairing code. PUT package bytes to
 /api/custom-app/install?sha256=<checksum>. Status, keep and rollback use
 /api/custom-app/status, /api/custom-app/keep and /api/custom-app/rollback.
 The server closes during activation.
+
+## GitHub releases (4.1)
+
+Settings → System → Update checks the latest public release and records the last check. Install downloads the release's `.wireless.json`, compares its required resources with local files, verifies the ARM executable's SHA-256 and size, and uses the same trial restart. Keep the trial on this page or in Connect. Otherwise the next launch restores the previous binary.
+
+Only executable-compatible updates use this path. If required scripts, fonts, images or other runtime resources differ, the UI explicitly requires USB. This is deliberate: a binary must never be installed against incompatible resources. The release publisher uploads the ZIP, ZIP checksum, `.lumen-update` and `.wireless.json` together. Personal files never enter either update asset.

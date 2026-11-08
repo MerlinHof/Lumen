@@ -12,7 +12,7 @@ def compile_test(name,source,ui=False):
     objects=[build.object_path('host',s) for s in build.sources() if s not in ('main.c','system/ui/ui.c')]
     if not ui:
         ui_objects = {build.object_path('host', name) for name in
-                      ('apps/frog/app.c', 'apps/slide_3d/app.c')}
+                      ('apps/frog/app.c', 'apps/sliding_puzzle/app.c')}
         objects = [obj for obj in objects if obj not in ui_objects]
     subprocess.run(['clang++','-fsanitize=address,undefined',str(obj)]+[str(p) for p in objects+libs]+['-lm','-lpthread','-o',str(binary)],check=True)
     return binary
@@ -21,7 +21,8 @@ def run(http=False,native_only=False):
     shutil.rmtree(OUT/'test-data',ignore_errors=True)
     binary=compile_test('integration','tools/tests/test_integration.c',True);subprocess.run([str(binary)],check=True)
     binary=compile_test('fresh-settings','tools/tests/test_fresh_settings.c');subprocess.run([str(binary)],check=True)
-    signal=OUT/'signal';subprocess.run(['clang','-O1','-g','-fsanitize=address,undefined','tools/tests/test_signal.c','lumen/apps/slide_3d/engine.c','-lm','-o',str(signal)],check=True);subprocess.run([str(signal)],check=True)
+    signal=OUT/'signal';subprocess.run(['clang','-O1','-g','-fsanitize=address,undefined','tools/tests/test_signal.c','lumen/apps/sliding_puzzle/engine.c','-lm','-o',str(signal)],check=True);subprocess.run([str(signal)],check=True)
+    binary=compile_test('release-client','tools/tests/test_release_update.c');subprocess.run([str(binary)],check=True)
     if not native_only: subprocess.run([sys.executable,'tools/tests/test_installation.py'],check=True)
     if http:
         binary=compile_test('http','tools/tests/http_server.c');subprocess.run([sys.executable,'tools/tests/test_http.py',str(binary)],check=True)

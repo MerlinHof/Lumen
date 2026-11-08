@@ -382,3 +382,12 @@ Collect headers with bounded slots and deadlines before entering the request bod
 handler. Keep idle sleep prevention owned by the server and restore it on exit.
 CommonMark rendering uses the cmark-gfm library from the pinned MuPDF source.
 Do not reintroduce an ad-hoc Markdown parser.
+
+## 4.1 layout and update contracts
+
+- Calculator MathBox uses a **mathematical axis**, measured from the plus glyph; fractions put their rule on this axis. Do not restore a Latin baseline for operators/functions.
+- The featured Library page uses the exact lower-row grid of subsequent pages. Home labels remain single-line, same font/ink, UTF-8-safe ellipsis.
+- Notes ink and text share the same viewport offset, including adjacent page rasters. Never pin drawing overlays to screen coordinates while text scrolls.
+- Sleep timeout belongs only to Appearance → Sleep screen. Cropping cover padding is unconditional. Lock time/date overlays apply to every mode.
+- The GitHub update worker is asynchronous, bounded, cancellable and HTTPS-only. Verify resource identity, version, digest, size and ARM ELF before approval. Reuse existing trial rollback; never silently skip resource checks. Publish the wireless JSON and binary alongside ZIP/SHA releases.
+- Be explicit about architecture: source modules share one executable, including custom apps. No independent plugin installation or binary ABI exists yet.

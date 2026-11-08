@@ -13,5 +13,6 @@ void ui_paint_line(int x0, int y0, int x1, int y1, int weight, int gray);
 void ui_paint_ellipse(int x, int y, int rx, int ry, int gray);
 void ui_paint_ring(int x, int y, int radius, int weight);
 void ui_paint_image(int x, int y, int w, int h, const unsigned char *gray);
+void ui_paint_surface(int x,int y,int w,int h,int radius,int gray,int outline);
 int64_t ui_clock_millis(void);
 #endif

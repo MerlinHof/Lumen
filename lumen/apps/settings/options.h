@@ -2,7 +2,7 @@
 static const char *sort_modes[] = {"Titel",           "Autor",      "Zuletzt gelesen",
                                    "Neu hinzugefügt", "Dateigröße", "Fortschritt"};
 static int appearance_group(int key) {
-    if (key == OPT_LOCK || key == OPT_LOCK_HINT || key == OPT_COVER_CROP) return 2;
+    if (key == OPT_LOCK || key == OPT_LOCK_HINT || key == OPT_LOCK_TIME || key == OPT_LOCK_DATE) return 2;
     if (key == OPT_DATE || key == OPT_CLOCK || key == OPT_WIFI || key == OPT_BATTERY ||
         key == OPT_BATTERY_PERCENT) return 1;
     return 0;
@@ -21,8 +21,8 @@ static void more_settings(void) {
         select_row17(279, "Sortierung", sort_modes[settings.sort % 6]);
         return;
     }
-    if (setting_category == 3)
-        u17_sleep_row(590);
+    if (setting_category == 1 && settings_ui.setting_page == 2)
+        u17_sleep_row(503);
     int row = 0;
     for (size_t i = 0; i < sizeof(setting_rows) / sizeof(*setting_rows); i++) {
         SettingRow *r = &setting_rows[i];
@@ -56,6 +56,10 @@ static void settings_input(const Input *in) {
     int x = in->x, y = in->y;
     if (setting_category == 1 && y >= 131 && y < 177 && x >= 28 && x < 572) {
         settings_ui.setting_page = (x-28)*3/544;
+        return;
+    }
+    if (setting_category == 1 && settings_ui.setting_page == 2 && y>=503 && y<551) {
+        u17_sleep_select(503);
         return;
     }
     if (setting_category == 5 && y >= 145 && y < 193) {

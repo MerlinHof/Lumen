@@ -52,7 +52,7 @@ static const AppDefinition definitions[APP_COUNT] = {
     {APP_CROSSWORD, "Kreuzworträtsel", 120},
     {APP_RPG, "", -1},
     {APP_LLM, "OpenAI", 122},
-    {APP_SIGNAL, "Slide 3D", 129},
+    {APP_SIGNAL, "Schiebepuzzle", 129},
     {APP_FROG, "Frosch-Solitär", 130},
     {APP_HOME, "Startseite", 131}};
 static const AppRoute routes[] = {

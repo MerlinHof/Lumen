@@ -53,11 +53,6 @@ static int u17_commit(int target, const char *text) {
 static int u17_input(const Input *in) {
     if (sleeping || editor_ui.keyboard || dropdown)
         return -1;
-    if (in->kind == INPUT_TAP && ui_route() == 40 && extra_page == 1 && in->y >= 304 && in->y < 364 &&
-        in->x >= 300) {
-        u17_sleep_select(304);
-        return 1;
-    }
     if (in->kind == INPUT_TAP && (ui_route() == 79 || ui_route() == 125) && in->y >= 74 && in->y < 118 &&
         in->x >= 300 && in->x < 516) {
         static const char *t[] = {"Sternhimmel", "Sonnensystem"};

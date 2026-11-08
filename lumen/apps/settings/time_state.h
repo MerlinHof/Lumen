@@ -1,5 +1,5 @@
 /* App-owned state; stable on-disk schemas are intentionally preserved. */
-static time_t last_sync;
+static time_t last_sync, last_time_success;
 static int time_year, time_month, time_day, time_hour, time_minute;
 static const char *zone_names[] = {"Berlin / Europa", "UTC", "London", "New York", "Tokyo"};
 static const char *zone_values[] = {"CET-1CEST,M3.5.0,M10.5.0/3", "UTC0",

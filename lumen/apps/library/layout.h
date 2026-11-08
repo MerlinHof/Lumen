@@ -5,7 +5,7 @@ static int library_per(void) {
     return featured() >= 0 && library_ui.listpage == 0 ? 3 : 6;
 }
 static int library_top(void) {
-    return featured() >= 0 && library_ui.listpage == 0 ? 365 : 115;
+    return featured() >= 0 && library_ui.listpage == 0 ? 419 : 115;
 }
 static int library_begin(void) {
     return featured() >= 0 ? (library_ui.listpage ? 3 + (library_ui.listpage - 1) * 6 : 0) : library_ui.listpage * 6;
@@ -15,4 +15,4 @@ static int library_pages(void) {
                            : (library_ui.view_count ? (library_ui.view_count + 5) / 6 : 1);
 }
 
-static int library_row_height(void) { return library_per()==3 ? 354 : 304; }
+static int library_row_height(void) { return 304; }

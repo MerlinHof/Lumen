@@ -3,7 +3,7 @@
 #include "api.h"
 #include "paint.h"
 #include "../../apps/frog/app.h"
-#include "../../apps/slide_3d/api.h"
+#include "../../apps/sliding_puzzle/api.h"
 #include "../../apps/notifications/api.h"
 #include "../amazon.h"
 #include "../../apps/games/api.h"
@@ -12,6 +12,7 @@
 #include "../photo_image.h"
 #include "../version.h"
 #include "../wireless_update.h"
+#include "../release_update.h"
 #include "../content_service.h"
 #include "../engine.h"
 #include "font_data.h"
@@ -176,6 +177,7 @@ static void connect_input(const Input *in);
 static void refresh_library(void);
 static void settings_input(const Input *in);
 static const int lock_mode_ids[5];
+static const int clock_style_ids[7];
 static void discover_screen(void);
 static void discover_detail(void);
 static void discover_input(const Input *in);
@@ -2050,7 +2052,7 @@ static void modal_input(const Input *in) {
             } else if (drop_target == 905) {
                 photo_duration_choice(choice);
             } else if (drop_target == 902) {
-                clock_ui.clock_style = choice;
+                clock_ui.clock_style = clock_style_ids[choice];
                 extra_save();
             } else if (drop_target == 901 && selected >= 0 && selected < library_count) {
                 if (choice == 0) {
@@ -2140,6 +2142,10 @@ static void wikipedia_screen(void) {
 #include "../../apps/home/view.h"
 void ui_paint_heading(const char *text, int actions) { heading_actions(text, actions); }
 void ui_paint_icon_button(int x, int y, int id) { icon_button(x, y, id); }
+void ui_paint_surface(int x,int y,int w,int h,int radius,int gray,int outline) {
+    control_surface(x,y,w,h,radius,outline ? 0 : gray);
+    if (outline) control_surface(x+outline,y+outline,w-2*outline,h-2*outline,radius-outline,gray);
+}
 void ui_paint_hitbox(int x, int y, int w, int h) { region(x, y, w, h); }
 void ui_paint_text(int x, int y, int w, int h, const char *text, PaintText role) {
     static const TextRole roles[] = {UI_BODY, UI_HEADING, UI_DISPLAY, UI_SECONDARY};
@@ -2175,7 +2181,7 @@ static void register_builtin_views(void) {
     app_page_register(APP_FILE_TRANSFER, transfer_draw, transfer_input, NULL);
     app_view_register(APP_LOCK_SCREEN, lock_screen_draw, NULL);
     app_view_register(APP_KEYBOARD, keyboard_draw18, NULL);
-    slide_3d_register();
+    sliding_puzzle_register();
     frog_register();
 }
 
@@ -2359,6 +2365,7 @@ static int app_read_book(int index) {
     return app_send(&request);
 }
 void ui_close(void) {
+    release_cancel();
     cover_tiles_clear();
     free(weather_snapshot);
     weather_snapshot = NULL;

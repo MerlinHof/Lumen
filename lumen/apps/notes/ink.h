@@ -124,12 +124,30 @@ static void u15_export_photo(void);
 static void u15_note_overlay(void) {
     ink_load();
     int height = editor_ui.keyboard ? 448 : 688;
-    for (int y = 0; y < height; y++)
-        for (int x = 0; x < 600; x++) {
-            unsigned char v = ink_pixels[y * 600 + x];
-            if (v < ui_pixels[(y + 54) * 600 + x])
-                ui_pixels[(y + 54) * 600 + x] = v;
+    static unsigned char adjacent[600*688];
+    static int cached_note=-1,cached_page=-1,cached_live_page=-1;
+    if(cached_live_page!=ink_page){cached_note=cached_page=-1;cached_live_page=ink_page;}
+    int offset = (editor_ui.note_view_start - extra_page * 23) * 29;
+    for (int y=0;y<height;y++) {
+        int source_y=y+offset, page=extra_page;
+        while(source_y<0){source_y+=667;page--;}
+        while(editor_ui.keyboard && source_y>=667){source_y-=667;page++;}
+        if(page<0)continue;
+        const unsigned char *pixels=ink_pixels;
+        if(page!=ink_page) {
+            if(cached_note!=note_selected || cached_page!=page) {
+                memset(adjacent,255,sizeof(adjacent));
+                char path[2048];snprintf(path,sizeof(path),"%s/notes/%d-page-%d.ink",data_root,note_selected,page);
+                FILE *f=fopen(path,"rb");if(f){if(fread(adjacent,1,sizeof(adjacent),f)!=sizeof(adjacent))memset(adjacent,255,sizeof(adjacent));fclose(f);}
+                cached_note=note_selected;cached_page=page;
+            }
+            pixels=adjacent;
         }
+        for(int x=0;x<600;x++) {
+            unsigned char v=pixels[source_y*600+x];
+            if(v<ui_pixels[(y+54)*600+x])ui_pixels[(y+54)*600+x]=v;
+        }
+    }
     if (note_ink_mode) {
         rect(0, 54, 600, 54, 255);
         icon_button(10, 58, IC_BACK);

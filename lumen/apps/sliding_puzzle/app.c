@@ -5,8 +5,7 @@
 #include <stdio.h>
 #include <time.h>
 static SignalGame signal_game;
-static int signal_ready, signal_dirty, signal_frame_dirty = 1;
-static unsigned char signal_frame[SIGNAL_W * SIGNAL_H];
+static int signal_ready, signal_dirty;
 
 static void signal_save(void) {
     if (signal_dirty && app_state_save("slide3d-v1.bin", &signal_game, sizeof(signal_game)))
@@ -28,26 +27,23 @@ static void signal_open(void) {
 }
 static void signal_draw(void) {
     signal_open();
-    ui_paint_heading("Slide 3D", 1);
-    ui_paint_icon_button(528, 74, IC_RESTART);
-    if (signal_frame_dirty) {
-        signal_render(&signal_game, signal_frame);
-        signal_frame_dirty = 0;
-    }
-    ui_paint_image(0, 132, SIGNAL_W, SIGNAL_H, signal_frame);
-    for (int i = 0; i < 16; i++) {
-        if (!signal_game.tiles[i]) continue;
-        int x, y;
-        signal_project(i, &x, &y);
+    ui_paint_heading("Schiebepuzzle", 1);
+    ui_paint_icon_button(528,74,IC_RESTART);
+    for (int i=0;i<16;i++) {
+        int x=28+(i%4)*138, y=151+(i/4)*138;
+        int value=signal_game.tiles[i];
+        if (!value) continue;
+        ui_paint_hitbox(x,y,130,130);
+        ui_paint_surface(x,y,130,130,18,255,2);
         char label[8];
-        snprintf(label, sizeof(label), "%d", signal_game.tiles[i]);
-        ui_paint_text(x-27, y+110, 54, 44, label, PAINT_HEADING);
+        snprintf(label,sizeof(label),"%d",value);
+        ui_paint_text(x,y,130,130,label,PAINT_DISPLAY);
     }
     char steps[32];
     snprintf(steps, sizeof(steps), "%d", signal_game.steps);
-    ui_paint_text(28, 635, 544, 48, steps, PAINT_DISPLAY);
-    ui_paint_text(28, 680, 544, 24, "Züge", PAINT_SECONDARY);
-    ui_paint_text(28, 707, 544, 46, signal_won(&signal_game) ? "Gewonnen!" :
+    ui_paint_text(28, 716, 544, 48, steps, PAINT_DISPLAY);
+    ui_paint_text(28, 758, 544, 24, "Züge", PAINT_SECONDARY);
+    ui_paint_text(28, 121, 544, 24, signal_won(&signal_game) ? "Gewonnen!" :
                   "Ordne die Zahlen von 1 bis 15.", PAINT_BODY);
 }
 static int signal_input(const Input *in) {
@@ -56,23 +52,15 @@ static int signal_input(const Input *in) {
     if (in->x >= 528 && in->y >= 74 && in->y < 118) {
         signal_new(&signal_game, (unsigned)ui_clock_millis(), 40);
     } else {
-        int closest = -1, distance = 54 * 54;
-        for (int i = 0; i < 16; i++) {
-            int x, y;
-            signal_project(i, &x, &y);
-            int dx = x - in->x, dy = y + 132 - in->y;
-            int square = dx * dx + dy * dy;
-            if (square < distance) {
-                distance = square;
-                closest = i;
-            }
-        }
+        int col=(in->x-28)/138, row=(in->y-151)/138;
+        if (in->x<28 || in->y<151 || col>=4 || row>=4) return 1;
+        int closest=row*4+col;
         if (signal_won(&signal_game) || !signal_slide(&signal_game, closest)) return 1;
     }
-    signal_dirty = signal_frame_dirty = 1;
+    signal_dirty = 1;
     return 1;
 }
 
-void slide_3d_register(void) {
+void sliding_puzzle_register(void) {
     app_page_register(APP_SIGNAL, signal_draw, signal_input, signal_save);
 }

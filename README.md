@@ -6,13 +6,13 @@
 
 An illustrated Home, a shared Reader, and useful tools for a paper screen.
 
-[**Download 4.0**](https://github.com/MerlinHof/Lumen/releases/tag/v4.0) ·
-[Release notes](docs/releases/4.0.md) ·
+[**Download 4.1**](https://github.com/MerlinHof/Lumen/releases/tag/v4.1) ·
+[Release notes](docs/releases/4.1.md) ·
 [Installation](docs/installation.md) ·
 [Build](docs/building.md) ·
 [Agent guide](AGENTS.md)
 
-![LUMEN 4.0 — native Home, library and calculator screens](docs/images/hero.png)
+![LUMEN 4.1 — native Home, library and calculator screens](docs/images/hero.png)
 
 **Native C · 600 × 800 E-Ink · Local first · Deutsch / English / Français**
 
@@ -67,22 +67,19 @@ Online features depend on their providers. Home Assistant and OpenAI use your
 own server or account configuration. The calendar is local. Timers provide a
 visual interruption while LUMEN is awake and cannot wake the Kindle from deep sleep.
 
-## What's new in 4.0
+## What's new in 4.1
 
-- Connect handles idle browser sockets without blocking other requests and
-  holds off automatic sleep while the server is enabled.
-- The shared CommonMark/GFM renderer supports rules, nested lists, tables,
-  task lists and rich text throughout the reading workflow.
-- Small text documents open directly. Loading feedback runs asynchronously.
-- Home names wrap to two lines at a consistent size and color. App list icons,
-  recipe controls and Home Assistant titles are refined.
-- The custom-app guide works for every user's computer, and the web Appearance
-  tab is removed.
-- Photos starts with **Alpine Dawn**, an original portrait pencil sketch.
+- Shared mathematical alignment for fractions, functions and operators.
+- Aligned library shelves, one-line Home labels and a calmer monthly calendar.
+- Notes keeps page drawings attached while the editable viewport scrolls.
+- Refined clock faces and a redesigned alarm card.
+- A direct 2D sliding puzzle replaces the 3D renderer; Snake has a continuous body.
+- Four clear web destinations: Books, Photos, Notes and Apps.
+- System → Update checks GitHub and installs compatible verified binary updates
+  with trial rollback. Resource-changing releases still require USB.
+- Sleep-screen time/date overlays and sleep timeout together in Appearance.
 
-<img src="docs/images/alpine-dawn.png" width="240" alt="Bundled Alpine Dawn pencil sketch with deer beside an alpine lake">
-
-[Full 4.0 release notes](docs/releases/4.0.md) · [Version history](docs/changelog.md)
+[Full 4.1 release notes](docs/releases/4.1.md) · [Version history](docs/changelog.md)
 
 <table>
 <tr>
@@ -92,18 +89,24 @@ visual interruption while LUMEN is awake and cannot wake the Kindle from deep sl
 </tr>
 </table>
 
+<details>
+<summary><strong>Clock alarm, sliding puzzle and system updates</strong></summary>
+<br>
+<img src="docs/images/alarm.png" width="260" alt="Integrated alarm card with hour and minute controls"> <img src="docs/images/sliding-puzzle.png" width="260" alt="Direct two-dimensional fifteen-tile puzzle"> <img src="docs/images/system-update.png" width="260" alt="System Update with GitHub release check">
+</details>
+
 *These are current native software renders with original demo content.
 Each individual screen is 600 × 800 pixels. They are software previews;
 physical E-Ink appearance and response time depend on the Kindle.*
 
-## Install LUMEN 4.0
+## Install LUMEN 4.1
 
 **Current hardware target — Kindle Touch 2 (KT2), firmware 5.12.2.2, ARMv7.**
 
 A compatible jailbreak, the Kindle .sh launcher and FBInk must already be
 installed. LUMEN's installer checks these prerequisites.
 
-1. [Download LUMEN-4.0.zip](https://github.com/MerlinHof/Lumen/releases/download/v4.0/LUMEN-4.0.zip)
+1. [Download LUMEN-4.1.zip](https://github.com/MerlinHof/Lumen/releases/download/v4.1/LUMEN-4.1.zip)
    and extract the complete folder.
 2. Connect the prepared Kindle over USB.
 3. Open **Install-LUMEN.command** on macOS, or run the Python installer with
@@ -118,7 +121,7 @@ Fresh installations use the illustrated Home, engraved icons, 24 px reading
 text, automatic time sync and independent keyboard language. The status bar
 shows time, Wi-Fi and a battery icon. Books and existing preferences survive updates.
 
-The 4.0 package has **65 runtime files**, about **52.3 MiB installed** and
+The 4.1 package has **65 runtime files**, about **52.3 MiB installed** and
 **34.5 MiB downloaded**. Personal books, app data, caches and rollback copies
 are additional. The installer prunes only recognized runtime backups and
 preserves unknown content.

@@ -34,7 +34,7 @@ static void lock_cover_full(Book *book) {
             ui_pixels[y*WIDTH+x]=theme_gray(image_tone(tone,x,y));
         }
 }
-static void lock_screen_draw(void) {
+static void lock_screen_content(void) {
     int lock_book = current >= 0 && current < library_count ? current : library_last();
     if (options[OPT_LOCK] == 4 && v1_sleep_photo())
         return;
@@ -73,4 +73,19 @@ static void lock_screen_draw(void) {
     if (options[OPT_LOCK_HINT])
         centered(28, 704, 544, 48, "Mit der Power-Taste weiterlesen", &small);
     return;
+}
+
+/* Overlay belongs to the lock-screen app and applies to every content mode. */
+static void lock_screen_draw(void) {
+    lock_screen_content();
+    if (!options[OPT_LOCK_TIME] && !options[OPT_LOCK_DATE]) return;
+    time_t now=time(NULL);
+    struct tm date;
+    localtime_r(&now,&date);
+    char text[64];
+    strftime(text,sizeof(text),options[OPT_LOCK_TIME] && options[OPT_LOCK_DATE] ? "%d.%m.%Y   %H:%M" :
+             options[OPT_LOCK_TIME] ? "%H:%M" : "%d.%m.%Y",&date);
+    int width=textwidth_raw(text,ui_font(UI_BODY))+32;
+    control_surface(300-width/2,24,width,44,RADIUS_MEDIUM,255);
+    centered(300-width/2,24,width,44,text,ui_font(UI_BODY));
 }

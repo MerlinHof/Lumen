@@ -54,6 +54,15 @@ exit "$result"
         for p in sorted(bundle.rglob('*')):
             if p.is_file():z.write(p,Path(bundle.name)/p.relative_to(bundle))
     (archive.with_suffix('.zip.sha256')).write_text(hashlib.sha256(archive.read_bytes()).hexdigest()+'  '+archive.name+'\n')
+    binary=dist/('LUMEN-'+version+'.lumen-update')
+    shutil.copy2(payload/'lumen/bin/lumen',binary)
+    resources=[{'path':rel.removeprefix('lumen/'),'sha256':sha}
+               for rel,sha in sorted(manifest.items()) if rel.startswith('lumen/')
+               and rel!='lumen/bin/lumen' and not rel.endswith(('.md','.txt'))
+               and not rel.endswith('/LICENSE')]
+    wireless={'version':version,'url':f'https://github.com/MerlinHof/Lumen/releases/download/v{version}/{binary.name}',
+              'size':binary.stat().st_size,'sha256':hashlib.sha256(binary.read_bytes()).hexdigest(),'resources':resources}
+    (dist/f'LUMEN-{version}.wireless.json').write_text(json.dumps(wireless,indent=2)+'\n')
     size=sum((payload/r).stat().st_size for r in manifest)
     print(f'{len(manifest)} runtime files; {size/1048576:.1f} MiB installed; {archive.stat().st_size/1048576:.1f} MiB download.\n{archive}')
     return bundle

@@ -102,11 +102,11 @@ int main(int argc, char **argv) {
     assert(dropdown && drop_target == 931);
     tap17(drop_x + 80, drop_y + 5 + 48 + 15);
     assert(!calc_degrees);
-    route_to(40);
-    extra_page = 1;
+    route_to(9);
+    setting_category=1;settings_ui.setting_page=2;
     ui_draw();
-    tap17(450, 325);
-    assert(dropdown && ui_route() == 40 && drop_target == 917);
+    tap17(450,525);
+    assert(dropdown && ui_route()==9 && drop_target==917);
     dropdown = 0;
     note_load(id);
     extra_page = 0;
@@ -445,7 +445,7 @@ int main(int argc, char **argv) {
     ui_draw();
     tap17(490,150);
     assert(settings_ui.setting_page == 2);
-    tap17(480,286);
+    tap17(480,225);
     assert(dropdown && drop_count == 5 && drop_visible == 5);
     tap17(drop_x+70,drop_y+5+48+23);
     assert(options[OPT_LOCK] == 5 && !dropdown);
@@ -515,6 +515,20 @@ int main(int argc, char **argv) {
     photo_seed_default();
     assert(access("build/tests/default-photo/photos/LUMEN - Alpine Dawn.pgm",F_OK));
     data_root=previous_data_root;
+    /* Fractions and all text operators now use the same measured math axis. */
+    snprintf(calc_expr,sizeof(calc_expr),"5/4*sin(3/4)*sqrt(4)");
+    mp=calc_expr;mn=math_bad=0;
+    int math_root=math_expression(0,0);math_measure(math_root,0);
+    assert(!math_bad && mb[math_root].up>0 && mb[math_root].down>0);
+    rect(0,0,600,800,255);math_paint(math_root,28,300,0);
+    assert(ui_pixels[300*600+32]==0); /* first fraction bar */
+    int saved_note=note_selected;
+    note_selected=ink_note=987654;extra_page=ink_page=0;
+    memset(ink_pixels,255,sizeof(ink_pixels));ink_pixels[100*600+300]=0;
+    editor_ui.keyboard=1;editor_ui.keyboard_target=30;editor_ui.note_view_start=2;
+    rect(0,0,600,800,255);u15_note_overlay();
+    assert(ui_pixels[(54+100-58)*600+300]==0);
+    editor_ui.keyboard=0;ink_dirty=0;ink_note=ink_page=-1;note_selected=saved_note;
     char restart_dir[2048], restart_path[2048];
     snprintf(restart_dir,sizeof(restart_dir),"%s/../.update",data_root);
     mkdir(restart_dir,0700);

@@ -1,4 +1,4 @@
-# LUMEN 3.9 · System und Apps
+# LUMEN 4.1 · System und Apps
 
 LUMEN ist ein natives ARMv7-Programm mit gemeinsamer App-Laufzeit. Apps sind
 Quellmodule mit stabilen IDs und Routen; sie laufen im selben Prozess. Sie sind
@@ -129,7 +129,7 @@ have their own deliberately drawn ink coverage.
 
 The runtime owns the active route. The legacy view host reads it through a
 single accessor, and standalone app pages register draw, input and optional
-checkpoint callbacks against their catalog IDs. Frog Solitaire and Slide 3D
+checkpoint callbacks against their catalog IDs. Frog Solitaire and Sliding Puzzle
 compile as separate modules and use the shared drawing interface. The
 app-state service handles binary saves for standalone and legacy apps and
 retains the existing file format and paths.
@@ -155,3 +155,9 @@ load app binaries. Non-executable runtime changes require the USB installer.
 Photos uses system/photo_image for lossless raster rotation and a shared display
 canvas. Selected lock-screen photos reference their source file. Notes opens rich
 Markdown through the same Reader document pipeline as other text apps.
+
+## Release updates (4.1)
+
+`system/release_update` is a background GitHub client. It checks latest-release metadata and only stages a binary after the release resource manifest matches the installed runtime and SHA-256/size/ARM checks pass. Activation uses the existing wireless trial/rollback path. This does not make source modules independently installable. Apps, including system apps, still link into one executable. A plugin loader and stable binary ABI are not implemented.
+
+Calculator box baselines represent a mathematical axis derived from the plus-sign ink midpoint, not the Latin glyph baseline. Keep fractions and operators on that axis. Notes translates both text and ink from the same first visible row.

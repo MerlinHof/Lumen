@@ -93,7 +93,7 @@ static int apps_input(const Input *in) {
             extra_open(45);
             return 1;
         }
-        if (y >= 130 && y < 174) {
+        if (y >= 154 && y < 198) {
             if (x >= 80 && x <= 520) {
                 char b[32];
                 snprintf(b, sizeof(b), "%04d-%02d", calendar_year, calendar_month);
@@ -120,13 +120,13 @@ static int apps_input(const Input *in) {
             if (calendar_day > calendar_days(calendar_year, calendar_month))
                 calendar_day = calendar_days(calendar_year, calendar_month);
             app_calendar_load();
-        } else if (y >= 234 && y < 582 && x >= 27 && x < 573) {
+        } else if (y >= 258 && y < 606 && x >= 27 && x < 573) {
             struct tm first = {.tm_year = calendar_year - 1900,
                                .tm_mon = calendar_month - 1,
                                .tm_mday = 1,
                                .tm_hour = 12};
             mktime(&first);
-            int d = ((y - 234) / 58) * 7 + (x - 27) / 78 - (first.tm_wday + 6) % 7 + 1;
+            int d = ((y - 258) / 58) * 7 + (x - 27) / 78 - (first.tm_wday + 6) % 7 + 1;
             if (d >= 1 && d <= calendar_days(calendar_year, calendar_month)) {
                 calendar_day = d;
                 app_calendar_load();

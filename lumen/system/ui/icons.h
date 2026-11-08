@@ -14,15 +14,21 @@ static void icon_native(int x, int y, int kind) {
     int c = x + 22, d = y + 22;
     switch (kind) {
     case IC_DISH:
-        aa_arc(c,d+6,16,0,180,3);
-        stroke(x+5,y+27,x+39,y+27,3);
-        aa_arc(c,d+4,12,180,360,3);
-        stroke(x+10,y+26,x+34,y+26,3);
-        aa_disc(c,y+12,2,0);
+        /* Leaf silhouette with an open central vein. */
+        for (int i=0;i<32;i++) {
+            double t=i/31., u=(i+1)/31.;
+            aa_stroke(x+9+27*t, y+34-28*t-10*sin(t*3.14159265),
+                      x+9+27*u, y+34-28*u-10*sin(u*3.14159265),3);
+            aa_stroke(x+9+27*t, y+34-28*t+10*sin(t*3.14159265),
+                      x+9+27*u, y+34-28*u+10*sin(u*3.14159265),3);
+        }
+        stroke(x+6,y+38,x+31,y+12,3);
+        stroke(x+18,y+25,x+18,y+17,2);
+        stroke(x+23,y+20,x+30,y+20,2);
         break;
     case IC_FLAG_FILLED:
-        stroke(x+12,y+35,x+12,y+8,3);
-        if (kind == IC_FLAG_FILLED) control_surface(x+12,y+8,22,15,3,0);
+        stroke(x+12,y+39,x+12,y+5,3);
+        if (kind == IC_FLAG_FILLED) control_surface(x+12,y+6,24,17,3,0);
         else outline_surface(x+12,y+8,22,15,3,0);
         break;
     case IC_HOME:

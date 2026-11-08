@@ -100,14 +100,12 @@ static int math_expression(int level, int depth) {
     return a;
 }
 static const Font *math_font(int smalltext) { return smalltext ? ui_font(UI_BODY) : ui_font(UI_PRIMARY); }
+/* A box baseline is the mathematical axis, not the Latin text baseline.
+ * Fractions, operators and nested function arguments share this same axis. */
 static int math_baseline(const Font *f) {
-    const unsigned char *p = glyph_pixels(f, '0');
-    int b = 0;
-    for (int y = 0; y < f->h; y++)
-        for (int x = 0; x < f->w; x++)
-            if (p[y * f->w + x] < 180)
-                b = y + 1;
-    return b;
+    int height;
+    int top = ink_top("+", f, &height);
+    return top + height / 2;
 }
 static int math_op_width(int kind, const Font *f) {
     return textwidth_raw(kind == '*' ? "·" : kind == '-' ? "−" : "+", f);
@@ -184,8 +182,11 @@ static void math_measure(int i, int smalltext) {
         n->down = a->down;
     } else if (n->kind == 'f') {
         n->w = textwidth_raw(n->text, f) + 4 + a->w + 2 * glyph_advance(f, '(') + 8;
-        n->up = a->up;
-        n->down = a->down;
+        int text_h, text_top = ink_top(n->text, f, &text_h);
+        int text_up = math_baseline(f) - text_top;
+        int text_down = text_top + text_h - math_baseline(f);
+        n->up = a->up > text_up ? a->up : text_up;
+        n->down = a->down > text_down ? a->down : text_down;
     } else if (n->kind == 'n' || n->kind == 'u') {
         n->w = a->w + op;
         n->up = a->up;

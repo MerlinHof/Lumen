@@ -40,8 +40,8 @@ static void connect_screen(void) {
         centered(28, 696, 544, 30, timeout, ui_font(UI_SECONDARY));
     } else {
         wrapped(30, 244,
-                "Bücher im Browser übertragen. Aktiviere den Server und scanne den QR-Code mit "
-                "einem Gerät im selben WLAN.",
+                "Bücher und Fotos übertragen, Notizen exportieren und eigene Apps installieren. "
+                "Aktiviere den Server und öffne den QR-Code im selben WLAN.",
                 ui_font(UI_TITLE), 542, 5);
         wrapped(30, 484,
                 "Der Server pausiert im Ruhemodus. Beim nächsten Start wird die aktuelle "

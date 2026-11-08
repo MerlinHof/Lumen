@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.1
+
+Mathematical-axis formula layout; anchored note ink; aligned library and Home labels; refined Clock/alarm; 2D sliding puzzle and continuous Snake; four Connect destinations; verified compatible GitHub trial updates; consolidated sleep options. [Release notes](releases/4.1.md).
+
 ## 4.0
 
 - Prevent idle browser sockets from blocking Connect and keep the device awake while its server is running.

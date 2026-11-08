@@ -1,4 +1,4 @@
-# Validation · LUMEN 4.0
+# Validation · LUMEN 4.1
 
 ## 3.9 verification
 
@@ -165,3 +165,7 @@ and Kindle input latency require hardware measurements.
 ## 4.0 focused checks
 
 Connect is tested with idle and incomplete browser connections alongside active requests. CommonMark/GFM rules, tables and nested lists and the one-time Photos seed have targeted checks. Physical Wi-Fi reliability still requires confirmation on the device.
+
+## 4.1 focused checks
+
+Native and ARM builds; existing native interaction suite plus fraction-axis pixels and note-ink viewport anchoring; fresh settings; solvable 2D puzzle movement; mock GitHub latest-release discovery and safe refusal when wireless resources are absent; HTTP idle/incomplete socket and transfer checks. Live GitHub activation on hardware is not claimed. Device installation records personal-file and book hashes before/after copying.

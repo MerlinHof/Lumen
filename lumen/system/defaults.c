@@ -34,4 +34,6 @@ const int option_maximum[OPT_COUNT]={
     [OPT_REMOTE]=1,
     [OPT_KEYBOARD_LANGUAGE]=2,
     [OPT_APP_ICON_STYLE]=1,
+    [OPT_LOCK_TIME]=1,
+    [OPT_LOCK_DATE]=1,
 };

@@ -69,15 +69,32 @@ static void storage_size(char *out, int cap, uint64_t n) {
 }
 static void system_screen(void) {
     heading("System");
-    const char *tabs[] = {"Speicher & Version", "Verwaltung"};
-    segments(28, 133, 544, 44, tabs, 2, extra_page);
+    const char *tabs[] = {"Update", "Speicher", "Verwaltung"};
+    segments(28, 133, 544, 44, tabs, 3, extra_page);
     if (!extra_page) {
-        drawtext(30, 205, "LUMEN " LUMEN_VERSION, ui_font(UI_TITLE), 540);
-        drawtext(30, 253, "Kindle KT2 · 600 × 800", ui_font(UI_SECONDARY), 540);
-        wrapped(30, 289,
+        release_poll();
+        type_label(30,215,540,48,"LUMEN " LUMEN_VERSION,UI_TITLE);
+        wrapped(30,276,
                 "Diese Software wurde Ende 2026 von GPT-6.1 Sol entwickelt unter Aufsicht und "
-                "Prompting und Lizenz von Merlin Hof.",
-                ui_font(UI_SECONDARY), 540, 3);
+                "Prompting und Lizenz von Merlin Hof.",ui_font(UI_BODY),540,4);
+        char b[128];
+        if(release_checked()) {
+            struct tm t;time_t stamp=release_checked();localtime_r(&stamp,&t);
+            strftime(b,sizeof(b),"%d.%m.%Y · %H:%M",&t);
+            label_at(30,416,540,30,tr("Zuletzt geprüft"),ui_font(UI_SECONDARY));
+            label_at(30,450,540,38,b,ui_font(UI_BODY));
+        }
+        const char *state=release_state()==1 ? "Wird geprüft …" :
+                          release_state()==2 ? "LUMEN ist aktuell." :
+                          release_state()==3 ? "Neue Version verfügbar" : "Updates über GitHub";
+        label_at(30,512,540,40,tr(state),ui_font(UI_PRIMARY));
+        if(release_state()==3)label_at(30,556,540,34,release_version(),ui_font(UI_BODY));
+        if(release_state()<0)wrapped(30,556,tr(release_error()),ui_font(UI_SECONDARY),540,3);
+        button_h(28,672,544,54,release_state()==1 ? "Wird geprüft …" : "Nach Updates suchen",0);
+        if(release_state()==3)action_button(28,598,544,54,"Update installieren");
+        if(update_trial())button_h(28,738,544,44,"Update behalten",0);
+    } else if (extra_page==1) {
+        type_label(30,219,540,48,tr("Speicher"),UI_TITLE);
         uint64_t total = storage_total, free = storage_free, books = storage_books,
                  lumen = storage_system;
         if (free > total)
@@ -94,23 +111,23 @@ static void system_screen(void) {
         char b[100], size[40];
         storage_size(size, sizeof(size), total);
         snprintf(b, sizeof(b), "%s %s", size, tr("Gesamt"));
-        drawtext(30, 383, b, ui_font(UI_PRIMARY), 540);
-        rounded_clip_begin(28,438,544,28);
-        rect(28, 438, 544, 28, 255);
+        drawtext(30, 310, b, ui_font(UI_PRIMARY), 540);
+        rounded_clip_begin(28,370,544,28);
+        rect(28, 370, 544, 28, 255);
         int x = 28;
         for (int i = 0; i < 5; i++) {
             int w = total ? (int)(544.0 * sizes[i] / total) : 0;
             if (i == 4)
                 w = 572 - x;
-            rect(x, 438, w, 28, colors[i]);
+            rect(x, 370, w, 28, colors[i]);
             if (i && w > 0)
-                rect(x, 438, 2, 28, 255);
+                rect(x, 370, 2, 28, 255);
             x += w;
         }
-        rounded_clip_end(28,438,544,28);
-        key_outline(28, 438, 544, 28);
+        rounded_clip_end(28,370,544,28);
+        key_outline(28, 370, 544, 28);
         for (int i = 0; i < 5; i++) {
-            int xx = 30 + (i % 2) * 282, y = 486 + (i / 2) * 67;
+            int xx = 30 + (i % 2) * 282, y = 425 + (i / 2) * 67;
             rect(xx, y + 7, 15, 15, colors[i]);
             if (i == 4)
                 key_outline(xx, y + 7, 15, 15);
@@ -118,19 +135,12 @@ static void system_screen(void) {
             storage_size(b, sizeof(b), sizes[i]);
             label_at(xx + 28, y + 29, 230, 22, b, ui_font(UI_SECONDARY));
         }
-        wrapped(30, 695, "USB-Speicher und belegte Systempartition.", ui_font(UI_SECONDARY), 540, 1);
+        wrapped(30, 650, "USB-Speicher und belegte Systempartition.", ui_font(UI_SECONDARY), 540, 1);
     } else {
         label_at(30, 216, 430, 48, tr("LUMEN nach dem Booten"), ui_font(UI_BODY));
         toggle(492, 224, options[OPT_AUTOSTART]);
-        const char *actions[] = {"Automatischer Ruhezustand", "Konfiguration exportieren",
-                                 "Konfiguration importieren", "Amazon öffnen",
-                                 "Einstellungen zurücksetzen"};
-        for (int i = 0; i < 5; i++) {
-            if (!i)
-                u17_sleep_row(304);
-            else
-                button_h(28, 304 + i * 84, 544, 60, actions[i], 0);
-        }
+        const char *actions[] = {"Konfiguration exportieren", "Konfiguration importieren", "Amazon öffnen", "Einstellungen zurücksetzen"};
+        for (int i=0;i<4;i++)button_h(28,304+i*84,544,60,actions[i],0);
     }
 }
 static int system_input(const Input *in) {
@@ -138,13 +148,19 @@ static int system_input(const Input *in) {
         return 2;
     int x = in->x, y = in->y;
     if (y >= 133 && y < 177) {
-        extra_page = x >= 300;
-        if (!extra_page)
+        extra_page = (x-28)*3/544;
+        if(extra_page<0)extra_page=0;if(extra_page>2)extra_page=2;
+        if (extra_page==1)
             storage_scan();
         return 1;
     }
-    if (!extra_page)
+    if (!extra_page) {
+        if(y>=672 && y<726 && release_state()!=1)release_start(0);
+        if(y>=598 && y<652 && release_state()==3)release_start(1);
+        if(y>=738 && update_trial())update_keep();
         return 1;
+    }
+    if(extra_page==1)return 1;
     if (y >= 210 && y < 270) {
         options[OPT_AUTOSTART] ^= 1;
         char p[2048];
@@ -165,10 +181,8 @@ static int system_input(const Input *in) {
         return 1;
     }
     if (y >= 304 && y < 700) {
-        int i = (y - 304) / 84;
+        int i = 1+(y - 304) / 84;
         char p[2048];
-        if (i == 0)
-            u17_sleep_select(304);
         if (i == 1) {
             local_path(p, sizeof(p), "../LUMEN-Einstellungen.txt");
             ui_message(library_config_export(p) ? "Export im Ordner lumen gespeichert."
