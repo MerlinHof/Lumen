@@ -7,7 +7,6 @@ static ChessPosition chess, chess_undo[256];
 static int chess_ready, chess_history, chess_selected = -1, chess_flip, chess_promotion = -1,
                                        chess_promotion_from;
 static int chess_computer;
-static int tic[9], tic_turn = 1, tic_result, tic_score[3];
 static int side(int p) {
     return p > 0 ? 1 : p < 0 ? -1 : 0;
 }
@@ -259,30 +258,6 @@ static void app_chess(void) {
         }
     }
 }
-static void app_tic(void) {
-    heading_actions("Tic Tac Toe", 1);
-    icon_button(528, 74, IC_RESTART);
-    centered(28, 145, 544, 48,
-             tic_result == 3 ? "Unentschieden"
-             : tic_result    ? "Gewonnen!"
-             : tic_turn == 1 ? "X am Zug"
-                             : "O am Zug",
-             ui_font(UI_PRIMARY));
-    for (int i = 0; i < 9; i++) {
-        int x = 63 + (i % 3) * 160, y = 241 + (i / 3) * 160;
-        region(x, y, 154, 154);
-        control_surface(x, y, 154, 154, 12, 218);
-        if (tic[i] == 1) {
-            stroke(x + 40, y + 40, x + 114, y + 114, 6);
-            stroke(x + 114, y + 40, x + 40, y + 114, 6);
-        }
-        if (tic[i] == 2)
-            ring(x + 77, y + 77, 42, 6);
-    }
-    char b[100];
-    snprintf(b, sizeof(b), "X  %d     ·     O  %d", tic_score[1], tic_score[2]);
-    centered(28, 739, 544, 44, b, ui_font(UI_BODY));
-}
 static int games_input(const Input *in) {
     if (in->kind != INPUT_TAP)
         return 2;
@@ -355,33 +330,5 @@ static int games_input(const Input *in) {
             extra_return(48);
         return 1;
     }
-    if (y >= 74 && y < 118 && x >= 516) {
-        memset(tic, 0, sizeof(tic));
-        tic_turn = 1;
-        tic_result = 0;
-        return 1;
-    }
-    if (tic_result || x < 63 || x >= 537 || y < 241 || y >= 715)
-        return 1;
-    int c = (x - 63) / 160, r = (y - 241) / 160, i = r * 3 + c;
-    if (c > 2 || r > 2 || tic[i])
-        return 1;
-    tic[i] = tic_turn;
-    const int wins[8][3] = {{0, 1, 2}, {3, 4, 5}, {6, 7, 8}, {0, 3, 6},
-                            {1, 4, 7}, {2, 5, 8}, {0, 4, 8}, {2, 4, 6}};
-    for (int w = 0; w < 8; w++)
-        if (tic[wins[w][0]] && tic[wins[w][0]] == tic[wins[w][1]] &&
-            tic[wins[w][1]] == tic[wins[w][2]])
-            tic_result = tic_turn;
-    if (tic_result)
-        tic_score[tic_turn]++;
-    else {
-        int empty = 0;
-        for (int j = 0; j < 9; j++)
-            empty += !tic[j];
-        if (!empty)
-            tic_result = 3;
-    }
-    tic_turn = 3 - tic_turn;
     return 1;
 }

@@ -15,6 +15,7 @@ static const char *runtime_files[]={
 "lumen/WORDLE-LICENSE.txt",
 "lumen/app-packages/lumen.frog-solitaire.lumen-app",
 "lumen/app-packages/lumen.sliding-puzzle.lumen-app",
+"lumen/app-packages/lumen.tic-tac-toe.lumen-app",
 "lumen/bin/lumen",
 "lumen/bin/mobitool",
 "lumen/boot.sh",

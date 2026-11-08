@@ -244,7 +244,6 @@ static void keyboard_backspace(void);
 static void system_screen(void);
 static void games_init(int target);
 static void app_chess(void);
-static void app_tic(void);
 static int games_input(const Input *in);
 static int system_input(const Input *in);
 static void suit_icon(int, int, int);

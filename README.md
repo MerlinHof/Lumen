@@ -6,13 +6,13 @@
 
 An illustrated Home, a shared Reader, and useful tools for a paper screen.
 
-[**Download 4.3**](https://github.com/MerlinHof/Lumen/releases/tag/v4.3) ·
-[Release notes](docs/releases/4.3.md) ·
+[**Download 4.4**](https://github.com/MerlinHof/Lumen/releases/tag/v4.4) ·
+[Release notes](docs/releases/4.4.md) ·
 [Installation](docs/installation.md) ·
 [Build](docs/building.md) ·
 [Agent guide](AGENTS.md)
 
-![LUMEN 4.3 — native Home, library and calculator screens](docs/images/hero.png)
+![LUMEN 4.4 — native Home, library and calculator screens](docs/images/hero.png)
 
 **Native C · 600 × 800 E-Ink · Local first · Deutsch / English / Français**
 
@@ -67,21 +67,13 @@ Online features depend on their providers. Home Assistant and OpenAI use your
 own server or account configuration. The calendar is local. Timers provide a
 visual interruption while LUMEN is awake and cannot wake the Kindle from deep sleep.
 
-## What's new in 4.3
+## What's new in 4.4
 
-- Install independent `.lumen-app` packages without compiling or restarting LUMEN.
-- One app catalog and package identity for shipped and separately developed apps.
-  Existing IDs accept replacement packages without duplicate launcher tiles.
-- Frog Solitaire and Sliding Puzzle now ship as separate executable packages.
-- Shared UI, keyboard, dropdowns and Reader remain provided by LUMEN.
-- GitHub updates now replace the **complete runtime**, including changed assets,
-  with verified staging, interruption recovery and trial rollback.
-- Versioned main-branch pushes publish update releases after Native checks.
+Tic Tac Toe joins Frog Solitaire and Sliding Puzzle as an independently installable app. This release adds a runtime app archive, so it also exercises the complete GitHub update path introduced in 4.3. Install it from System → Update on the Kindle; USB is not required for this test.
 
-[App SDK and package guide](docs/app-packages.md) ·
-[How GitHub updates work](docs/wireless-updates.md)
+[App SDK and package guide](docs/app-packages.md) · [GitHub updates](docs/wireless-updates.md)
 
-[Full 4.3 release notes](docs/releases/4.3.md) · [Version history](docs/changelog.md)
+[Full 4.4 release notes](docs/releases/4.4.md) · [Version history](docs/changelog.md)
 
 <table>
 <tr>
@@ -101,14 +93,14 @@ visual interruption while LUMEN is awake and cannot wake the Kindle from deep sl
 Each individual screen is 600 × 800 pixels. They are software previews;
 physical E-Ink appearance and response time depend on the Kindle.*
 
-## Install LUMEN 4.3
+## Install LUMEN 4.4
 
 **Current hardware target — Kindle Touch 2 (KT2), firmware 5.12.2.2, ARMv7.**
 
 A compatible jailbreak, the Kindle .sh launcher and FBInk must already be
 installed. LUMEN's installer checks these prerequisites.
 
-1. [Download LUMEN-4.3.zip](https://github.com/MerlinHof/Lumen/releases/download/v4.3/LUMEN-4.3.zip)
+1. [Download LUMEN-4.4.zip](https://github.com/MerlinHof/Lumen/releases/download/v4.4/LUMEN-4.4.zip)
    and extract the complete folder.
 2. Connect the prepared Kindle over USB.
 3. Open **Install-LUMEN.command** on macOS, or run the Python installer with
@@ -123,7 +115,7 @@ Fresh installations use the illustrated Home, engraved icons, 24 px reading
 text, automatic time sync and independent keyboard language. The status bar
 shows time, Wi-Fi and a battery icon. Books and existing preferences survive updates.
 
-The 4.3 package has **67 runtime files**, about **52.4 MiB installed** and
+The 4.4 package has **68 runtime files**, about **52.4 MiB installed** and
 **34.6 MiB downloaded**. Personal books, app data, caches and rollback copies
 are additional. The installer prunes only recognized runtime backups and
 preserves unknown content.

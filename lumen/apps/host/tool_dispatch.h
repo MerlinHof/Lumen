@@ -16,9 +16,6 @@ static void extra_draw(void) {
     case 48:
         app_chess();
         break;
-    case 49:
-        app_tic();
-        break;
     case 50:
         heading("Neue Partie?");
         wrapped(30, 200, "Aktuelle Schachpartie beenden?", ui_font(UI_TITLE), 540, 4);

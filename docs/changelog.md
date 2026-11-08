@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.4
+
+Standalone Tic Tac Toe and a full-runtime GitHub update test. Standalone latency/help feedback deferred as requested. [Release notes](releases/4.4.md).
+
 ## 4.3
 
 Independent app packages and SDK; unified catalog; full GitHub runtime updates with interruption recovery and trial rollback; automated release publishing after Native checks. [Release notes](releases/4.3.md).
