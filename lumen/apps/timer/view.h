@@ -1,82 +1,116 @@
-/* Stable saved face IDs; presentation order is independent of persistence. */
-static const char *clock_styles[] = {"Klassisch · Ziffern", "Klassisch", "Minimal", "Orbit", "Blütenzeit", "Digital", "Digital · Dunkel"};
-static const int clock_style_ids[] = {4,0,1,5,6,2,3};
+/* Stable IDs preserve saved preferences; this order follows visual families. */
+enum { CLOCK_FACE_COUNT=14 };
+static const char *clock_styles[] = {
+    "Klassisch · Ziffern", "Klassisch", "Römisch", "Bahnhof", "Minimal", "Orbit",
+    "Bauhaus", "Sonnenuhr · 24 h", "Kompass", "Blütenzeit", "Typografie", "Editorial", "Stunde für Stunde", "Nacht"};
+static const int clock_style_ids[] = {4,0,7,8,1,5,9,12,13,6,2,10,11,3};
 static int clock_style_row(void) {
-    for (int i=0;i<7;i++) if (clock_style_ids[i]==clock_ui.clock_style) return i;
+    for(int i=0;i<CLOCK_FACE_COUNT;i++)if(clock_style_ids[i]==clock_ui.clock_style)return i;
     return 0;
 }
-/* App-owned module; assembled by apps/host/compose.h. */
-static void clock_digits(int cy, int hour, int minute, int color) {
-    static const unsigned char digit[] = {63,6,91,79,102,109,125,7,127,111};
-    static const int offsets[] = {109,196,334,421};
-    int values[] = {hour/10,hour%10,minute/10,minute%10};
-    for (int i=0; i<4; i++) {
-        int x=offsets[i], y=cy-65, bits=digit[values[i]];
-        if (bits&1)  control_surface(x+9,y,64,10,5,color);
-        if (bits&2)  control_surface(x+69,y+10,10,50,5,color);
-        if (bits&4)  control_surface(x+69,y+70,10,50,5,color);
-        if (bits&8)  control_surface(x+9,y+120,64,10,5,color);
-        if (bits&16) control_surface(x+3,y+70,10,50,5,color);
-        if (bits&32) control_surface(x+3,y+10,10,50,5,color);
-        if (bits&64) control_surface(x+9,y+60,64,10,5,color);
-    }
-    aa_disc(300,cy-20,7,color);
-    aa_disc(300,cy+20,7,color);
+static void clock_hand(int cy,double angle,int length,int tail,int width,int color) {
+    stroke_color(300-sin(angle)*tail,cy+cos(angle)*tail,
+                 300+sin(angle)*length,cy-cos(angle)*length,width,color);
+}
+static void clock_marker(int cy,int r,double a,int length,int weight,int gray) {
+    stroke_color(300+sin(a)*(r-length),cy-cos(a)*(r-length),
+                 300+sin(a)*(r-5),cy-cos(a)*(r-5),weight,gray);
 }
 static void clock_face(int fullscreen) {
-    time_t now = time(NULL);
-    struct tm t;
-    localtime_r(&now, &t);
-    int cy = fullscreen ? 382 : 435;
-    int r = fullscreen ? 220 : 168;
-    int style = clock_ui.clock_style;
-    int dark = style == 3;
-    if (style == 2 || dark) {
-        if (dark && fullscreen) rect(0,0,600,800,0);
-        else if (dark) control_surface(54,cy-91,492,182,RADIUS_LARGE,0);
-        clock_digits(cy,t.tm_hour,t.tm_min,dark ? 255 : 0);
+    time_t now=time(NULL);struct tm t;localtime_r(&now,&t);
+    int cy=fullscreen ? 382 : 435, r=fullscreen ? 220 : 168;
+    int style=clock_ui.clock_style,dark=style==3;
+    char value[32];
+    if(style==2 || style==3 || style==10 || style==11) {
+        if(dark) {
+            if(fullscreen)rect(0,0,600,800,0);
+            else control_surface(28,cy-110,544,220,RADIUS_LARGE,0);
+        }
+        snprintf(value,sizeof(value),"%02d:%02d",t.tm_hour,t.tm_min);
+        if(style==11) {
+            snprintf(value,sizeof(value),"%02d",t.tm_hour);
+            type_display(70,cy-150,460,142,value,1,144,0);
+            snprintf(value,sizeof(value),"%02d",t.tm_min);
+            type_display(70,cy+6,460,142,value,1,144,0);
+            divider(260,cy,80);
+        } else {
+            type_display(28,cy-85,544,170,value,style==2 ? 0 : 1,fullscreen ? 136 : 116,dark ? 255 : 0);
+            if(style==10) {
+                stroke_color(242,cy+117,358,cy+117,2,112);
+                centered(90,cy-151,420,34,"L U M E N",ui_font(UI_SECONDARY));
+            }
+        }
     } else {
-        if (style == 0 || style == 4) {
-            ring(300,cy,r,2);
-            ring(300,cy,r-7,1);
+        if(style==0 || style==4 || style==7 || style==8) {
+            ring(300,cy,r,style==8 ? 3 : 2);
+            if(style!=8)ring(300,cy,r-7,1);
         }
-        for (int i=0; i<60; i++) {
-            double a = i * .104719755;
-            if ((style == 1 || style >= 5) && i % 5) continue;
-            int primary = !(i%15);
-            int inner = r - (i%5 ? 11 : primary ? 24 : 19);
-            int outer = r-9;
-            if (style == 5) {
-                aa_disc(300+sin(a)*(r-13),cy-cos(a)*(r-13),primary ? 6 : 3,primary ? 0 : 100);
-            } else if (style == 6) {
-                int cx=300+sin(a)*(r-17), yy=cy-cos(a)*(r-17);
-                ui_paint_ellipse(cx,yy,primary ? 7 : 4,primary ? 7 : 4,primary ? 0 : 112);
-                aa_disc(cx,yy,2,255);
-            } else {
-                aa_stroke(300+sin(a)*inner,cy-cos(a)*inner,
-                          300+sin(a)*outer,cy-cos(a)*outer,primary ? 4 : 2);
-            }
-            if (style == 4 && !(i%5)) {
-                char number[8];
-                snprintf(number,sizeof(number),"%d",i ? i/5 : 12);
-                centered(270+sin(a)*(r-47),cy-20-cos(a)*(r-47),60,40,number,ui_font(UI_BODY));
+        if(style==5)ring(300,cy,r*.7,2);
+        if(style==12) {
+            aa_arc_color(300,cy,r-10,180,360,3,0);
+            aa_arc_color(300,cy,r-10,0,180,2,155);
+            stroke_color(300-r+10,cy,300+r-10,cy,2,175);
+        }
+        for(int i=0;i<60;i++) {
+            double a=i*.104719755;int quarter=!(i%15);
+            if(style==12)continue;
+            if((style==1 || style==5 || style==6 || style==9 || style==13) && i%5)continue;
+            if(style==5)aa_disc(300+sin(a)*(r-12),cy-cos(a)*(r-12),quarter ? 6 : 3,quarter ? 0 : 104);
+            else if(style==6) {
+                /* A small engraved petal, rotated radially with its hour. */
+                for(int j=0;j<32;j++) {
+                    double u=j*.196349541,v=(j+1)*.196349541;
+                    double ru=r-18+10*cos(u),rv=r-18+10*cos(v);
+                    double tu=5*sin(u),tv=5*sin(v);
+                    aa_stroke(300+sin(a)*ru+cos(a)*tu,cy-cos(a)*ru+sin(a)*tu,
+                              300+sin(a)*rv+cos(a)*tv,cy-cos(a)*rv+sin(a)*tv,2);
+                }
+            } else if(style==9) {
+                if(quarter)aa_disc(300+sin(a)*(r-14),cy-cos(a)*(r-14),8,0);
+                else clock_marker(cy,r,a,12,3,112);
+            } else clock_marker(cy,r,a,i%5 ? 11 : quarter ? 25 : 19,
+                                style==8 ? (i%5 ? 3 : 6) : quarter ? 4 : 2,
+                                style==13 && !quarter ? 128 : 0);
+            if(!(i%5) && (style==4 || style==7)) {
+                static const char *roman[]={"XII","I","II","III","IV","V","VI","VII","VIII","IX","X","XI"};
+                if(style==7)snprintf(value,sizeof(value),"%s",roman[i/5]);
+                else snprintf(value,sizeof(value),"%d",i ? i/5 : 12);
+                centered(266+sin(a)*(r-49),cy-22-cos(a)*(r-49),68,44,value,
+                         style==7 ? ui_font(UI_BODY) : ui_font(UI_PRIMARY));
             }
         }
-        double minute=t.tm_min*.104719755, hour=(t.tm_hour+t.tm_min/60.)*.523598776;
-        /* Rounded, counterbalanced hands with a quiet open hub. */
-        aa_stroke(300-sin(hour)*16,cy+cos(hour)*16,
-                  300+sin(hour)*r*.48,cy-cos(hour)*r*.48,8);
-        aa_stroke(300-sin(minute)*21,cy+cos(minute)*21,
-                  300+sin(minute)*r*.74,cy-cos(minute)*r*.74,4);
-        aa_disc(300,cy,8,0);
-        aa_disc(300,cy,3,255);
+        if(style==13) {
+            const char *letters[]={"N","E","S","W"};
+            for(int i=0;i<4;i++) {
+                double a=i*1.570796327;
+                centered(275+sin(a)*(r-43),cy-20-cos(a)*(r-43),50,40,letters[i],ui_font(UI_BODY));
+            }
+        }
+        if(style==12) {
+            const char *hours[]={"12","18","24","6"};
+            for(int i=0;i<4;i++) {
+                double a=i*1.570796327;
+                centered(275+sin(a)*(r-38),cy-20-cos(a)*(r-38),50,40,hours[i],ui_font(UI_BODY));
+            }
+        }
+        double minute=t.tm_min*.104719755;
+        double hour=style==12 ? (t.tm_hour+t.tm_min/60.)*.261799388-3.141592654 :
+                               (t.tm_hour+t.tm_min/60.)*.523598776;
+        int hour_width=style==8 || style==9 ? 11 : style==1 ? 5 : 8;
+        int minute_width=style==8 ? 6 : style==9 ? 5 : 3;
+        clock_hand(cy,hour,r*.48,style==1 ? 0 : 15,hour_width,0);
+        clock_hand(cy,minute,r*.75,style==1 ? 0 : 20,minute_width,0);
+        if(style==8) {
+            aa_disc(300+sin(minute)*r*.63,cy-cos(minute)*r*.63,9,0);
+            aa_disc(300+sin(minute)*r*.63,cy-cos(minute)*r*.63,4,255);
+        }
+        if(style==5 || style==12)aa_disc(300+sin(hour)*r*.48,cy-cos(hour)*r*.48,7,0);
+        aa_disc(300,cy,style==1 ? 5 : 8,0);
+        if(style!=1)aa_disc(300,cy,3,255);
     }
-    char date[32];
-    strftime(date,sizeof(date),"%d.%m.%Y",&t);
-    int ink = ink_color;
-    ink_color = dark && fullscreen ? 255 : UI_SECONDARY_INK;
-    centered(60,cy+r+14,480,48,date,ui_font(UI_SECONDARY));
-    ink_color = ink;
+    strftime(value,sizeof(value),"%d.%m.%Y",&t);
+    int old_ink=ink_color;ink_color=dark && fullscreen ? 255 : UI_SECONDARY_INK;
+    centered(60,cy+r+14,480,48,value,ui_font(UI_SECONDARY));ink_color=old_ink;
 }
 static void clock_show_face(void) { timer_panel = 0; }
 static void app_timer(void) {
@@ -114,11 +148,12 @@ static void app_timer(void) {
         key_outline(28,194,544,408);
         icon_sized(52,216,IC_CLOCK,32);
         label_at(98,210,420,44,tr("Weckzeit"),ui_font(UI_BODY));
-        clock_digits(370,alarm_hour,alarm_minute,0);
-        icon_button(170,258,IC_UP);
-        icon_button(395,258,IC_UP);
-        icon_button(170,443,IC_DOWN);
-        icon_button(395,443,IC_DOWN);
+        snprintf(b,sizeof(b),"%02d:%02d",alarm_hour,alarm_minute);
+        type_display(70,305,460,120,b,1,96,0);
+        icon_button(216,258,IC_UP);
+        icon_button(339,258,IC_UP);
+        icon_button(216,443,IC_DOWN);
+        icon_button(339,443,IC_DOWN);
         divider(52,506,496);
         label_at(54,528,390,48,tr("Wecker aktiv"),ui_font(UI_PRIMARY));
         toggle(470,536,alarm_enabled);

@@ -5898,5 +5898,50 @@
     "Speicher",
     "Storage",
     "Stockage"
+  ],
+  "Römisch": [
+    "Römisch",
+    "Roman",
+    "Romain"
+  ],
+  "Bahnhof": [
+    "Bahnhof",
+    "Railway",
+    "Gare"
+  ],
+  "Bauhaus": [
+    "Bauhaus",
+    "Bauhaus",
+    "Bauhaus"
+  ],
+  "Sonnenuhr · 24 h": [
+    "Sonnenuhr · 24 h",
+    "Sundial · 24 h",
+    "Solaire · 24 h"
+  ],
+  "Kompass": [
+    "Kompass",
+    "Compass",
+    "Boussole"
+  ],
+  "Typografie": [
+    "Typografie",
+    "Typography",
+    "Typographie"
+  ],
+  "Editorial": [
+    "Editorial",
+    "Editorial",
+    "Éditorial"
+  ],
+  "Stunde für Stunde": [
+    "Stunde für Stunde",
+    "Hour by hour",
+    "Heure par heure"
+  ],
+  "Nacht": [
+    "Nacht",
+    "Night",
+    "Nuit"
   ]
 }

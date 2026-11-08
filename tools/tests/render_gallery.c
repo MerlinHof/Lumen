@@ -50,6 +50,14 @@ int main(void) {
     timer_panel=2;
     picture("alarm");
     timer_panel=0;
+    for(int face=0;face<14;face++) {
+        char name[40];snprintf(name,sizeof(name),"face-%02d",face);
+        clock_ui.clock_style=face;
+        notification_dismiss();ui_draw();
+        char path[256];snprintf(path,sizeof(path),"build/gallery/%s.pgm",name);
+        FILE*f=fopen(path,"wb");assert(f);fprintf(f,"P5\n600 800\n255\n");fwrite(ui_pixels,1,sizeof(ui_pixels),f);fclose(f);
+    }
+    clock_ui.clock_style=4;
     route_to(40);
     extra_page=0;picture("system-update");
     route_to(129);

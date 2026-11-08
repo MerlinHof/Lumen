@@ -515,6 +515,13 @@ int main(int argc, char **argv) {
     photo_seed_default();
     assert(access("build/tests/default-photo/photos/LUMEN - Alpine Dawn.pgm",F_OK));
     data_root=previous_data_root;
+    for(int face=0;face<CLOCK_FACE_COUNT;face++) {
+        route_to(28);timer_panel=0;clock_ui.clock_style=face;ui_draw();
+    }
+    static unsigned char display_type[460*120];
+    assert(ui_display_text("07:00",1,96,460,120,display_type));
+    int type_ink=0;for(size_t i=0;i<sizeof(display_type);i++)type_ink+=display_type[i]<128;
+    assert(type_ink>1000 && type_ink<20000);
     /* Fractions and all text operators now use the same measured math axis. */
     snprintf(calc_expr,sizeof(calc_expr),"5/4*sin(3/4)*sqrt(4)");
     mp=calc_expr;mn=math_bad=0;

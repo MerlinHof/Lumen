@@ -391,3 +391,7 @@ Do not reintroduce an ad-hoc Markdown parser.
 - Sleep timeout belongs only to Appearance → Sleep screen. Cropping cover padding is unconditional. Lock time/date overlays apply to every mode.
 - The GitHub update worker is asynchronous, bounded, cancellable and HTTPS-only. Verify resource identity, version, digest, size and ARM ELF before approval. Reuse existing trial rollback; never silently skip resource checks. Publish the wireless JSON and binary alongside ZIP/SHA releases.
 - Be explicit about architecture: source modules share one executable, including custom apps. No independent plugin installation or binary ABI exists yet.
+
+## 4.2 clock and typography contracts
+
+LUMEN's large time displays are typography, not fake seven-segment numerals. Use the shared native-size `type_display` renderer and bounded cache; never scale up small UI bitmap glyphs. Faces should have deliberate numeral placement, balanced hand weights, recognizable visual families and restrained details. Preserve stored face IDs when changing display order. Use the central fullscreen icon with rounded joins and strong small-size contrast.

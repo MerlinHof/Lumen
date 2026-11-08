@@ -8,4 +8,8 @@ typedef struct {
 } UiUnicodeGlyph;
 const UiUnicodeGlyph *ui_unicode_glyph(unsigned code, int size, int serif, int w, int h);
 void ui_unicode_close(void);
+/* Native-resolution display type, centered by glyph bounds. family: sans, serif,
+ * italic serif, bold sans, bold serif. Caller supplies a bounded grayscale tile. */
+int ui_display_text(const char *text,int family,int size,int width,int height,unsigned char *pixels);
+
 #endif

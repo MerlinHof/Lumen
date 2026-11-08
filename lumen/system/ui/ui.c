@@ -177,7 +177,7 @@ static void connect_input(const Input *in);
 static void refresh_library(void);
 static void settings_input(const Input *in);
 static const int lock_mode_ids[5];
-static const int clock_style_ids[7];
+static const int clock_style_ids[14];
 static void discover_screen(void);
 static void discover_detail(void);
 static void discover_input(const Input *in);

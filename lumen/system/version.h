@@ -1,4 +1,4 @@
 #ifndef LUMEN_VERSION_H
 #define LUMEN_VERSION_H
-#define LUMEN_VERSION "4.1"
+#define LUMEN_VERSION "4.2"
 #endif

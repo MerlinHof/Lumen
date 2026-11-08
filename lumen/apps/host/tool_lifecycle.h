@@ -34,7 +34,7 @@ static void extra_init(void) {
     long long due = 0;
     sscanf(b, "%d %d %d %d %lld %d %d", &alarm_hour, &alarm_minute, &alarm_enabled, &timer_minutes,
            &due, &reading_goal, &clock_ui.clock_style);
-    if (clock_ui.clock_style < 0 || clock_ui.clock_style > 6) clock_ui.clock_style = 0;
+    if (clock_ui.clock_style < 0 || clock_ui.clock_style > 13) clock_ui.clock_style = 0;
     if (alarm_hour < 0 || alarm_hour > 23)
         alarm_hour = 7;
     if (alarm_minute < 0 || alarm_minute > 59)

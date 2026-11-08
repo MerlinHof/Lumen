@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.2
+
+Native-resolution serif alarm typography; fourteen refined clock faces; bolder round-cornered fullscreen icon. [Release notes](releases/4.2.md).
+
 ## 4.1
 
 Mathematical-axis formula layout; anchored note ink; aligned library and Home labels; refined Clock/alarm; 2D sliding puzzle and continuous Snake; four Connect destinations; verified compatible GitHub trial updates; consolidated sleep options. [Release notes](releases/4.1.md).

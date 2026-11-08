@@ -36,3 +36,25 @@ static void filled_button(int x, int y, int w, int h, const char *text, const Fo
 static void action_button(int x, int y, int w, int h, const char *text) {
     filled_button(x, y, w, h, text, ui_font(UI_CONTROL));
 }
+
+/* Large, quiet display type shares the native font renderer and one bounded
+ * cache. Changing a minute redraws a tile; other ticks reuse its raster. */
+static void type_display(int x,int y,int w,int h,const char *text,int family,int size,int color) {
+    typedef struct { unsigned char pixels[600*180];char text[64];int w,h,size,family,valid;unsigned used; } DisplayTile;
+    static DisplayTile cache[2];static unsigned epoch;
+    if(w<1 || w>600 || h<1 || h>180)return;
+    DisplayTile *tile=NULL;
+    for(int i=0;i<2;i++)if(cache[i].valid && cache[i].w==w && cache[i].h==h && cache[i].size==size &&
+                            cache[i].family==family && !strcmp(cache[i].text,text)){tile=&cache[i];break;}
+    if(!tile) {
+        tile=!cache[0].valid ? &cache[0] : !cache[1].valid ? &cache[1] : cache[0].used<=cache[1].used ? &cache[0] : &cache[1];
+        tile->valid=ui_display_text(text,family,size,w,h,tile->pixels);
+        snprintf(tile->text,sizeof(tile->text),"%s",text);tile->w=w;tile->h=h;tile->size=size;tile->family=family;
+    }
+    tile->used=++epoch;
+    if(!tile->valid){centered(x,y,w,h,text,ui_font(UI_DISPLAY));return;}
+    for(int row=0;row<h;row++)for(int col=0;col<w;col++) {
+        int tone=tile->pixels[row*w+col];
+        if(tone<255)blend_pixel(x+col,y+row,(255-tone)/255.f,color);
+    }
+}

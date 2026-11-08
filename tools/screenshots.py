@@ -41,7 +41,8 @@ for i,(title,author) in enumerate(books):
 OUT.mkdir(parents=True,exist_ok=True)
 binary=compile_test('gallery','tools/tests/render_gallery.c',True);subprocess.run([str(binary)],check=True)
 images=ROOT/'docs/images';images.mkdir(exist_ok=True)
-for p in folder.glob('*.pgm'):Image.open(p).save(images/(p.stem+'.png'),optimize=True)
+for p in folder.glob('*.pgm'):
+    if not p.stem.startswith('face-'):Image.open(p).save(images/(p.stem+'.png'),optimize=True)
 # Preserve every screenshot pixel when laying out the public overview.
 images=ROOT/'docs/images'
 canvas=Image.new('RGB',(2100,1220),'#f2f0e9');draw=ImageDraw.Draw(canvas)
@@ -88,3 +89,16 @@ for position,id in enumerate(order):
         ink.text((x+70,y+88+j*18),line,font=label_font,fill='#333',anchor='mt')
 plate.save(images/'icons.png',optimize=True)
 print('Native screenshots regenerated:',images)
+
+# Representative faces, actual native render crops, arranged for comparison.
+faces=[4,7,8,1,5,9,12,13,6,2,10,11,3,0]
+labels=['Classic numbers','Roman','Railway','Minimal','Orbit','Bauhaus','Sundial · 24 h','Compass','Petal dial','Typography','Editorial','Hour by hour','Night','Classic']
+sheet=Image.new('RGB',(1200,((len(faces)+3)//4)*300),'white')
+draw=ImageDraw.Draw(sheet)
+for i,(face,label)in enumerate(zip(faces,labels)):
+    crop=Image.open(folder/f'face-{face:02d}.pgm').crop((35,200,565,690)).convert('RGB')
+    crop.thumbnail((270,250),Image.Resampling.LANCZOS)
+    x=(i%4)*300+(300-crop.width)//2;y=(i//4)*300
+    sheet.paste(crop,(x,y))
+    draw.text(((i%4)*300+150,y+268),label,anchor='mm',font=ImageFont.truetype(sans,18),fill='#171717')
+sheet.save(images/'clock-faces.png',optimize=True)

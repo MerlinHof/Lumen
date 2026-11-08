@@ -1,4 +1,4 @@
-# Validation · LUMEN 4.1
+# Validation · LUMEN 4.2
 
 ## 3.9 verification
 
@@ -169,3 +169,7 @@ Connect is tested with idle and incomplete browser connections alongside active 
 ## 4.1 focused checks
 
 Native and ARM builds; existing native interaction suite plus fraction-axis pixels and note-ink viewport anchoring; fresh settings; solvable 2D puzzle movement; mock GitHub latest-release discovery and safe refusal when wireless resources are absent; HTTP idle/incomplete socket and transfer checks. Live GitHub activation on hardware is not claimed. Device installation records personal-file and book hashes before/after copying.
+
+## 4.2 focused checks
+
+Native/ARM builds; native interaction suite including all fourteen clock-face render paths and native-resolution serif display text; updated Clock/alarm screenshots and a face comparison sheet. These are software renders, not claims of a physical panel timing or wake test.

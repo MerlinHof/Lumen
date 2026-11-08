@@ -8,7 +8,7 @@ static int clock_input(int x, int y) {
             if (y >= 137 && y < 181) {
                 if (x >= 528) clock_ui.clock_fullscreen = 1;
                 else if (x >= 28 && x < 338) {
-                    open_dropdown(902, clock_styles, 7, clock_style_row(), 28, 185, 310);
+                    open_dropdown(902, clock_styles, CLOCK_FACE_COUNT, clock_style_row(), 28, 185, 310);
                 }
             }
             return 1;
@@ -40,11 +40,11 @@ static int clock_input(int x, int y) {
             }
         } else {
             if (y>=258 && y<302) {
-                if (x>=158 && x<226) alarm_hour=(alarm_hour+1)%24;
-                else if (x>=383 && x<451) alarm_minute=(alarm_minute+1)%60;
+                if (x>=204 && x<272) alarm_hour=(alarm_hour+1)%24;
+                else if (x>=327 && x<395) alarm_minute=(alarm_minute+1)%60;
             } else if (y>=443 && y<487) {
-                if (x>=158 && x<226) alarm_hour=(alarm_hour+23)%24;
-                else if (x>=383 && x<451) alarm_minute=(alarm_minute+59)%60;
+                if (x>=204 && x<272) alarm_hour=(alarm_hour+23)%24;
+                else if (x>=327 && x<395) alarm_minute=(alarm_minute+59)%60;
             } else if (y>=522 && y<588) alarm_enabled^=1;
         }
         extra_save();

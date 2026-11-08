@@ -1,4 +1,4 @@
-# LUMEN 4.1 · System und Apps
+# LUMEN 4.2 · System und Apps
 
 LUMEN ist ein natives ARMv7-Programm mit gemeinsamer App-Laufzeit. Apps sind
 Quellmodule mit stabilen IDs und Routen; sie laufen im selben Prozess. Sie sind
@@ -161,3 +161,7 @@ Markdown through the same Reader document pipeline as other text apps.
 `system/release_update` is a background GitHub client. It checks latest-release metadata and only stages a binary after the release resource manifest matches the installed runtime and SHA-256/size/ARM checks pass. Activation uses the existing wireless trial/rollback path. This does not make source modules independently installable. Apps, including system apps, still link into one executable. A plugin loader and stable binary ABI are not implemented.
 
 Calculator box baselines represent a mathematical axis derived from the plus-sign ink midpoint, not the Latin glyph baseline. Keep fractions and operators on that axis. Notes translates both text and ink from the same first visible row.
+
+## Large display typography (4.2)
+
+`ui_display_text` in `system/unicode` renders font outlines at final pixel size, centered by actual bounds. The system UI `type_display` component keeps a bounded two-tile cache, allowing stacked clock digits without repeated font rasterization on unchanged frames. Clock chooses a visual family and size; it does not implement its own font rasterizer or imitate digital segments. Stable face IDs are distinct from menu ordering.
