@@ -73,7 +73,9 @@ system-rendered text, headings, icons, hitboxes, rounded surfaces, ellipses, lin
 and rings. `lumen_button` uses the shared button component. All ordinary app
 content is below the 56px status bar. Touch feedback, rounding, icons, typography,
 keyboard and E-Ink presentation remain owned by LUMEN. Use `lumen_text` for
-left-aligned labels or when text needs contrasting ink on a game tile.
+left-aligned labels or when text needs contrasting ink on a game tile. Use
+`lumen_mono` for fixed-column output and `lumen_hex_cell` for an outlined hex-grid cell.
+Those two drawing commands require LUMEN 4.6 or later.
 
 A frame is bounded to 256 KiB and 2,048 commands. Input events are queued without
 blocking the system's touch loop. An idle app blocks on stdin, rather than
@@ -94,7 +96,8 @@ firmware services. Prefer clear typography and finite, paper-native tools.
 
 ## Existing app implementations
 
-Frog Solitaire, Sliding Puzzle, Tic Tac Toe, Terminal, 2048 and Sudoku ship as
+Frog Solitaire, Sliding Puzzle, Tic Tac Toe, Terminal, 2048, Sudoku, Bingo,
+Connect Four, Hex, Nonograms, Solitaire, Wordle, and Periodic Table ship as
 independent packages and use this same protocol. Their sources and build manifests live in their app folders. Other
 existing views still have linked compatibility implementations. They are entries
 in the same catalog and can be replaced individually by a package using the same

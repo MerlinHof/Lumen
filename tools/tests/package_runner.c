@@ -7,7 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 int main(int argc,char**argv){assert(argc>=3);data_root=argv[1];const char*op=argv[2];
- if(!strcmp(op,"stage"))return system_update_stage(argv[3],"9.1")?0:2;
+ if(!strcmp(op,"stage"))return system_update_stage(argv[3],argc>4 ? argv[4] : "9.1")?0:2;
  if(!strcmp(op,"apply"))return system_update_maintenance()?0:2;
  if(!strcmp(op,"rollback"))return system_update_rollback()?0:2;
  if(!strcmp(op,"keep"))return system_update_keep()?0:2;

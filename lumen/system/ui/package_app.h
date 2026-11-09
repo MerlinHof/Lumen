@@ -22,6 +22,7 @@ static void package_ui_draw(void) {
         if(y<STATUS_HEIGHT || y>800 || x < -600 || x>600 || w<0 || w>1200 || h<0 || h>800)continue;
         size_t estimate=(size_t)w*h;
         if(!strcmp(type,"ellipse"))estimate=4u*(unsigned)abs(package_value(&j,item,"rx"))*(unsigned)abs(package_value(&j,item,"ry"));
+        if(!strcmp(type,"hex_cell"))estimate=65*37;
         if(!strcmp(type,"ring")){int r=package_value(&j,item,"radius");estimate=4u*(unsigned)abs(r)*(unsigned)abs(r);}
         if(!strcmp(type,"line"))estimate=(size_t)(abs(x-package_value(&j,item,"x2"))+32)*(abs(y-package_value(&j,item,"y2"))+32);
         if(estimate>4000000 || cost+estimate>4000000)break;cost+=estimate;
@@ -39,6 +40,34 @@ static void package_ui_draw(void) {
             }
             ink_color=previous;
         }
+        else if(!strcmp(type,"mono")) {
+            int ink=package_value(&j,item,"ink");
+            if(ink<0 || ink>255)ink=0;
+            int baseline=y+(h-caption.h)/2;
+            const char *start=label;
+            for(int column=0;*start && column*12+12<=w;column++) {
+                if(*start=='\t'){column+=3-column%4;start++;continue;}
+                unsigned code=glyph(&start);
+                const GlyphBounds *bounds=text_bounds(&caption,code);
+                const unsigned char *pixels=glyph_pixels(&caption,code);
+                int left=bounds ? bounds->left : 0, top=bounds ? bounds->top : 0;
+                int width=bounds ? bounds->right-left : caption.w;
+                int bottom=bounds ? bounds->bottom : caption.h;
+                int span=width<11 ? width : 11;
+                int at=x+column*12+(12-span)/2;
+                for(int row=top;row<bottom;row++) {
+                    int yy=baseline+row;
+                    if(yy<STATUS_HEIGHT || yy>=HEIGHT)continue;
+                    for(int px=0;px<span;px++) {
+                        int xx=at+px;
+                        if(xx<0 || xx>=WIDTH)continue;
+                        int alpha=255-pixels[row*caption.w+left+px*width/span];
+                        unsigned char *dst=ui_pixels+yy*WIDTH+xx;
+                        *dst=(unsigned char)(*dst+(ink-*dst)*alpha/255);
+                    }
+                }
+            }
+        }
         else if(!strcmp(type,"button"))button_h(x,y,w,h,label,package_value(&j,item,"primary"));
         else if(!strcmp(type,"checkbox"))checkbox(x,y,package_value(&j,item,"value"));
         else if(!strcmp(type,"toggle"))toggle(x,y,package_value(&j,item,"value"));
@@ -48,6 +77,19 @@ static void package_ui_draw(void) {
         else if(!strcmp(type,"hit"))region(x,y,w,h);
         else if(!strcmp(type,"surface"))ui_paint_surface(x,y,w,h,package_value(&j,item,"radius"),package_value(&j,item,"gray"),package_value(&j,item,"outline"));
         else if(!strcmp(type,"ellipse")){int rx=package_value(&j,item,"rx"),ry=package_value(&j,item,"ry");if(rx>=0&&rx<=300&&ry>=0&&ry<=400)ui_paint_ellipse(x,y,rx,ry,package_value(&j,item,"gray"));}
+        else if(!strcmp(type,"hex_cell")) {
+            int fill=package_value(&j,item,"gray");
+            if(fill<0 || fill>255)continue;
+            for(int dy=-18;dy<=18;dy++) {
+                int w=32-abs(dy)*16/18;
+                rect(x-w,y+dy,2*w+1,1,fill);
+            }
+            const int dx[]={-32,-16,16,32,16,-16},dy[]={0,-18,-18,0,18,18};
+            for(int k=0;k<6;k++) {
+                int n=(k+1)%6;
+                stroke_color(x+dx[k],y+dy[k],x+dx[n],y+dy[n],2,0);
+            }
+        }
         else if(!strcmp(type,"line")){int x2=package_value(&j,item,"x2"),y2=package_value(&j,item,"y2"),weight=package_value(&j,item,"weight");if(y2>=56&&y2<=800&&x2>=-600&&x2<=1200&&weight>0&&weight<=32)ui_paint_line(x,y,x2,y2,weight,package_value(&j,item,"gray"));}
         else if(!strcmp(type,"ring")){int r=package_value(&j,item,"radius"),weight=package_value(&j,item,"weight");if(r>0&&r<=300&&weight>0&&weight<=24)ui_paint_ring(x,y,r,weight);}
     }

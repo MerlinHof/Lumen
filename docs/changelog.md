@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.6
+
+Seven additional standalone apps, a persistent Terminal shell and transcript, and measured Continue Reading spacing. [Release notes](releases/4.6.md).
+
 ## 4.5
 
 Terminal, standalone 2048 and Sudoku, updater progress and recovery, reduced idle work, live book import, app removal from Home and a larger sleep clock. [Release notes](releases/4.5.md).

@@ -340,21 +340,6 @@ static void game_new16(int route) {
     game_turn16 = 1;
     game_won16 = game_moves16 = 0;
     game_undo_valid16 = 0;
-    if (route == 112) {
-        int nums[75];
-        for (int i = 0; i < 75; i++)
-            nums[i] = i + 1;
-        for (int c = 0; c < 5; c++)
-            for (int i = 0; i < 15; i++) {
-                int j = random16() % 15, t = nums[c * 15 + i];
-                nums[c * 15 + i] = nums[c * 15 + j];
-                nums[c * 15 + j] = t;
-            }
-        for (int y = 0; y < 5; y++)
-            for (int x = 0; x < 5; x++)
-                game_board16[y * 5 + x] = nums[x * 15 + y];
-        game_board16[12] = -1;
-    }
     if (route == 117) {
         game_px16 = 0;
         game_py16 = 0;
@@ -501,18 +486,6 @@ static void game_help16(int route) {
     const char *title = app_definition(app_for_route(route))->name;
     const char *text = "";
     switch (route) {
-    case 112:
-        text = "Bingo\n\nSpielt gemeinsam mit gezogenen Zahlen von 1 bis 75. Tippe eine angesagte "
-               "Zahl auf deiner Karte an, um sie zu markieren. Das mittlere Feld ist frei. Fünf "
-               "markierte Felder in einer Reihe, Spalte oder Diagonale gewinnen. Jeder neue Start "
-               "mischt die Karte neu.";
-        break;
-    case 113:
-        text = "Vier gewinnt\n\nZwei Personen spielen abwechselnd. Tippe auf eine Spalte: Der "
-               "Stein fällt auf den untersten freien Platz. Schwarz beginnt, die zweite Person "
-               "spielt mit hellen, schwarz umrandeten Steinen. Vier eigene Steine waagerecht, "
-               "senkrecht oder diagonal gewinnen.";
-        break;
     case 117:
         text = "Springertour\n\nBesuche alle 64 Felder genau einmal mit einem Schachspringer. Ein "
                "Zug geht zwei Felder in eine Richtung und eines quer dazu. Kleine Punkte zeigen "
@@ -563,41 +536,6 @@ static void game_help16(int route) {
                "Mehrspielermodus spielen zwei Personen abwechselnd. Die Drehfunktion richtet die "
                "Figuren zum gegenüber sitzenden Spieler aus.";
         break;
-    case 49:
-        text = "Tic Tac Toe\n\nZwei Personen setzen abwechselnd ein Zeichen auf ein freies Feld. "
-               "Drei eigene Zeichen in einer Reihe, Spalte oder Diagonale gewinnen. Ist das Brett "
-               "voll, endet die Partie unentschieden.";
-        break;
-    case 63:
-        text = "2048\n\nSchiebe alle Kacheln in eine Richtung. Treffen zwei gleiche Zahlen "
-               "zusammen, verschmelzen sie zu ihrer Summe. Nach jedem gültigen Zug erscheint eine "
-               "neue Kachel. Erreiche 2048 und spiele weiter, solange Platz bleibt.";
-        break;
-    case 64:
-        text = "Solitaire\n\nLege Karten in absteigender Reihenfolge und abwechselnden Farben auf "
-               "die Spalten. Baue die Ablagen je Farbe von Ass bis König auf. Freie Spalten nehmen "
-               "Könige auf. Gewinne, indem alle Karten auf den vier Ablagen liegen.";
-        break;
-    case 65:
-        text = "Sudoku\n\nFülle das Raster mit den Zahlen 1 bis 9. Jede Zahl darf in jeder Zeile, "
-               "Spalte und jedem 3×3-Block genau einmal vorkommen. Vorgegebene Zahlen sind "
-               "unveränderlich. Nutze Notizen für mögliche Kandidaten.";
-        break;
-    case 70:
-        text = "Wordle\n\nErrate das Wort in höchstens sechs Versuchen. Die Rückmeldung zeigt "
-               "richtige Buchstaben am richtigen Platz und Buchstaben, die an anderer Stelle "
-               "vorkommen. Nutze die Hinweise für den nächsten Versuch.";
-        break;
-    case 81:
-        text = "Nonogramme\n\nDie Zahlen am Rand beschreiben zusammenhängende Gruppen gefüllter "
-               "Felder. Zwischen zwei Gruppen liegt mindestens ein leeres Feld. Markiere sicher "
-               "leere Felder und rekonstruiere das Bild aus Zeilen- und Spaltenhinweisen.";
-        break;
-    case 82:
-        text = "Hex\n\nVerbinde deine beiden gegenüberliegenden Seiten mit einer zusammenhängenden "
-               "Kette eigener Steine. Die andere Person verbindet das andere Seitenpaar. Steine "
-               "werden nicht geschlagen. Nutze Rückgängig bei einem versehentlichen Zug.";
-        break;
     case 120:
         text = "Kreuzworträtsel\n\nTippe einen Hinweis an, lies die Frage und trage die Lösung "
                "ein. Groß- und Kleinschreibung sind egal. Sich kreuzende Wörter teilen denselben "
@@ -608,16 +546,13 @@ static void game_help16(int route) {
         u17_game_manual(route, title, text);
 }
 static int game_help_x(void) {
-    return ui_route() == 64 ? 348
-           : (ui_route() == 63 || ui_route() == 119 || ui_route() == 118 || ui_route() == 120 || ui_route() == 121)
+    return (ui_route() == 119 || ui_route() == 118 || ui_route() == 120 || ui_route() == 121)
                ? 408
                : 468;
 }
 static void help_overlay16(void) {
     AppId id = app_for_route(ui_route());
-    if ((id >= APP_MINES && id <= APP_SNAKE) || id == APP_CHESS || id == APP_TIC_TAC_TOE ||
-        (id >= APP_2048 && id <= APP_SUDOKU) || id == APP_WORDLE || id == APP_NONOGRAMS ||
-        id == APP_HEX || id == APP_BINGO || id == APP_CONNECT4 ||
+    if ((id >= APP_MINES && id <= APP_SNAKE) || id == APP_CHESS ||
         (id >= APP_KNIGHTS && id <= APP_RPG)) {
         int xx = game_help_x();
         region(xx, 74, 44, 44);
@@ -625,10 +560,7 @@ static void help_overlay16(void) {
         centered(xx, 74, 44, 44, "?", ui_font(UI_BODY));
     }
 }
-#include "../periodic_table.h"
-static int element_selected16 = 6, element_grid16[9][18];
-#include "../periodic_table/model.h"
-
+static char crossword_answer16[5][16];
 #include "../crossword/model.h"
 
 static void direction_keys16(void) {
@@ -643,41 +575,6 @@ static void game_draw16(void) {
     char b[100];
     if (ui_route() == 118 || ui_route() == 119 || ui_route() == 121)
         icon_button(468, 74, IC_UNDO);
-    if (ui_route() == 112) {
-        centered(28, 136, 544, 46, "B   I   N   G   O", ui_font(UI_PRIMARY));
-        for (int y = 0; y < 5; y++)
-            for (int x = 0; x < 5; x++) {
-                int v = game_board16[y * 5 + x], xx = 35 + x * 106, yy = 200 + y * 100;
-                region(xx, yy, 100, 94);
-                key_outline(xx, yy, 100, 94);
-                if (v < 0)
-                    aa_disc(xx + 50, yy + 47, 37, 0);
-                snprintf(b, 100, v == -1 && x == 2 && y == 2 ? "★" : "%d", abs(v));
-                ink_color = v < 0 ? 255 : 0;
-                centered(xx, yy, 100, 94, b, ui_font(UI_PRIMARY));
-                ink_color = 0;
-            }
-        if (game_won16)
-            centered(28, 718, 544, 45, "BINGO!", ui_font(UI_TITLE));
-        return;
-    }
-    if (ui_route() == 113) {
-        snprintf(b, 100,
-                 tr(game_won16 == 3 ? "Unentschieden"
-                    : game_won16    ? "Spieler %d gewinnt"
-                                    : "Spieler %d ist dran"),
-                 game_won16 ? game_won16 : game_turn16);
-        centered(28, 137, 544, 46, b, ui_font(UI_PRIMARY));
-        for (int y = 0; y < 6; y++)
-            for (int x = 0; x < 7; x++) {
-                int xx = 40 + x * 75, yy = 210 + y * 77, v = game_board16[y * 7 + x];
-                region(xx, yy, 73, 75);
-                ring(xx + 36, yy + 37, 29, 2);
-                if (v)
-                    aa_disc(xx + 36, yy + 37, 25, v == 1 ? 0 : 170);
-            }
-        return;
-    }
     if (ui_route() == 117) {
         snprintf(b, 100, "%d / 64%s", game_moves16, game_moves16 == 64 ? " · Geschafft!" : "");
         centered(28, 132, 544, 45, b, ui_font(UI_PRIMARY));
@@ -855,7 +752,7 @@ static void companion_enter16(void) {
                 crossword_answer16[i][15] = 0;
         }
     }
-    if (ui_route() == 112 || ui_route() == 113 || ui_route() == 117 || ui_route() == 118 || ui_route() == 119 ||
+    if (ui_route() == 117 || ui_route() == 118 || ui_route() == 119 ||
         ui_route() == 121) {
         static int active_game = -1;
         if (active_game != ui_route()) {
@@ -896,7 +793,6 @@ static int u16_apps_draw(void) {
         return 0;
     }
     companion_enter16();
-    char b[300];
 
     if (ui_route() == 111) {
         heading_actions("Lernen", 1);
@@ -920,44 +816,12 @@ static int u16_apps_draw(void) {
         pager(745, &companion_page16, (files_count16 + 4) / 5);
         return 1;
     }
-    if (ui_route() == 112 || ui_route() == 113 || ui_route() == 117 || ui_route() == 118 || ui_route() == 119 ||
+    if (ui_route() == 117 || ui_route() == 118 || ui_route() == 119 ||
         ui_route() == 121) {
         game_draw16();
         return 1;
     }
 
-    if (ui_route() == 115) {
-        elements_init16();
-        heading("Periodensystem");
-        const char **e=elements16[element_selected16-1];
-        for (int row=0;row<9;row++)
-            for (int col=0;col<18;col++) {
-                int n=element_grid16[row][col];
-                if (!n) continue;
-                int x=12+col*32,y=138+row*36;
-                region(x,y,31,34);
-                control_surface(x,y,31,34,RADIUS_SMALL,n==element_selected16 ? 0 : 244);
-                ink_color=n==element_selected16 ? 255 : 0;
-                centered(x,y,31,34,elements16[n-1][0],ui_font(UI_SECONDARY));
-                ink_color=0;
-            }
-        snprintf(b,sizeof(b),"%d  %s · %s",element_selected16,e[0],element_name(element_selected16));
-        type_label(28,486,544,44,b,UI_TITLE);
-        snprintf(b,sizeof(b),"%s · %s",tr(e[9]),tr(e[5]));
-        type_label(28,531,544,30,b,UI_SECONDARY);
-        const char *labels[]={"Atommasse","Dichte","Elektronegativität","Entdeckung","Schmelzpunkt","Siedepunkt"};
-        const char *values[]={e[2],e[8],e[4],e[10],e[6],e[7]};
-        const char *units[]={"u","g/cm³","","","K","K"};
-        for (int i=0;i<6;i++) {
-            int x=28+i%2*282,y=575+i/2*57;
-            type_label(x,y,262,24,labels[i],UI_SECONDARY);
-            snprintf(b,sizeof(b),"%s %s",*values[i] ? tr(values[i]) : "—",units[i]);
-            type_label(x,y+24,262,28,b,UI_BODY);
-        }
-        divider(28,751,544);
-        label_ellipsis(28,760,544,30,e[3],ui_font(UI_SECONDARY),0);
-        return 1;
-    }
     if (ui_route() == 116) {
         heading_actions("Dateien", 1);
         icon_button(528, 74, IC_UP);
@@ -997,9 +861,7 @@ static int u16_apps_input(const Input *in) {
     int helpx = game_help_x();
     if (y >= 74 && y < 118 && x >= helpx && x < helpx + 44) {
         AppId id = app_for_route(ui_route());
-        if ((id >= APP_MINES && id <= APP_SNAKE) || id == APP_CHESS || id == APP_TIC_TAC_TOE ||
-            (id >= APP_2048 && id <= APP_SUDOKU) || id == APP_WORDLE || id == APP_NONOGRAMS ||
-            id == APP_HEX || id == APP_BINGO || id == APP_CONNECT4 ||
+        if ((id >= APP_MINES && id <= APP_SNAKE) || id == APP_CHESS ||
             (id >= APP_KNIGHTS && id <= APP_RPG)) {
             game_help16(ui_route());
             return 1;
@@ -1096,13 +958,6 @@ static int u16_apps_input(const Input *in) {
         return -1;
     }
 
-    if (ui_route() == 115) {
-        if (x>=12 && x<588 && y>=138 && y<462) {
-            int n=element_grid16[(y-138)/36][(x-12)/32];
-            if (n) element_selected16=n;
-        }
-        return 1;
-    }
     if (ui_route() == 116) {
         if (y >= 74 && y < 118 && x >= 516) {
             char p[4096];
@@ -1161,7 +1016,7 @@ static int u16_apps_input(const Input *in) {
         }
         return 1;
     }
-    if (ui_route() == 112 || ui_route() == 113 || ui_route() == 117 || ui_route() == 118 || ui_route() == 119 ||
+    if (ui_route() == 117 || ui_route() == 118 || ui_route() == 119 ||
         ui_route() == 121) {
         if (y >= 74 && y < 118 && x >= 460 && x < 516 &&
             (ui_route() == 118 || ui_route() == 119 || ui_route() == 121)) {
@@ -1180,61 +1035,6 @@ static int u16_apps_input(const Input *in) {
         }
         if (y >= 74 && y < 118 && x >= 516) {
             game_new16(ui_route());
-            return 1;
-        }
-        if (ui_route() == 112 && x >= 35 && x < 565 && y >= 200 && y < 700) {
-            int i = (y - 200) / 100 * 5 + (x - 35) / 106;
-            if (i != 12)
-                game_board16[i] = -game_board16[i];
-            game_won16 = 0;
-            for (int k = 0; k < 5; k++) {
-                int row = 1, col = 1;
-                for (int j = 0; j < 5; j++) {
-                    if (game_board16[k * 5 + j] > 0)
-                        row = 0;
-                    if (game_board16[j * 5 + k] > 0)
-                        col = 0;
-                }
-                if (row || col)
-                    game_won16 = 1;
-            }
-            int a = 1, b = 1;
-            for (int k = 0; k < 5; k++) {
-                if (game_board16[k * 5 + k] > 0)
-                    a = 0;
-                if (game_board16[k * 5 + 4 - k] > 0)
-                    b = 0;
-            }
-            if (a || b)
-                game_won16 = 1;
-            return 1;
-        }
-        if (ui_route() == 113 && x >= 40 && x < 565 && y >= 210 && y < 672 && !game_won16) {
-            int col = (x - 40) / 75, row = 5;
-            while (row >= 0 && game_board16[row * 7 + col])
-                row--;
-            if (row >= 0) {
-                int who = game_turn16;
-                game_board16[row * 7 + col] = who;
-                game_moves16++;
-                const int dx[] = {1, 0, 1, 1}, dy[] = {0, 1, 1, -1};
-                for (int d = 0; d < 4; d++) {
-                    int n = 1;
-                    for (int sign = -1; sign <= 1; sign += 2)
-                        for (int k = 1; k < 4; k++) {
-                            int xx = col + dx[d] * k * sign, yy = row + dy[d] * k * sign;
-                            if (xx < 0 || xx >= 7 || yy < 0 || yy >= 6 ||
-                                game_board16[yy * 7 + xx] != who)
-                                break;
-                            n++;
-                        }
-                    if (n >= 4)
-                        game_won16 = who;
-                }
-                if (!game_won16 && game_moves16 == 42)
-                    game_won16 = 3;
-                game_turn16 = 3 - who;
-            }
             return 1;
         }
         if (ui_route() == 117 && x >= 28 && x < 572 && y >= 190 && y < 702) {
@@ -1332,7 +1132,7 @@ static void recipe_archive16(void) {
 static void companion_checkpoint16(void) {
     if (companion_route16 == 116)
         explorer_page16 = companion_page16;
-    if (companion_route16 == 112 || companion_route16 == 113 || companion_route16 == 117 ||
+    if (companion_route16 == 117 ||
         companion_route16 == 118 || companion_route16 == 119 || companion_route16 == 121) {
         char name[64];
         snprintf(name, 64, "game16-%d.bin", companion_route16);

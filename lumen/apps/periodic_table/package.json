@@ -1,0 +1,10 @@
+{
+  "format": "lumen-app-1",
+  "api": 1,
+  "id": "lumen.periodic-table",
+  "name": "Periodensystem",
+  "version": "1.0.0",
+  "sources": [
+    "app.c"
+  ]
+}

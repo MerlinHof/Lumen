@@ -21,7 +21,3 @@ static void elements_init16(void) {
         element_grid16[8][i + 2] = 90 + i;
     }
 }
-static const char *element_name(int n) {
-    return tr(n == 80 ? "Quecksilber" : elements16[n-1][1]);
-}
-static char crossword_answer16[5][16];

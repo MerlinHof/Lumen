@@ -248,7 +248,6 @@ static void games_init(int target);
 static void app_chess(void);
 static int games_input(const Input *in);
 static int system_input(const Input *in);
-static void suit_icon(int, int, int);
 static void new_apps_init(void);
 static void new_apps_open(int route);
 static void new_apps_save(void);
@@ -495,9 +494,10 @@ static int drawtext_raw(int x, int y, const char *s, const Font *f, int maxw) {
 static int drawtext(int x, int y, const char *s, const Font *f, int maxw) {
     return drawtext_raw(x, y, tr(s), f, maxw);
 }
-static void wrapped_raw(int x, int y, const char *s, const Font *f, int width, int lines) {
+static int wrapped_raw(int x, int y, const char *s, const Font *f, int width, int lines) {
     int lh = f->h - 4;
-    for (int row = 0; row < lines && *s; row++) {
+    int row = 0;
+    for (; row < lines && *s; row++) {
         const char *start = s, *p = s, *space = NULL;
         int w = 0;
         while (*p && *p != '\n') {
@@ -525,6 +525,7 @@ static void wrapped_raw(int x, int y, const char *s, const Font *f, int width, i
         while (*s == ' ' || *s == '\n')
             s++;
     }
+    return row;
 }
 static void wrapped(int x, int y, const char *s, const Font *f, int width, int lines) {
     wrapped_raw(x, y, tr(s), f, width, lines);

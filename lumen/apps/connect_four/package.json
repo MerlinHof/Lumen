@@ -1,0 +1,10 @@
+{
+  "format": "lumen-app-1",
+  "api": 1,
+  "id": "lumen.connect-four",
+  "name": "Vier gewinnt",
+  "version": "1.0.0",
+  "sources": [
+    "app.c"
+  ]
+}

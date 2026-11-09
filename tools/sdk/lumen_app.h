@@ -27,11 +27,16 @@ static void lumen_text(int x,int y,int w,int h,const char*s,PaintText role,int g
  lumen_cmd("text",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(s);
  printf(",\"role\":%d,\"ink\":%d,\"left\":%d}",role,gray,left);
 }
+static void lumen_mono(int x,int y,int w,int h,const char*s,int gray) {
+ lumen_cmd("mono",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(s);
+ printf(",\"ink\":%d}",gray);
+}
 static void ui_paint_icon_button(int x,int y,int icon){lumen_cmd("icon",x,y,44,44);printf(",\"icon\":%d}",icon);}
 static void ui_paint_hitbox(int x,int y,int w,int h){lumen_cmd("hit",x,y,w,h);putchar('}');}
 static void ui_paint_surface(int x,int y,int w,int h,int radius,int gray,int outline){lumen_cmd("surface",x,y,w,h);printf(",\"radius\":%d,\"gray\":%d,\"outline\":%d}",radius,gray,outline);}
 static void ui_paint_ellipse(int x,int y,int rx,int ry,int gray){lumen_cmd("ellipse",x,y,0,0);printf(",\"rx\":%d,\"ry\":%d,\"gray\":%d}",rx,ry,gray);}
 static void ui_paint_line(int x,int y,int x2,int y2,int weight,int gray){lumen_cmd("line",x,y,0,0);printf(",\"x2\":%d,\"y2\":%d,\"weight\":%d,\"gray\":%d}",x2,y2,weight,gray);}
+static void lumen_hex_cell(int x,int y,int gray){lumen_cmd("hex_cell",x,y,0,0);printf(",\"gray\":%d}",gray);}
 static void ui_paint_ring(int x,int y,int radius,int weight){lumen_cmd("ring",x,y,0,0);printf(",\"radius\":%d,\"weight\":%d}",radius,weight);}
 static void lumen_button(int x,int y,int w,int h,const char*s,int primary){lumen_cmd("button",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(s);printf(",\"primary\":%d}",primary);}
 static void lumen_toggle(int x,int y,int value){lumen_cmd("toggle",x,y,64,40);printf(",\"value\":%d}",value);}

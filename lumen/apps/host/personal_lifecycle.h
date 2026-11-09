@@ -85,41 +85,12 @@ static void v1_init(void) {
                 m->stability > 36500 || m->difficulty < 0 || m->difficulty > 10 || m->due < 0)
                 memset(m, 0, sizeof(*m));
         }
-    app_state_load("wordle-1.bin", &wordle_game, sizeof(wordle_game));
-    if (wordle_game.row < 0 || wordle_game.row > 6)
-        memset(&wordle_game, 0, sizeof(wordle_game));
-    unsigned char hex_saved[123];
-    if (app_state_load("hex-1.bin", hex_saved, sizeof(hex_saved))) {
-        int good = 1;
-        for (int i = 0; i < 121; i++)
-            if (hex_saved[i] > 2)
-                good = 0;
-        if (good) {
-            memcpy(hex_board, hex_saved, 121);
-            hex_turn = hex_saved[121] == 2 ? 2 : 1;
-            hex_swap = hex_saved[122] != 0;
-            hex_win = hex_winner(hex_board, 11);
-        }
-    }
     char *duration = service_read("timer-duration.txt", 32);
     if (duration) {
         int n = atoi(duration);
         if (n > 0 && n <= 86400)
             timer_total_seconds = n;
         free(duration);
-    }
-    unsigned char nono[51];
-    if (app_state_load("nonogram-1.bin", nono, sizeof(nono))) {
-        int valid = nono[50] < 2;
-        for (int i = 0; i < 25; i++)
-            if (nono[i] > 1 || nono[i + 25] > 2)
-                valid = 0;
-        if (valid) {
-            memcpy(nono_solution, nono, 25);
-            memcpy(nono_cells, nono + 25, 25);
-            nono_mark = nono[50];
-            nono_ready = 1;
-        }
     }
     int lp[5];
     if (app_state_load("language-1.bin", lp, sizeof(lp)) && lp[0] >= 0 && lp[0] < 3 && lp[1] >= 0 &&
@@ -142,19 +113,6 @@ static void v1_save(void) {
     app_state_save("launcher-packages.bin", cfg, sizeof(cfg));
     app_state_save("note-tree-1.bin", &note_tree, sizeof(note_tree));
     app_state_save("flashcards-1.bin", flashcards, sizeof(flashcards));
-    app_state_save("wordle-1.bin", &wordle_game, sizeof(wordle_game));
-    unsigned char h[123];
-    memcpy(h, hex_board, 121);
-    h[121] = hex_turn;
-    h[122] = hex_swap;
-    app_state_save("hex-1.bin", h, sizeof(h));
-    if (nono_ready) {
-        unsigned char n[51];
-        memcpy(n, nono_solution, 25);
-        memcpy(n + 25, nono_cells, 25);
-        n[50] = nono_mark;
-        app_state_save("nonogram-1.bin", n, sizeof(n));
-    }
     int lp[5] = {lang_pair, lang_index, lang_correct, lang_total, 0};
     app_state_save("language-1.bin", lp, sizeof(lp));
     v1_dirty = 0;

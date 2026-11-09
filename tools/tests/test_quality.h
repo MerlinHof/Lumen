@@ -84,10 +84,8 @@ static void quality_tests(void) {
     assert(memcmp(cached, ui_pixels, sizeof(cached)));
     unlink(path);
     cover_tiles_clear();
-    route_to(63);
-    assert(game_help_x() == 408);
-    route_to(64);
-    assert(game_help_x() == 348);
+    assert(app_package_installed(APP_2048));
+    assert(app_package_installed(APP_SOLITAIRE));
     route_to(119);
     assert(game_help_x() == 408);
     /* First render populates, repeated render reuses, activation invalidates. */

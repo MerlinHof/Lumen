@@ -19,11 +19,11 @@ static void library_screen(void) {
         region(28, 80, 544, 232);
         cover_size(book, 28, 80, 152, 208);
         drawtext(206, 96, "W E I T E R L E S E N", ui_font(UI_SECONDARY), 315);
-        wrapped_raw(204, 133, book->title, ui_font(UI_TITLE), 366, 2);
-        {
-            char author[256];
-            drawtext_raw(206, 235, author_label(book->author, author, sizeof(author)), ui_font(UI_BODY), 366);
-        }
+        const Font *face = ui_font(UI_TITLE);
+        int lines = wrapped_raw(204, 133, book->title, face, 366, 2);
+        char author[256];
+        drawtext_raw(206, 133 + lines * (face->h - 4) + 4,
+                     author_label(book->author, author, sizeof(author)), ui_font(UI_BODY), 366);
         progress(206, 282, 282, book->page + 1, book->total);
         snprintf(b, sizeof(b), tr("%d%%"), book->total ? 100 * (book->page + 1) / book->total : 0);
         drawtext(506, 268, b, ui_font(UI_BODY), 65);

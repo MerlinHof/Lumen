@@ -34,28 +34,8 @@ static void news_save_settings(void) {
 }
 static void new_apps_save(void) {
     v1_save();
-    if ((new_dirty & 2) && solitaire_ready &&
-        app_state_save("solitaire-v1.bin", &solitaire, sizeof(solitaire)))
-        new_dirty &= ~2u;
     if ((new_dirty & 8) && app_state_save("focus-v1.bin", &focus_stats, sizeof(focus_stats)))
         new_dirty &= ~8u;
-}
-static int valid_patience(void) {
-    PatienceState *s = &solitaire.state;
-    if (s->ns > 24 || s->nw > 24 || s->ns + s->nw > 24 || solitaire.undos < 0 ||
-        solitaire.undos > 24)
-        return 0;
-    for (int i = 0; i < 7; i++) {
-        if (s->count[i] > 52 || s->hidden[i] > s->count[i])
-            return 0;
-        for (int j = 0; j < s->count[i]; j++)
-            if (s->column[i][j] >= 52)
-                return 0;
-    }
-    for (int i = 0; i < 4; i++)
-        if (s->foundation[i] > 13)
-            return 0;
-    return 1;
 }
 static void new_apps_open(int route) {
     if (route == 67) {
@@ -65,12 +45,6 @@ static void new_apps_open(int route) {
     if (route >= 70) {
         v1_open(route);
         return;
-    }
-    if (route == 64 && !solitaire_ready) {
-        if (!app_state_load("solitaire-v1.bin", &solitaire, sizeof(solitaire)) || !valid_patience())
-            patience_new(&solitaire, pro_random());
-        solitaire_ready = 1;
-        new_dirty |= 2;
     }
     if (route == 67) {
         news_enabled = 1;

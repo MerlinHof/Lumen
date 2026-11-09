@@ -3,15 +3,6 @@ static void v1_open(int target) {
     polish_open(target);
     v1_init();
     v1_page = 0;
-    if (target == 70) {
-        int date = news_date();
-        if (wordle_game.date != date) {
-            memset(&wordle_game, 0, sizeof(wordle_game));
-            wordle_game.date = date;
-            v1_dirty = 1;
-        }
-        snprintf(word_secret, 6, "%s", wordle_answers[v1_word_index()]);
-    }
     if (target == 71)
         v1_photos_scan();
     if (target == 76)
@@ -23,8 +14,6 @@ static void v1_open(int target) {
             ready = 1;
         }
     }
-    if (target == 81 && !nono_ready)
-        v1_nono_new();
     if (target == 85)
         markdown_page = 0;
     if (target == 87 && !timer_due && !timer_paused)
@@ -42,9 +31,6 @@ static void v1_draw(void) {
         return;
     }
     switch (ui_route()) {
-    case 70:
-        v1_word_draw();
-        break;
     case 71:
         v1_photos_draw();
         break;
@@ -84,12 +70,6 @@ static void v1_draw(void) {
         break;
     case 80:
         sky_settings_draw();
-        break;
-    case 81:
-        v1_nono_draw();
-        break;
-    case 82:
-        v1_hex_draw();
         break;
     case 83:
         v1_launcher_settings();
@@ -132,36 +112,6 @@ static void v1_draw(void) {
 static int v1_commit(int target, const char *text) {
     if (target >= 150)
         return polish_commit(target, text);
-    if (target == 100) {
-        char g[6];
-        if (strlen(text) != 5) {
-            ui_message("Bitte fünf englische Buchstaben eingeben.");
-            return 1;
-        }
-        for (int i = 0; i < 5; i++) {
-            if (!isalpha((unsigned char)text[i]) || ((unsigned char)text[i]) > 127) {
-                ui_message("Bitte fünf englische Buchstaben eingeben.");
-                return 1;
-            }
-            g[i] = toupper((unsigned char)text[i]);
-        }
-        g[5] = 0;
-        if (!word_valid(g)) {
-            ui_message("Wort nicht im Wörterbuch.");
-            return 1;
-        }
-        if (wordle_game.row >= 6 || wordle_game.over)
-            return 1;
-        int r = wordle_game.row++;
-        memcpy(wordle_game.guesses[r], g, 6);
-        wordle_score(word_secret, g, wordle_game.result[r]);
-        if (!strcmp(g, word_secret))
-            wordle_game.over = 1;
-        else if (wordle_game.row == 6)
-            wordle_game.over = 2;
-        v1_dirty = 1;
-        return 1;
-    }
     if (target == 110) {
         if (*text && task_count < 256) {
             snprintf(tasks[task_count].title, 200, "%s", text);
@@ -364,10 +314,6 @@ static int v1_input(const Input *in) {
         return 1;
     }
     switch (ui_route()) {
-    case 70:
-        if (!wordle_game.over && y >= 663 && y < 723)
-            open_keyboard(100, "Wordle · English", "");
-        break;
     case 71:
         photo_grid_input(x, y);
         return 1;
@@ -510,70 +456,6 @@ static int v1_input(const Input *in) {
                 v1_page--;
             else if (x >= 300 && v1_page < 4)
                 v1_page++;
-        }
-        break;
-    case 81:
-        if (y >= 74 && y < 118 && x >= 516)
-            v1_nono_new();
-        else if (y >= 692 && y < 740)
-            nono_mark = x >= 300;
-        else if (x >= 146 && x < 526 && y >= 263 && y < 643) {
-            int i = ((y - 263) / 76) * 5 + (x - 146) / 76;
-            int val = nono_mark ? 2 : 1;
-            nono_cells[i] = nono_cells[i] == val ? 0 : val;
-            v1_dirty = 1;
-        }
-        break;
-    case 82:
-        if (y >= 74 && y < 118 && x >= 516) {
-            memset(hex_board, 0, 121);
-            hex_turn = 1;
-            hex_win = hex_swap = hex_has_undo = 0;
-            v1_dirty = 1;
-        } else if (y >= 735) {
-            if (x < 300 && hex_has_undo) {
-                memcpy(hex_board, hex_previous, 121);
-                hex_turn = 3 - hex_turn;
-                hex_win = 0;
-                hex_has_undo = 0;
-                v1_dirty = 1;
-            } else if (x >= 300 && hex_swap && !hex_win) {
-                for (int i = 0; i < 121; i++)
-                    if (hex_board[i])
-                        hex_board[i] = 3 - hex_board[i];
-                hex_swap = 0;
-                hex_turn = 1;
-                hex_has_undo = 0;
-                v1_dirty = 1;
-            } else if (x >= 300) {
-                memset(hex_board, 0, 121);
-                hex_turn = 1;
-                hex_win = hex_swap = hex_has_undo = 0;
-                v1_dirty = 1;
-            }
-        } else if (!hex_win) {
-            int best = 1500, idx = -1;
-            for (int i = 0; i < 121; i++) {
-                int xx, yy;
-                hex_center(i, &xx, &yy);
-                int d = (xx - x) * (xx - x) + (yy - y) * (yy - y);
-                if (abs(yy - y) <= 18 && abs(xx - x) <= 32 - abs(yy - y) * 16 / 18 && d < best) {
-                    best = d;
-                    idx = i;
-                }
-            }
-            if (idx >= 0 && !hex_board[idx]) {
-                memcpy(hex_previous, hex_board, 121);
-                hex_has_undo = 1;
-                hex_board[idx] = hex_turn;
-                hex_win = hex_winner(hex_board, 11);
-                int n = 0;
-                for (int i = 0; i < 121; i++)
-                    n += hex_board[i] != 0;
-                hex_swap = n == 1;
-                hex_turn = 3 - hex_turn;
-                v1_dirty = 1;
-            }
         }
         break;
     case 83: {

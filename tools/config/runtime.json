@@ -69,5 +69,12 @@
   "lumen/app-packages/lumen.terminal.lumen-app": "build/apps/kindle/lumen.terminal/lumen.terminal.lumen-app",
   "lumen/app-packages/lumen.tic-tac-toe.lumen-app": "build/apps/kindle/lumen.tic-tac-toe/lumen.tic-tac-toe.lumen-app",
   "lumen/app-packages/lumen.2048.lumen-app": "build/apps/kindle/lumen.2048/lumen.2048.lumen-app",
-  "lumen/app-packages/lumen.sudoku.lumen-app": "build/apps/kindle/lumen.sudoku/lumen.sudoku.lumen-app"
+  "lumen/app-packages/lumen.sudoku.lumen-app": "build/apps/kindle/lumen.sudoku/lumen.sudoku.lumen-app",
+  "lumen/app-packages/lumen.bingo.lumen-app": "build/apps/kindle/lumen.bingo/lumen.bingo.lumen-app",
+  "lumen/app-packages/lumen.connect-four.lumen-app": "build/apps/kindle/lumen.connect-four/lumen.connect-four.lumen-app",
+  "lumen/app-packages/lumen.hex.lumen-app": "build/apps/kindle/lumen.hex/lumen.hex.lumen-app",
+  "lumen/app-packages/lumen.nonograms.lumen-app": "build/apps/kindle/lumen.nonograms/lumen.nonograms.lumen-app",
+  "lumen/app-packages/lumen.solitaire.lumen-app": "build/apps/kindle/lumen.solitaire/lumen.solitaire.lumen-app",
+  "lumen/app-packages/lumen.wordle.lumen-app": "build/apps/kindle/lumen.wordle/lumen.wordle.lumen-app",
+  "lumen/app-packages/lumen.periodic-table.lumen-app": "build/apps/kindle/lumen.periodic-table/lumen.periodic-table.lumen-app"
 }

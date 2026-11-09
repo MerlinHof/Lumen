@@ -16,7 +16,7 @@ Do not use the package as a firmware update or copy it to the Kindle's update sl
 
 ## First installation
 
-1. Download **LUMEN-4.5.zip** from [Releases](https://github.com/MerlinHof/Lumen/releases/latest).
+1. Download **LUMEN-4.6.zip** from [Releases](https://github.com/MerlinHof/Lumen/releases/latest).
 2. Extract the complete folder. Connect the prepared Kindle by USB and open its storage.
 3. **macOS:** open `Install-LUMEN.command`. Alternatively, on macOS/Linux with Python 3.9+:
    ```sh

@@ -69,15 +69,6 @@ static int polish_tick(void) {
             press_retry_at = time(NULL) + 3600;
         }
     }
-    if (ui_route() == 70 && wordle_game.date != news_date()) {
-        wordle_game.date = news_date();
-        wordle_game.row = wordle_game.over = 0;
-        memset(wordle_game.guesses, 0, sizeof(wordle_game.guesses));
-        memset(wordle_game.result, 0, sizeof(wordle_game.result));
-        snprintf(word_secret, 6, "%s", wordle_answers[v1_word_index()]);
-        v1_dirty = 1;
-        changed = 1;
-    }
     if (news_enabled) {
         news_enabled = 0;
         news_cancel();

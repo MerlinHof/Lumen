@@ -1,4 +1,4 @@
-# LUMEN 4.3 · Runtime and apps
+# LUMEN · Runtime and apps
 
 LUMEN provides an origin-neutral app catalog. Every identity has a stable package
 key, launcher entry and version. There is no package privilege flag for “system”
@@ -25,8 +25,8 @@ linking is required. App replacement is a directory transaction and does not
 restart LUMEN. Crashes are confined to the app process; this is not a filesystem
 security sandbox. Native packages must be trusted.
 
-Frog Solitaire and Sliding Puzzle are the first shipped standalone packages,
-compiled from their existing app folders. Other existing views retain linked
+Thirteen standalone packages ship from their individual app folders,
+including the Terminal, Periodic Table, and eleven games. Other existing views retain linked
 compatibility adapters in `apps/host/compose.h`. Their IDs use the same catalog
 and accept independent replacement packages, but those older implementations
 have not all been extracted into executable artifacts. New apps must use the

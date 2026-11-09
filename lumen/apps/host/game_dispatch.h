@@ -14,9 +14,6 @@ static void new_apps_draw(void) {
     case 62:
         graph_range_screen();
         break;
-    case 64:
-        app_solitaire();
-        break;
     case 66:
         app_focus();
         break;
@@ -110,51 +107,6 @@ static int new_apps_input(const Input *in) {
             }
         } else if (y >= 650 && y < 706)
             extra_return(61);
-        return 1;
-    }
-    if (ui_route() == 64) {
-        new_dirty |= 2;
-        if (y >= 74 && y < 118) {
-            if (x >= 516)
-                patience_new(&solitaire, pro_random());
-            else if (x >= 460)
-                patience_auto(&solitaire);
-            else if (x >= 405)
-                patience_undo(&solitaire);
-            pat_source = -99;
-        } else if (y >= 132 && y < 228) {
-            if (x >= 21 && x < 93) {
-                patience_draw(&solitaire);
-                pat_source = -99;
-            } else if (x >= 101 && x < 173 && solitaire.state.nw) {
-                pat_source = -1;
-                pat_index = 0;
-            } else if (x >= 261 && x < 573) {
-                int to = 7 + (x - 261) / 80;
-                if (pat_source != -99 && patience_move(&solitaire, pat_source, pat_index, to))
-                    pat_source = -99;
-                else if (solitaire.state.foundation[to - 7]) {
-                    pat_source = to;
-                    pat_index = 0;
-                }
-            }
-        } else if (y >= 248 && y < 710 && x >= 21 && x < 573) {
-            int c = (x - 21) / 80;
-            if (c < 7) {
-                if (pat_source != -99 && patience_move(&solitaire, pat_source, pat_index, c))
-                    pat_source = -99;
-                else if (solitaire.state.count[c]) {
-                    int idx = (y - 248) / column_gap(c);
-                    if (idx >= solitaire.state.count[c])
-                        idx = solitaire.state.count[c] - 1;
-                    if (idx >= solitaire.state.hidden[c]) {
-                        pat_source = c;
-                        pat_index = idx;
-                    }
-                }
-            }
-        }
-        new_apps_save();
         return 1;
     }
     if (ui_route() == 66) {

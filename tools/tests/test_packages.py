@@ -42,3 +42,37 @@ state=data/'app-state/lumen.sliding-puzzle/keep.txt';state.parent.mkdir(parents=
 run('install',app)
 assert state.read_text()=='keep' and hashlib.sha256((base/'lumen/bin/lumen').read_bytes()).hexdigest()==core
 print('PASS full runtime assets, trial rollback, interrupted activation recovery, keep, private-path rejection and independent app replacement.')
+
+# The ports exercise the same system input and paint protocol as user packages.
+def app_session(key,events):
+ folder=base/'lumen/data/app-state'/key;folder.mkdir(parents=True,exist_ok=True)
+ app=ROOT/'build/apps/host'/key/'app'
+ wire=''.join(json.dumps(e,separators=(',',':'))+'\n' for e in [dict(event='open',language=1),*events])
+ result=subprocess.run([str(app)],input=wire,env=dict(os.environ,LUMEN_APP_DATA=str(folder)),
+                       capture_output=True,text=True,check=True,timeout=12)
+ return [json.loads(line) for line in result.stdout.splitlines()],folder
+
+def tap(x,y):
+ return dict(event='input',kind=1,x=x,y=y)
+
+for app,x,y,help_x in [
+ ('bingo',70,220,490),('connect-four',70,220,490),('hex',60,155,490),
+ ('nonograms',177,291,490),('solitaire',50,165,368),('wordle',290,685,550),
+ ('periodic-table',21,150,None)
+]:
+ events=[tap(x,y)]
+ if app=='wordle': events.append(dict(event='text',action=1,text='PAPER'))
+ if help_x: events.append(tap(help_x,92))
+ frames,folder=app_session('lumen.'+app,events)
+ assert any(frame.get('ui') for frame in frames),app
+ assert any(folder.glob('*.bin')),app
+ if help_x: assert any(frame.get('request')=='reader' for frame in frames),app
+
+commands=['cd /tmp','export LUMEN_SESSION_TEST=works','pwd',
+          'printf "%s\\n" "$LUMEN_SESSION_TEST"','cd /','pwd','ls /','false']
+frames,folder=app_session('lumen.terminal',[dict(event='text',action=1,text=c) for c in commands])
+lines=[c.get('text') for f in frames for c in f.get('ui',[]) if c.get('type')=='mono']
+assert '/tmp' in lines or '/private/tmp' in lines
+assert '/' in lines and 'bin' in lines and 'works' in lines and '[exit 1]' in lines
+assert 'history.bin' not in lines and (folder/'history.bin').is_file()
+print('PASS standalone app ports, Reader help, private saves and persistent Terminal shell.')

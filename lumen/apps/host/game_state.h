@@ -2,9 +2,7 @@
 #include "../news/archive_api.h"
 #include "../games/puzzles.h"
 #include "../calculator/plots.h"
-#include "../solitaire/state.h"
 static unsigned new_dirty;
-static int solitaire_ready;
 typedef struct {
     int span, level, sessions, streak[4], failed[4], scores[30], days[30], times[30];
 } FocusStats;

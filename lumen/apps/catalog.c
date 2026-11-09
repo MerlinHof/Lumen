@@ -98,7 +98,8 @@ const AppDefinition *app_factory_definition(AppId id) {
 const AppDefinition *app_definition(AppId id) {
     const AppDefinition *installed=app_package_definition(id);
     if (installed) return installed;
-    if (id==APP_FROG || id==APP_SIGNAL || id==APP_TIC_TAC_TOE || id==APP_2048 || id==APP_SUDOKU) {
+    if (id==APP_FROG || id==APP_SIGNAL || id==APP_TIC_TAC_TOE || id==APP_2048 || id==APP_SUDOKU ||
+        id==APP_BINGO || id==APP_CONNECT4 || id==APP_HEX || id==APP_NONOGRAMS || id==APP_SOLITAIRE || id==APP_WORDLE || id==APP_PERIODIC) {
         static AppDefinition unavailable[APP_COUNT];
         unavailable[id]=(AppDefinition){id,definitions[id].name,-1};
         return &unavailable[id];
