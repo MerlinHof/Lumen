@@ -2,6 +2,36 @@
 static JsonToken package_tokens[32768];
 static int package_value(Json*j,int obj,const char*key){double v=json_number(j,json_get(j,obj,key));return isfinite(v)&&v>=-100000&&v<=100000?(int)v:0;}
 static int package_input_action, package_select_action;
+static int64_t package_deadline;
+static int package_timer_owner=-1;
+static int package_clock_wait(void) {
+    if(!package_deadline || package_timer_owner!=(int)app_for_route(ui_route()))return -1;
+    int64_t delta=package_deadline-extra_millis();
+    return delta>0 ? (int)delta : 0;
+}
+static void package_clock_tick(void) {
+    if(package_clock_wait()==0) {
+        package_deadline=0;
+        app_process_send("{\"event\":\"tick\"}");
+    }
+}
+static struct { int y,page,count; } package_pager;
+static void package_asset_paint(const char *name,int x,int y,int w,int h) {
+    char path[2048];
+    if(w<1 || h<1 || w>WIDTH || h>HEIGHT ||
+       !app_package_asset(app_for_route(ui_route()),name,path,sizeof(path)))return;
+    FILE *file=fopen(path,"rb");
+    if(!file)return;
+    int aw,ah,range;
+    if(fscanf(file,"P5 %d %d %d",&aw,&ah,&range)!=3 || fgetc(file)!='\n' ||
+       aw!=w || ah!=h || range!=255){fclose(file);return;}
+    unsigned char row[WIDTH];
+    int left=x<0 ? -x : 0,right=x+w>WIDTH ? WIDTH-x : w;
+    for(int r=0;r<h && fread(row,1,w,file)==(size_t)w;r++)
+        if(y+r>=STATUS_HEIGHT && y+r<HEIGHT && right>left)
+            memcpy(ui_pixels+(y+r)*WIDTH+x+left,row+left,right-left);
+    fclose(file);
+}
 static char package_options[48][128];
 static const char *package_labels[48];
 static void package_ui_choice(int choice){char event[128];snprintf(event,sizeof(event),"{\"event\":\"select\",\"action\":%d,\"value\":%d}",package_select_action,choice);app_process_send(event);}
@@ -14,22 +44,47 @@ static void package_paint_frame(const char *text) {
         json_string(&j,json_get(&j,item,"type"),type,sizeof(type));json_string(&j,json_get(&j,item,"text"),label,sizeof(label));
         int x=package_value(&j,item,"x"),y=package_value(&j,item,"y"),w=package_value(&j,item,"w"),h=package_value(&j,item,"h");
         /* Content coordinates may never paint or intercept the status bar. */
-        if(y<STATUS_HEIGHT || y>800 || x < -600 || x>600 || w<0 || w>1200 || h<0 || h>800)continue;
+        if((y<STATUS_HEIGHT && strcmp(type,"asset")) || y<0 || y>800 || x < -600 || x>600 || w<0 || w>1200 || h<0 || h>800)continue;
         size_t estimate=(size_t)w*h;
         if(!strcmp(type,"ellipse"))estimate=4u*(unsigned)abs(package_value(&j,item,"rx"))*(unsigned)abs(package_value(&j,item,"ry"));
         if(!strcmp(type,"hex_cell"))estimate=65*37;
         if(!strcmp(type,"ring")){int r=package_value(&j,item,"radius");estimate=4u*(unsigned)abs(r)*(unsigned)abs(r);}
         if(!strcmp(type,"line"))estimate=(size_t)(abs(x-package_value(&j,item,"x2"))+32)*(abs(y-package_value(&j,item,"y2"))+32);
         if(estimate>4000000 || cost+estimate>4000000)break;cost+=estimate;
-        if(!strcmp(type,"raised"))raised_surface(x,y,w,h);
+        if(!strcmp(type,"asset"))package_asset_paint(label,x,y,w,h);
+        else if(!strcmp(type,"qr")) {
+            if(w<80 || w>320 || h!=w)continue;
+            uint8_t qr[qrcodegen_BUFFER_LEN_FOR_VERSION(10)],tmp[qrcodegen_BUFFER_LEN_FOR_VERSION(10)];
+            if(qrcodegen_encodeText(label,tmp,qr,qrcodegen_Ecc_MEDIUM,1,10,qrcodegen_Mask_AUTO,true)) {
+                int n=qrcodegen_getSize(qr),step=w/(n+8),offset=(w-step*(n+8))/2+4*step;
+                for(int row=0;row<n;row++)for(int col=0;col<n;col++)
+                    if(qrcodegen_getModule(qr,col,row))
+                        rect(x+offset+col*step,y+offset+row*step,step,step,0);
+            }
+        }
+        else if(!strcmp(type,"app_tile")) {
+            int id=app_package_find(label);
+            if(id>=0 && app_definition(id)->entry>=0 && w>=90 && w<=WIDTH)
+                app_tile(x,y,w,id);
+        }
+        else if(!strcmp(type,"pager")) {
+            int page=package_value(&j,item,"page"), count=package_value(&j,item,"count");
+            if(page>=0 && count>1 && count<=4096 && page<count && y+44<=HEIGHT) {
+                package_pager.y=y;package_pager.page=page;package_pager.count=count;
+                pager_draw(PAGER_X,y,PAGER_W,page,count);
+            }
+        }
+        else if(!strcmp(type,"raised"))raised_surface(x,y,w,h);
         else if(!strcmp(type,"wrap")) {
             int lines=package_value(&j,item,"lines");
-            if(lines>0 && lines<=12)wrapped_raw(x,y,label,ui_font(UI_BODY),w,lines);
+            int role=package_value(&j,item,"role");
+            const Font *font=ui_font(role==4 ? UI_TITLE : role==1 ? UI_HEADING : UI_BODY);
+            if(lines>0 && lines<=12)wrapped_raw(x,y,label,font,w,lines);
         }
         else if(!strcmp(type,"heading"))heading_actions(label,package_value(&j,item,"actions"));
         else if(!strcmp(type,"text")) {
             int role=package_value(&j,item,"role");
-            static const TextRole roles[]={UI_BODY,UI_HEADING,UI_DISPLAY,UI_SECONDARY};
+            static const TextRole roles[]={UI_BODY,UI_HEADING,UI_DISPLAY,UI_SECONDARY,UI_TITLE};
             TextStyle style=ui_text_style((unsigned)role<sizeof(roles)/sizeof(roles[0]) ? roles[role] : UI_BODY);
             double override=json_number(&j,json_get(&j,item,"ink"));
             int previous=ink_color, left=package_value(&j,item,"left");
@@ -99,6 +154,7 @@ static void package_paint_frame(const char *text) {
 
 }
 static void package_ui_draw(void) {
+    package_pager.count=0;
     if(!*app_process_error())app_process_open(app_for_route(ui_route()));
     static unsigned char status_bar[600*STATUS_HEIGHT];
     memcpy(status_bar,ui_pixels,sizeof(status_bar));
@@ -109,6 +165,17 @@ static void package_ui_draw(void) {
 }
 static int package_ui_input(const Input*in) {
     if(in->kind!=INPUT_TAP && in->kind!=INPUT_SWIPE && in->kind!=INPUT_HOLD)return 2;
+    if(package_pager.count>1) {
+        int next=-1;
+        if(in->kind==INPUT_SWIPE && abs(in->dx)>abs(in->dy))
+            next=package_pager.page+(in->dx<0 ? 1 : -1);
+        if(in->kind==INPUT_TAP && in->y>=package_pager.y && in->y<package_pager.y+44)
+            next=pager_target(in->x,PAGER_X,PAGER_W,package_pager.page,package_pager.count);
+        if(next>=0 && next<package_pager.count) {
+            char event[64];snprintf(event,sizeof(event),"{\"event\":\"page\",\"page\":%d}",next);
+            app_process_send(event);return 2;
+        }
+    }
     char event[256];snprintf(event,sizeof(event),"{\"event\":\"input\",\"kind\":%d,\"x\":%d,\"y\":%d,\"dx\":%d,\"dy\":%d}",in->kind,in->x,in->y,in->dx,in->dy);
     app_process_open(app_for_route(ui_route()));app_process_send(event);return 2;
 }
@@ -119,6 +186,17 @@ static int package_ui_commit(int target,const char*text) {
 }
 static int package_ui_poll(void) {
     int changed=app_process_poll();
+    static uint64_t timer_frame;
+    uint64_t serial=app_process_frame_serial();
+    if(serial!=timer_frame && app_package_installed(app_for_route(ui_route()))) {
+        timer_frame=serial;
+        Json frame;
+        if(json_parse(&frame,app_process_frame(),package_tokens,32768)) {
+            int tick=package_value(&frame,0,"tick");
+            package_deadline=tick>=250 && tick<=60000 ? extra_millis()+tick : 0;
+            package_timer_owner=app_for_route(ui_route());
+        }
+    }
     if(changed && editor_ui.keyboard && editor_ui.keyboard_target==2000)editor_ui.keyboard_background_valid18=0;
     if(changed && *app_process_error())ui_message(app_process_error());
     const char*message=app_process_request();if(!*message)return changed;
@@ -130,6 +208,12 @@ static int package_ui_poll(void) {
             int count=j.tokens[array].count;for(int i=0;i<count;i++){json_string(&j,json_at(&j,array,i),package_options[i],128);package_labels[i]=package_options[i];}
             package_select_action=package_value(&j,0,"action");open_dropdown(2001,package_labels,count,package_value(&j,0,"selected"),220,180,350);
         }
+    }
+    else if(!strcmp(kind,"service")) {
+        char service[64],operation[64];
+        json_string(&j,json_get(&j,0,"service"),service,sizeof(service));
+        json_string(&j,json_get(&j,0,"operation"),operation,sizeof(operation));
+        package_service_request(service,operation,text,package_value(&j,0,"action"));
     }
     else if(!strcmp(kind,"notify"))ui_message(text);
     else if(!strcmp(kind,"reader"))reader_markdown17(title,text,ui_route());

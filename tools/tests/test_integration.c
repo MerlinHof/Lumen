@@ -1,10 +1,19 @@
 #define _GNU_SOURCE
 #include "../../lumen/system/ui/ui.c"
 #include <assert.h>
+static void settle_app(void) {
+    if(!app_package_installed(app_for_route(ui_route())))return;
+    app_process_open(app_for_route(ui_route()));
+    for(int i=0;i<30;i++) {
+        if(!app_package_installed(app_for_route(ui_route())))break;
+        usleep(5000);
+        package_ui_poll();
+    }
+}
 static void tap17(int x, int y) {
     Input in = {.kind = INPUT_TAP, .x = x, .y = y};
     ui_input(&in);
-    if(app_package_installed(app_for_route(ui_route())))for(int i=0;i<30;i++){usleep(5000);package_ui_poll();}
+    settle_app();
     ui_draw();
 }
 static void shot17(const char *n) {
@@ -405,35 +414,38 @@ int main(int argc, char **argv) {
     assert(chat_archive_page == 1);
     route_to(131);
     options[OPT_DATE] = options[OPT_CLOCK] = options[OPT_WIFI] = 1;
-    home_page = 0;
+    assert(ui_prepare_home());
     ui_draw();
     assert(status_ui.status_date_x < status_ui.status_clock_x &&
            status_ui.status_clock_x < status_ui.status_wifi_x);
-    int home_dots = pager_dot_start(PAGER_X,PAGER_W,pagination.count);
-    tap17(home_dots+45, HOME_PAGER_Y+20);
-    assert(home_page == 1);
-    tap17(home_dots+15, HOME_PAGER_Y+20);
-    assert(home_page == 0);
+    assert(package_pager.count>1 && package_pager.page==0);
+    int home_dots = pager_dot_start(PAGER_X,PAGER_W,package_pager.count);
+    tap17(home_dots+45, 764);
+    assert(package_pager.page==1);
+    tap17(home_dots+15, 764);
+    assert(package_pager.page==0);
     tap17(300,300);
-    assert(ui_route() == 131 && home_page == 0);
+    assert(ui_route() == 131 && package_pager.page==0);
     int home_ids[APP_LIMIT];
-    assert(v1_visible(home_ids) > 8);
+    int visible=v1_visible(home_ids);
+    assert(visible>8);
     assert(!memcmp(home_ids, launcher_first, sizeof(launcher_first)));
-    assert(HOME_GRID_Y == HOME_FULL_GRID_Y + 3 * HOME_TILE_H);
+    int notifications=app_package_find("lumen.notifications");
+    assert(notifications>=0 && !launcher_visible[notifications]);
+    assert(app_package_installed(APP_HOME) && app_package_installed(APP_FILE_TRANSFER));
     assert(options[OPT_APP_ICON_STYLE] == 1);
     shot17("home-engraved");
-    tap17(500, HOME_GRID_Y + HOME_TILE_H + 24);
+    tap17(500, 606);
     assert(app_for_route(ui_route()) == APP_FILE_TRANSFER);
     tap17(300,765);
     assert(ui_route() == 8);
     tap17(550, 96);
-    assert(ui_route() == 133 && app_for_route(ui_route()) == APP_FILE_TRANSFER);
-    assert(setting_category == 4);
+    assert(ui_route()==8 && strstr(app_process_frame(),"\"back\":true"));
     tap17(20, 20);
-    assert(ui_route() == 8);
+    assert(ui_route()==8 && strstr(app_process_frame(),"\"back\":false"));
     tap17(20, 20);
-    assert(ui_route() == 131);
-    tap17(80,HOME_GRID_Y+24);
+    assert(ui_route()==131);
+    tap17(80,482);
     assert(ui_route() == app_definition(home_ids[0])->entry);
     tap17(20,52);
     assert(ui_route() == 131);

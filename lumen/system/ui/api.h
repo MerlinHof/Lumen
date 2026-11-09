@@ -3,6 +3,7 @@
 #include "../device.h"
 extern unsigned char ui_pixels[WIDTH * HEIGHT];
 void ui_init(void);
+int ui_prepare_home(void);
 void ui_loading(const char *message);
 void ui_draw(void);
 void ui_feedback_draw(void);

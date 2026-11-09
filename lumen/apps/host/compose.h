@@ -92,5 +92,6 @@
 #include "../openai/conversation.h"
 // clang-format on
 
+#include "../../system/ui/package_services.h"
 #include "../../system/ui/package_app.h"
 #include "../../system/ui/notification_surface.h"

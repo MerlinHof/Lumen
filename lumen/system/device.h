@@ -26,7 +26,13 @@ enum {
     INPUT_SELECT,
     INPUT_APP,
     INPUT_VIEWPORT,
-    INPUT_OVERLAY
+    INPUT_OVERLAY,
+    INPUT_OPEN,
+    INPUT_RESUME,
+    INPUT_SERVICE,
+    INPUT_PAGE,
+    INPUT_TICK,
+    INPUT_REFRESH
 };
 int device_init(void);
 void device_close(void);

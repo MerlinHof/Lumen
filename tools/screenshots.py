@@ -14,7 +14,7 @@ sans=next(p for p in ['/System/Library/Fonts/Supplemental/Arial.ttf','/usr/share
 for i,(title,author) in enumerate(books):
     # Original book jackets, rendered at twice the demo cover's logical size.
     cover=Image.new('RGB',(720,984),'white')
-    art=Image.open(ROOT/'lumen/assets/home/scene-0.pgm').convert('RGB')
+    art=Image.open(ROOT/'lumen/apps/home/scene.pgm').convert('RGB')
     if i%2:art=art.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
     art=art.resize((720,485),Image.Resampling.LANCZOS)
     cover.paste(art,(0,370))

@@ -4,7 +4,10 @@
 #include <assert.h>
 static void picture(const char *name) {
     notification_dismiss();
-    if(app_package_installed(app_for_route(ui_route()))){app_process_open(app_for_route(ui_route()));for(int i=0;i<100&&!*app_process_frame();i++){usleep(10000);app_process_poll();}}
+    if(app_package_installed(app_for_route(ui_route()))) {
+        app_process_open(app_for_route(ui_route()));
+        for(int i=0;i<20;i++){usleep(5000);package_ui_poll();}
+    }
     ui_draw();
     char path[256];
     snprintf(path, sizeof(path), "build/gallery/%s.pgm", name);
@@ -32,9 +35,9 @@ int main(void) {
     route_to(1);
     picture("library");
     route_to(131);
-    home_page = 0;
+    assert(ui_prepare_home());
     picture("home");
-    home_page = 1;
+    app_process_send("{\"event\":\"page\",\"page\":1}");
     picture("apps");
     route_to(27);
     snprintf(calc_expr, sizeof(calc_expr), "sin(pi/3)^2+sqrt(5^2+3^2)");

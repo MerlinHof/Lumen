@@ -25,8 +25,8 @@ linking is required. App replacement is a directory transaction and does not
 restart LUMEN. Crashes are confined to the app process; this is not a filesystem
 security sandbox. Native packages must be trusted.
 
-Fourteen standalone packages ship from their individual app folders,
-including Terminal, Periodic Table, Notifications and eleven games.
+Sixteen standalone packages ship from their individual app folders,
+including Home, File Transfer, Terminal, Periodic Table, Notifications and eleven games.
 The Notifications package uses a second process for the overlay while the foreground app remains active. Other existing views retain linked
 compatibility adapters in `apps/host/compose.h`. Their IDs use the same catalog
 and accept independent replacement packages, but those older implementations

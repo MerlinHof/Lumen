@@ -1,0 +1,9 @@
+{
+  "format": "lumen-app-1",
+  "api": 1,
+  "id": "lumen.home",
+  "name": "Startseite",
+  "version": "1.0.0",
+  "sources": ["app.c"],
+  "assets": ["scene.pgm"]
+}

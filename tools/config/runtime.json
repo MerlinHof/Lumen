@@ -59,7 +59,6 @@
   "lumen/dictionary/eng-fra-credits.txt": "lumen/assets/dictionaries/eng-fra-credits.txt",
   "lumen/dictionary/deu-fra-credits.txt": "lumen/assets/dictionaries/deu-fra-credits.txt",
   "lumen/dictionary/deu-fra.idx": "lumen/assets/dictionaries/deu-fra.idx",
-  "lumen/home/scene-0.pgm": "lumen/assets/home/scene-0.pgm",
   "lumen/home/engraved.gray": "lumen/assets/home/engraved.gray",
   "lumen/system/custom-app-guide.txt": "lumen/assets/web/custom-app-guide.txt",
   "lumen/photos/alpine-dawn.pgm": "lumen/assets/photos/alpine-dawn.pgm",
@@ -77,5 +76,7 @@
   "lumen/app-packages/lumen.solitaire.lumen-app": "build/apps/kindle/lumen.solitaire/lumen.solitaire.lumen-app",
   "lumen/app-packages/lumen.wordle.lumen-app": "build/apps/kindle/lumen.wordle/lumen.wordle.lumen-app",
   "lumen/app-packages/lumen.periodic-table.lumen-app": "build/apps/kindle/lumen.periodic-table/lumen.periodic-table.lumen-app",
-  "lumen/app-packages/lumen.notifications.lumen-app": "build/apps/kindle/lumen.notifications/lumen.notifications.lumen-app"
+  "lumen/app-packages/lumen.notifications.lumen-app": "build/apps/kindle/lumen.notifications/lumen.notifications.lumen-app",
+  "lumen/app-packages/lumen.home.lumen-app": "build/apps/kindle/lumen.home/lumen.home.lumen-app",
+  "lumen/app-packages/lumen.transfer.lumen-app": "build/apps/kindle/lumen.transfer/lumen.transfer.lumen-app"
 }

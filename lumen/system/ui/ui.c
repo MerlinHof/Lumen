@@ -30,6 +30,7 @@
 #include "../preferences.h"
 #include <ctype.h>
 #include <math.h>
+#include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -59,9 +60,9 @@ static int ui_route(void) { return runtime.route; }
 static void app_leave(AppId app, void *ctx);
 static void route_to(int route);
 static int app_send(const AppIntent *intent);
-static void home_app_choice(int target,int choice);
 static int package_ui_poll(void);
-static void package_ui_draw(void);
+static void package_ui_draw(void),package_clock_tick(void);
+static int package_clock_wait(void);
 static int package_ui_input(const Input *);
 static int package_ui_commit(int target,const char *text);
 static void package_ui_choice(int choice);
@@ -181,7 +182,6 @@ static int notification_visible(void);
 static void overlays(void);
 void ui_feedback_draw(void);
 static void modal_input(const Input *in);
-static void connect_input(const Input *in);
 static void refresh_library(void);
 static void settings_input(const Input *in);
 static const int lock_mode_ids[5];
@@ -1308,6 +1308,13 @@ void ui_draw(void) {
         if(editor_ui.keyboard){memcpy(editor_ui.keyboard_background18,ui_pixels,sizeof(ui_pixels));editor_ui.keyboard_background_valid18=1;}
         goto input_overlays18;
     }
+    if(ui_route()==131) {
+        heading("Startseite");
+        wrapped(28,175,"Startseiten-App fehlt.",ui_font(UI_BODY),544,2);
+        button_h(28,280,544,48,"Einstellungen",0);
+        button_h(28,345,544,48,"Dateiübertragung",0);
+        return;
+    }
     if (ui_route() == 28 && clock_ui.clock_fullscreen) {
         clock_face(1);
         return;
@@ -1496,6 +1503,7 @@ static int ui_dispatch_input(const Input *in) {
     if (in->kind == INPUT_STATUS && sleeping)
         return v1_sleep_tick() ? 1 : 2;
     if (in->kind == INPUT_STATUS) {
+        package_clock_tick();
         if (refresh_status(in->x == -1))
             return 1;
         int tick16 = u16_tick();
@@ -1510,7 +1518,7 @@ static int ui_dispatch_input(const Input *in) {
             in = &normalized;
             network_poll = 1;
         } else {
-            int needs_status = ui_route() == 12 || ui_route() == 8 ||
+            int needs_status = ui_route() == 12 ||
                                ((ui_route() == 25 || ui_route() == 26) && apps_poll_interval() >= 0);
             if (action && !needs_status)
                 return action;
@@ -1659,7 +1667,7 @@ static int ui_dispatch_input(const Input *in) {
                 network_results();
             wifi_ui.wifi_scanning = 0;
         }
-        return ui_route() == 12 || ui_route() == 8 ? 1 : 2;
+        return ui_route() == 12 ? 1 : 2;
     }
     if (in->kind == INPUT_NETWORK) {
         char books[2048];
@@ -1669,6 +1677,8 @@ static int ui_dispatch_input(const Input *in) {
             else library_ui.library_dirty=1;
         }
         app_packages_scan();
+        if(!network_poll && app_for_route(ui_route())==APP_HOME &&
+           app_package_installed(app_for_route(ui_route())))app_process_send("{\"event\":\"refresh\"}");
         char restart[2048];
         snprintf(restart,sizeof(restart),"%s/../.update/relaunch",data_root);
         if (!access(restart,F_OK)) {
@@ -2142,7 +2152,6 @@ static void modal_input(const Input *in) {
                 return;
             }
             if(drop_target==2001){package_ui_choice(choice);}
-            else if(drop_target==2002 || drop_target==2003){home_app_choice(drop_target,choice);}
             else if (drop_target == 941 || drop_target == 942) {
                 photo_setting_choice(drop_target,choice);
             } else if (drop_target == 940) {
@@ -2198,7 +2207,6 @@ static void modal_input(const Input *in) {
         return;
     }
 }
-#include "../../apps/transfer/view.h"
 #include "../../apps/settings/preferences.h"
 #include "../../apps/store/entry.h"
 #include "../../apps/settings/options.h"
@@ -2208,8 +2216,10 @@ int ui_poll_interval(void) {
     if(updating)return update_error ? -1 : 400;
     if (sleeping)
         return v1_sleep_poll();
-    int wait = ui_route() >= 20 ? apps_poll_interval() : (ui_route() == 12 || ui_route() == 8 ? 2000 : -1),
+    int wait = ui_route() >= 20 ? apps_poll_interval() : (ui_route() == 12 ? 2000 : -1),
         other = extra_poll();
+    int tick=package_clock_wait();
+    if(tick>=0 && (other<0 || tick<other))other=tick;
     int np = new_apps_poll();
     int pp = polish_poll();
     if (pp >= 0 && (np < 0 || pp < np))
@@ -2244,7 +2254,6 @@ static void wikipedia_screen(void) {
 
 #include "../../apps/reader/annotations_store.h"
 #include "../../apps/host/compose.h"
-#include "../../apps/home/view.h"
 void ui_paint_heading(const char *text, int actions) { heading_actions(text, actions); }
 void ui_paint_icon_button(int x, int y, int id) { icon_button(x, y, id); }
 void ui_paint_surface(int x,int y,int w,int h,int radius,int gray,int outline) {
@@ -2282,14 +2291,26 @@ void ui_paint_image(int x, int y, int w, int h, const unsigned char *gray) {
 int64_t ui_clock_millis(void) { return extra_millis(); }
 static void register_builtin_views(void) {
     app_view_register(APP_STATUS_BAR, header, NULL);
-    app_page_register(APP_HOME, home_draw, home_input, NULL);
-    app_page_register(APP_FILE_TRANSFER, transfer_draw, transfer_input, NULL);
     app_view_register(APP_LOCK_SCREEN, lock_screen_draw, NULL);
     app_view_register(APP_KEYBOARD, keyboard_draw18, NULL);
 
 
 }
 
+
+int ui_prepare_home(void) {
+    if(app_package_deleted(APP_HOME))return 1;
+    if(!app_process_open(APP_HOME))return 0;
+    int64_t until=extra_millis()+1800;
+    do {
+        package_ui_poll();
+        if(strstr(app_process_frame(),"\"ready\":true"))return 1;
+        if(*app_process_error())return 0;
+        struct pollfd fd={.fd=app_process_fd(),.events=POLLIN};
+        poll(&fd,1,20);
+    } while(extra_millis()<until);
+    return 0;
+}
 
 static void app_leave(AppId app, void *ctx) {
     app_process_pause();

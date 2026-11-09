@@ -1,0 +1,70 @@
+/* Services are the host-side data and device boundary for app executables. */
+static FILE *package_reply(char **message,size_t *length,int action,int success) {
+    FILE *stream=open_memstream(message,length);
+    if(stream)fprintf(stream,"{\"event\":\"service\",\"action\":%d,\"ok\":%d",action,success);
+    return stream;
+}
+static void package_reply_end(FILE *stream,char **message) {
+    fputc('}',stream);
+    if(!fclose(stream))app_process_send(*message);
+    free(*message);
+}
+static void package_field(FILE *stream,const char *key,const char *value) {
+    fprintf(stream,",\"%s\":",key);
+    json_escape16(stream,value);
+}
+static int catalog_service(const char *operation,const char *data,int action) {
+    if(strcmp(operation,"list")) {
+        int id=app_package_find(data);
+        if(id>=0 && !strcmp(operation,"hide")){
+            launcher_visible[id]=0;v1_dirty=1;v1_save();
+        } else if(id>=0 && !strcmp(operation,"remove")){
+            if(!app_package_remove(data))ui_message("Löschen fehlgeschlagen.");
+        } else return 0;
+    }
+    int ids[APP_LIMIT],count=v1_visible(ids);
+    char list[APP_LIMIT*65],*message=NULL;size_t used=0,length=0;
+    list[0]=0;
+    for(int i=0;i<count;i++) {
+        int n=snprintf(list+used,sizeof(list)-used,"%s\n",app_package_key(ids[i]));
+        if(n<0 || (size_t)n>=sizeof(list)-used)break;
+        used+=n;
+    }
+    FILE *stream=package_reply(&message,&length,action,1);
+    if(!stream)return 0;
+    package_field(stream,"data",list);
+    fprintf(stream,",\"settings_shortcut\":%d",
+        !launcher_visible[APP_SETTINGS] || app_package_deleted(APP_SETTINGS));
+    package_reply_end(stream,&message);
+    return 1;
+}
+static int transfer_service(const char *operation,const char *data,int action) {
+    int ok=1;
+    if(!strcmp(operation,"start"))ok=connect_start(options[OPT_PORT],options[OPT_TIMEOUT]);
+    else if(!strcmp(operation,"stop")){
+        connect_stop();
+        if(library_ui.library_dirty)refresh_library();
+    } else if(!strcmp(operation,"port") || !strcmp(operation,"timeout")) {
+        char *end;long value=strtol(data,&end,10);
+        int port=!strcmp(operation,"port");
+        if(!*data || *end || value<(port ? 1024 : 1) || value>(port ? 65535 : 60))ok=0;
+        else {options[port ? OPT_PORT : OPT_TIMEOUT]=(int)value;library_options_save();}
+    } else if(strcmp(operation,"status"))return 0;
+    char *message=NULL;size_t length=0;
+    FILE *stream=package_reply(&message,&length,action,ok);
+    if(!stream)return 0;
+    int running=connect_running();
+    char seen[2048];snprintf(seen,sizeof(seen),"%s/connect-peer16.txt",data_root);
+    fprintf(stream,",\"running\":%d,\"paired\":%d,\"port\":%d,\"timeout\":%d",running,
+        running && !access(seen,F_OK),options[OPT_PORT],options[OPT_TIMEOUT]);
+    package_field(stream,"address",running ? connect_address() : "");
+    package_field(stream,"code",running ? connect_code() : "");
+    package_field(stream,"error",ok ? "" : !strcmp(operation,"start") ? tr(connect_error()) : tr("Eingabe prüfen."));
+    package_reply_end(stream,&message);
+    return 1;
+}
+static int package_service_request(const char *name,const char *operation,const char *data,int action) {
+    if(!strcmp(name,"transfer"))return transfer_service(operation,data,action);
+    if(!strcmp(name,"catalog"))return catalog_service(operation,data,action);
+    return 0;
+}

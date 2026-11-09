@@ -14,6 +14,12 @@ static int launcher_load(const char *name, int count) {
         launcher_order[i] = i;
     return 1;
 }
+static int launcher_save(void) {
+    int config[APP_LIMIT*2];
+    memcpy(config,launcher_order,sizeof(launcher_order));
+    memcpy(config+APP_LIMIT,launcher_visible,sizeof(launcher_visible));
+    return app_state_save("launcher-packages.bin",config,sizeof(config));
+}
 static void v1_init(void) {
     u15_init();
     if (v1_ready)
@@ -50,11 +56,16 @@ static void v1_init(void) {
                         (terminal-language)*sizeof(*launcher_order));
                 launcher_order[language]=id;
             }
-            int config[APP_LIMIT*2];
-            memcpy(config,launcher_order,sizeof(launcher_order));
-            memcpy(config+APP_LIMIT,launcher_visible,sizeof(launcher_visible));
-            if(app_state_save("launcher-packages.bin",config,sizeof(config)))
-                atomic_write(terminal_order,"1",1);
+            if(launcher_save())atomic_write(terminal_order,"1",1);
+        }
+    }
+    int notifications=app_package_find("lumen.notifications");
+    if(notifications>=0) {
+        char marker[2048];
+        snprintf(marker,sizeof(marker),"%s/notifications-launcher-default",data_root);
+        if(access(marker,F_OK)) {
+            launcher_visible[notifications]=0;
+            if(launcher_save())atomic_write(marker,"1",1);
         }
     }
     launcher_visible[APP_NUMSCRATCH] = launcher_visible[APP_DRAWING] = 0;
@@ -105,12 +116,7 @@ static void v1_init(void) {
 static void v1_save(void) {
     if (!v1_ready || !v1_dirty)
         return;
-    int cfg[APP_LIMIT * 2];
-    for (int i = 0; i < APP_LIMIT; i++) {
-        cfg[i] = launcher_order[i];
-        cfg[i + APP_LIMIT] = launcher_visible[i];
-    }
-    app_state_save("launcher-packages.bin", cfg, sizeof(cfg));
+    launcher_save();
     app_state_save("note-tree-1.bin", &note_tree, sizeof(note_tree));
     app_state_save("flashcards-1.bin", flashcards, sizeof(flashcards));
     int lp[5] = {lang_pair, lang_index, lang_correct, lang_total, 0};

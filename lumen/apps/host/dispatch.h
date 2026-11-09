@@ -1,7 +1,6 @@
 /* App view and event dispatch. Status and tab bars own their views in their app modules. */
 static void app_render(void) {
     if (ui_route() == 132) { more_settings(); return; }
-    if (ui_route() == 133) { transfer_draw(); return; }
     if (app_page_draw(ui_route())) return;
     if (ui_route() >= 60) {
         new_apps_draw();
@@ -68,8 +67,18 @@ static void app_render(void) {
     }
 }
 static int app_handle_input(const Input *in) {
+    if(ui_route()==131 && !app_package_installed(APP_HOME) && in->kind==INPUT_TAP &&
+       in->x>=28 && in->x<572) {
+        if(in->y>=280 && in->y<328) {
+            AppIntent intent={.app=APP_SETTINGS,.kind=INTENT_OPEN};
+            app_send(&intent);
+        } else if(in->y>=345 && in->y<393) {
+            AppIntent intent={.app=APP_FILE_TRANSFER,.kind=INTENT_OPEN};
+            app_send(&intent);
+        }
+        return 1;
+    }
     if (ui_route() == 132) { settings_input(in); return 1; }
-    if (ui_route() == 133) return transfer_input(in);
     int x = in->x, y = in->y, old = ui_route();
     int handled = app_page_input(ui_route(), in);
     if (handled >= 0) return handled;

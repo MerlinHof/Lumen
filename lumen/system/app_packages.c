@@ -22,6 +22,7 @@ typedef struct {
     pid_t child;
     int read_fd,write_fd,active,paused;
     size_t incoming_n,pending_n;
+    uint64_t frame_serial;
     char process_hash[65],pending[65536],incoming[APP_FRAME_MAX],frame[APP_FRAME_MAX];
     char request[32768],failure[160];
 } AppProcess;
@@ -29,6 +30,7 @@ typedef struct {
 static AppProcess foreground={.read_fd=-1,.write_fd=-1,.active=-1};
 static AppProcess overlay={.read_fd=-1,.write_fd=-1,.active=-1};
 static pid_t retired[64];
+static uint64_t frame_serial;
 
 static void process_close(AppProcess *process);
 static void reap_apps(void) {
@@ -52,7 +54,17 @@ static int deleted(const char *id) {
 int app_package_deleted(AppId id) {
  return id>=0 && id<APP_LIMIT && entries[id].removed;
 }
-static int identify(const char*key){for(int i=0;i<APP_LIMIT;i++)if(!strcmp(entries[i].key,key))return i;return -1;}
+int app_package_find(const char *key) {
+ if(!key || !*key)return -1;
+ for(int i=0;i<APP_LIMIT;i++)if(!strcmp(entries[i].key,key))return i;
+ return -1;
+}
+#define identify app_package_find
+int app_package_asset(AppId id,const char *name,char *path,size_t size) {
+ if(!app_package_installed(id) || !package_path_valid(name) || strchr(name,'/'))return 0;
+ int n=snprintf(path,size,"%s/../apps/%s/%s",data_root,entries[id].key,name);
+ return n>0 && (size_t)n<size;
+}
 static int read_manifest(const char*directory,Package*p){char name[2048],text[65537];snprintf(name,sizeof(name),"%s/manifest.json",directory);FILE*f=fopen(name,"rb");if(!f)return 0;size_t n=fread(text,1,65536,f);int ok=n<65536&&!ferror(f);fclose(f);text[n]=0;return ok&&package_manifest(text,p)&&!strcmp(p->format,"lumen-app-1")&&p->api==APP_PACKAGE_API&&valid_id(p->id);}
 void app_packages_scan(void) {
  for(int i=0;i<APP_LIMIT;i++){entries[i].installed=0;entries[i].has_icon=0;entries[i].def=(AppDefinition){i,entries[i].name,-1};entries[i].name[0]=0;if(i<APP_COUNT)snprintf(entries[i].key,64,"%s",keys[i]);else entries[i].key[0]=0;}
@@ -150,7 +162,10 @@ static int process_poll(AppProcess *p) {
      if(buf[i]=='\n') {
        p->incoming[p->incoming_n]=0;
        if(strstr(p->incoming,"\"request\"")){snprintf(p->request,sizeof(p->request),"%s",p->incoming);changed=1;}
-       else if (strcmp(p->frame,p->incoming)) {snprintf(p->frame,sizeof(p->frame),"%s",p->incoming);changed=1;}
+       else {
+           p->frame_serial=++frame_serial;
+           if(strcmp(p->frame,p->incoming)){snprintf(p->frame,sizeof(p->frame),"%s",p->incoming);changed=1;}
+       }
        p->incoming_n=0;
      } else if(p->incoming_n+1<sizeof(p->incoming))p->incoming[p->incoming_n++]=buf[i];
      else {snprintf(p->failure,sizeof(p->failure),"App-Ausgabe zu groß.");kill(p->child,SIGTERM);p->incoming_n=0;break;}
@@ -176,6 +191,7 @@ void app_process_flush(void){flush_events(&foreground);flush_events(&overlay);}
 int app_process_send(const char *event){return process_send(&foreground,event);}
 int app_process_poll(void){return process_poll(&foreground);}
 const char *app_process_frame(void){return foreground.frame;}
+uint64_t app_process_frame_serial(void){return foreground.frame_serial;}
 const char *app_process_request(void){
     static char taken[32768];
     snprintf(taken,sizeof(taken),"%s",foreground.request);

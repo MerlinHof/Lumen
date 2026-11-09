@@ -94,10 +94,18 @@ Use the open event's language (0 German, 1 English, 2 French) for app-owned text
 Do not draw a private keyboard, status bar or refresh loop. Do not manipulate
 firmware services. Prefer clear typography and finite, paper-native tools.
 
+LUMEN 4.8 adds `lumen_service` for named host operations. Replies arrive as
+`INPUT_SERVICE` with the action ID, a success flag and response fields.
+The catalog and transfer services expose existing launcher state and server
+controls. `lumen_pager` sends `INPUT_PAGE` for taps and horizontal swipes.
+`lumen_schedule` asks for one future `INPUT_TICK` without idle polling inside
+the app process. Package-owned grayscale PGM files can use `lumen_asset`.
+`lumen_app_tile` and `lumen_qr` use the system artwork and QR renderer.
+
 ## Existing app implementations
 
 Frog Solitaire, Sliding Puzzle, Tic Tac Toe, Terminal, 2048, Sudoku, Bingo,
-Connect Four, Hex, Nonograms, Solitaire, Wordle, Periodic Table, and Notifications ship as
+Connect Four, Hex, Nonograms, Solitaire, Wordle, Periodic Table, Notifications, Home, and File Transfer ship as
 independent packages and use this same protocol. Their sources and build manifests live in their app folders. Other
 existing views still have linked compatibility implementations. They are entries
 in the same catalog and can be replaced individually by a package using the same

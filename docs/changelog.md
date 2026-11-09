@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.8
+
+Standalone Home and File Transfer, new app SDK services and shared controls, and a hidden-by-default Notifications tile. [Release notes](releases/4.8.md).
+
 ## 4.7
 
 Full-screen OTA progress and supervised restart, compact PTY-backed Terminal, and an independent Notifications app. [Release notes](releases/4.7.md).

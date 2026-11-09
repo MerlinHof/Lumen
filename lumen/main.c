@@ -99,6 +99,12 @@ int main(int argc, char **argv) {
     }
     library_scan();
     ui_init();
+    if((!preview || screen==131) && !ui_prepare_home() && !preview && system_update_trial()) {
+        ui_close();
+        device_close();
+        engine_shutdown();
+        return 7;
+    }
     if (preview) {
         ui_set_screen(screen);
         if (screen == 2 && library_count)

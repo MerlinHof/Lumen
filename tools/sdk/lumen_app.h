@@ -11,15 +11,16 @@
 #include <unistd.h>
 #include "../../lumen/system/device.h"
 #include "../../lumen/system/ui/icon_ids.h"
-typedef enum{PAINT_BODY,PAINT_HEADING,PAINT_DISPLAY,PAINT_SECONDARY}PaintText;
-static char lumen_event[20000];static int lumen_first,lumen_language,lumen_back;
+typedef enum{PAINT_BODY,PAINT_HEADING,PAINT_DISPLAY,PAINT_SECONDARY,PAINT_TITLE}PaintText;
+static char lumen_event[20000];static int lumen_first,lumen_language,lumen_back,lumen_frame_tick,lumen_ready=1;
 static void lumen_json(const char*s){putchar('"');for(;*s;s++){unsigned char c=*s;if(c=='"'||c=='\\')putchar('\\');if(c<32)printf("\\u%04x",c);else putchar(c);}putchar('"');}
 static int lumen_number(const char*key){char needle[80];snprintf(needle,sizeof(needle),"\"%s\":",key);const char*p=strstr(lumen_event,needle);return p?atoi(p+strlen(needle)):0;}
 static int lumen_string(const char*key,char*out,size_t cap){char needle[80];snprintf(needle,sizeof(needle),"\"%s\":",key);const char*p=strstr(lumen_event,needle);size_t n=0;if(!cap)return 0;out[0]=0;if(!p)return 0;p+=strlen(needle);while(*p==' ')p++;if(*p++!='"')return 0;while(*p&&*p!='"'&&n+1<cap){unsigned char c=*p++;if(c=='\\'){c=*p++;if(c=='n')c='\n';else if(c=='r')c='\r';else if(c=='t')c='\t';else if(c=='u'){unsigned value=0;if(sscanf(p,"%4x",&value)!=1)return 0;p+=4;if(value<128)c=value;else if(value<2048){if(n+2>=cap)break;out[n++]=0xc0|(value>>6);c=0x80|(value&63);}else{if(n+3>=cap)break;out[n++]=0xe0|(value>>12);out[n++]=0x80|((value>>6)&63);c=0x80|(value&63);}}}out[n++]=c;}out[n]=0;return 1;}
 static int lumen_next(void){if(!fgets(lumen_event,sizeof(lumen_event),stdin))return 0;return 1;}
 static int lumen_is(const char*event){char b[80];snprintf(b,sizeof(b),"\"event\":\"%s\"",event);return strstr(lumen_event,b)!=NULL;}
-static void lumen_begin(void){lumen_first=1;printf("{\"back\":%s,\"ui\":[",lumen_back?"true":"false");}
-static void lumen_end(void){puts("]}");fflush(stdout);}
+static void lumen_begin(void){lumen_first=1;lumen_frame_tick=0;printf("{\"back\":%s,\"ui\":[",lumen_back?"true":"false");}
+static void lumen_end(void){printf("],\"tick\":%d,\"ready\":%s}\n",lumen_frame_tick,lumen_ready ? "true" : "false");fflush(stdout);}
+static void lumen_schedule(int milliseconds){lumen_frame_tick=milliseconds;}
 static void lumen_cmd(const char*type,int x,int y,int w,int h){if(!lumen_first)putchar(',');lumen_first=0;fputs("{\"type\":",stdout);lumen_json(type);printf(",\"x\":%d,\"y\":%d,\"w\":%d,\"h\":%d",x,y,w,h);}
 static void ui_paint_heading(const char*s,int actions){lumen_cmd("heading",28,74,544,44);fputs(",\"text\":",stdout);lumen_json(s);printf(",\"actions\":%d}",actions);}
 static void ui_paint_text(int x,int y,int w,int h,const char*s,PaintText role){lumen_cmd("text",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(s);printf(",\"role\":%d}",role);}
@@ -59,6 +60,27 @@ static int lumen_legacy_state(const char *name,void *bytes,size_t size) {
  FILE *f=fopen(path,"rb");if(!f)return 0;
  int ok=fread(bytes,1,size,f)==size && fgetc(f)==EOF;fclose(f);return ok;
 }
+static void lumen_service(const char *name,const char *operation,const char *data,int action) {
+ fputs("{\"request\":\"service\",\"service\":",stdout);lumen_json(name);
+ fputs(",\"operation\":",stdout);lumen_json(operation);
+ fputs(",\"text\":",stdout);lumen_json(data);printf(",\"action\":%d}\n",action);fflush(stdout);
+}
+static void lumen_app_tile(int x,int y,int width,const char *id) {
+ lumen_cmd("app_tile",x,y,width,110);fputs(",\"text\":",stdout);lumen_json(id);putchar('}');
+}
+static void lumen_asset(int x,int y,int w,int h,const char *name) {
+ lumen_cmd("asset",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(name);putchar('}');
+}
+static void lumen_qr(int x,int y,int side,const char *value) {
+ lumen_cmd("qr",x,y,side,side);fputs(",\"text\":",stdout);lumen_json(value);putchar('}');
+}
+static void lumen_pager(int y,int page,int count) {
+ lumen_cmd("pager",205,y,189,44);printf(",\"page\":%d,\"count\":%d}",page,count);
+}
+static void lumen_wrapped(int x,int y,int w,int h,const char *text,PaintText role,int lines) {
+ lumen_cmd("wrap",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(text);
+ printf(",\"role\":%d,\"lines\":%d}",role,lines);
+}
 static void lumen_request(const char*kind,const char*title,const char*text,int action){fputs("{\"request\":",stdout);lumen_json(kind);fputs(",\"title\":",stdout);lumen_json(title);fputs(",\"text\":",stdout);lumen_json(text);printf(",\"action\":%d}\n",action);fflush(stdout);}
 /* Existing small app modules can reuse their Input-based controller directly. */
 static void lumen_open(const char*id){fputs("{\"request\":\"open\",\"app\":",stdout);lumen_json(id);puts("}");fflush(stdout);}
@@ -66,12 +88,20 @@ static void lumen_run(void(*draw)(void),int(*input)(const Input*),void(*save)(vo
  static char output[65536];setvbuf(stdout,output,_IOFBF,sizeof(output));
  while(lumen_next()) {
    if(lumen_is("pause")){if(save)save();continue;}
-   if(lumen_is("open"))lumen_language=lumen_number("language");
+   if(lumen_is("open")) {
+      lumen_language=lumen_number("language");
+      Input in={.kind=INPUT_OPEN};input(&in);
+   }
+   if(lumen_is("resume")){Input in={.kind=INPUT_RESUME};input(&in);}
+   if(lumen_is("service")){Input in={.kind=INPUT_SERVICE,.x=lumen_number("action"),.y=lumen_number("ok")};input(&in);if(save)save();}
+   if(lumen_is("refresh")){Input in={.kind=INPUT_REFRESH};input(&in);}
+   if(lumen_is("tick")){Input in={.kind=INPUT_TICK};input(&in);}
+   if(lumen_is("page")){Input in={.kind=INPUT_PAGE,.x=lumen_number("page")};input(&in);if(save)save();}
    if(lumen_is("viewport")){Input in={.kind=INPUT_VIEWPORT,.y=lumen_number("bottom")};input(&in);}
    if(lumen_is("back")){Input in={.kind=INPUT_BACK};input(&in);if(save)save();}
    if(lumen_is("text")||lumen_is("select")){Input in={.kind=lumen_is("text")?INPUT_TEXT:INPUT_SELECT,.x=lumen_number("action"),.y=lumen_number("value")};input(&in);if(save)save();}
    if(lumen_is("input")){Input in={lumen_number("kind"),lumen_number("x"),lumen_number("y"),lumen_number("dx"),lumen_number("dy")};input(&in);if(save)save();}
-   if(lumen_is("open")||lumen_is("resume")||lumen_is("input")||lumen_is("back")||lumen_is("text")||lumen_is("select")||lumen_is("viewport")){lumen_begin();draw();lumen_end();}
+   if(lumen_is("open")||lumen_is("resume")||lumen_is("input")||lumen_is("back")||lumen_is("text")||lumen_is("select")||lumen_is("viewport")||lumen_is("service")||lumen_is("page")||lumen_is("tick")||lumen_is("refresh")){lumen_begin();draw();lumen_end();}
  }
  if(save)save();
 }
