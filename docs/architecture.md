@@ -25,8 +25,9 @@ linking is required. App replacement is a directory transaction and does not
 restart LUMEN. Crashes are confined to the app process; this is not a filesystem
 security sandbox. Native packages must be trusted.
 
-Thirteen standalone packages ship from their individual app folders,
-including the Terminal, Periodic Table, and eleven games. Other existing views retain linked
+Fourteen standalone packages ship from their individual app folders,
+including Terminal, Periodic Table, Notifications and eleven games.
+The Notifications package uses a second process for the overlay while the foreground app remains active. Other existing views retain linked
 compatibility adapters in `apps/host/compose.h`. Their IDs use the same catalog
 and accept independent replacement packages, but those older implementations
 have not all been extracted into executable artifacts. New apps must use the
@@ -67,8 +68,9 @@ shipped app archives. It cannot overwrite books, app state, separately installed
 app directories or recovery control paths. Changed originals are copied before
 a durable write-ahead journal commits. A helper outside the replaced binary
 performs activation. Interrupted activation and failed trial startup restore originals, including
-resources. Healthy trials survive a clean restart. Keep removes the journal
-durably before deleting rollback files.
+resources. The launcher stays alive across activation. The first rendered screen
+confirms the update automatically by removing the journal durably before deleting
+rollback files.
 
 `runtime_files.h` is generated from the package allowlist and identifies obsolete
 managed files. Unknown/user files are preserved. One transaction rollback is

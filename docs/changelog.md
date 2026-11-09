@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.7
+
+Full-screen OTA progress and supervised restart, compact PTY-backed Terminal, and an independent Notifications app. [Release notes](releases/4.7.md).
+
 ## 4.6
 
 Seven additional standalone apps, a persistent Terminal shell and transcript, and measured Continue Reading spacing. [Release notes](releases/4.6.md).

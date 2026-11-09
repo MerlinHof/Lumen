@@ -16,4 +16,5 @@ void ui_close(void);
 int ui_power_request(void);
 void ui_power_screen(int restart);
 int ui_full_refresh(void);
+void ui_update_progress(int step,int percent,const char *version,const char *error);
 #endif

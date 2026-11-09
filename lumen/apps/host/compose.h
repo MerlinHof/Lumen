@@ -90,7 +90,7 @@
 #include "../games/manuals.h"
 #include "../recipes/app.h"
 #include "../openai/conversation.h"
-#include "../notifications/view.h"
 // clang-format on
 
 #include "../../system/ui/package_app.h"
+#include "../../system/ui/notification_surface.h"

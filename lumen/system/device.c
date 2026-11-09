@@ -242,6 +242,10 @@ int device_system_power(int restart) {
     char *busy[] = {"busybox", restart ? "reboot" : "poweroff", NULL};
     return execute("/bin/busybox", busy) == 0;
 }
+void device_finish_update(void) {
+    char *args[]={"lipc-set-prop","-i","com.lab126.powerd","preventScreenSaver","0",NULL};
+    execute("/usr/bin/lipc-set-prop",args);
+}
 void device_hold_awake(int enabled) {
     static int owned;
     if (enabled && !owned) {
@@ -433,8 +437,8 @@ int device_wait(Input *input) {
     static int64_t began, power_began;
     static int power_active, power_sent;
     memset(input, 0, sizeof(*input));
-    struct pollfd p[5] = {
-        {touch, POLLIN, 0}, {power, POLLIN, 0}, {eventfd, POLLIN, 0}, {usbfd, POLLIN, 0}, {-1, POLLIN, 0}};
+    struct pollfd p[6] = {
+        {touch, POLLIN, 0}, {power, POLLIN, 0}, {eventfd, POLLIN, 0}, {usbfd, POLLIN, 0}, {-1, POLLIN, 0}, {-1, POLLIN, 0}};
     while (alive) {
         if (network_ready) {
             network_ready = 0;
@@ -467,7 +471,8 @@ int device_wait(Input *input) {
                 timeout = remain;
         }
         p[4].fd = app_process_fd();
-        int n = poll(p, 5, timeout);
+        p[5].fd=app_overlay_fd();
+        int n = poll(p, 6, timeout);
         if (!n) {
             if (active && started && !held) {
                 struct timespec t;
@@ -595,6 +600,10 @@ int device_wait(Input *input) {
                 }
             }
         }
+        if (p[5].revents & (POLLIN | POLLHUP | POLLERR)) {
+            input->kind=INPUT_OVERLAY;
+            return 1;
+        }
         if (p[4].revents & (POLLIN | POLLHUP | POLLERR)) {
             input->kind = INPUT_APP;
             return 1;
@@ -625,6 +634,7 @@ int device_system_power(int restart) {
     return 1;
 }
 void device_hold_awake(int enabled) { (void)enabled; }
+void device_finish_update(void) {}
 int device_wifi_enabled(void) { return 1; }
 int device_wifi(int e) {
     (void)e;

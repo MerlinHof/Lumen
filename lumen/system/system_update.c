@@ -76,7 +76,10 @@ int system_update_maintenance(void) {
      if(system_update_trial())return 1;
      if(!system_update_rollback())return 0;
  }
- if(access(ready,F_OK))return 1;
+ if(access(ready,F_OK)) {
+     if(system_update_trial())return system_update_keep();
+     return 1;
+ }
  Package*p=calloc(1,sizeof(*p));if(!p)return 0;
  snprintf(manifest,sizeof(manifest),"%s/manifest.json",stage);
  if(!read_manifest(manifest,p) || strcmp(p->format,"lumen-system-1")){free(p);return 0;}

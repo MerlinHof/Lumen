@@ -177,7 +177,7 @@ static void extra_timer_label(char *out, int cap) {
     }
 }
 static int extra_poll(void) {
-    if (editor_ui.keyboard || ui_route() == 27 || *notification_text())
+    if (editor_ui.keyboard || ui_route() == 27)
         return 500;
     if (ui_route() == 36 && *discover_lookup_image() && !wiki_image_available() &&
         wiki_image_attempts < 3)
@@ -216,7 +216,6 @@ static int extra_tick(void) {
     if (release_poll() && ui_route()==40) changed=1;
     if (done == SERVICE_WEATHER || done == -SERVICE_WEATHER)
         weather_snapshot_valid = 0;
-    changed |= notification_tick(extra_millis());
 
     if ((editor_ui.keyboard || ui_route() == 27) && extra_millis() - editor_ui.cursor_epoch >= 600) {
         editor_ui.cursor_epoch = extra_millis();

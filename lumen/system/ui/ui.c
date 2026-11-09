@@ -174,7 +174,9 @@ static void system_region(int x, int y, int w, int h) {
         widgets[count].system = 1;
 }
 static int textwidth(const char *s, const Font *f);
-static void notification_draw(void);
+static void notification_draw(void),notification_dismiss(void);
+static int notification_visible(void),notification_poll(void),notification_input(const Input*,int);
+static int receive_notification(const void*,size_t,int64_t);
 static int notification_visible(void);
 static void overlays(void);
 void ui_feedback_draw(void);
@@ -989,7 +991,7 @@ void ui_init(void) {
     app_packages_scan();app_packages_seed();
     app_runtime_init(&runtime, app_leave, NULL);
     register_builtin_views();
-    notifications_register();
+    app_endpoint_register("notifications",receive_notification);
     app_endpoint_register("keyboard", keyboard_receive);
     library_settings_load();
     apps_init();
@@ -1254,7 +1256,39 @@ static int centered_lines(int x, int y, int width, const char *text, const Font 
     return row;
 }
 #include "../../apps/lock_screen/view.h"
+static int updating;
+static const char *update_error;
+void ui_update_progress(int step,int percent,const char *version,const char *error) {
+    memset(ui_pixels,255,sizeof(ui_pixels));
+    widget_count=0;ui_y_offset=0;ink_color=0;
+    type_label(40,104,520,62,"LUMEN Update",UI_TITLE);
+    if(version && *version)type_label(40,175,520,36,version,UI_SECONDARY);
+    static const char *steps[]={"Download vorbereiten","Update herunterladen",
+        "Prüfsumme prüfen","Installation vorbereiten","Update installieren","LUMEN starten"};
+    for(int i=0;i<6;i++) {
+        char label[128];
+        snprintf(label,sizeof(label),"%02d   %s",i+1,tr(steps[i]));
+        const Font *font=ui_font(i==step ? UI_HEADING : UI_BODY);
+        ink_color=i==step && !error ? 0 : 145;
+        label_ellipsis(40,242+i*58,i==1 && step==1 ? 425 : 520,52,label,font,0);
+        if(i==step && !error)label_ellipsis(41,242+i*58,i==1 ? 424 : 519,52,label,font,0);
+        if(i==1 && step==1 && !error) {
+            snprintf(label,sizeof(label),"%d%%",percent);
+            label_ellipsis(480,242+i*58,80,52,label,font,0);
+        }
+    }
+    ink_color=0;
+    if(error) {
+        wrapped(40,620,error,ui_font(UI_BODY),520,2);
+        button_h(40,706,520,50,"Zurück",0);
+    }
+}
 void ui_draw(void) {
+    if(updating) {
+        int percent=0,step=release_progress(&percent);
+        ui_update_progress(step,percent,release_version(),update_error);
+        return;
+    }
     widget_count = 0;
     pagination = (Pagination){0};
     if (editor_ui.keyboard && editor_ui.keyboard_target != 30 && editor_ui.keyboard_background_valid18 && !sleeping) {
@@ -1361,7 +1395,39 @@ static void toggle_bookmark(void) {
 }
 static unsigned navigation_rewinds;
 static int ui_dispatch_input(const Input *in) {
+    if(in->kind==INPUT_STATUS && app_process_pending())app_process_flush();
+    if(in->kind==INPUT_APP && updating){app_process_poll();return 2;}
+    if(in->kind==INPUT_OVERLAY) {
+        int changed=notification_poll();
+        return changed && !updating && !sleeping && !editor_ui.keyboard ? 1 : 2;
+    }
+    if(updating) {
+        if(in->kind==INPUT_USB || in->kind==INPUT_EXIT)return 0;
+        if(in->kind==INPUT_SLEEP){device_wake();return 2;}
+        if(in->kind==INPUT_WAKE){full=1;return 1;}
+        if(update_error && in->kind==INPUT_TAP && in->x>=40 && in->x<560 &&
+           in->y>=706 && in->y<756) {
+            updating=0;full=1;return 1;
+        }
+        if(!update_error && in->kind==INPUT_STATUS) {
+            int changed=release_poll();
+            if(release_state()==4) {
+                if(release_activate()) {
+                    ui_update_progress(4,100,release_version(),NULL);
+                    device_present(ui_pixels,0,settings.refresh);
+                    return 0;
+                }
+                update_error="Neustart konnte nicht vorbereitet werden.";
+            } else if(release_state()!=1) {
+                update_error=*release_error() ? release_error() : "Update nicht verfügbar.";
+            }
+            if(update_error){device_hold_awake(0);return 1;}
+            return changed ? 1 : 2;
+        }
+        return 2;
+    }
     if (in->kind == INPUT_CANCEL) {
+        notification_input(in,0);
         pressed = -1;
         press_canceled = 0;
         editor_ui.pressed_key = -1;
@@ -1860,8 +1926,13 @@ static int ui_dispatch_input(const Input *in) {
 }
 int ui_input(const Input *in) {
     int from = ui_route(), depth = history_count;
+    int package_keyboard=editor_ui.keyboard && editor_ui.keyboard_target==2000;
     unsigned rewinds = navigation_rewinds;
     int result = ui_dispatch_input(in);
+    int attached=editor_ui.keyboard && editor_ui.keyboard_target==2000;
+    if(attached!=package_keyboard && from==ui_route() && app_package_installed(app_for_route(from)))
+        app_process_send(attached ? "{\"event\":\"viewport\",\"bottom\":395}" :
+                                    "{\"event\":\"viewport\",\"bottom\":800}");
     if (in->kind == INPUT_TAP && from && from != ui_route() &&
         app_for_route(from) == app_for_route(ui_route()) &&
         rewinds == navigation_rewinds && depth == history_count && depth < 64 &&
@@ -2134,6 +2205,7 @@ static void modal_input(const Input *in) {
 #include "../../apps/store/view.h"
 #include "../../apps/wifi/app.h"
 int ui_poll_interval(void) {
+    if(updating)return update_error ? -1 : 400;
     if (sleeping)
         return v1_sleep_poll();
     int wait = ui_route() >= 20 ? apps_poll_interval() : (ui_route() == 12 || ui_route() == 8 ? 2000 : -1),

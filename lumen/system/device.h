@@ -24,7 +24,9 @@ enum {
     INPUT_BACK,
     INPUT_TEXT,
     INPUT_SELECT,
-    INPUT_APP
+    INPUT_APP,
+    INPUT_VIEWPORT,
+    INPUT_OVERLAY
 };
 int device_init(void);
 void device_close(void);
@@ -42,6 +44,7 @@ int device_system_power(int restart);
 void device_poll_interval(int ms);
 int device_wifi(int enabled);
 void device_hold_awake(int enabled);
+void device_finish_update(void);
 int device_wifi_enabled(void);
 void device_ip(char *out, int size);
 #endif

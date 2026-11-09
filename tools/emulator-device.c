@@ -5,6 +5,7 @@
 #include <string.h>
 #include <errno.h>
 #include <poll.h>
+#include "../lumen/system/app_packages.h"
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -123,8 +124,8 @@ int device_wait(Input *input) {
         if (touching && !held && touch_started + 550 < deadline) deadline = touch_started + 550;
         if (power_pressed && !power_held && power_started + 900 < deadline)
             deadline = power_started + 900;
-        struct pollfd fd = {STDIN_FILENO, POLLIN, 0};
-        int ready = poll(&fd, 1, deadline == INT64_MAX ? -1 :
+        struct pollfd fds[]={{STDIN_FILENO,POLLIN,0},{app_process_fd(),POLLIN,0},{app_overlay_fd(),POLLIN,0}};
+        int ready = poll(fds, 3, deadline == INT64_MAX ? -1 :
                         deadline > now ? (int)(deadline - now) : 0);
         if (ready < 0 && errno == EINTR) continue;
         if (ready < 0) break;
@@ -144,6 +145,11 @@ int device_wait(Input *input) {
                 input->kind = INPUT_STATUS;
                 return 1;
             }
+            continue;
+        }
+        if(!(fds[0].revents&(POLLIN|POLLHUP))) {
+            if(fds[2].revents&(POLLIN|POLLHUP|POLLERR)) {input->kind=INPUT_OVERLAY;return 1;}
+            if(fds[1].revents&(POLLIN|POLLHUP|POLLERR)) {input->kind=INPUT_APP;return 1;}
             continue;
         }
         Packet packet;
@@ -211,3 +217,5 @@ int device_system_power(int restart) { (void)restart; return 1; }
 int device_wifi_enabled(void) { return 0; }
 int device_wifi(int enabled) { (void)enabled; return 0; }
 void device_ip(char *address, int size) { snprintf(address, size, "127.0.0.1"); }
+void device_hold_awake(int enabled) { (void)enabled; }
+void device_finish_update(void) {}

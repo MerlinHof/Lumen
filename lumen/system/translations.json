@@ -6003,5 +6003,50 @@
     "Update wird installiert …",
     "Installing update …",
     "Installation de la mise à jour…"
+  ],
+  "Download vorbereiten": [
+    "Download vorbereiten",
+    "Prepare download",
+    "Préparer le téléchargement"
+  ],
+  "Update herunterladen": [
+    "Update herunterladen",
+    "Download update",
+    "Télécharger la mise à jour"
+  ],
+  "Prüfsumme prüfen": [
+    "Prüfsumme prüfen",
+    "Verify checksum",
+    "Vérifier la somme de contrôle"
+  ],
+  "Installation vorbereiten": [
+    "Installation vorbereiten",
+    "Prepare installation",
+    "Préparer l’installation"
+  ],
+  "LUMEN starten": [
+    "LUMEN starten",
+    "Start LUMEN",
+    "Démarrer LUMEN"
+  ],
+  "Neustart konnte nicht vorbereitet werden.": [
+    "Neustart konnte nicht vorbereitet werden.",
+    "Could not prepare the restart.",
+    "Impossible de préparer le redémarrage."
+  ],
+  "Update nicht verfügbar.": [
+    "Update nicht verfügbar.",
+    "Update unavailable.",
+    "Mise à jour indisponible."
+  ],
+  "Update fehlgeschlagen. Vorige Version wiederhergestellt.": [
+    "Update fehlgeschlagen. Vorige Version wiederhergestellt.",
+    "Update failed. The previous version was restored.",
+    "Échec de la mise à jour. La version précédente a été restaurée."
+  ],
+  "Mitteilungen": [
+    "Mitteilungen",
+    "Notifications",
+    "Notifications"
   ]
 }

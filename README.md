@@ -6,13 +6,13 @@
 
 An illustrated Home, a shared Reader, and useful tools for a paper screen.
 
-[**Download 4.6**](https://github.com/MerlinHof/Lumen/releases/tag/v4.6) ·
-[Release notes](docs/releases/4.6.md) ·
+[**Download 4.7**](https://github.com/MerlinHof/Lumen/releases/tag/v4.7) ·
+[Release notes](docs/releases/4.7.md) ·
 [Installation](docs/installation.md) ·
 [Build](docs/building.md) ·
 [Agent guide](AGENTS.md)
 
-![LUMEN 4.6 — native Home, library and calculator screens](docs/images/hero.png)
+![LUMEN 4.7 — native Home, library and calculator screens](docs/images/hero.png)
 
 **Native C · 600 × 800 E-Ink · Local first · Deutsch / English / Français**
 
@@ -67,13 +67,13 @@ Online features depend on their providers. Home Assistant and OpenAI use your
 own server or account configuration. The calendar is local. Timers provide a
 visual interruption while LUMEN is awake and cannot wake the Kindle from deep sleep.
 
-## What's new in 4.6
+## What's new in 4.7
 
-Terminal now keeps a live Linux shell and displays a scrollable transcript. Bingo, Connect Four, Hex, Nonograms, Solitaire, Wordle and Periodic Table now ship as standalone apps. The Library places the author directly below the featured title. From LUMEN 4.5, update wirelessly via **Settings → System → Update**.
+The updater now shows a full-screen progress checklist and relaunches LUMEN automatically. Terminal has a compact hostname prompt and column-formatted shell output. Notifications is now a standalone package that renders its banners over the active app.
 
 [App SDK and package guide](docs/app-packages.md) · [GitHub updates](docs/wireless-updates.md)
 
-[Full 4.6 release notes](docs/releases/4.6.md) · [Version history](docs/changelog.md)
+[Full 4.7 release notes](docs/releases/4.7.md) · [Version history](docs/changelog.md)
 
 <table>
 <tr>
@@ -93,16 +93,16 @@ Terminal now keeps a live Linux shell and displays a scrollable transcript. Bing
 Each individual screen is 600 × 800 pixels. They are software previews;
 physical E-Ink appearance and response time depend on the Kindle.*
 
-## Install LUMEN 4.6
+## Install LUMEN 4.7
 
-Already on 4.5? Use **Settings → System → Update** on the Kindle. The steps below cover first installation and USB recovery.
+Already on 4.6? Use **Settings → System → Update** on the Kindle. The steps below cover first installation and USB recovery.
 
 **Current hardware target — Kindle Touch 2 (KT2), firmware 5.12.2.2, ARMv7.**
 
 A compatible jailbreak, the Kindle .sh launcher and FBInk must already be
 installed. LUMEN's installer checks these prerequisites.
 
-1. [Download LUMEN-4.6.zip](https://github.com/MerlinHof/Lumen/releases/download/v4.6/LUMEN-4.6.zip)
+1. [Download LUMEN-4.7.zip](https://github.com/MerlinHof/Lumen/releases/download/v4.7/LUMEN-4.7.zip)
    and extract the complete folder.
 2. Connect the prepared Kindle over USB.
 3. Open **Install-LUMEN.command** on macOS, or run the Python installer with

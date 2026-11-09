@@ -13,9 +13,7 @@ cleanup() {
     sh /mnt/us/lumen/ui-session.sh resume
     if [ "$pillow_disabled" = 1 ]; then lipc-set-prop com.lab126.pillow disableEnablePillow enable; fi
     lipc-set-prop -i com.lab126.powerd preventScreenSaver 0
-    if [ ! -f /mnt/us/lumen/.update/relaunch ]; then
-        lipc-set-prop com.lab126.appmgrd start app://com.lab126.booklet.home >> /mnt/us/lumen/session.log 2>&1
-    fi
+    lipc-set-prop com.lab126.appmgrd start app://com.lab126.booklet.home >> /mnt/us/lumen/session.log 2>&1
     if [ -f /mnt/us/lumen/settings-request.txt ]; then
         rm -f /mnt/us/lumen/settings-request.txt
         tries=0
@@ -41,10 +39,7 @@ cleanup() {
         esac
     fi
     rmdir /tmp/lumen-session 2>/dev/null
-    if [ -f /mnt/us/lumen/.update/relaunch ]; then
-        rm -f /mnt/us/lumen/.update/relaunch
-        nohup setsid /bin/sh /mnt/us/lumen/launch.sh >/dev/null 2>&1 </dev/null &
-    fi
+
 }
 trap cleanup EXIT
 trap 'exit 0' INT HUP TERM
@@ -69,51 +64,64 @@ date
 rollback_wireless() {
     [ ! -f .update/previous ] || { mv -f .update/previous bin/lumen && sync; }
 }
-# The durable helper runs from .update, so replacing bin/lumen and launch.sh is safe.
-if [ -x .update/system-installer ]; then
-    if [ -f .update/system-starting ]; then
-        .update/system-installer --system-rollback || exit 1
-        rm -f .update/system-starting
-    else
-        if ! .update/system-installer --system-maintenance; then
+# Keep the original supervisor and framebuffer ownership across an update.
+# Installing launch.sh replaces its directory entry, leaving this open script intact.
+lipc-set-prop com.lab126.pillow disableEnablePillow disable && pillow_disabled=1
+sh /mnt/us/lumen/ui-session.sh pause
+lipc-set-prop -i com.lab126.powerd preventScreenSaver 0
+
+while :; do
+    rm -f .update/relaunch
+    recovered=0
+    if [ -f .update/system-ready ]; then
+        lipc-set-prop -i com.lab126.powerd preventScreenSaver 1
+    fi
+    if [ -x .update/system-installer ]; then
+        if [ -f .update/system-starting ]; then
+            .update/system-installer --system-rollback || exit 1
+            rm -f .update/system-starting
+            recovered=1
+        elif ! .update/system-installer --system-maintenance; then
             echo 'Update failed, recovering previous runtime'
             .update/system-installer --system-rollback || exit 1
             rm -rf .update/system-stage
             rm -f .update/system-ready .update/system-installer
+            recovered=1
         fi
     fi
-fi
-if [ -f .update/system-trial ]; then
-    : > .update/system-starting
-fi
-rollback_wireless || exit 1
-if [ -f .update/approved ]; then
-    if ! bin/lumen --apply-wireless; then
-        echo 'wireless update rejected'
-        rm -f .update/approved .update/incoming .update/received
-        rollback_wireless || exit 1
+    if [ -f .update/system-trial ]; then
+        : > .update/system-starting
+    else
+        lipc-set-prop -i com.lab126.powerd preventScreenSaver 0
     fi
-fi
-# Copy the executable to RAM so exporting USB storage cannot truncate running code.
-cp /mnt/us/lumen/bin/lumen /var/tmp/lumen-native || exit 1
-chmod 700 /var/tmp/lumen-native
-# Pause only UI owners, not powerd, wifid, appmgrd, D-Bus or USB services.
-lipc-set-prop com.lab126.pillow disableEnablePillow disable && pillow_disabled=1
-sh /mnt/us/lumen/ui-session.sh pause
-lipc-set-prop -i com.lab126.powerd preventScreenSaver 0
-sleep 1
-/var/tmp/lumen-native &
-native_pid=$!
-wait "$native_pid"
-result=$?
-native_pid=
-echo "native_exit=$result"
-if [ "$result" != 0 ]; then
-    if [ -f .update/system-trial ] && [ -x .update/system-installer ]; then
-        .update/system-installer --system-rollback
+    rollback_wireless || exit 1
+    if [ -f .update/approved ]; then
+        if ! bin/lumen --apply-wireless; then
+            echo 'wireless update rejected'
+            rm -f .update/approved .update/incoming .update/received
+            rollback_wireless || exit 1
+        fi
     fi
-    rollback_wireless
-fi
-rm -f .update/system-starting
-rm -f /var/tmp/lumen-native
-exit "$result"
+    # Keep the running executable off the USB volume.
+    cp /mnt/us/lumen/bin/lumen /var/tmp/lumen-native || exit 1
+    chmod 700 /var/tmp/lumen-native
+    sh /mnt/us/lumen/ui-session.sh reassert
+    LUMEN_UPDATE_RECOVERED="$recovered" /var/tmp/lumen-native &
+    native_pid=$!
+    wait "$native_pid"
+    result=$?
+    native_pid=
+    echo "native_exit=$result"
+    rm -f /var/tmp/lumen-native
+    if [ "$result" != 0 ]; then
+        if [ -f .update/system-starting ] && [ -x .update/system-installer ]; then
+            # Leave the marker for the next pass to restore the old runtime.
+            continue
+        fi
+        rollback_wireless
+        exit "$result"
+    fi
+    rm -f .update/system-starting
+    [ -f .update/relaunch ] || exit 0
+    echo 'Continuing LUMEN session with the staged update'
+done

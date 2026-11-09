@@ -18,29 +18,36 @@
 #include <unistd.h>
 #define RELEASE_ROOT "https://github.com/MerlinHof/Lumen/releases/download/"
 static pid_t worker;
-static int state, loaded, installing, last_step, last_mb;
+static int state, loaded, installing, last_step, last_percent;
 static time_t checked;
 static char version[32], error[192];
 static void path(char *out,const char *name) { snprintf(out,2048,"%s/%s",data_root,name); }
-static void progress_file(int step) {
-    char file[2048], value = '0' + step;
-    path(file, "release-progress.txt");
-    atomic_write(file, &value, 1);
+static void progress_file(int step, unsigned long long expected) {
+    char file[2048], value[48];
+    path(file,"release-progress.txt");
+    int n=snprintf(value,sizeof(value),"%d %llu\n",step,expected);
+    atomic_write(file,value,n);
 }
-static int update_progress(int *mb) {
+static int update_progress(int *percent) {
     char file[2048];
-    path(file, "release-progress.txt");
-    FILE *f = fopen(file, "rb");
-    int step = f ? fgetc(f) - '0' : 0;
-    if (f) fclose(f);
-    snprintf(file, sizeof(file), "%s/../.update/github-download", data_root);
-    struct stat st;
-    *mb = stat(file,&st) ? 0 : st.st_size / 1048576;
+    path(file,"release-progress.txt");
+    FILE *f=fopen(file,"rb");
+    int step=0;unsigned long long expected=0;
+    if(f){if(fscanf(f,"%d %llu",&step,&expected)!=2)step=0;fclose(f);}
+    *percent=0;
+    if(step==1 && expected) {
+        snprintf(file,sizeof(file),"%s/../.update/github-download",data_root);
+        struct stat st;
+        if(!stat(file,&st) && st.st_size>0) {
+            unsigned long long count=st.st_size;
+            *percent=count>=expected ? 100 : count*100/expected;
+        }
+    }
     return step;
 }
-int release_progress(int *mb) {
-    *mb = last_mb;
-    return installing ? last_step : 0;
+int release_progress(int *percent) {
+    *percent=last_percent;
+    return last_step;
 }
 int release_activate(void) {
     char ready[2048], restart[2048];
@@ -120,18 +127,20 @@ static void check_worker(int install,pid_t parent) {
     if(strcmp(format,"lumen-system-1"))goto failed;
     json_string(&json,json_get(&json,0,"url"),url,sizeof(url));
     json_string(&json,json_get(&json,0,"sha256"),hash,sizeof(hash));
-    long length=(long)json_number(&json,json_get(&json,0,"size"));
-    if(strncmp(url,RELEASE_ROOT,strlen(RELEASE_ROOT)) || strlen(hash)!=64 || length<4096 || length>128*1024*1024)goto failed;
+    double bytes=json_number(&json,json_get(&json,0,"size"));
+    double installed=json_number(&json,json_get(&json,0,"installed_size"));
+    if(strncmp(url,RELEASE_ROOT,strlen(RELEASE_ROOT)) || strlen(hash)!=64 ||
+       !(bytes>=4096 && bytes<=128*1024*1024) || !(installed>=4096 && installed<=160*1024*1024))goto failed;
+    long length=(long)bytes;
     failure="Update konnte nicht geprüft werden. Bitte erneut versuchen.";
-    if(update_trial()){failure="Zuerst das installierte Test-Update bestätigen.";goto failed;}
-    struct statvfs disk;if(statvfs(data_root,&disk) || (uint64_t)disk.f_bavail*disk.f_frsize<(uint64_t)length+2*(uint64_t)json_number(&json,json_get(&json,0,"installed_size"))+16*1024*1024)goto failed;
+    struct statvfs disk;if(statvfs(data_root,&disk) || (uint64_t)disk.f_bavail*disk.f_frsize<(uint64_t)length+2*(uint64_t)installed+16*1024*1024)goto failed;
     char dir[2048];snprintf(dir,sizeof(dir),"%s/../.update",data_root);mkdir(dir,0700);
-    progress_file(1);
+    progress_file(1,length);
     if(!download(url,binary,128*1024*1024))goto failed;
-    progress_file(2);
+    progress_file(2,length);
     if(!digest_file(binary,actual) || strcmp(actual,hash))goto failed;
     struct stat info;if(stat(binary,&info) || info.st_size!=length)goto failed;
-    progress_file(3);
+    progress_file(3,length);
     if(getppid()!=parent || !system_update_stage(binary,tag+1))goto failed;
     result(4,tag,"");
     goto done;
@@ -140,8 +149,8 @@ done: free(text);unlink(api);unlink(meta);unlink(binary);_exit(0);
 }
 int release_start(int install) {
     if(worker || (install && state!=3))return 0;
-    installing=install;last_step=last_mb=0;
-    if(install)progress_file(0);
+    installing=install;last_step=last_percent=0;
+    if(install)progress_file(0,0);
     pid_t parent=getpid();worker=fork();if(worker<0){worker=0;return 0;}
     if(!worker){setpgid(0,0);signal(SIGTERM,SIG_DFL);check_worker(install,parent);}
     state=1;error[0]=0;return 1;
@@ -149,9 +158,9 @@ int release_start(int install) {
 int release_poll(void) {
     if(worker){int status;pid_t done=waitpid(worker,&status,WNOHANG);if(done==0) {
             if (!installing) return 0;
-            int mb, step=update_progress(&mb);
-            int changed=step!=last_step || mb!=last_mb;
-            last_step=step;last_mb=mb;
+            int percent, step=update_progress(&percent);
+            int changed=step!=last_step || percent!=last_percent;
+            last_step=step;last_percent=percent;
             return changed;
         } worker=0;installing=0;
         if(done<0 || !WIFEXITED(status) || WEXITSTATUS(status)){state=-1;snprintf(error,sizeof(error),"Update konnte nicht geprüft werden. Bitte erneut versuchen.");return 1;}}

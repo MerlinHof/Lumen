@@ -19,8 +19,13 @@ void app_process_close(void);
 int app_process_poll(void);
 int app_process_fd(void);
 int app_process_pending(void);
+void app_process_flush(void);
 int app_process_send(const char *event);
 const char *app_process_frame(void);
 const char *app_process_request(void);
 const char *app_process_error(void);
+int app_overlay_send(const char *id,const char *event);
+int app_overlay_fd(void);
+int app_overlay_poll(void);
+const char *app_overlay_frame(void);
 #endif

@@ -93,7 +93,8 @@ int main(int argc, char **argv) {
             engine_shutdown();
             return 6;
         }
-        ui_loading("Bibliothek wird vorbereitet ...");
+        if(system_update_trial())ui_update_progress(5,100,LUMEN_VERSION,NULL);
+        else ui_loading("Bibliothek wird vorbereitet ...");
         device_present(ui_pixels, 1, settings.refresh);
     }
     library_scan();
@@ -115,10 +116,17 @@ int main(int argc, char **argv) {
         engine_shutdown();
         return 0;
     }
+    const char *recovered=getenv("LUMEN_UPDATE_RECOVERED");
+    if(recovered && !strcmp(recovered,"1"))
+        ui_message("Update fehlgeschlagen. Vorige Version wiederhergestellt.");
     ui_draw();
     device_present(ui_pixels, 1, settings.refresh);
 #ifndef LUMEN_HOST
-    unlink("/mnt/us/lumen/.update/system-starting");
+    if(system_update_trial()) {
+        unlink("/mnt/us/lumen/.update/system-starting");
+        system_update_keep();
+        device_finish_update();
+    }
 #endif
     fprintf(stderr, "startup_ms=%.1f books=%d\n", (stamp() - start) * 1000, library_count);
     int profile = getenv("LUMEN_PROFILE") && !strcmp(getenv("LUMEN_PROFILE"), "1");

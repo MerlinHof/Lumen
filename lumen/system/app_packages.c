@@ -18,11 +18,29 @@
 static const char *keys[APP_COUNT]={
  "lumen.library","lumen.reader","lumen.settings","lumen.store","lumen.transfer","lumen.calendar","lumen.insights","lumen.minesweeper","lumen.hangman","lumen.tetris","lumen.snake","lumen.calculator","lumen.clock","lumen.notes","retired.drawing","lumen.weather","lumen.home-assistant","lumen.wikipedia","lumen.quotes","lumen.chess","lumen.tic-tac-toe","retired.numscratch","lumen.2048","lumen.solitaire","lumen.sudoku","lumen.braintrain","lumen.news","lumen.wordle","lumen.photos","lumen.languages","lumen.todo","lumen.flashcards","lumen.planetarium","lumen.nonograms","lumen.hex","lumen.status-bar","retired.tabs","lumen.lock-screen","lumen.keyboard","lumen.journal","lumen.study","lumen.bingo","lumen.connect-four","lumen.recipes","lumen.periodic-table","retired.files","lumen.knights-tour","lumen.sokoban","lumen.maze","lumen.crossword","retired.rpg","lumen.openai","lumen.sliding-puzzle","lumen.frog-solitaire","lumen.home"};
 static struct {AppDefinition def;char key[64],name[96],version[32];int installed,removed,has_icon;} entries[APP_LIMIT];
-static pid_t child, retired[64];
-static char process_hash[65];
-static void reap_apps(void){for(int i=0;i<64;i++)if(retired[i]&&waitpid(retired[i],NULL,WNOHANG)!=0)retired[i]=0;}static int read_fd=-1,write_fd=-1,active=-1,paused;
-static size_t incoming_n, pending_n;
-static char pending[65536];static char incoming[APP_FRAME_MAX],frame[APP_FRAME_MAX],request[32768],failure[160];
+typedef struct {
+    pid_t child;
+    int read_fd,write_fd,active,paused;
+    size_t incoming_n,pending_n;
+    char process_hash[65],pending[65536],incoming[APP_FRAME_MAX],frame[APP_FRAME_MAX];
+    char request[32768],failure[160];
+} AppProcess;
+
+static AppProcess foreground={.read_fd=-1,.write_fd=-1,.active=-1};
+static AppProcess overlay={.read_fd=-1,.write_fd=-1,.active=-1};
+static pid_t retired[64];
+
+static void process_close(AppProcess *process);
+static void reap_apps(void) {
+    for(int i=0;i<64;i++)
+        if(retired[i] && waitpid(retired[i],NULL,WNOHANG)!=0)retired[i]=0;
+}
+static void refresh_process(AppProcess *process) {
+    if(process->active<0 || process->child<=0)return;
+    char exe[2048],hash[65];
+    snprintf(exe,sizeof(exe),"%s/../apps/%s/app",data_root,entries[process->active].key);
+    if(!package_sha256(exe,hash) || strcmp(hash,process->process_hash))process_close(process);
+}
 static void root(char*out,const char*leaf){snprintf(out,2048,"%s/../apps/%s",data_root,leaf);}
 static int valid_id(const char*id){return id && strlen(id)>2 && strlen(id)<64 && strspn(id,"abcdefghijklmnopqrstuvwxyz0123456789.-_")==strlen(id) && id[0]!='.' && !strstr(id,"..");}
 static void deleted_path(char *path,const char *id) {
@@ -51,7 +69,7 @@ void app_packages_scan(void) {
  }
  closedir(d);free(p);
  char slots[4096];size_t n=0;for(int i=APP_COUNT;i<APP_LIMIT;i++)if(*entries[i].key)n+=snprintf(slots+n,sizeof(slots)-n,"%d %s\n",i,entries[i].key);
- if(active>=0 && child>0){char exe[2048],actual[65];snprintf(exe,sizeof(exe),"%s/../apps/%s/app",data_root,entries[active].key);if(!package_sha256(exe,actual)||strcmp(actual,process_hash))app_process_close();}
+ refresh_process(&foreground);refresh_process(&overlay);
  root(file,"slots.txt");char old[4096];size_t old_n=0;FILE*before=fopen(file,"rb");if(before){old_n=fread(old,1,sizeof(old),before);fclose(before);}
  if(old_n!=n || memcmp(old,slots,n))atomic_write(file,slots,n);
 }
@@ -95,58 +113,82 @@ int app_package_icon(AppId id,unsigned char pixels[76*76]) {
  int ok=fread(header,1,sizeof(expected)-1,f)==sizeof(expected)-1&&!memcmp(header,expected,sizeof(expected)-1)&&fread(pixels,1,76*76,f)==76*76&&fgetc(f)==EOF;fclose(f);entries[id].has_icon=ok ? 1 : -1;return ok;
 }
 static void json_text(FILE*f,const char*s){fputc('"',f);for(;*s;s++){unsigned char c=*s;if(c=='"'||c=='\\')fputc('\\',f);if(c<32)fprintf(f,"\\u%04x",c);else fputc(c,f);}fputc('"',f);}
-void app_process_close(void) {
- if(child>0){kill(-child,SIGTERM);kill(child,SIGTERM);waitpid(child,NULL,WNOHANG);}
- if(child>0 && waitpid(child,NULL,WNOHANG)==0)for(int i=0;i<64;i++)if(!retired[i]){retired[i]=child;break;}
- child=0;if(read_fd>=0)close(read_fd);if(write_fd>=0)close(write_fd);read_fd=write_fd=-1;active=-1;frame[0]=request[0]=failure[0]=0;incoming_n=pending_n=0;
+static void process_close(AppProcess *p) {
+ if(p->child>0){kill(-p->child,SIGTERM);kill(p->child,SIGTERM);waitpid(p->child,NULL,WNOHANG);}
+ if(p->child>0 && waitpid(p->child,NULL,WNOHANG)==0)for(int i=0;i<64;i++)if(!retired[i]){retired[i]=p->child;break;}
+ p->child=0;if(p->read_fd>=0)close(p->read_fd);if(p->write_fd>=0)close(p->write_fd);p->read_fd=p->write_fd=-1;p->active=-1;p->frame[0]=p->request[0]=p->failure[0]=0;p->incoming_n=p->pending_n=0;
 }
-static void flush_events(void) {
- while(write_fd>=0 && pending_n){ssize_t n=write(write_fd,pending,pending_n);if(n<=0)break;memmove(pending,pending+n,pending_n-n);pending_n-=n;}
+static void flush_events(AppProcess *p) {
+ while(p->write_fd>=0 && p->pending_n){ssize_t n=write(p->write_fd,p->pending,p->pending_n);if(n<=0)break;memmove(p->pending,p->pending+n,p->pending_n-n);p->pending_n-=n;}
 }
-int app_process_send(const char*event) {
- if(write_fd<0||!event)return 0;size_t n=strlen(event);if(n>16384 || n+1>sizeof(pending)-pending_n)return 0;
- memcpy(pending+pending_n,event,n);pending_n+=n;pending[pending_n++]='\n';flush_events();return 1;
+static int process_send(AppProcess *p,const char*event) {
+ if(p->write_fd<0||!event)return 0;size_t n=strlen(event);if(n>16384 || n+1>sizeof(p->pending)-p->pending_n)return 0;
+ memcpy(p->pending+p->pending_n,event,n);p->pending_n+=n;p->pending[p->pending_n++]='\n';flush_events(p);return 1;
 }
-void app_process_pause(void){if(child>0&&!paused){app_process_send("{\"event\":\"pause\"}");paused=1;}}
-int app_process_open(AppId id) {
+static void process_pause(AppProcess *p){if(p->child>0&&!p->paused){process_send(p,"{\"event\":\"pause\"}");p->paused=1;}}
+static int process_open(AppProcess *p,AppId id,const char *role) {
  if(!app_package_installed(id))return 0;
- if(active==(int)id&&child>0){if(paused)app_process_send("{\"event\":\"resume\"}");paused=0;return 1;}
- reap_apps();app_process_close();signal(SIGPIPE,SIG_IGN);int in[2],out[2];if(pipe(in))return 0;if(pipe(out)){close(in[0]);close(in[1]);return 0;}
+ if(p->active==(int)id&&p->child>0){if(p->paused)process_send(p,"{\"event\":\"resume\"}");p->paused=0;return 1;}
+ reap_apps();process_close(p);signal(SIGPIPE,SIG_IGN);int in[2],out[2];if(pipe(in))return 0;if(pipe(out)){close(in[0]);close(in[1]);return 0;}
  char dir[2048],file[2048],state[2048];root(dir,entries[id].key);snprintf(file,sizeof(file),"%s/app",dir);snprintf(state,sizeof(state),"%s/app-state/%s",data_root,entries[id].key);
  char*absolute=realpath(dir,NULL);if(absolute){snprintf(dir,sizeof(dir),"%s",absolute);free(absolute);snprintf(file,sizeof(file),"%s/app",dir);}
  if(!package_mkdirs(state)){close(in[0]);close(in[1]);close(out[0]);close(out[1]);return 0;}
  absolute=realpath(state,NULL);if(absolute){snprintf(state,sizeof(state),"%s",absolute);free(absolute);}
- package_sha256(file,process_hash);
- child=fork();if(child<0){child=0;close(in[0]);close(in[1]);close(out[0]);close(out[1]);return 0;}
- if(!child){setpgid(0,0);signal(SIGTERM,SIG_DFL);signal(SIGPIPE,SIG_DFL);dup2(in[0],0);dup2(out[1],1);close(in[0]);close(in[1]);close(out[0]);close(out[1]);
+ package_sha256(file,p->process_hash);
+ p->child=fork();if(p->child<0){p->child=0;close(in[0]);close(in[1]);close(out[0]);close(out[1]);return 0;}
+ if(!p->child){setpgid(0,0);signal(SIGTERM,SIG_DFL);signal(SIGPIPE,SIG_DFL);dup2(in[0],0);dup2(out[1],1);close(in[0]);close(in[1]);close(out[0]);close(out[1]);
    int null=open("/dev/null",O_WRONLY);dup2(null,2);close(null);for(int fd=3;fd<1024;fd++)close(fd);chdir(dir);setenv("LUMEN_APP_DATA",state,1);setenv("LUMEN_APP_ASSETS",dir,1);execl(file,file,NULL);_exit(127);}
- close(in[0]);close(out[1]);write_fd=in[1];read_fd=out[0];fcntl(write_fd,F_SETFL,O_NONBLOCK);fcntl(read_fd,F_SETFL,O_NONBLOCK);fcntl(write_fd,F_SETFD,FD_CLOEXEC);fcntl(read_fd,F_SETFD,FD_CLOEXEC);
- active=id;paused=0;char*event=NULL;size_t n=0;FILE*f=open_memstream(&event,&n);fprintf(f,"{\"event\":\"open\",\"api\":1,\"width\":600,\"height\":800,\"content_y\":56,\"language\":%d,\"data_dir\":",options[OPT_LANGUAGE]);json_text(f,state);fputc('}',f);fclose(f);int ok=app_process_send(event);free(event);return ok;
+ close(in[0]);close(out[1]);p->write_fd=in[1];p->read_fd=out[0];fcntl(p->write_fd,F_SETFL,O_NONBLOCK);fcntl(p->read_fd,F_SETFL,O_NONBLOCK);fcntl(p->write_fd,F_SETFD,FD_CLOEXEC);fcntl(p->read_fd,F_SETFD,FD_CLOEXEC);
+ p->active=id;p->paused=0;char*event=NULL;size_t n=0;FILE*f=open_memstream(&event,&n);fprintf(f,"{\"event\":\"open\",\"api\":1,\"width\":600,\"height\":800,\"content_y\":56,\"language\":%d,\"data_dir\":",options[OPT_LANGUAGE]);json_text(f,state);fputs(",\"role\":",f);json_text(f,role);fputc('}',f);fclose(f);int ok=process_send(p,event);free(event);return ok;
 }
-int app_process_fd(void) { return read_fd; }
-int app_process_pending(void) { return pending_n != 0; }
-int app_process_poll(void) {
- reap_apps();if(child<=0)return 0;flush_events();
+static int process_poll(AppProcess *p) {
+ reap_apps();if(p->child<=0)return 0;flush_events(p);
  int changed=0;char buf[16384];size_t received=0;ssize_t n=-1;
- while(received<APP_FRAME_MAX*2 && (n=read(read_fd,buf,sizeof(buf)))>0) {
+ while(received<APP_FRAME_MAX*2 && (n=read(p->read_fd,buf,sizeof(buf)))>0) {
    received+=n;
    for(ssize_t i=0;i<n;i++) {
      if(buf[i]=='\n') {
-       incoming[incoming_n]=0;
-       if(strstr(incoming,"\"request\"")){snprintf(request,sizeof(request),"%s",incoming);changed=1;}
-       else if (strcmp(frame,incoming)) {snprintf(frame,sizeof(frame),"%s",incoming);changed=1;}
-       incoming_n=0;
-     } else if(incoming_n+1<sizeof(incoming))incoming[incoming_n++]=buf[i];
-     else {snprintf(failure,sizeof(failure),"App-Ausgabe zu groß.");kill(child,SIGTERM);incoming_n=0;break;}
+       p->incoming[p->incoming_n]=0;
+       if(strstr(p->incoming,"\"request\"")){snprintf(p->request,sizeof(p->request),"%s",p->incoming);changed=1;}
+       else if (strcmp(p->frame,p->incoming)) {snprintf(p->frame,sizeof(p->frame),"%s",p->incoming);changed=1;}
+       p->incoming_n=0;
+     } else if(p->incoming_n+1<sizeof(p->incoming))p->incoming[p->incoming_n++]=buf[i];
+     else {snprintf(p->failure,sizeof(p->failure),"App-Ausgabe zu groß.");kill(p->child,SIGTERM);p->incoming_n=0;break;}
    }
  }
- if (n == 0 && read_fd >= 0) { close(read_fd); read_fd=-1; }
- int status;pid_t done=waitpid(child,&status,WNOHANG);if(done==child){child=0;close(read_fd);close(write_fd);read_fd=write_fd=-1;snprintf(failure,sizeof(failure),"App wurde beendet. Bitte erneut öffnen.");changed=1;}
+ int status;pid_t done=waitpid(p->child,&status,WNOHANG);
+ if(done==p->child || n==0) {
+   if(done==p->child)p->child=0;
+   process_close(p);
+   snprintf(p->failure,sizeof(p->failure),"App wurde beendet. Bitte erneut öffnen.");
+   changed=1;
+ }
  return changed;
 }
-const char *app_process_frame(void){return frame;}
-const char *app_process_request(void){static char taken[32768];snprintf(taken,sizeof(taken),"%s",request);request[0]=0;return taken;}
-const char *app_process_error(void){return failure;}
+
+void app_process_close(void){process_close(&foreground);process_close(&overlay);}
+void app_process_pause(void){process_pause(&foreground);}
+int app_process_open(AppId id){return process_open(&foreground,id,"foreground");}
+int app_process_fd(void){return foreground.read_fd;}
+int app_overlay_fd(void){return overlay.read_fd;}
+int app_process_pending(void){return foreground.pending_n || overlay.pending_n;}
+void app_process_flush(void){flush_events(&foreground);flush_events(&overlay);}
+int app_process_send(const char *event){return process_send(&foreground,event);}
+int app_process_poll(void){return process_poll(&foreground);}
+const char *app_process_frame(void){return foreground.frame;}
+const char *app_process_request(void){
+    static char taken[32768];
+    snprintf(taken,sizeof(taken),"%s",foreground.request);
+    foreground.request[0]=0;
+    return taken;
+}
+const char *app_process_error(void){return foreground.failure;}
+int app_overlay_send(const char *id,const char *event){
+    int slot=identify(id);
+    return slot>=0 && process_open(&overlay,slot,"overlay") && process_send(&overlay,event);
+}
+int app_overlay_poll(void){return process_poll(&overlay);}
+const char *app_overlay_frame(void){return overlay.frame;}
 static int version_newer(const char*a,const char*b){for(int i=0;i<3;i++){long x=strtol(a,(char**)&a,10),y=strtol(b,(char**)&b,10);if(x!=y)return x>y;if(*a=='.')a++;if(*b=='.')b++;}return 0;}
 void app_packages_seed(void) {
  char directory[2048];snprintf(directory,sizeof(directory),"%s/../app-packages",data_root);

@@ -1,13 +1,12 @@
 #include "lumen_app.h"
 #include "session.h"
-#include "shell.h"
-#include <fcntl.h>
 
-enum { HISTORY=16, COMMAND=512, OUTPUT=8192, ROWS=24, COLUMNS=45 };
+enum { HISTORY=16, COMMAND=512, OUTPUT=8192, TOP=66, LINE=21, COLUMNS=64 };
 static char history[HISTORY][COMMAND];
 static char transcript[32768];
 static size_t transcript_length;
-static int count, running, scroll;
+static int count,running,scroll,prompt_y,bottom=800;
+static char prompt[64]="kindle > ";
 static TerminalSession shell;
 
 static const char *word(const char *de,const char *en,const char *fr) {
@@ -33,17 +32,14 @@ static const char *next_row(const char *p) {
     return p;
 }
 static void draw(void) {
-    ui_paint_heading("Terminal",2);
-    ui_paint_icon_button(472,74,IC_HISTORY);
-    ui_paint_icon_button(528,74,IC_LOCK);
-    ui_paint_line(28,127,572,127,1,177);
     int total=0;
     for(const char *p=transcript;*p;total++) {
         p=next_row(p);
         if(*p=='\n')p++;
     }
-    if(scroll>total-ROWS)scroll=total>ROWS ? total-ROWS : 0;
-    int last=total-scroll,first=last>ROWS ? last-ROWS : 0;
+    int rows=(bottom-TOP)/LINE-(bottom==800);
+    if(scroll>total-rows)scroll=total>rows ? total-rows : 0;
+    int last=total-scroll,first=last>rows ? last-rows : 0;
     const char *start=transcript;
     for(int i=0;i<last;i++) {
         const char *end=next_row(start);
@@ -52,18 +48,20 @@ static void draw(void) {
             size_t n=(size_t)(end-start);
             if(n>=sizeof(line))n=sizeof(line)-1;
             memcpy(line,start,n);line[n]=0;
-            lumen_mono(30,133+(i-first)*24,540,24,line,0);
+            lumen_mono_columns(22,TOP+(i-first)*LINE,556,LINE,line,0,8);
         }
         start=*end=='\n' ? end+1 : end;
     }
-    ui_paint_line(28,718,572,718,1,177);
-    ui_paint_hitbox(28,721,544,57);
-    lumen_mono(30,724,36,48,"$",0);
-    lumen_mono(65,724,502,48,running ? "…" :
-        word("Befehl eingeben","Enter a command","Saisir une commande"),118);
+    prompt_y=TOP+(last-first)*LINE;
+    if(bottom==800) {
+        ui_paint_hitbox(16,prompt_y,568,LINE+8);
+        lumen_mono_columns(22,prompt_y,556,LINE,running ? "…" : prompt,0,8);
+        if(!running)ui_paint_surface(22+(int)strlen(prompt)*8,prompt_y+4,7,12,0,0,0);
+    }
 }
-static void edit_command(const char *text) {lumen_request("input","Terminal",text,1);}
+static void edit_command(const char *text) {lumen_request("input",prompt,text,1);}
 static int input(const Input *in) {
+    if(in->kind==INPUT_VIEWPORT){bottom=in->y==395 ? 395 : 800;return 1;}
     if(in->kind==INPUT_TEXT && in->x==1) {
         char command[COMMAND], output[OUTPUT];
         if(!lumen_string("text",command,sizeof(command)) || !*command)return 1;
@@ -73,7 +71,7 @@ static int input(const Input *in) {
             if(count<HISTORY)count++;
             app_state_save("history.bin",history,sizeof(history));
         }
-        scroll=0;append("$ ");append(command);append("\n");
+        scroll=0;append(prompt);append(command);append("\n");
         running=1;lumen_begin();draw();lumen_end();
         int result=terminal_session_command(&shell,access("/mnt/us",X_OK) ? "/" : "/mnt/us",
                                             command,output,sizeof(output));
@@ -90,37 +88,27 @@ static int input(const Input *in) {
         }
         running=0;return 1;
     }
-    if(in->kind==INPUT_SELECT) {
-        if(in->x==2 && in->y>=0 && in->y<count)edit_command(history[in->y]);
-#ifndef __APPLE__
-        if(in->x==3 && in->y==1) {
-            if(terminal_access())unlink(TERMINAL_ACCESS);
-            else {int fd=open(TERMINAL_ACCESS,O_CREAT|O_WRONLY|O_TRUNC|O_NOFOLLOW,0600);if(fd>=0)close(fd);}
-        }
-#endif
-        return 1;
-    }
+    if(in->kind==INPUT_SELECT && in->x==2 && in->y>=0 && in->y<count)
+        edit_command(history[in->y]);
     if(in->kind==INPUT_SWIPE) {
-        if(in->dy>0 && scroll<sizeof(transcript))scroll+=ROWS-3;
-        if(in->dy<0)scroll=scroll>ROWS-3 ? scroll-(ROWS-3) : 0;
-        return 1;
+        if(in->dy>0 && scroll<(int)sizeof(transcript))scroll+=12;
+        if(in->dy<0)scroll=scroll>12 ? scroll-12 : 0;
     }
-    if(in->kind!=INPUT_TAP)return 1;
-    if(in->y>=721 && in->y<778)edit_command("");
-    if(in->y>=74 && in->y<118 && in->x>=472 && in->x<516 && count) {
-        const char *choices[HISTORY];for(int i=0;i<count;i++)choices[i]=history[i];
-        lumen_select(choices,count,-1,2);
-    }
-    if(in->y>=74 && in->y<118 && in->x>=528) {
-        const char *choices[]={word("Abbrechen","Cancel","Annuler"),terminal_access() ?
-            word("Webzugriff sperren","Disable web access","Fermer l’accès web") :
-            word("Root-Zugriff im Web · 10 Min.","Allow web root access · 10 min","Accès root web · 10 min")};
-        lumen_select(choices,2,-1,3);
+    if(in->y>=prompt_y && in->y<prompt_y+LINE+8) {
+        if(in->kind==INPUT_TAP)edit_command("");
+        if(in->kind==INPUT_HOLD && count) {
+            const char *choices[HISTORY];for(int i=0;i<count;i++)choices[i]=history[i];
+            lumen_select(choices,count,-1,2);
+        }
     }
     return 1;
 }
 static void shutdown_shell(void){terminal_session_close(&shell);}
 int main(void) {
+    char hostname[52]="kindle";
+    if(gethostname(hostname,sizeof(hostname)-1))snprintf(hostname,sizeof(hostname),"kindle");
+    hostname[sizeof(hostname)-1]=0;
+    snprintf(prompt,sizeof(prompt),"%s > ",hostname);
     if(app_state_load("history.bin",history,sizeof(history)))
         while(count<HISTORY && history[count][0]) {history[count][COMMAND-1]=0;count++;}
     atexit(shutdown_shell);

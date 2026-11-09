@@ -5,7 +5,7 @@ system/defaults.c
 system/engine.c
 system/device.c
 system/connect.c
-apps/terminal/shell.c
+apps/terminal/session.c
 system/wireless_update.c
 system/amazon.c
 system/qrcodegen.c
@@ -27,7 +27,6 @@ system/preferences.c
 system/unicode.c
 system/fonts.c
 apps/catalog.c
-apps/notifications/model.c
 system/dictionary.c
 system/app_storage.c
 

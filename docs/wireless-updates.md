@@ -23,9 +23,12 @@ traversal paths are rejected. Personal app state stays outside the runtime.
 The installer runs from a durable helper, not the file being replaced. Before
 changing anything it copies changed originals and commits a write-ahead journal.
 An interrupted activation or failed startup is recovered on the next launch.
-A healthy trial survives a normal restart. Select **Keep update** in System → Update
-to remove its rollback copy. The web interface can also keep or roll back a trial.
+Starting with 4.7, the update takes over the screen and shows live download
+percentage, verification, installation and startup. The launcher stays active
+and relaunches LUMEN without another tap. Once the first screen is displayed,
+LUMEN confirms the update and discards its rollback copy automatically.
 
-4.5 uses USB once to replace the older updater. For later compatible versions,
-check for updates, download, wait for **Ready to restart**, then choose **Restart now**.
-Live activation of a later release still needs verification on the physical Kindle.
+To move from 4.6 to 4.7, confirm 4.6 with **Keep update** if that button is still
+visible. Check for updates, download 4.7 and choose **Restart now** in the older
+interface. If 4.6 exits without reopening, launch LUMEN once from the Kindle
+library. Updates started from 4.7 use the new progress and restart flow.

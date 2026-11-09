@@ -84,23 +84,14 @@ static void system_screen(void) {
             label_at(30,416,540,30,tr("Zuletzt geprüft"),ui_font(UI_SECONDARY));
             label_at(30,450,540,38,b,ui_font(UI_BODY));
         }
-        int mb;
-        int phase=release_progress(&mb);
-        const char *state=release_state()==4 ? "Bereit zum Neustart" :
-                          phase==1 ? "Update wird geladen …" :
-                          phase==2 ? "Prüfsumme wird geprüft …" :
-                          phase==3 ? "Installation wird vorbereitet …" :
-                          release_state()==1 ? "Wird geprüft …" :
+        const char *state=release_state()==1 ? "Wird geprüft …" :
                           release_state()==2 ? "LUMEN ist aktuell." :
-                          release_state()==3 ? "Neue Version verfügbar" : "Updates über GitHub";
+                          release_state()==3 || release_state()==4 ? "Neue Version verfügbar" : "Updates über GitHub";
         label_at(30,512,540,40,tr(state),ui_font(UI_PRIMARY));
-        if(phase==1){snprintf(b,sizeof(b),"%d MiB",mb);label_at(30,556,540,34,b,ui_font(UI_BODY));}
         if(release_state()==3 || release_state()==4)label_at(30,556,540,34,release_version(),ui_font(UI_BODY));
         if(release_state()<0)wrapped(30,556,tr(release_error()),ui_font(UI_SECONDARY),540,3);
         button_h(28,672,544,54,release_state()==1 ? "Wird geprüft …" : "Nach Updates suchen",0);
-        if(release_state()==3)action_button(28,598,544,54,"Update installieren");
-        if(release_state()==4)action_button(28,598,544,54,"Jetzt neu starten");
-        if(update_trial())button_h(28,738,544,44,"Update behalten",0);
+        if(release_state()==3 || release_state()==4)action_button(28,598,544,54,"Update installieren");
     } else if (extra_page==1) {
         type_label(30,219,540,48,tr("Speicher"),UI_TITLE);
         uint64_t total = storage_total, free = storage_free, books = storage_books,
@@ -164,13 +155,16 @@ static int system_input(const Input *in) {
     }
     if (!extra_page) {
         if(y>=672 && y<726 && release_state()!=1 && release_state()!=4)release_start(0);
-        if(y>=598 && y<652 && release_state()==3)release_start(1);
-        if(y>=598 && y<652 && release_activate()){
-            ui_loading("Update wird installiert …");
-            device_present_async(ui_pixels);
-            return 0;
+        if(x>=28 && x<572 && y>=598 && y<652 && (release_state()==3 || release_state()==4)) {
+            if(release_state()==4 || release_start(1)) {
+                connect_stop();
+                device_hold_awake(1);
+                updating=1;
+                update_error=NULL;
+                full=1;
+                pressed=-1;
+            }
         }
-        if(y>=738 && update_trial())update_keep();
         return 1;
     }
     if(extra_page==1)return 1;

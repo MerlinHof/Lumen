@@ -73,6 +73,6 @@ commands=['cd /tmp','export LUMEN_SESSION_TEST=works','pwd',
 frames,folder=app_session('lumen.terminal',[dict(event='text',action=1,text=c) for c in commands])
 lines=[c.get('text') for f in frames for c in f.get('ui',[]) if c.get('type')=='mono']
 assert '/tmp' in lines or '/private/tmp' in lines
-assert '/' in lines and 'bin' in lines and 'works' in lines and '[exit 1]' in lines
+assert '/' in lines and any('bin' in line.split() for line in lines) and 'works' in lines and '[exit 1]' in lines
 assert 'history.bin' not in lines and (folder/'history.bin').is_file()
 print('PASS standalone app ports, Reader help, private saves and persistent Terminal shell.')

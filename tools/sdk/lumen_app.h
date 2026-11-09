@@ -31,6 +31,10 @@ static void lumen_mono(int x,int y,int w,int h,const char*s,int gray) {
  lumen_cmd("mono",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(s);
  printf(",\"ink\":%d}",gray);
 }
+static void lumen_mono_columns(int x,int y,int w,int h,const char*s,int gray,int advance) {
+ lumen_cmd("mono",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(s);
+ printf(",\"ink\":%d,\"advance\":%d}",gray,advance);
+}
 static void ui_paint_icon_button(int x,int y,int icon){lumen_cmd("icon",x,y,44,44);printf(",\"icon\":%d}",icon);}
 static void ui_paint_hitbox(int x,int y,int w,int h){lumen_cmd("hit",x,y,w,h);putchar('}');}
 static void ui_paint_surface(int x,int y,int w,int h,int radius,int gray,int outline){lumen_cmd("surface",x,y,w,h);printf(",\"radius\":%d,\"gray\":%d,\"outline\":%d}",radius,gray,outline);}
@@ -63,10 +67,11 @@ static void lumen_run(void(*draw)(void),int(*input)(const Input*),void(*save)(vo
  while(lumen_next()) {
    if(lumen_is("pause")){if(save)save();continue;}
    if(lumen_is("open"))lumen_language=lumen_number("language");
+   if(lumen_is("viewport")){Input in={.kind=INPUT_VIEWPORT,.y=lumen_number("bottom")};input(&in);}
    if(lumen_is("back")){Input in={.kind=INPUT_BACK};input(&in);if(save)save();}
    if(lumen_is("text")||lumen_is("select")){Input in={.kind=lumen_is("text")?INPUT_TEXT:INPUT_SELECT,.x=lumen_number("action"),.y=lumen_number("value")};input(&in);if(save)save();}
    if(lumen_is("input")){Input in={lumen_number("kind"),lumen_number("x"),lumen_number("y"),lumen_number("dx"),lumen_number("dy")};input(&in);if(save)save();}
-   if(lumen_is("open")||lumen_is("resume")||lumen_is("input")||lumen_is("back")||lumen_is("text")||lumen_is("select")){lumen_begin();draw();lumen_end();}
+   if(lumen_is("open")||lumen_is("resume")||lumen_is("input")||lumen_is("back")||lumen_is("text")||lumen_is("select")||lumen_is("viewport")){lumen_begin();draw();lumen_end();}
  }
  if(save)save();
 }

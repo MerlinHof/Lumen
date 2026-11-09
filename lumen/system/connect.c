@@ -1,7 +1,7 @@
 #include "i18n.h"
 #define _GNU_SOURCE
 #include "connect.h"
-#include "../apps/terminal/shell.h"
+#include "../apps/terminal/session.h"
 #include "device.h"
 #include "version.h"
 #include "wireless_update.h"
@@ -90,6 +90,7 @@ static void response(int fd, int status, const char *type, const char *body) {
     writeall(fd, hdr, (size_t)n);
     writeall(fd, body, strlen(body));
 }
+static TerminalSession web_shell;
 static void books_changed(void) {
     char marker[2048];
     snprintf(marker,sizeof(marker),"%s/books-changed",data_root);
@@ -555,13 +556,19 @@ static void handle(int fd,const char *initial,size_t initial_size) {
     if (!strcmp(url,"/api/terminal")) {
         int allowed=0;
 #ifndef LUMEN_HOST
-        allowed=terminal_access();
+        allowed=1;
 #endif
         if (!strcmp(method,"GET")) {
-            response(fd,200,"application/json",allowed ? "{\"enabled\":true}" : "{\"enabled\":false}");
+            if(!allowed){response(fd,200,"application/json","{\"enabled\":false}");return;}
+            char name[96]="kindle",*reply=NULL;size_t size=0;
+            gethostname(name,sizeof(name)-1);
+            FILE *stream=open_memstream(&reply,&size);
+            if(!stream){response(fd,500,"text/plain","Cannot return hostname");return;}
+            fputs("{\"enabled\":true,\"hostname\":",stream);json(stream,name);fputc('}',stream);
+            fclose(stream);response(fd,200,"application/json",reply);free(reply);
             return;
         }
-        if (!allowed) {response(fd,403,"text/plain","Enable web access in Terminal on your Kindle");return;}
+        if (!allowed) {response(fd,403,"text/plain","Terminal is available on a Kindle");return;}
         char command[2048], output[32768];
         if (strcmp(method,"POST") || !haslength || !length || length>=sizeof(command) || bodyn>length) {
             response(fd,400,"text/plain","Invalid command");
@@ -573,10 +580,9 @@ static void handle(int fd,const char *initial,size_t initial_size) {
             if(n<=0)return;
             bodyn+=n;
         }
-        if(!terminal_access()) {response(fd,403,"text/plain","Terminal access expired");return;}
         if(memchr(command,0,bodyn)) {response(fd,400,"text/plain","Invalid command");return;}
         command[bodyn]=0;
-        int result=terminal_exec(command,"/mnt/us",output,sizeof(output));
+        int result=terminal_session_command(&web_shell,"/mnt/us",command,output,sizeof(output));
         char *reply=NULL;size_t size=0;FILE *stream=open_memstream(&reply,&size);
         if(!stream) {response(fd,500,"text/plain","Cannot return command output");return;}
         fprintf(stream,"{\"exit\":%d,\"output\":",result);
@@ -923,7 +929,6 @@ void connect_stop(void) {
         service = -1;
     }
     code[0] = 0;
-    unlink(TERMINAL_ACCESS);
 }
 static int refresh_address(void) {
     struct ifaddrs *ifs = NULL;
@@ -951,7 +956,6 @@ static int refresh_address(void) {
 int connect_start(int port, int timeout) {
     if (connect_running())
         return 1;
-    unlink(TERMINAL_ACCESS);
     if (port < 1024 || port > 65535 || timeout < 1 || timeout > 60)
         return 0;
     char ip[INET_ADDRSTRLEN] = "";
@@ -1126,6 +1130,7 @@ int connect_start(int port, int timeout) {
             }
         }
         for (int i=0;i<12;i++) if (pending[i].fd>=0) close(pending[i].fd);
+        terminal_session_close(&web_shell);
         device_hold_awake(0);
         close(listenfd);
         firewall(0);

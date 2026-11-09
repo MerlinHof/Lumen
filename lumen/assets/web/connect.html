@@ -22,9 +22,9 @@ article{display:flex;align-items:center;justify-content:space-between;gap:24px;p
 <div id="setupPanel" hidden><h2>OpenAI</h2><form id="llmForm"><label>OpenAI API key</label><input id="llmKey" type="password" autocomplete="off" required style="width:100%"><label>Model ID</label><input id="llmModel" value="gpt-4.1-mini" required style="width:100%"><p class="muted">Stored on your Kindle; never returned to this browser. Prompts are sent to OpenAI only when you submit them in the app.</p><button>Save OpenAI</button></form></div>
 <div id="studyPanel" hidden><h2>Study material</h2><p>Upload PDF, EPUB or text. Open Study on Kindle after transfer.</p><input id="studyFiles" type="file" multiple accept=".pdf,.epub,.txt,.html"></div>
 <section id="terminalPanel" hidden>
-<h2>Terminal</h2><p id="terminalHint"></p>
-<form id="terminalForm"><input id="terminalCommand" aria-label="Shell command" maxlength="2047" autocomplete="off" spellcheck="false" style="width:min(100%,34rem);font-family:monospace"><button id="terminalRun">↵</button></form>
-<pre id="terminalOutput" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
+<pre id="terminalOutput" aria-live="polite" style="white-space:pre;overflow:auto;max-height:65vh"></pre>
+<form id="terminalForm"><label id="terminalPrompt" for="terminalCommand" style="font-family:monospace">kindle &gt;</label> <input id="terminalCommand" aria-label="Shell command" maxlength="2047" autocomplete="off" spellcheck="false" style="width:min(100%,34rem);font-family:monospace"><button id="terminalRun">↵</button></form>
+
 </section>
 <div id="updatePanel" hidden><h2 id="updateTitle"></h2><p id="updateHint"></p>
 <button id="makeAppPrompt"></button><textarea id="appPrompt" hidden readonly rows="16" style="width:100%;margin:18px 0;line-height:1.5"></textarea><button id="copyAppPrompt" hidden></button>
@@ -60,14 +60,19 @@ $('#haPanel').hidden=$('#setupPanel').hidden=false;
 for(const id of ['haTab','setupTab','studyTab'])$('#'+id).hidden=true;
 const terminalTab=document.createElement('button');terminalTab.id='terminalTab';terminalTab.textContent='Terminal';
 $('#app nav').append(terminalTab);
-const terminalWords={de:'Öffne Terminal auf deinem Kindle und erlaube den Webzugriff über das Schloss. Der Zugriff läuft nach 10 Minuten ab. Verwende ihn nur in einem vertrauenswürdigen WLAN.',en:'Open Terminal on your Kindle and use the lock icon to allow web access. Access expires after 10 minutes. Use it only on a trusted Wi-Fi network.',fr:'Ouvrez Terminal sur votre Kindle et autorisez l’accès web avec le cadenas. L’accès expire après 10 minutes. Utilisez uniquement un réseau Wi-Fi de confiance.'};
-terminalTab.onclick=()=>{$('#terminalHint').textContent=terminalWords[lang]||terminalWords.en};
-$('#terminalForm').onsubmit=e=>{e.preventDefault();const input=$('#terminalCommand'),command=input.value;if(!command.trim())return;action($('#terminalRun'),async()=>{
+let terminalHost='kindle';
+terminalTab.onclick=()=>action(terminalTab,async()=>{
  const check=await(await api('/api/terminal')).json();
- if(!check.enabled){$('#terminalOutput').textContent=terminalWords[lang]||terminalWords.en;return;}
- $('#terminalOutput').textContent='$ '+command+'\n';
+ if(check.hostname)terminalHost=check.hostname;
+ $('#terminalPrompt').textContent=terminalHost+' >';
+ if(check.enabled)$('#terminalCommand').focus();
+});
+$('#terminalForm').onsubmit=e=>{e.preventDefault();const input=$('#terminalCommand'),command=input.value;if(!command.trim())return;action($('#terminalRun'),async()=>{
+ const output=$('#terminalOutput');
+ output.textContent=(output.textContent+terminalHost+' > '+command+'\n').slice(-48000);
  const result=await(await api('/api/terminal',{method:'POST',body:command})).json();
- $('#terminalOutput').textContent+=result.output+'\n[exit '+result.exit+']';
+ output.textContent+=result.output+(result.output&&!result.output.endsWith('\n')?'\n':'')+(result.exit?'[exit '+result.exit+']\n':'');
+ output.scrollTop=output.scrollHeight;
  input.value='';input.focus();
 })};
 const panelIds16=['libraryPanel','photosPanel','notesPanel','updatePanel','terminalPanel'];

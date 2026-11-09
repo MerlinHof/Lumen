@@ -79,8 +79,8 @@ Those two drawing commands require LUMEN 4.6 or later.
 
 A frame is bounded to 256 KiB and 2,048 commands. Input events are queued without
 blocking the system's touch loop. An idle app blocks on stdin, rather than
-polling or animating. LUMEN retains one active app process and pauses it when
-another tool opens; app state must be saved after meaningful changes. A closed
+polling or animating. LUMEN retains one foreground process and pauses it when
+another tool opens. An independent overlay process hosts Notifications; app state must be saved after meaningful changes. A closed
 or crashed app does not exit LUMEN. This is process isolation, **not a security
 sandbox**: install only trusted native code.
 
@@ -88,7 +88,7 @@ Service requests use `lumen_request(kind,title,text,action)`:
 
 - `input`: opens the actual system keyboard; the response is a text event.
 - `reader`: opens Markdown in the shared Reader and retains Back navigation.
-- `notify`: uses the shared notification surface.
+- `notify`: calls the installed `lumen.notifications` app, which owns the banner and its lifetime.
 
 Use the open event's language (0 German, 1 English, 2 French) for app-owned text.
 Do not draw a private keyboard, status bar or refresh loop. Do not manipulate
@@ -97,7 +97,7 @@ firmware services. Prefer clear typography and finite, paper-native tools.
 ## Existing app implementations
 
 Frog Solitaire, Sliding Puzzle, Tic Tac Toe, Terminal, 2048, Sudoku, Bingo,
-Connect Four, Hex, Nonograms, Solitaire, Wordle, and Periodic Table ship as
+Connect Four, Hex, Nonograms, Solitaire, Wordle, Periodic Table, and Notifications ship as
 independent packages and use this same protocol. Their sources and build manifests live in their app folders. Other
 existing views still have linked compatibility implementations. They are entries
 in the same catalog and can be replaced individually by a package using the same

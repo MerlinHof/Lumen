@@ -1,4 +1,5 @@
-#define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE 700
+#define _DEFAULT_SOURCE
 #include "session.h"
 #include <errno.h>
 #include <fcntl.h>
@@ -9,6 +10,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/wait.h>
+#include <sys/ioctl.h>
+#include <termios.h>
 #include <time.h>
 #include <unistd.h>
 #ifdef __linux__
@@ -31,7 +34,24 @@ void terminal_session_close(TerminalSession *session) {
 static int start(TerminalSession *session,const char *directory) {
     int commands[2], output[2];
     if(pipe(commands))return 0;
-    if(pipe(output)){close(commands[0]);close(commands[1]);return 0;}
+    output[0]=posix_openpt(O_RDWR|O_NOCTTY);
+    output[1]=-1;
+    if(output[0]>=0) {
+        if(!grantpt(output[0]) && !unlockpt(output[0])) {
+            const char *name=ptsname(output[0]);
+            if(name)output[1]=open(name,O_RDWR|O_NOCTTY);
+        }
+        if(output[1]>=0) {
+            struct termios tty;
+            if(!tcgetattr(output[1],&tty)) {
+                tty.c_oflag &= ~OPOST;
+                tcsetattr(output[1],TCSANOW,&tty);
+            }
+            struct winsize window={.ws_row=32,.ws_col=64};
+            ioctl(output[1],TIOCSWINSZ,&window);
+        } else close(output[0]);
+    }
+    if(output[1]<0 && pipe(output)){close(commands[0]);close(commands[1]);return 0;}
     pid_t parent=getpid(), child=fork();
     if(!child) {
         setpgid(0,0);
@@ -43,7 +63,11 @@ static int start(TerminalSession *session,const char *directory) {
         if(chdir(directory) || dup2(commands[0],0)<0 || dup2(output[1],1)<0 ||
            dup2(output[1],2)<0)_exit(125);
         close(commands[0]);close(commands[1]);close(output[0]);close(output[1]);
+        long max_fd=sysconf(_SC_OPEN_MAX);
+        if(max_fd<0 || max_fd>4096)max_fd=4096;
+        for(int fd=3;fd<max_fd;fd++)close(fd);
         setenv("TERM","dumb",1);
+        setenv("COLUMNS","64",1);
         unsetenv("ENV");
         signal(SIGPIPE,SIG_DFL);
         execl("/bin/sh","sh",(char *)0);

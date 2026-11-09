@@ -5,12 +5,7 @@ static int package_input_action, package_select_action;
 static char package_options[48][128];
 static const char *package_labels[48];
 static void package_ui_choice(int choice){char event[128];snprintf(event,sizeof(event),"{\"event\":\"select\",\"action\":%d,\"value\":%d}",package_select_action,choice);app_process_send(event);}
-static void package_ui_draw(void) {
-    if(!*app_process_error())app_process_open(app_for_route(ui_route()));
-    static unsigned char status_bar[600*STATUS_HEIGHT];
-    memcpy(status_bar,ui_pixels,sizeof(status_bar));
-    const char*text=app_process_frame();
-    if(!*text) {heading(app_definition(app_for_route(ui_route()))->name);centered(28,340,544,60,*app_process_error()?tr(app_process_error()):tr("App wird geöffnet …"),ui_font(UI_BODY));return;}
+static void package_paint_frame(const char *text) {
     Json j;if(!json_parse(&j,text,package_tokens,32768))return;
     int commands=json_get(&j,0,"ui");if(commands<0 || j.tokens[commands].type!='[' || j.tokens[commands].count>2048)return;
     size_t cost=0;
@@ -26,7 +21,12 @@ static void package_ui_draw(void) {
         if(!strcmp(type,"ring")){int r=package_value(&j,item,"radius");estimate=4u*(unsigned)abs(r)*(unsigned)abs(r);}
         if(!strcmp(type,"line"))estimate=(size_t)(abs(x-package_value(&j,item,"x2"))+32)*(abs(y-package_value(&j,item,"y2"))+32);
         if(estimate>4000000 || cost+estimate>4000000)break;cost+=estimate;
-        if(!strcmp(type,"heading"))heading_actions(label,package_value(&j,item,"actions"));
+        if(!strcmp(type,"raised"))raised_surface(x,y,w,h);
+        else if(!strcmp(type,"wrap")) {
+            int lines=package_value(&j,item,"lines");
+            if(lines>0 && lines<=12)wrapped_raw(x,y,label,ui_font(UI_BODY),w,lines);
+        }
+        else if(!strcmp(type,"heading"))heading_actions(label,package_value(&j,item,"actions"));
         else if(!strcmp(type,"text")) {
             int role=package_value(&j,item,"role");
             static const TextRole roles[]={UI_BODY,UI_HEADING,UI_DISPLAY,UI_SECONDARY};
@@ -43,9 +43,12 @@ static void package_ui_draw(void) {
         else if(!strcmp(type,"mono")) {
             int ink=package_value(&j,item,"ink");
             if(ink<0 || ink>255)ink=0;
-            int baseline=y+(h-caption.h)/2;
+            int advance=package_value(&j,item,"advance");
+            if(advance<7 || advance>12)advance=12;
+            int glyph_height=advance<=9 ? 22 : caption.h;
+            int baseline=y+(h-glyph_height)/2;
             const char *start=label;
-            for(int column=0;*start && column*12+12<=w;column++) {
+            for(int column=0;*start && column*advance+advance<=w;column++) {
                 if(*start=='\t'){column+=3-column%4;start++;continue;}
                 unsigned code=glyph(&start);
                 const GlyphBounds *bounds=text_bounds(&caption,code);
@@ -53,10 +56,10 @@ static void package_ui_draw(void) {
                 int left=bounds ? bounds->left : 0, top=bounds ? bounds->top : 0;
                 int width=bounds ? bounds->right-left : caption.w;
                 int bottom=bounds ? bounds->bottom : caption.h;
-                int span=width<11 ? width : 11;
-                int at=x+column*12+(12-span)/2;
+                int span=width<advance-1 ? width : advance-1;
+                int at=x+column*advance+(advance-span)/2;
                 for(int row=top;row<bottom;row++) {
-                    int yy=baseline+row;
+                    int yy=baseline+row*glyph_height/caption.h;
                     if(yy<STATUS_HEIGHT || yy>=HEIGHT)continue;
                     for(int px=0;px<span;px++) {
                         int xx=at+px;
@@ -94,6 +97,14 @@ static void package_ui_draw(void) {
         else if(!strcmp(type,"ring")){int r=package_value(&j,item,"radius"),weight=package_value(&j,item,"weight");if(r>0&&r<=300&&weight>0&&weight<=24)ui_paint_ring(x,y,r,weight);}
     }
 
+}
+static void package_ui_draw(void) {
+    if(!*app_process_error())app_process_open(app_for_route(ui_route()));
+    static unsigned char status_bar[600*STATUS_HEIGHT];
+    memcpy(status_bar,ui_pixels,sizeof(status_bar));
+    const char*text=app_process_frame();
+    if(!*text) {heading(app_definition(app_for_route(ui_route()))->name);centered(28,340,544,60,*app_process_error()?tr(app_process_error()):tr("App wird geöffnet …"),ui_font(UI_BODY));return;}
+    package_paint_frame(text);
     memcpy(ui_pixels,status_bar,sizeof(status_bar));
 }
 static int package_ui_input(const Input*in) {
@@ -108,6 +119,7 @@ static int package_ui_commit(int target,const char*text) {
 }
 static int package_ui_poll(void) {
     int changed=app_process_poll();
+    if(changed && editor_ui.keyboard && editor_ui.keyboard_target==2000)editor_ui.keyboard_background_valid18=0;
     if(changed && *app_process_error())ui_message(app_process_error());
     const char*message=app_process_request();if(!*message)return changed;
     Json j;JsonToken t[512];if(!json_parse(&j,message,t,512))return changed;
