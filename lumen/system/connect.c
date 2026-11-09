@@ -1,6 +1,7 @@
 #include "i18n.h"
 #define _GNU_SOURCE
 #include "connect.h"
+#include "../apps/terminal/shell.h"
 #include "device.h"
 #include "version.h"
 #include "wireless_update.h"
@@ -88,6 +89,15 @@ static void response(int fd, int status, const char *type, const char *body) {
     fprintf(stderr, "http_response=%d bytes=%zu\n", status, strlen(body));
     writeall(fd, hdr, (size_t)n);
     writeall(fd, body, strlen(body));
+}
+static void books_changed(void) {
+    char marker[2048];
+    snprintf(marker,sizeof(marker),"%s/books-changed",data_root);
+    int file=open(marker,O_WRONLY|O_CREAT|O_CLOEXEC,0600);
+    if(file>=0)close(file);
+#ifndef LUMEN_HOST
+    kill(getppid(),SIGUSR1);
+#endif
 }
 static void json(FILE *f, const char *s) {
     fputc('"', f);
@@ -421,8 +431,10 @@ static void upload(int fd, const char *query, uint64_t length, const char *initi
     }
     unlink(temp);
     if (ok) {
-        if (!studying)
+        if (!studying) {
+            books_changed();
             library_scan();
+        }
         response(fd, 201, "application/json", "{\"ok\":true}");
     } else
         response(fd, 500, "text/plain", "Upload did not complete; original files retained");
@@ -540,6 +552,38 @@ static void handle(int fd,const char *initial,size_t initial_size) {
     char *query = strchr(url, '?');
     if (query)
         *query++ = 0;
+    if (!strcmp(url,"/api/terminal")) {
+        int allowed=0;
+#ifndef LUMEN_HOST
+        allowed=terminal_access();
+#endif
+        if (!strcmp(method,"GET")) {
+            response(fd,200,"application/json",allowed ? "{\"enabled\":true}" : "{\"enabled\":false}");
+            return;
+        }
+        if (!allowed) {response(fd,403,"text/plain","Enable web access in Terminal on your Kindle");return;}
+        char command[2048], output[32768];
+        if (strcmp(method,"POST") || !haslength || !length || length>=sizeof(command) || bodyn>length) {
+            response(fd,400,"text/plain","Invalid command");
+            return;
+        }
+        memcpy(command,body,bodyn);
+        while(bodyn<length) {
+            ssize_t n=recv(fd,command+bodyn,length-bodyn,0);
+            if(n<=0)return;
+            bodyn+=n;
+        }
+        if(!terminal_access()) {response(fd,403,"text/plain","Terminal access expired");return;}
+        if(memchr(command,0,bodyn)) {response(fd,400,"text/plain","Invalid command");return;}
+        command[bodyn]=0;
+        int result=terminal_exec(command,"/mnt/us",output,sizeof(output));
+        char *reply=NULL;size_t size=0;FILE *stream=open_memstream(&reply,&size);
+        if(!stream) {response(fd,500,"text/plain","Cannot return command output");return;}
+        fprintf(stream,"{\"exit\":%d,\"output\":",result);
+        json(stream,output);fputc('}',stream);fclose(stream);
+        response(fd,200,"application/json",reply);free(reply);
+        return;
+    }
     if(!strcmp(method,"GET") && !strcmp(url,"/api/apps")) {
         app_packages_scan();char*body=NULL;size_t size=0;FILE*f=open_memstream(&body,&size);fputs("{\"apps\":[",f);int first=1;
         for(int i=0;i<APP_LIMIT;i++) {
@@ -602,6 +646,10 @@ static void handle(int fd,const char *initial,size_t initial_size) {
         int install=!strcmp(url,"/api/custom-app/install");
         int ok=install ? arg(query,"sha256",digest,sizeof(digest)) && strlen(digest)==64 &&
                          update_approve(digest) : update_trial();
+        if (ok && !install) {
+            snprintf(path,sizeof(path),"%s/../.update/system-starting",data_root);
+            ok=atomic_write(path,"1",1);
+        }
         snprintf(path,sizeof(path),"%s/../.update/relaunch",data_root);
         if (ok) ok=atomic_write(path,"1",1);
         response(fd,ok ? 200 : 409,"application/json","{}");
@@ -778,6 +826,7 @@ static void handle(int fd,const char *initial,size_t initial_size) {
                 response(fd, 409, "text/plain", "Cannot delete book");
                 return;
             }
+            books_changed();
             library_scan();
             response(fd, 200, "application/json", "{\"ok\":true}");
             return;
@@ -811,6 +860,7 @@ static void handle(int fd,const char *initial,size_t initial_size) {
             response(fd, 409, "text/plain", "Name already exists or rename unavailable");
             return;
         }
+        books_changed();
         library_scan();
         response(fd, 200, "application/json", "{\"ok\":true}");
         return;
@@ -873,6 +923,7 @@ void connect_stop(void) {
         service = -1;
     }
     code[0] = 0;
+    unlink(TERMINAL_ACCESS);
 }
 static int refresh_address(void) {
     struct ifaddrs *ifs = NULL;
@@ -900,6 +951,7 @@ static int refresh_address(void) {
 int connect_start(int port, int timeout) {
     if (connect_running())
         return 1;
+    unlink(TERMINAL_ACCESS);
     if (port < 1024 || port > 65535 || timeout < 1 || timeout > 60)
         return 0;
     char ip[INET_ADDRSTRLEN] = "";

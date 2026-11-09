@@ -7,14 +7,16 @@ ARMv7, 600 × 800**. Other models and firmware are not validated.
 
 > LUMEN is an application shell on top of Kindle firmware. It does **not**
 > jailbreak a stock Kindle. A compatible jailbreak, the Kindle `.sh` launcher
-> and its `libkh/bin/fbink` installation must already be present.
+> and its `libkh/bin/fbink` installation must already be present. Use the
+> [KindleModding wizard](https://kindlemodding.org/kindle-models) for model,
+> firmware and registration-specific preparation.
 
 The desktop installer checks this prerequisite before copying anything.
 Do not use the package as a firmware update or copy it to the Kindle's update slot.
 
 ## First installation
 
-1. Download **LUMEN-4.0.zip** from [Releases](https://github.com/MerlinHof/Lumen/releases/latest).
+1. Download **LUMEN-4.5.zip** from [Releases](https://github.com/MerlinHof/Lumen/releases/latest).
 2. Extract the complete folder. Connect the prepared Kindle by USB and open its storage.
 3. **macOS:** open `Install-LUMEN.command`. Alternatively, on macOS/Linux with Python 3.9+:
    ```sh

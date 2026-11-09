@@ -66,8 +66,9 @@ A complete update includes program, fonts, artwork, dictionaries, scripts and
 shipped app archives. It cannot overwrite books, app state, separately installed
 app directories or recovery control paths. Changed originals are copied before
 a durable write-ahead journal commits. A helper outside the replaced binary
-performs activation. Interrupted or unkept trials restore originals, including
-resources; Keep removes the journal durably before deleting rollback files.
+performs activation. Interrupted activation and failed trial startup restore originals, including
+resources. Healthy trials survive a clean restart. Keep removes the journal
+durably before deleting rollback files.
 
 `runtime_files.h` is generated from the package allowlist and identifies obsolete
 managed files. Unknown/user files are preserved. One transaction rollback is

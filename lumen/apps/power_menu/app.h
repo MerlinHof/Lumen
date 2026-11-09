@@ -36,6 +36,7 @@ static int polish_power(const Input *in) {
             return 1;
         if (y >= 292 && y < 350) {
             power_menu = 0;
+            device_request_sleep();
             Input sleep = {.kind = INPUT_SLEEP};
             ui_input(&sleep);
         } else if (y >= 370 && y < 428) {

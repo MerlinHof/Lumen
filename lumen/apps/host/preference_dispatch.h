@@ -38,8 +38,6 @@ static int u16_draw(void) {
 }
 static int u16_tick(void) {
     u16_load();
-    if (!sleeping)
-        device_activity();
     if (ink_dirty && !ink_drag && extra_millis() >= ink_save_at)
         ink_save();
     if (!sleeping && auto_sleep_minutes > 0 && !connect_running() &&

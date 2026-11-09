@@ -97,7 +97,13 @@ const AppDefinition *app_factory_definition(AppId id) {
 }
 const AppDefinition *app_definition(AppId id) {
     const AppDefinition *installed=app_package_definition(id);
-    return installed ? installed : app_factory_definition(id);
+    if (installed) return installed;
+    if (id==APP_FROG || id==APP_SIGNAL || id==APP_TIC_TAC_TOE || id==APP_2048 || id==APP_SUDOKU) {
+        static AppDefinition unavailable[APP_COUNT];
+        unavailable[id]=(AppDefinition){id,definitions[id].name,-1};
+        return &unavailable[id];
+    }
+    return app_factory_definition(id);
 }
 int app_route_valid(int route) {
     if(route>=1000 && route<1000+APP_LIMIT-APP_COUNT)return app_package_installed(APP_COUNT+route-1000);

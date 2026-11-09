@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.5
+
+Terminal, standalone 2048 and Sudoku, updater progress and recovery, reduced idle work, live book import, app removal from Home and a larger sleep clock. [Release notes](releases/4.5.md).
+
 ## 4.4
 
 Standalone Tic Tac Toe and a full-runtime GitHub update test. Standalone latency/help feedback deferred as requested. [Release notes](releases/4.4.md).

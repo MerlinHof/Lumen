@@ -19,6 +19,11 @@ try:
  partial.sendall(('GET /api/books HTTP/1.1\r\nHost: '+address.netloc+'\r\nAuthorization: Bearer '+code+'\r\n').encode())
  started=time.monotonic()
  assert req('/api/books')[0]==200
+ assert json.loads(req('/api/terminal')[1])=={'enabled':False}
+ assert req('/api/terminal','POST',b'echo unsafe')[0]==403
+ assert req('/api/upload?name=Arrival.txt','PUT',b'Live library test.')[0]==201
+ assert Path('build/tests/http-sandbox/data/books-changed').is_file()
+ assert any(book['title']=='Arrival' for book in json.loads(req('/api/books')[1])['books'])
  assert time.monotonic()-started<3, 'Idle browser connections blocked the server'
  partial.sendall(b'\r\n')
  assert b'200 OK' in partial.recv(1024)

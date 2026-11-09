@@ -34,13 +34,9 @@ static void news_save_settings(void) {
 }
 static void new_apps_save(void) {
     v1_save();
-    if ((new_dirty & 1) && new_ready[0] && app_state_save("2048-v1.bin", &tile_game, sizeof(tile_game)))
-        new_dirty &= ~1u;
-    if ((new_dirty & 2) && new_ready[1] &&
+    if ((new_dirty & 2) && solitaire_ready &&
         app_state_save("solitaire-v1.bin", &solitaire, sizeof(solitaire)))
         new_dirty &= ~2u;
-    if ((new_dirty & 4) && new_ready[2] && app_state_save("sudoku-v1.bin", &sudoku, sizeof(sudoku)))
-        new_dirty &= ~4u;
     if ((new_dirty & 8) && app_state_save("focus-v1.bin", &focus_stats, sizeof(focus_stats)))
         new_dirty &= ~8u;
 }
@@ -70,33 +66,11 @@ static void new_apps_open(int route) {
         v1_open(route);
         return;
     }
-    if (route == 63 && !new_ready[0]) {
-        if (!app_state_load("2048-v1.bin", &tile_game, sizeof(tile_game)))
-            tiles_new(&tile_game, pro_random());
-        for (int i = 0; i < 16; i++)
-            if (tile_game.state.cell[i] > 30)
-                tiles_new(&tile_game, pro_random());
-        new_ready[0] = 1;
-        new_dirty |= 1;
-    }
-    if (route == 64 && !new_ready[1]) {
+    if (route == 64 && !solitaire_ready) {
         if (!app_state_load("solitaire-v1.bin", &solitaire, sizeof(solitaire)) || !valid_patience())
             patience_new(&solitaire, pro_random());
-        new_ready[1] = 1;
+        solitaire_ready = 1;
         new_dirty |= 2;
-    }
-    if (route == 65 && !new_ready[2]) {
-        int valid = app_state_load("sudoku-v1.bin", &sudoku, sizeof(sudoku));
-        for (int i = 0; i < 81; i++)
-            if (sudoku.board.cell[i] > 9 || sudoku.solution[i] < 1 || sudoku.solution[i] > 9 ||
-                sudoku.given[i] > 9)
-                valid = 0;
-        if (sudoku.undos < 0 || sudoku.undos > 24)
-            valid = 0;
-        if (!valid)
-            sudoku_new(&sudoku, pro_random(), 0);
-        new_ready[2] = 1;
-        new_dirty |= 4;
     }
     if (route == 67) {
         news_enabled = 1;

@@ -5958,5 +5958,50 @@
     "App-Ausgabe zu groß.",
     "The app output is too large.",
     "La sortie de l’app est trop volumineuse."
+  ],
+  "App ausblenden": [
+    "App ausblenden",
+    "Hide app",
+    "Masquer l’application"
+  ],
+  "App endgültig entfernen": [
+    "App endgültig entfernen",
+    "Confirm app removal",
+    "Confirmer la suppression"
+  ],
+  "App löschen": [
+    "App löschen",
+    "Delete app",
+    "Supprimer l’application"
+  ],
+  "Bereit zum Neustart": [
+    "Bereit zum Neustart",
+    "Ready to restart",
+    "Prêt à redémarrer"
+  ],
+  "Installation wird vorbereitet …": [
+    "Installation wird vorbereitet …",
+    "Preparing installation …",
+    "Préparation de l’installation…"
+  ],
+  "Jetzt neu starten": [
+    "Jetzt neu starten",
+    "Restart now",
+    "Redémarrer maintenant"
+  ],
+  "Prüfsumme wird geprüft …": [
+    "Prüfsumme wird geprüft …",
+    "Verifying checksum …",
+    "Vérification de la somme de contrôle…"
+  ],
+  "Update wird geladen …": [
+    "Update wird geladen …",
+    "Downloading update …",
+    "Téléchargement de la mise à jour…"
+  ],
+  "Update wird installiert …": [
+    "Update wird installiert …",
+    "Installing update …",
+    "Installation de la mise à jour…"
   ]
 }

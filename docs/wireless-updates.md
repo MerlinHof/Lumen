@@ -22,26 +22,10 @@ traversal paths are rejected. Personal app state stays outside the runtime.
 
 The installer runs from a durable helper, not the file being replaced. Before
 changing anything it copies changed originals and commits a write-ahead journal.
-An interrupted activation is recovered on the next launch. A successful update
-is a trial: keep it in System → Update or the web interface. Otherwise the next
-launch restores the previous runtime, including resources and scripts. Keeping
-the update removes its rollback copy; updates do not accumulate old full bundles.
+An interrupted activation or failed startup is recovered on the next launch.
+A healthy trial survives a normal restart. Select **Keep update** in System → Update
+to remove its rollback copy. The web interface can also keep or roll back a trial.
 
-This release needs one USB install to establish the full-runtime updater. Later
-compatible LUMEN releases use this GitHub path even when their assets change.
-Live activation on the physical Kindle still needs observation outside USB mode.
-
-## Publish an update
-
-Bump VERSION and system/version.h, write docs/releases/<version>.md, commit and
-push to main. The existing Native checks workflow must succeed. The new
-Publish Kindle update workflow then builds and publishes the missing version's
-release automatically. It uploads:
-
-- USB ZIP and its SHA-256 sidecar;
-- `.lumen-system` runtime ZIP and `.wireless.json` metadata;
-- standalone SDK ZIP and the independent shipped `.lumen-app` packages.
-
-Only a tested main-branch commit from this repository can trigger publication.
-An already published version is not overwritten. You can also dispatch the
-workflow manually. A source push without a new VERSION does not create a release.
+4.5 uses USB once to replace the older updater. For later compatible versions,
+check for updates, download, wait for **Ready to restart**, then choose **Restart now**.
+Live activation of a later release still needs verification on the physical Kindle.

@@ -66,5 +66,8 @@
   "lumen/CMARK-LICENSE.txt": "lumen/assets/licenses/CMARK-LICENSE.txt",
   "lumen/app-packages/lumen.frog-solitaire.lumen-app": "build/apps/kindle/lumen.frog-solitaire/lumen.frog-solitaire.lumen-app",
   "lumen/app-packages/lumen.sliding-puzzle.lumen-app": "build/apps/kindle/lumen.sliding-puzzle/lumen.sliding-puzzle.lumen-app",
-  "lumen/app-packages/lumen.tic-tac-toe.lumen-app": "build/apps/kindle/lumen.tic-tac-toe/lumen.tic-tac-toe.lumen-app"
+  "lumen/app-packages/lumen.terminal.lumen-app": "build/apps/kindle/lumen.terminal/lumen.terminal.lumen-app",
+  "lumen/app-packages/lumen.tic-tac-toe.lumen-app": "build/apps/kindle/lumen.tic-tac-toe/lumen.tic-tac-toe.lumen-app",
+  "lumen/app-packages/lumen.2048.lumen-app": "build/apps/kindle/lumen.2048/lumen.2048.lumen-app",
+  "lumen/app-packages/lumen.sudoku.lumen-app": "build/apps/kindle/lumen.sudoku/lumen.sudoku.lumen-app"
 }

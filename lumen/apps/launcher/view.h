@@ -3,7 +3,7 @@ static int v1_visible(int *out) {
     int n = 0;
     for (int i = 0; i < APP_LIMIT; i++) {
         int id = launcher_order[i];
-        if (app_definition(id)->entry >= 0 && launcher_visible[id])
+        if (app_definition(id)->entry >= 0 && launcher_visible[id] && !app_package_deleted(id))
             out[n++] = id;
     }
     return n;

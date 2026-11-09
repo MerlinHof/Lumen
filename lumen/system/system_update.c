@@ -72,7 +72,10 @@ int system_update_keep(void) {
 int system_update_maintenance(void) {
  char journal[2048],ready[2048],stage[2048],backup[2048],trial[2048],manifest[2048];
  path(journal,"system-journal");path(ready,"system-ready");path(stage,"system-stage");path(backup,"system-previous");path(trial,"system-trial");
- if(!access(journal,F_OK) && !system_update_rollback())return 0;
+ if(!access(journal,F_OK)) {
+     if(system_update_trial())return 1;
+     if(!system_update_rollback())return 0;
+ }
  if(access(ready,F_OK))return 1;
  Package*p=calloc(1,sizeof(*p));if(!p)return 0;
  snprintf(manifest,sizeof(manifest),"%s/manifest.json",stage);

@@ -1,0 +1,11 @@
+{
+  "format": "lumen-app-1",
+  "api": 1,
+  "id": "lumen.sudoku",
+  "name": "Sudoku",
+  "version": "1.0.0",
+  "sources": [
+    "app.c",
+    "../games/puzzles.c"
+  ]
+}

@@ -1,7 +1,6 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 /* LUMEN 1.6: small app surfaces share persistence, reader and background jobs. */
 static int u16_ready, auto_sleep_minutes = 10;
-static int64_t activity16;
 
 static const char *sleep_choices16[] = {"5 min", "10 min", "15 min", "30 min", "60 min", "Nie"};
 static const int sleep_minutes16[] = {5, 10, 15, 30, 60, 0};

@@ -14,8 +14,8 @@ static void package_ui_draw(void) {
     Json j;if(!json_parse(&j,text,package_tokens,32768))return;
     int commands=json_get(&j,0,"ui");if(commands<0 || j.tokens[commands].type!='[' || j.tokens[commands].count>2048)return;
     size_t cost=0;
-    for(int i=0;i<j.tokens[commands].count;i++) {
-        int item=json_at(&j,commands,i);char type[32],label[2048];
+    for(int item=commands+1;item<j.tokens[commands].next;item=j.tokens[item].next) {
+        char type[32],label[2048];
         json_string(&j,json_get(&j,item,"type"),type,sizeof(type));json_string(&j,json_get(&j,item,"text"),label,sizeof(label));
         int x=package_value(&j,item,"x"),y=package_value(&j,item,"y"),w=package_value(&j,item,"w"),h=package_value(&j,item,"h");
         /* Content coordinates may never paint or intercept the status bar. */
@@ -26,7 +26,19 @@ static void package_ui_draw(void) {
         if(!strcmp(type,"line"))estimate=(size_t)(abs(x-package_value(&j,item,"x2"))+32)*(abs(y-package_value(&j,item,"y2"))+32);
         if(estimate>4000000 || cost+estimate>4000000)break;cost+=estimate;
         if(!strcmp(type,"heading"))heading_actions(label,package_value(&j,item,"actions"));
-        else if(!strcmp(type,"text")){int role=package_value(&j,item,"role");ui_paint_text(x,y,w,h,label,role>=0&&role<=PAINT_SECONDARY?role:PAINT_BODY);}
+        else if(!strcmp(type,"text")) {
+            int role=package_value(&j,item,"role");
+            static const TextRole roles[]={UI_BODY,UI_HEADING,UI_DISPLAY,UI_SECONDARY};
+            TextStyle style=ui_text_style((unsigned)role<sizeof(roles)/sizeof(roles[0]) ? roles[role] : UI_BODY);
+            double override=json_number(&j,json_get(&j,item,"ink"));
+            int previous=ink_color, left=package_value(&j,item,"left");
+            ink_color=override>=0 && override<=255 ? (int)override : style.color;
+            for(int dx=0;dx<=!!style.weight;dx++) {
+                if(left)label_ellipsis(x+dx,y,w-dx,h,label,style.font,0);
+                else centered(x+dx,y,w-dx,h,label,style.font);
+            }
+            ink_color=previous;
+        }
         else if(!strcmp(type,"button"))button_h(x,y,w,h,label,package_value(&j,item,"primary"));
         else if(!strcmp(type,"checkbox"))checkbox(x,y,package_value(&j,item,"value"));
         else if(!strcmp(type,"toggle"))toggle(x,y,package_value(&j,item,"value"));

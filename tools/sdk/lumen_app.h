@@ -23,6 +23,10 @@ static void lumen_end(void){puts("]}");fflush(stdout);}
 static void lumen_cmd(const char*type,int x,int y,int w,int h){if(!lumen_first)putchar(',');lumen_first=0;fputs("{\"type\":",stdout);lumen_json(type);printf(",\"x\":%d,\"y\":%d,\"w\":%d,\"h\":%d",x,y,w,h);}
 static void ui_paint_heading(const char*s,int actions){lumen_cmd("heading",28,74,544,44);fputs(",\"text\":",stdout);lumen_json(s);printf(",\"actions\":%d}",actions);}
 static void ui_paint_text(int x,int y,int w,int h,const char*s,PaintText role){lumen_cmd("text",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(s);printf(",\"role\":%d}",role);}
+static void lumen_text(int x,int y,int w,int h,const char*s,PaintText role,int gray,int left) {
+ lumen_cmd("text",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(s);
+ printf(",\"role\":%d,\"ink\":%d,\"left\":%d}",role,gray,left);
+}
 static void ui_paint_icon_button(int x,int y,int icon){lumen_cmd("icon",x,y,44,44);printf(",\"icon\":%d}",icon);}
 static void ui_paint_hitbox(int x,int y,int w,int h){lumen_cmd("hit",x,y,w,h);putchar('}');}
 static void ui_paint_surface(int x,int y,int w,int h,int radius,int gray,int outline){lumen_cmd("surface",x,y,w,h);printf(",\"radius\":%d,\"gray\":%d,\"outline\":%d}",radius,gray,outline);}
@@ -37,6 +41,15 @@ static void lumen_select(const char**options,int count,int selected,int action){
 static int64_t ui_clock_millis(void){struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);return t.tv_sec*1000LL+t.tv_nsec/1000000;}
 static int app_state_save(const char*name,const void*bytes,size_t size){const char*root=getenv("LUMEN_APP_DATA");if(!root||strchr(name,'/')||strstr(name,".."))return 0;char p[2048],temp[2048];snprintf(p,sizeof(p),"%s/%s",root,name);snprintf(temp,sizeof(temp),"%s.new",p);FILE*f=fopen(temp,"wb");if(!f)return 0;int ok=fwrite(bytes,1,size,f)==size;if(fclose(f))ok=0;return ok&&!rename(temp,p);}
 static int app_state_load(const char*name,void*bytes,size_t size){const char*root=getenv("LUMEN_APP_DATA");if(!root||strchr(name,'/')||strstr(name,".."))return 0;char p[2048];snprintf(p,sizeof(p),"%s/%s",root,name);FILE*f=fopen(p,"rb");if(!f)return 0;int ok=fread(bytes,1,size,f)==size&&fgetc(f)==EOF;fclose(f);return ok;}
+/* One-time reads for apps that predate private state. Save into app-state after importing. */
+static int lumen_legacy_state(const char *name,void *bytes,size_t size) {
+ const char *root=getenv("LUMEN_APP_DATA");
+ if(!root || !*name || strchr(name,'/') || strstr(name,".."))return 0;
+ char path[2048];
+ if(snprintf(path,sizeof(path),"%s/../../%s",root,name)>=(int)sizeof(path))return 0;
+ FILE *f=fopen(path,"rb");if(!f)return 0;
+ int ok=fread(bytes,1,size,f)==size && fgetc(f)==EOF;fclose(f);return ok;
+}
 static void lumen_request(const char*kind,const char*title,const char*text,int action){fputs("{\"request\":",stdout);lumen_json(kind);fputs(",\"title\":",stdout);lumen_json(title);fputs(",\"text\":",stdout);lumen_json(text);printf(",\"action\":%d}\n",action);fflush(stdout);}
 /* Existing small app modules can reuse their Input-based controller directly. */
 static void lumen_open(const char*id){fputs("{\"request\":\"open\",\"app\":",stdout);lumen_json(id);puts("}");fflush(stdout);}

@@ -18,10 +18,36 @@
 #include <unistd.h>
 #define RELEASE_ROOT "https://github.com/MerlinHof/Lumen/releases/download/"
 static pid_t worker;
-static int state, loaded;
+static int state, loaded, installing, last_step, last_mb;
 static time_t checked;
 static char version[32], error[192];
 static void path(char *out,const char *name) { snprintf(out,2048,"%s/%s",data_root,name); }
+static void progress_file(int step) {
+    char file[2048], value = '0' + step;
+    path(file, "release-progress.txt");
+    atomic_write(file, &value, 1);
+}
+static int update_progress(int *mb) {
+    char file[2048];
+    path(file, "release-progress.txt");
+    FILE *f = fopen(file, "rb");
+    int step = f ? fgetc(f) - '0' : 0;
+    if (f) fclose(f);
+    snprintf(file, sizeof(file), "%s/../.update/github-download", data_root);
+    struct stat st;
+    *mb = stat(file,&st) ? 0 : st.st_size / 1048576;
+    return step;
+}
+int release_progress(int *mb) {
+    *mb = last_mb;
+    return installing ? last_step : 0;
+}
+int release_activate(void) {
+    char ready[2048], restart[2048];
+    snprintf(ready,sizeof(ready),"%s/../.update/system-ready",data_root);
+    snprintf(restart,sizeof(restart),"%s/../.update/relaunch",data_root);
+    return state == 4 && !access(ready,F_OK) && atomic_write(restart,"1",1);
+}
 static int download(const char *url,const char *file,size_t limit) {
     if (strpbrk(url,"\r\n\"\\")) return 0;
     pid_t p=fork();
@@ -62,6 +88,7 @@ static void result(int code,const char *v,const char *message) {
     atomic_write(p,b,strlen(b));
 }
 static void check_worker(int install,pid_t parent) {
+    nice(8);
     char api[2048],meta[2048],binary[2048];
     path(api,"release-api.tmp");path(meta,"release-meta.tmp");
     snprintf(binary,sizeof(binary),"%s/../.update/github-download",data_root);
@@ -99,23 +126,34 @@ static void check_worker(int install,pid_t parent) {
     if(update_trial()){failure="Zuerst das installierte Test-Update bestätigen.";goto failed;}
     struct statvfs disk;if(statvfs(data_root,&disk) || (uint64_t)disk.f_bavail*disk.f_frsize<(uint64_t)length+2*(uint64_t)json_number(&json,json_get(&json,0,"installed_size"))+16*1024*1024)goto failed;
     char dir[2048];snprintf(dir,sizeof(dir),"%s/../.update",data_root);mkdir(dir,0700);
-    if(!download(url,binary,128*1024*1024) || !digest_file(binary,actual) || strcmp(actual,hash))goto failed;
+    progress_file(1);
+    if(!download(url,binary,128*1024*1024))goto failed;
+    progress_file(2);
+    if(!digest_file(binary,actual) || strcmp(actual,hash))goto failed;
     struct stat info;if(stat(binary,&info) || info.st_size!=length)goto failed;
+    progress_file(3);
     if(getppid()!=parent || !system_update_stage(binary,tag+1))goto failed;
-    char restart[2048];snprintf(restart,sizeof(restart),"%s/../.update/relaunch",data_root);
-    if(!atomic_write(restart,"1",1))goto failed;
-    result(3,tag,"");kill(parent,SIGUSR1);goto done;
+    result(4,tag,"");
+    goto done;
 failed: result(-1,tag,failure);
 done: free(text);unlink(api);unlink(meta);unlink(binary);_exit(0);
 }
 int release_start(int install) {
     if(worker || (install && state!=3))return 0;
+    installing=install;last_step=last_mb=0;
+    if(install)progress_file(0);
     pid_t parent=getpid();worker=fork();if(worker<0){worker=0;return 0;}
     if(!worker){setpgid(0,0);signal(SIGTERM,SIG_DFL);check_worker(install,parent);}
     state=1;error[0]=0;return 1;
 }
 int release_poll(void) {
-    if(worker){int status;pid_t done=waitpid(worker,&status,WNOHANG);if(done==0)return 0;worker=0;
+    if(worker){int status;pid_t done=waitpid(worker,&status,WNOHANG);if(done==0) {
+            if (!installing) return 0;
+            int mb, step=update_progress(&mb);
+            int changed=step!=last_step || mb!=last_mb;
+            last_step=step;last_mb=mb;
+            return changed;
+        } worker=0;installing=0;
         if(done<0 || !WIFEXITED(status) || WEXITSTATUS(status)){state=-1;snprintf(error,sizeof(error),"Update konnte nicht geprüft werden. Bitte erneut versuchen.");return 1;}}
     else if(state || loaded)return 0;
     loaded=1;
@@ -124,7 +162,11 @@ int release_poll(void) {
     if(fscanf(f,"%d %lld %31s\n",&code,&t,v)==3){state=code;checked=t;snprintf(version,sizeof(version),"%s",v);fgets(error,sizeof(error),f);}
     fclose(f);
     int ma,mi,ca,ci;sscanf(LUMEN_VERSION,"%d.%d",&ca,&ci);
-    if(state==3 && sscanf(version,"v%d.%d",&ma,&mi)==2 && (ma<ca || (ma==ca && mi<=ci)))state=2;
+    if((state==3 || state==4) && sscanf(version,"v%d.%d",&ma,&mi)==2 && (ma<ca || (ma==ca && mi<=ci)))state=2;
+    if(state==4) {
+        snprintf(p,sizeof(p),"%s/../.update/system-ready",data_root);
+        if(access(p,F_OK))state=3;
+    }
     return 1;
 }
 int release_state(void){return state;}

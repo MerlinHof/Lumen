@@ -20,7 +20,9 @@ a=base/'update.zip';archive(a,new)
 run('stage',a);run('apply')
 for rel,b in new.items():assert (base/rel).read_bytes()==b
 assert not (base/'lumen/boot.sh').exists()
-run('apply') # An unkept trial rolls back on next launch.
+run('apply') # A healthy trial survives a normal launch.
+assert (base/'lumen/bin/lumen').read_bytes()==new['lumen/bin/lumen']
+run('rollback')
 for rel,b in old.items():assert (base/rel).read_bytes()==b
 assert not(base/'lumen/fonts/new.ttf').exists()
 run('stage',a)

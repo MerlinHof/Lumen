@@ -2,7 +2,21 @@ enum { HOME_ART_Y = 48, HOME_ART_H = 404,
        HOME_FULL_GRID_Y = 80, HOME_TILE_H = 126,
        HOME_GRID_Y = HOME_FULL_GRID_Y + 3*HOME_TILE_H, HOME_PAGER_Y = 744 };
 static unsigned char home_art[WIDTH*HOME_ART_H];
-static int home_page;
+static int home_page, home_selected_app;
+static void home_app_choice(int target,int choice) {
+    static const char *confirm[]={"Abbrechen","App endgültig entfernen"};
+    if(target==2002 && choice==1) {
+        open_dropdown(2003,confirm,2,-1,150,320,300);
+        return;
+    }
+    if(target==2002) {
+        launcher_visible[home_selected_app]=0;
+        v1_dirty=1;
+        v1_save();
+    } else if(choice==1 && !app_package_remove(app_package_key(home_selected_app))) {
+        ui_message("Löschen fehlgeschlagen.");
+    }
+}
 
 static void home_landscape(void) {
     static int loaded;
@@ -58,13 +72,13 @@ static void home_draw(void) {
     }
     for (int i=0; i<limit && start+i<n; i++)
         app_tile(20+i%4*140,top+i/4*HOME_TILE_H,140,ids[start+i]);
-    if (!launcher_visible[APP_SETTINGS])
+    if ((!launcher_visible[APP_SETTINGS] || app_package_deleted(APP_SETTINGS)))
         icon_button(528,56,IC_SETTINGS);
     pager(HOME_PAGER_Y,&home_page,pages);
 }
 static int home_input(const Input *in) {
-    if (in->kind != INPUT_TAP) return -1;
-    if (!launcher_visible[APP_SETTINGS] && in->x >= 528 && in->y >= 56 && in->y < 100) {
+    if (in->kind != INPUT_TAP && in->kind != INPUT_HOLD) return -1;
+    if ((!launcher_visible[APP_SETTINGS] || app_package_deleted(APP_SETTINGS)) && in->x >= 528 && in->y >= 56 && in->y < 100) {
         AppIntent intent = {.app=APP_SETTINGS,.kind=INTENT_OPEN};
         app_send(&intent);
         return 1;
@@ -77,6 +91,13 @@ static int home_input(const Input *in) {
     int i = (home_page ? 8+(home_page-1)*20 : 0) +
             (in->y-top)/HOME_TILE_H*4 + (in->x-20)/140;
     if (i < n) {
+        if (in->kind == INPUT_HOLD) {
+            static const char *actions[]={"App ausblenden","App löschen"};
+            home_selected_app=ids[i];
+            open_dropdown(2002,actions,2,-1,in->x,in->y>670 ? 670 : in->y,245);
+            selection_release=1;
+            return 1;
+        }
         AppIntent intent = {.app=ids[i],.kind=INTENT_OPEN};
         app_send(&intent);
         if (intent.app == APP_HOME) home_page = 0;

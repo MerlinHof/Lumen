@@ -35,6 +35,28 @@ static void v1_init(void) {
         }
         launcher_visible[APP_FILE_TRANSFER] = 1;
     }
+    char terminal_order[2048];
+    snprintf(terminal_order,sizeof(terminal_order),"%s/terminal-order",data_root);
+    if(access(terminal_order,F_OK)) {
+        int terminal=-1, language=-1;
+        for(int i=0;i<APP_LIMIT;i++) {
+            if(!strcmp(app_package_key(launcher_order[i]),"lumen.terminal")) terminal=i;
+            if(launcher_order[i]==APP_LANGUAGE) language=i;
+        }
+        if(terminal>=0 && language>=0) {
+            int id=launcher_order[terminal];
+            if(terminal>language) {
+                memmove(launcher_order+language+1,launcher_order+language,
+                        (terminal-language)*sizeof(*launcher_order));
+                launcher_order[language]=id;
+            }
+            int config[APP_LIMIT*2];
+            memcpy(config,launcher_order,sizeof(launcher_order));
+            memcpy(config+APP_LIMIT,launcher_visible,sizeof(launcher_visible));
+            if(app_state_save("launcher-packages.bin",config,sizeof(config)))
+                atomic_write(terminal_order,"1",1);
+        }
+    }
     launcher_visible[APP_NUMSCRATCH] = launcher_visible[APP_DRAWING] = 0;
     app_state_load("note-tree-1.bin", &note_tree, sizeof(note_tree));
     if (note_tree.nf < 0 || note_tree.nf > 512 || note_tree.np < 0 || note_tree.np > 1024)

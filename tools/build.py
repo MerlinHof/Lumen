@@ -40,7 +40,7 @@ def build(target):
     binary=ROOT/'build'/target/('lumen-host' if target=='host' else 'lumen')
     link=['clang++'] if target=='host' else [str(zig),'c++','-target','arm-linux-musleabi','-mcpu=cortex_a9','-static','-s','-Wl,--gc-sections']
     subprocess.run(link+[str(p) for p in objects+libs]+['-lm']+(['-lpthread'] if target=='host' else [])+['-o',str(binary)],env=env,check=True)
-    for app in ('frog','sliding_puzzle','tic_tac_toe'):
+    for app in ('frog','sliding_puzzle','tic_tac_toe','terminal','2048','sudoku'):
         subprocess.run([os.sys.executable,str(ROOT/'tools/build-app.py'),str(ROOT/'lumen/apps'/app/'package.json'),'--target',target],env=env,check=True)
     print(binary)
     return binary

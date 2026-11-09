@@ -23,7 +23,8 @@ enum {
     INPUT_CANCEL,
     INPUT_BACK,
     INPUT_TEXT,
-    INPUT_SELECT
+    INPUT_SELECT,
+    INPUT_APP
 };
 int device_init(void);
 void device_close(void);

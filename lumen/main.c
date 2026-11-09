@@ -12,6 +12,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <unistd.h>
 static double stamp(void) {
     struct timespec t;
     clock_gettime(CLOCK_MONOTONIC, &t);
@@ -116,6 +117,9 @@ int main(int argc, char **argv) {
     }
     ui_draw();
     device_present(ui_pixels, 1, settings.refresh);
+#ifndef LUMEN_HOST
+    unlink("/mnt/us/lumen/.update/system-starting");
+#endif
     fprintf(stderr, "startup_ms=%.1f books=%d\n", (stamp() - start) * 1000, library_count);
     int profile = getenv("LUMEN_PROFILE") && !strcmp(getenv("LUMEN_PROFILE"), "1");
     Input input;

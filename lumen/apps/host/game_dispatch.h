@@ -14,14 +14,8 @@ static void new_apps_draw(void) {
     case 62:
         graph_range_screen();
         break;
-    case 63:
-        app_tiles();
-        break;
     case 64:
         app_solitaire();
-        break;
-    case 65:
-        app_sudoku();
         break;
     case 66:
         app_focus();
@@ -69,14 +63,6 @@ static int new_apps_input(const Input *in) {
     if (ui_route() >= 70)
         return v1_input(in);
     int x = in->x, y = in->y;
-    if (ui_route() == 63 && in->kind == INPUT_SWIPE) {
-        int dir = abs(in->dx) > abs(in->dy) ? (in->dx < 0 ? 0 : 1) : (in->dy < 0 ? 2 : 3);
-        if (tiles_move(&tile_game, dir)) {
-            new_dirty |= 1;
-            new_apps_save();
-        }
-        return 1;
-    }
     if (ui_route() == 67 && in->kind == INPUT_SWIPE) {
         int total = newspaper.count + 2;
         if (in->dx < 0 && news_page + 1 < total)
@@ -126,24 +112,6 @@ static int new_apps_input(const Input *in) {
             extra_return(61);
         return 1;
     }
-    if (ui_route() == 63) {
-        new_dirty |= 1;
-        if (y >= 74 && y < 118) {
-            if (x >= 516)
-                tiles_new(&tile_game, pro_random());
-            else if (x >= 460 && tile_game.can_undo) {
-                tile_game.state = tile_game.undo;
-                tile_game.can_undo = 0;
-            }
-        } else if (y >= 716 && y < 772 && x >= 28) {
-            int k = (x - 28) / 140;
-            int d[] = {0, 2, 3, 1};
-            if (k < 4)
-                tiles_move(&tile_game, d[k]);
-        }
-        new_apps_save();
-        return 1;
-    }
     if (ui_route() == 64) {
         new_dirty |= 2;
         if (y >= 74 && y < 118) {
@@ -185,30 +153,6 @@ static int new_apps_input(const Input *in) {
                     }
                 }
             }
-        }
-        new_apps_save();
-        return 1;
-    }
-    if (ui_route() == 65) {
-        new_dirty |= 4;
-        if (y >= 74 && y < 118 && x >= 516) {
-            sudoku_new(&sudoku, pro_random(), sudoku.difficulty);
-            sudoku_selected = -1;
-        } else if (y >= 116 && y < 160) {
-            if (x < 170)
-                sudoku_pencil ^= 1;
-            else if (x < 230)
-                sudoku_undo(&sudoku);
-            else if (x < 300)
-                sudoku_put(&sudoku, sudoku_selected, 0, 0);
-            else if (x >= 360)
-                sudoku_hint(&sudoku, sudoku_selected);
-        } else if (x >= 39 && x < 561 && y >= 170 && y < 692)
-            sudoku_selected = (y - 170) / 58 * 9 + (x - 39) / 58;
-        else if (y >= 725 && y < 777 && x >= 28 && x < 573) {
-            int v = (x - 28) / 61 + 1;
-            if (v <= 9)
-                sudoku_put(&sudoku, sudoku_selected, v, sudoku_pencil);
         }
         new_apps_save();
         return 1;

@@ -17,7 +17,7 @@
 /* IDs are a package identity, never an origin or privilege class. */
 static const char *keys[APP_COUNT]={
  "lumen.library","lumen.reader","lumen.settings","lumen.store","lumen.transfer","lumen.calendar","lumen.insights","lumen.minesweeper","lumen.hangman","lumen.tetris","lumen.snake","lumen.calculator","lumen.clock","lumen.notes","retired.drawing","lumen.weather","lumen.home-assistant","lumen.wikipedia","lumen.quotes","lumen.chess","lumen.tic-tac-toe","retired.numscratch","lumen.2048","lumen.solitaire","lumen.sudoku","lumen.braintrain","lumen.news","lumen.wordle","lumen.photos","lumen.languages","lumen.todo","lumen.flashcards","lumen.planetarium","lumen.nonograms","lumen.hex","lumen.status-bar","retired.tabs","lumen.lock-screen","lumen.keyboard","lumen.journal","lumen.study","lumen.bingo","lumen.connect-four","lumen.recipes","lumen.periodic-table","retired.files","lumen.knights-tour","lumen.sokoban","lumen.maze","lumen.crossword","retired.rpg","lumen.openai","lumen.sliding-puzzle","lumen.frog-solitaire","lumen.home"};
-static struct {AppDefinition def;char key[64],name[96],version[32];int installed;} entries[APP_LIMIT];
+static struct {AppDefinition def;char key[64],name[96],version[32];int installed,removed,has_icon;} entries[APP_LIMIT];
 static pid_t child, retired[64];
 static char process_hash[65];
 static void reap_apps(void){for(int i=0;i<64;i++)if(retired[i]&&waitpid(retired[i],NULL,WNOHANG)!=0)retired[i]=0;}static int read_fd=-1,write_fd=-1,active=-1,paused;
@@ -25,16 +25,26 @@ static size_t incoming_n, pending_n;
 static char pending[65536];static char incoming[APP_FRAME_MAX],frame[APP_FRAME_MAX],request[32768],failure[160];
 static void root(char*out,const char*leaf){snprintf(out,2048,"%s/../apps/%s",data_root,leaf);}
 static int valid_id(const char*id){return id && strlen(id)>2 && strlen(id)<64 && strspn(id,"abcdefghijklmnopqrstuvwxyz0123456789.-_")==strlen(id) && id[0]!='.' && !strstr(id,"..");}
+static void deleted_path(char *path,const char *id) {
+ char leaf[96];snprintf(leaf,sizeof(leaf),".deleted-%s",id);root(path,leaf);
+}
+static int deleted(const char *id) {
+ char path[2048];deleted_path(path,id);return !access(path,F_OK);
+}
+int app_package_deleted(AppId id) {
+ return id>=0 && id<APP_LIMIT && entries[id].removed;
+}
 static int identify(const char*key){for(int i=0;i<APP_LIMIT;i++)if(!strcmp(entries[i].key,key))return i;return -1;}
 static int read_manifest(const char*directory,Package*p){char name[2048],text[65537];snprintf(name,sizeof(name),"%s/manifest.json",directory);FILE*f=fopen(name,"rb");if(!f)return 0;size_t n=fread(text,1,65536,f);int ok=n<65536&&!ferror(f);fclose(f);text[n]=0;return ok&&package_manifest(text,p)&&!strcmp(p->format,"lumen-app-1")&&p->api==APP_PACKAGE_API&&valid_id(p->id);}
 void app_packages_scan(void) {
- for(int i=0;i<APP_LIMIT;i++){entries[i].installed=0;entries[i].def=(AppDefinition){i,entries[i].name,-1};entries[i].name[0]=0;if(i<APP_COUNT)snprintf(entries[i].key,64,"%s",keys[i]);else entries[i].key[0]=0;}
+ for(int i=0;i<APP_LIMIT;i++){entries[i].installed=0;entries[i].has_icon=0;entries[i].def=(AppDefinition){i,entries[i].name,-1};entries[i].name[0]=0;if(i<APP_COUNT)snprintf(entries[i].key,64,"%s",keys[i]);else entries[i].key[0]=0;}
  char file[2048];root(file,"slots.txt");FILE*f=fopen(file,"rb");if(f){int slot;char id[64];while(fscanf(f,"%d %63s",&slot,id)==2)if(slot>=APP_COUNT&&slot<APP_LIMIT&&valid_id(id))snprintf(entries[slot].key,64,"%s",id);fclose(f);}
+ for(int i=0;i<APP_LIMIT;i++)entries[i].removed=*entries[i].key && deleted(entries[i].key);
  root(file,"");DIR*recovery=opendir(file);if(recovery){struct dirent*r;while((r=readdir(recovery)))if(!strncmp(r->d_name,".previous-",10)&&valid_id(r->d_name+10)){char previous[2048],target[2048];root(previous,r->d_name);root(target,r->d_name+10);if(access(target,F_OK))rename(previous,target);else package_remove(previous);}closedir(recovery);}
  root(file,"");DIR*d=opendir(file);if(!d)return;struct dirent*e;Package*p=malloc(sizeof(*p));if(!p){closedir(d);return;}
  while((e=readdir(d)))if(valid_id(e->d_name)) {
    char dir[2048];snprintf(dir,sizeof(dir),"%s/%s",file,e->d_name);
-   if(!read_manifest(dir,p)||strcmp(p->id,e->d_name))continue;
+   if(!read_manifest(dir,p)||strcmp(p->id,e->d_name)||deleted(p->id))continue;
    int id=identify(p->id);if(id<0)for(int i=APP_COUNT;i<APP_LIMIT;i++)if(!*entries[i].key){id=i;snprintf(entries[i].key,64,"%s",p->id);break;}
    if(id<0)continue;entries[id].installed=1;snprintf(entries[id].name,96,"%s",p->name);snprintf(entries[id].version,32,"%s",p->version);
    entries[id].def=(AppDefinition){id,entries[id].name,id<APP_COUNT ? app_factory_definition(id)->entry : 1000+id-APP_COUNT};
@@ -65,18 +75,24 @@ int app_package_install(const char*archive) {
    struct stat st;int existed=!lstat(target,&st);if(existed && (!S_ISDIR(st.st_mode)||rename(target,previous)))ok=0;
    if(ok&&existed)sync();
    if(ok&&rename(stage,target)){if(existed)rename(previous,target);ok=0;}
-   if(ok){chmod(exe,0700);snprintf(exe,sizeof(exe),"%s/app",target);chmod(exe,0700);sync();package_remove(previous);app_packages_scan();}
+   if(ok){chmod(exe,0700);snprintf(exe,sizeof(exe),"%s/app",target);chmod(exe,0700);char marker[2048];deleted_path(marker,p->id);unlink(marker);sync();package_remove(previous);app_packages_scan();}
  }
  if(!ok)package_remove(stage);free(p);return ok;
 }
 int app_package_remove(const char*id) {
- if(!valid_id(id))return 0;char dir[2048];root(dir,id);int ok=package_remove(dir);
- if(ok){int i=identify(id);if(i>=APP_COUNT)entries[i].key[0]=0;app_packages_scan();}return ok;
+ if(!valid_id(id))return 0;
+ char key[64], dir[2048], marker[2048];snprintf(key,sizeof(key),"%s",id);
+ root(dir,key);deleted_path(marker,key);
+ if(!atomic_write(marker,"1",1))return 0;
+ int ok=package_remove(dir);
+ if(!ok)unlink(marker);
+ app_packages_scan();
+ return ok;
 }
 int app_package_icon(AppId id,unsigned char pixels[76*76]) {
- if(!app_package_installed(id))return 0;char file[2048],leaf[160];snprintf(leaf,sizeof(leaf),"%s/icon.pgm",entries[id].key);root(file,leaf);
- FILE*f=fopen(file,"rb");if(!f)return 0;char header[15];const char expected[]="P5\n76 76\n255\n";
- int ok=fread(header,1,sizeof(expected)-1,f)==sizeof(expected)-1&&!memcmp(header,expected,sizeof(expected)-1)&&fread(pixels,1,76*76,f)==76*76&&fgetc(f)==EOF;fclose(f);return ok;
+ if(!app_package_installed(id)||entries[id].has_icon<0)return 0;char file[2048],leaf[160];snprintf(leaf,sizeof(leaf),"%s/icon.pgm",entries[id].key);root(file,leaf);
+ FILE*f=fopen(file,"rb");if(!f){entries[id].has_icon=-1;return 0;}char header[15];const char expected[]="P5\n76 76\n255\n";
+ int ok=fread(header,1,sizeof(expected)-1,f)==sizeof(expected)-1&&!memcmp(header,expected,sizeof(expected)-1)&&fread(pixels,1,76*76,f)==76*76&&fgetc(f)==EOF;fclose(f);entries[id].has_icon=ok ? 1 : -1;return ok;
 }
 static void json_text(FILE*f,const char*s){fputc('"',f);for(;*s;s++){unsigned char c=*s;if(c=='"'||c=='\\')fputc('\\',f);if(c<32)fprintf(f,"\\u%04x",c);else fputc(c,f);}fputc('"',f);}
 void app_process_close(void) {
@@ -103,25 +119,28 @@ int app_process_open(AppId id) {
  package_sha256(file,process_hash);
  child=fork();if(child<0){child=0;close(in[0]);close(in[1]);close(out[0]);close(out[1]);return 0;}
  if(!child){setpgid(0,0);signal(SIGTERM,SIG_DFL);signal(SIGPIPE,SIG_DFL);dup2(in[0],0);dup2(out[1],1);close(in[0]);close(in[1]);close(out[0]);close(out[1]);
-   int null=open("/dev/null",O_WRONLY);dup2(null,2);close(null);for(int fd=3;fd<1024;fd++)close(fd);chdir(dir);setenv("LUMEN_APP_DATA",state,1);execl(file,file,NULL);_exit(127);}
+   int null=open("/dev/null",O_WRONLY);dup2(null,2);close(null);for(int fd=3;fd<1024;fd++)close(fd);chdir(dir);setenv("LUMEN_APP_DATA",state,1);setenv("LUMEN_APP_ASSETS",dir,1);execl(file,file,NULL);_exit(127);}
  close(in[0]);close(out[1]);write_fd=in[1];read_fd=out[0];fcntl(write_fd,F_SETFL,O_NONBLOCK);fcntl(read_fd,F_SETFL,O_NONBLOCK);fcntl(write_fd,F_SETFD,FD_CLOEXEC);fcntl(read_fd,F_SETFD,FD_CLOEXEC);
  active=id;paused=0;char*event=NULL;size_t n=0;FILE*f=open_memstream(&event,&n);fprintf(f,"{\"event\":\"open\",\"api\":1,\"width\":600,\"height\":800,\"content_y\":56,\"language\":%d,\"data_dir\":",options[OPT_LANGUAGE]);json_text(f,state);fputc('}',f);fclose(f);int ok=app_process_send(event);free(event);return ok;
 }
+int app_process_fd(void) { return read_fd; }
+int app_process_pending(void) { return pending_n != 0; }
 int app_process_poll(void) {
  reap_apps();if(child<=0)return 0;flush_events();
- int changed=0;char buf[16384];size_t received=0;ssize_t n;
+ int changed=0;char buf[16384];size_t received=0;ssize_t n=-1;
  while(received<APP_FRAME_MAX*2 && (n=read(read_fd,buf,sizeof(buf)))>0) {
    received+=n;
    for(ssize_t i=0;i<n;i++) {
      if(buf[i]=='\n') {
        incoming[incoming_n]=0;
        if(strstr(incoming,"\"request\"")){snprintf(request,sizeof(request),"%s",incoming);changed=1;}
-       else {snprintf(frame,sizeof(frame),"%s",incoming);changed=1;}
+       else if (strcmp(frame,incoming)) {snprintf(frame,sizeof(frame),"%s",incoming);changed=1;}
        incoming_n=0;
      } else if(incoming_n+1<sizeof(incoming))incoming[incoming_n++]=buf[i];
      else {snprintf(failure,sizeof(failure),"App-Ausgabe zu groß.");kill(child,SIGTERM);incoming_n=0;break;}
    }
  }
+ if (n == 0 && read_fd >= 0) { close(read_fd); read_fd=-1; }
  int status;pid_t done=waitpid(child,&status,WNOHANG);if(done==child){child=0;close(read_fd);close(write_fd);read_fd=write_fd=-1;snprintf(failure,sizeof(failure),"App wurde beendet. Bitte erneut öffnen.");changed=1;}
  return changed;
 }
@@ -141,7 +160,7 @@ void app_packages_seed(void) {
 #ifdef LUMEN_HOST
    struct stat st;if(!stat(archive,&st)&&S_ISDIR(st.st_mode))snprintf(archive,sizeof(archive),"%s/%s/%s.lumen-app",directory,e->d_name,e->d_name);
 #endif
-   if(!package_peek(archive,p)||strcmp(p->format,"lumen-app-1"))continue;
+   if(!package_peek(archive,p)||strcmp(p->format,"lumen-app-1")||deleted(p->id))continue;
    int id=identify(p->id);
    if(id<0 || !app_package_installed(id) || version_newer(p->version,entries[id].version))app_package_install(archive);
  }

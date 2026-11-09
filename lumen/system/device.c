@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "device.h"
+#include "app_packages.h"
 #include "network.h"
 #include "refresh.h"
 #include <errno.h>
@@ -432,8 +433,8 @@ int device_wait(Input *input) {
     static int64_t began, power_began;
     static int power_active, power_sent;
     memset(input, 0, sizeof(*input));
-    struct pollfd p[4] = {
-        {touch, POLLIN, 0}, {power, POLLIN, 0}, {eventfd, POLLIN, 0}, {usbfd, POLLIN, 0}};
+    struct pollfd p[5] = {
+        {touch, POLLIN, 0}, {power, POLLIN, 0}, {eventfd, POLLIN, 0}, {usbfd, POLLIN, 0}, {-1, POLLIN, 0}};
     while (alive) {
         if (network_ready) {
             network_ready = 0;
@@ -465,7 +466,8 @@ int device_wait(Input *input) {
             if (timeout < 0 || remain < timeout)
                 timeout = remain;
         }
-        int n = poll(p, 4, timeout);
+        p[4].fd = app_process_fd();
+        int n = poll(p, 5, timeout);
         if (!n) {
             if (active && started && !held) {
                 struct timespec t;
@@ -592,6 +594,10 @@ int device_wait(Input *input) {
                     }
                 }
             }
+        }
+        if (p[4].revents & (POLLIN | POLLHUP | POLLERR)) {
+            input->kind = INPUT_APP;
+            return 1;
         }
     }
     input->kind = INPUT_EXIT;

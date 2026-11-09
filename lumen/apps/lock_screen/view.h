@@ -63,12 +63,7 @@ static void lock_screen_content(void) {
         centered_lines(44, 510 + lines * (editorial.h - 4), 512,
                        author_label(library[lock_book].author, author, sizeof(author)), &small,
                        2);
-    } else if (options[OPT_LOCK] == 2) {
-        time_t now = time(NULL);
-        char t[32];
-        strftime(t, sizeof(t), "%H:%M", localtime(&now));
-        centered(28, 280, 544, 100, t, &title);
-    } else
+    } else if (options[OPT_LOCK] != 2)
         centered(28, 300, 544, 80, "Ein Moment der Ruhe.", &editorial);
     if (options[OPT_LOCK_HINT])
         centered(28, 704, 544, 48, "Mit der Power-Taste weiterlesen", &small);
@@ -78,14 +73,26 @@ static void lock_screen_content(void) {
 /* Overlay belongs to the lock-screen app and applies to every content mode. */
 static void lock_screen_draw(void) {
     lock_screen_content();
-    if (!options[OPT_LOCK_TIME] && !options[OPT_LOCK_DATE]) return;
-    time_t now=time(NULL);
+    int clock_mode = options[OPT_LOCK] == 2;
+    if (!clock_mode && !options[OPT_LOCK_TIME] && !options[OPT_LOCK_DATE]) return;
+    time_t now = time(NULL);
     struct tm date;
-    localtime_r(&now,&date);
-    char text[64];
-    strftime(text,sizeof(text),options[OPT_LOCK_TIME] && options[OPT_LOCK_DATE] ? "%d.%m.%Y   %H:%M" :
-             options[OPT_LOCK_TIME] ? "%H:%M" : "%d.%m.%Y",&date);
-    int width=textwidth_raw(text,ui_font(UI_BODY))+32;
-    control_surface(300-width/2,24,width,44,RADIUS_MEDIUM,255);
-    centered(300-width/2,24,width,44,text,ui_font(UI_BODY));
+    localtime_r(&now, &date);
+    char text[32];
+    if (clock_mode || options[OPT_LOCK_TIME]) {
+        strftime(text, sizeof(text), "%H:%M", &date);
+        int y = clock_mode ? 285 : 18;
+        for (int dy=-2; dy<=2; dy++)
+            for (int dx=-2; dx<=2; dx++)
+                if (dx*dx+dy*dy<=5 && (dx || dy))
+                    type_display(20+dx,y+dy,560,130,text,1,108,255);
+        type_display(20,y,560,130,text,1,108,0);
+    }
+    if (options[OPT_LOCK_DATE]) {
+        strftime(text, sizeof(text), "%d.%m.%Y", &date);
+        int y = clock_mode ? 418 : options[OPT_LOCK_TIME] ? 136 : 22;
+        type_display(20,y-1,560,38,text,0,25,255);
+        type_display(20,y+1,560,38,text,0,25,255);
+        type_display(20,y,560,38,text,0,25,0);
+    }
 }

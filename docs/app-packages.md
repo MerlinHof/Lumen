@@ -55,10 +55,10 @@ package IDs, names and versions. App installation never replaces the LUMEN
 executable or restarts it. Apps appear in Home and the existing app-order editor.
 
 Installed code/assets are in `lumen/apps/<id>`. Personal state is separate in
-`lumen/data/app-state/<id>` and exposed as `LUMEN_APP_DATA`. App replacement and
+`lumen/data/app-state/<id>` and exposed as `LUMEN_APP_DATA`. The read-only-by-convention assets directory is exposed as `LUMEN_APP_ASSETS`. App replacement and
 system updates preserve it. Save validated bounded state atomically. Shipped
 package updates are applied only when their app version is newer; explicit web
-installs may replace the same version during development.
+installs may replace the same version during development. Home removal preserves app state and prevents automatic reseeding until an explicit reinstall.
 
 ## System interface
 
@@ -72,7 +72,8 @@ loop. `lumen_begin` / `lumen_end` send one complete frame. `ui_paint_*` describe
 system-rendered text, headings, icons, hitboxes, rounded surfaces, ellipses, lines
 and rings. `lumen_button` uses the shared button component. All ordinary app
 content is below the 56px status bar. Touch feedback, rounding, icons, typography,
-keyboard and E-Ink presentation remain owned by LUMEN.
+keyboard and E-Ink presentation remain owned by LUMEN. Use `lumen_text` for
+left-aligned labels or when text needs contrasting ink on a game tile.
 
 A frame is bounded to 256 KiB and 2,048 commands. Input events are queued without
 blocking the system's touch loop. An idle app blocks on stdin, rather than
@@ -93,8 +94,8 @@ firmware services. Prefer clear typography and finite, paper-native tools.
 
 ## Existing app implementations
 
-Frog Solitaire and Sliding Puzzle ship as independent packages and use this same
-protocol. Their sources and build manifests live in their app folders. Other
+Frog Solitaire, Sliding Puzzle, Tic Tac Toe, Terminal, 2048 and Sudoku ship as
+independent packages and use this same protocol. Their sources and build manifests live in their app folders. Other
 existing views still have linked compatibility implementations. They are entries
 in the same catalog and can be replaced individually by a package using the same
 ID (`lumen.calculator`, `lumen.notes`, `lumen.home`, etc.), without changing the

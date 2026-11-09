@@ -59,6 +59,7 @@ static int ui_route(void) { return runtime.route; }
 static void app_leave(AppId app, void *ctx);
 static void route_to(int route);
 static int app_send(const AppIntent *intent);
+static void home_app_choice(int target,int choice);
 static int package_ui_poll(void);
 static void package_ui_draw(void);
 static int package_ui_input(const Input *);
@@ -125,6 +126,7 @@ static void store_restore(void);
 static int page, full = 1, sleeping;
 static float zoom = 1, panx, pany;
 static int selection_release;
+static int64_t activity16;
 static int annotations_write(void);
 static void annotations_load(void);
 static void annotations_draw(void);
@@ -858,6 +860,8 @@ static void cover_draw(Book *b, int x, int y, int w, int h, int fill) {
 }
 static void cover_size(Book *b, int x, int y, int w, int h) {
     cover_draw(b,x,y,w,h,0);
+    if (ui_route() == 1 || ui_route() == 0)
+        outline_surface(x,y,w,h,RADIUS_LARGE,198);
 }
 static void cover(Book *b, int x, int y, int scale) {
     cover_size(b, x, y, scale == 2 ? 52 : 120 / scale, scale == 2 ? 72 : 164 / scale);
@@ -1412,6 +1416,12 @@ static int ui_dispatch_input(const Input *in) {
     }
     if (!sleeping && clipboard_input(in))
         return 1;
+    if (in->kind == INPUT_APP) {
+        if (sleeping) { app_process_poll(); return 2; }
+        return package_ui_poll() ? 1 : 2;
+    }
+    if (in->kind == INPUT_DOWN || in->kind == INPUT_TAP || in->kind == INPUT_SWIPE)
+        activity16 = extra_millis();
     int network_poll = 0;
     Input normalized;
     if (!editor_ui.keyboard && in->kind == INPUT_TAP)
@@ -1582,10 +1592,15 @@ static int ui_dispatch_input(const Input *in) {
                 network_results();
             wifi_ui.wifi_scanning = 0;
         }
-        refresh_status(1);
-        return 1;
+        return ui_route() == 12 || ui_route() == 8 ? 1 : 2;
     }
     if (in->kind == INPUT_NETWORK) {
+        char books[2048];
+        snprintf(books,sizeof(books),"%s/books-changed",data_root);
+        if (!unlink(books)) {
+            if (ui_route()==0 || ui_route()==1) refresh_library();
+            else library_ui.library_dirty=1;
+        }
         app_packages_scan();
         char restart[2048];
         snprintf(restart,sizeof(restart),"%s/../.update/relaunch",data_root);
@@ -2055,6 +2070,7 @@ static void modal_input(const Input *in) {
                 return;
             }
             if(drop_target==2001){package_ui_choice(choice);}
+            else if(drop_target==2002 || drop_target==2003){home_app_choice(drop_target,choice);}
             else if (drop_target == 941 || drop_target == 942) {
                 photo_setting_choice(drop_target,choice);
             } else if (drop_target == 940) {

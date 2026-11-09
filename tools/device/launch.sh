@@ -13,7 +13,9 @@ cleanup() {
     sh /mnt/us/lumen/ui-session.sh resume
     if [ "$pillow_disabled" = 1 ]; then lipc-set-prop com.lab126.pillow disableEnablePillow enable; fi
     lipc-set-prop -i com.lab126.powerd preventScreenSaver 0
-    lipc-set-prop com.lab126.appmgrd start app://com.lab126.booklet.home >> /mnt/us/lumen/session.log 2>&1
+    if [ ! -f /mnt/us/lumen/.update/relaunch ]; then
+        lipc-set-prop com.lab126.appmgrd start app://com.lab126.booklet.home >> /mnt/us/lumen/session.log 2>&1
+    fi
     if [ -f /mnt/us/lumen/settings-request.txt ]; then
         rm -f /mnt/us/lumen/settings-request.txt
         tries=0
@@ -63,13 +65,26 @@ date
     iptables -S 2>/dev/null
     ps | grep -E "powerd|awesome|wifid|cvm"
 } > /mnt/us/lumen/runtime-api-v5.txt 2>&1
-# An unkept trial is restored before the next launch, even after a power loss.
+# Preserve healthy full-system trials across normal restarts.
 rollback_wireless() {
     [ ! -f .update/previous ] || { mv -f .update/previous bin/lumen && sync; }
 }
 # The durable helper runs from .update, so replacing bin/lumen and launch.sh is safe.
 if [ -x .update/system-installer ]; then
-    .update/system-installer --system-maintenance || exit 1
+    if [ -f .update/system-starting ]; then
+        .update/system-installer --system-rollback || exit 1
+        rm -f .update/system-starting
+    else
+        if ! .update/system-installer --system-maintenance; then
+            echo 'Update failed, recovering previous runtime'
+            .update/system-installer --system-rollback || exit 1
+            rm -rf .update/system-stage
+            rm -f .update/system-ready .update/system-installer
+        fi
+    fi
+fi
+if [ -f .update/system-trial ]; then
+    : > .update/system-starting
 fi
 rollback_wireless || exit 1
 if [ -f .update/approved ]; then
@@ -93,6 +108,12 @@ wait "$native_pid"
 result=$?
 native_pid=
 echo "native_exit=$result"
-[ "$result" = 0 ] || rollback_wireless
+if [ "$result" != 0 ]; then
+    if [ -f .update/system-trial ] && [ -x .update/system-installer ]; then
+        .update/system-installer --system-rollback
+    fi
+    rollback_wireless
+fi
+rm -f .update/system-starting
 rm -f /var/tmp/lumen-native
 exit "$result"
