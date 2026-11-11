@@ -11,16 +11,12 @@ typedef struct {
     ReadingDay days[31];
 } AppData;
 static AppData app_data;
-static Mines mine_game;
-static Hangman word_game;
-static Blocks block_game;
-static Snake snake_game;
-static int apps_dirty, app_ready[7], mine_flags, mine_release, mine_recorded, word_recorded;
+static int apps_dirty;
 static int calendar_view16=2;
 static int calendar_year, calendar_month, calendar_day;
 static char calendar_note[512];
 static unsigned calendar_note_days;
-static int64_t app_last_time, app_next_tick;
+static int64_t app_last_time;
 static int64_t app_millis(void) {
     struct timespec t;
     clock_gettime(CLOCK_MONOTONIC, &t);

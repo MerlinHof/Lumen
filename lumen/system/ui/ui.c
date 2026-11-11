@@ -88,8 +88,8 @@ static void chat_clear(void);
 static void chat_draw(void), chats_draw(void);
 static int chat_input(const Input *), chats_input(const Input *);
 static int recipes_back(void);
-static int recipes_draw17(void), recipes_input17(const Input *), cross_commit17(const char *);
-static void games_save17(void), journal_store17(void),
+static int recipes_draw17(void), recipes_input17(const Input *);
+static void journal_store17(void),
     u17_game_manual(int, const char *, const char *);
 static int u17_games_draw(void), u17_games_input(const Input *), recipes_fetch17(const char *);
 static void recipes_search17(const char *), recipes_parse17(void), recipes_open_ready17(void);
@@ -197,7 +197,6 @@ static void reading_input(const Input *in);
 static void apps_init(void);
 static void apps_draw(void);
 static int apps_input(const Input *in);
-static int apps_poll_interval(void);
 static void apps_pause(void);
 static void apps_checkpoint(void);
 static void apps_save(void);
@@ -1075,7 +1074,6 @@ static int restore_anchor(const Book *book, int fallback, int bookmark) {
 
 void ui_save(void) {
     app_pages_checkpoint();
-    games_save17();
     if (ui_route() == 126)
         journal_store17();
     companion_checkpoint16();
@@ -1524,7 +1522,7 @@ static int ui_dispatch_input(const Input *in) {
             network_poll = 1;
         } else {
             int needs_status = ui_route() == 12 ||
-                               ((ui_route() == 25 || ui_route() == 26) && apps_poll_interval() >= 0);
+                               package_clock_wait() >= 0;
             if (action && !needs_status)
                 return action;
             if (service_busy() && !needs_status)
@@ -2223,7 +2221,7 @@ int ui_poll_interval(void) {
     if(updating)return update_error ? -1 : 400;
     if (sleeping)
         return v1_sleep_poll();
-    int wait = ui_route() >= 20 ? apps_poll_interval() : (ui_route() == 12 ? 2000 : -1),
+    int wait = ui_route() == 12 ? 2000 : -1,
         other = extra_poll();
     int tick=package_clock_wait();
     if(tick>=0 && (other<0 || tick<other))other=tick;
@@ -2324,7 +2322,6 @@ static void app_leave(AppId app, void *ctx) {
     app_page_checkpoint(app);
     if (app == APP_PHOTOS) photo_app_leave();
     (void)ctx;
-    games_save17();
     if (app == APP_JOURNAL)
         journal_store17();
     companion_checkpoint16();
@@ -2456,8 +2453,6 @@ static int app_send(const AppIntent *intent) {
         calendar_day=today.tm_mday;
         app_calendar_load();
     }
-    else if (ui_route() >= 23 && ui_route() <= 26)
-        app_open(ui_route());
     if (intent->app == APP_NOTES && intent->object_id) {
         note_load((int)intent->object_id);
         route_to(30);

@@ -32,6 +32,40 @@ static void package_asset_paint(const char *name,int x,int y,int w,int h) {
             memcpy(ui_pixels+(y+r)*WIDTH+x+left,row+left,right-left);
     fclose(file);
 }
+/* One bounded per-foreground sprite sheet, invalidated by package replacement. */
+static void package_sprite(const char *asset,int x,int y,int size,int index,int transparent) {
+    static char previous[256];
+    static unsigned char sheet[64*1024];
+    static int width,height;
+    static uint64_t loaded_serial;
+    if(size<1 || size>96 || index<0 || index>=64 || strlen(asset)>=sizeof(previous))return;
+    uint64_t serial=app_process_frame_serial();
+    if(loaded_serial!=serial || strcmp(previous,asset)) {
+        char path[2048];
+        loaded_serial=serial;width=height=0;
+        snprintf(previous,sizeof(previous),"%s",asset);
+        if(!app_package_asset(app_for_route(ui_route()),asset,path,sizeof(path)))return;
+        FILE *file=fopen(path,"rb");
+        if(!file)return;
+        int w,h,max;
+        if(fscanf(file,"P5 %d %d %d",&w,&h,&max)==3 && w>0 && w<=256 && h>=w &&
+           h%(w)==0 && (size_t)h<=sizeof(sheet)/(size_t)w && max==255 && fgetc(file)=='\n' &&
+           fread(sheet,1,(size_t)w*h,file)==(size_t)w*h){width=w;height=h;}
+        fclose(file);
+    }
+    if(!width || index>=height/width)return;
+    const unsigned char *tile=sheet+(size_t)index*width*width;
+    for(int yy=0;yy<size;yy++) {
+        int sy=y+yy;
+        if(sy<STATUS_HEIGHT || sy>=HEIGHT)continue;
+        for(int xx=0;xx<size;xx++) {
+            int sx=x+xx;
+            if(sx<0 || sx>=WIDTH)continue;
+            unsigned char gray=tile[(yy*width/size)*width+xx*width/size];
+            if(!transparent || gray!=255)ui_pixels[sy*WIDTH+sx]=gray;
+        }
+    }
+}
 static char package_options[48][128];
 static const char *package_labels[48];
 static void package_ui_choice(int choice){char event[128];snprintf(event,sizeof(event),"{\"event\":\"select\",\"action\":%d,\"value\":%d}",package_select_action,choice);app_process_send(event);}
@@ -104,6 +138,8 @@ static void package_paint_frame(const char *text) {
         if(!strcmp(type,"line"))estimate=(size_t)(abs(x-package_value(&j,item,"x2"))+32)*(abs(y-package_value(&j,item,"y2"))+32);
         if(estimate>4000000 || cost+estimate>4000000)break;cost+=estimate;
         if(!strcmp(type,"asset"))package_asset_paint(label,x,y,w,h);
+        else if(!strcmp(type,"sprite") && h==w)
+            package_sprite(label,x,y,w,package_value(&j,item,"index"),package_value(&j,item,"transparent"));
         else if(!strcmp(type,"qr")) {
             if(w<80 || w>320 || h!=w)continue;
             uint8_t qr[qrcodegen_BUFFER_LEN_FOR_VERSION(10)],tmp[qrcodegen_BUFFER_LEN_FOR_VERSION(10)];
@@ -325,7 +361,7 @@ static int package_ui_poll(void) {
         Json frame;
         if(json_parse(&frame,app_process_frame(),package_tokens,32768)) {
             int tick=package_value(&frame,0,"tick");
-            package_deadline=tick>=250 && tick<=60000 ? extra_millis()+tick : 0;
+            package_deadline=tick>=20 && tick<=60000 ? extra_millis()+tick : 0;
             package_timer_owner=app_for_route(ui_route());
         }
     }

@@ -114,3 +114,37 @@ assert any(f.get('operation')=='list' for f in frames)
 assert any(f.get('operation')=='open' and f.get('text')=='1234567890abcdef:2' for f in frames)
 assert any(c.get('text')=='A quoted passage' for f in frames for c in f.get('ui',[]))
 print('PASS packaged Quotes renders annotations and uses stable book references.')
+
+frames,_=app_session('lumen.minesweeper',[
+    dict(event='input',kind=12,x=110,y=210),tap(110,210),tap(340,340),tap(490,92)])
+assert any(c.get('text')=='1 / 12' for f in frames for c in f.get('ui',[]))
+assert any(f.get('operation')=='open_document' for f in frames)
+frames,_=app_session('lumen.hangman',[
+    dict(event='service',action=1,ok=1,word='INK'),
+    *[tap(50+54*i,470) for i in (0,1,2,3,4,5)]])
+assert any(f.get('service')=='dictionary' for f in frames)
+assert any('INK' in c.get('text','') for f in frames for c in f.get('ui',[]))
+for key in ('lumen.tetris','lumen.snake'):
+    frames,_=app_session(key,[tap(480,145),dict(event='tick'),dict(event='pause'),dict(event='resume')])
+    assert not frames[0]['tick'] and 20<=frames[1]['tick']<=650 and frames[-1]['tick']==0
+    assert frames[1]['ui']!=frames[2]['ui']
+print('PASS packaged Minesweeper, Hangman, Tetris and Snake input, dictionary, timing and pause.')
+
+frames,folder=app_session('lumen.flashcards',[
+    tap(550,92),dict(event='text',action=1,text='Physics'),
+    dict(event='text',action=2,text='Force?'),dict(event='text',action=3,text='Mass times acceleration.'),
+    tap(100,640),tap(340,744)])
+assert (folder/'cards.bin').is_file() and (folder/'reviews.tsv').read_text().split('\t')[2]=='3'
+assert any(c.get('text')=='Mass times acceleration.' for f in frames for c in f.get('ui',[]))
+print('PASS packaged Flashcards creates cards, reveals answers and records FSRS reviews.')
+
+frames,folder=app_session('lumen.sokoban',[tap(430,92)])
+assert (folder/'warehouse.bin').is_file()
+assert any(c.get('type')=='sprite' and c.get('transparent')==1 for f in frames for c in f.get('ui',[]))
+assert any(f.get('operation')=='open_document' for f in frames)
+frames,folder=app_session('lumen.crossword',[tap(100,545),dict(event='text',action=10,text='X'),tap(430,92)])
+assert any(f.get('operation')=='clues' for f in frames)
+assert any(f.get('request')=='input' and f.get('action')==10 for f in frames)
+assert any(f.get('request')=='notify' and 'letters' in f.get('text','') for f in frames)
+assert any(f.get('operation')=='open_document' for f in frames)
+print('PASS packaged Sokoban assets, save and help, and Crossword clues, editing, validation and help.')

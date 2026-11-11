@@ -548,8 +548,6 @@ static void help_overlay16(void) {
         centered(xx, 74, 44, 44, "?", ui_font(UI_BODY));
     }
 }
-static char crossword_answer16[5][16];
-#include "../crossword/model.h"
 
 static void direction_keys16(void) {
     icon_button(160, 728, IC_PREV);
@@ -660,13 +658,6 @@ static int u16_apps_commit(int target, const char *text) {
         return 1;
     }
 
-    if (target == 179) {
-        snprintf(crossword_answer16[crossword_pick16], 16, "%s", text);
-        for (char *p = crossword_answer16[crossword_pick16]; *p; p++)
-            *p = toupper((unsigned char)*p);
-        app_state_save("crossword16.bin", crossword_answer16, sizeof(crossword_answer16));
-        return 1;
-    }
     return 0;
 }
 static void companion_enter16(void) {
@@ -705,18 +696,6 @@ static void companion_enter16(void) {
     if (ui_route() == 122) {
         config16("llm-model.txt", llm_model16, sizeof(llm_model16));
         config16("llm-prompt16.txt", llm_prompt16, sizeof(llm_prompt16));
-    }
-    if (ui_route() == 120 && !cross_seed16) {
-        char seed[40] = "";
-        config16("crossword-seed16.txt", seed, sizeof(seed));
-        char answers[5][16];
-        int exists = app_state_load("crossword16.bin", answers, sizeof(answers));
-        crossword_new16((unsigned)strtoul(seed, NULL, 10));
-        if (exists && *seed) {
-            memcpy(crossword_answer16, answers, sizeof(answers));
-            for (int i = 0; i < 5; i++)
-                crossword_answer16[i][15] = 0;
-        }
     }
     if (ui_route() == 118 || ui_route() == 119 ||
         ui_route() == 121) {
@@ -804,11 +783,6 @@ static int u16_apps_draw(void) {
         pager(715, &companion_page16, (files_count16 + 7) / 8);
         return 1;
     }
-    if (ui_route() == 120) {
-        crossword_draw16();
-        return 1;
-    }
-
     if (ui_route() == 125) {
         solar16();
         return 1;
@@ -967,18 +941,6 @@ static int u16_apps_input(const Input *in) {
             sky_config.minute = u.minute;
             sky_key[0] = 0;
             return 1;
-        }
-        return 1;
-    }
-    if (ui_route() == 120) {
-        if (y >= 74 && y < 118 && x >= 516) {
-            crossword_new16(random16());
-            return 1;
-        }
-        if (y >= 520 && y < 765) {
-            crossword_pick16 = (y - 520) / 49;
-            open_keyboard(179, cross_clues16[crossword_pick16],
-                          crossword_answer16[crossword_pick16]);
         }
         return 1;
     }

@@ -14,7 +14,6 @@ static void apps_init(void) {
     app_data.magic = 0x4c415050;
     app_data.version = 1;
     app_last_time = app_millis();
-    apps_seed((uint32_t)time(NULL));
     time_t now = time(NULL);
     struct tm t;
     localtime_r(&now, &t);
@@ -54,50 +53,6 @@ static void apps_save(void) {
         apps_dirty = 0;
 }
 static void apps_pause(void) {
-    block_game.paused = snake_game.paused = 1;
     apps_save();
     extra_save();
-}
-static void app_records(void) {
-    if ((unsigned)snake_game.score > app_data.best_snake) {
-        app_data.best_snake = snake_game.score;
-        apps_dirty = 1;
-    }
-    if ((unsigned)block_game.score > app_data.best_blocks) {
-        app_data.best_blocks = block_game.score;
-        apps_dirty = 1;
-    }
-    if (mine_game.won && !mine_recorded) {
-        mine_recorded = 1;
-        app_data.mines_wins++;
-        apps_dirty = 1;
-    }
-    if (word_game.won && !word_recorded) {
-        word_recorded = 1;
-        app_data.word_wins++;
-        apps_dirty = 1;
-    }
-}
-static void app_new(int target) {
-    if (target == 23) {
-        mines_new(&mine_game);
-        mine_flags = mine_release = mine_recorded = 0;
-    }
-    if (target == 24) {
-        hangman_new(&word_game, options[OPT_LANGUAGE]);
-        word_recorded = 0;
-    }
-    if (target == 25)
-        blocks_new(&block_game);
-    if (target == 26)
-        snake_new(&snake_game);
-    app_ready[target - 20] = 1;
-    app_next_tick = app_millis() + 650;
-}
-static void app_open(int target) {
-    route_to(target);
-    if (target == 21)
-        app_calendar_load();
-    if (target >= 23 && !app_ready[target - 20])
-        app_new(target);
 }

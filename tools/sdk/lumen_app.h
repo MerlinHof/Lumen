@@ -98,16 +98,23 @@ static int app_state_load(const char *name,void *bytes,size_t size) {
  return lumen_storage_read(name,bytes,size,&actual) && actual==size;
 }
 /* One-time import from linked apps. The runtime supplies the original data root. */
-static int lumen_legacy_state(const char *name,void *bytes,size_t size) {
+static int lumen_legacy_read(const char *name,void *bytes,size_t size,size_t *actual) {
+ if(actual)*actual=0;
  const char *root=getenv("LUMEN_LEGACY_DATA");
  if(!root || !*root || !name || !*name || name[0]=='.' || strchr(name,'/'))return 0;
  char path[2048];
  if(snprintf(path,sizeof(path),"%s/%s",root,name)>=(int)sizeof(path))return 0;
  FILE *file=fopen(path,"rb");
  if(!file)return 0;
- int ok=fread(bytes,1,size,file)==size && fgetc(file)==EOF;
+ size_t count=fread(bytes,1,size,file);
+ int ok=fgetc(file)==EOF && !ferror(file);
  fclose(file);
+ if(ok && actual)*actual=count;
  return ok;
+}
+static int lumen_legacy_state(const char *name,void *bytes,size_t size) {
+ size_t actual;
+ return lumen_legacy_read(name,bytes,size,&actual) && actual==size;
 }
 static void lumen_service(const char *name,const char *operation,const char *data,int action) {
  fputs("{\"request\":\"service\",\"service\":",stdout);lumen_json(name);
@@ -119,6 +126,11 @@ static void lumen_app_tile(int x,int y,int width,const char *id) {
 }
 static void lumen_asset(int x,int y,int w,int h,const char *name) {
  lumen_cmd("asset",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(name);putchar('}');
+}
+static void lumen_sprite(const char *asset,int x,int y,int size,int index,int transparent) {
+ lumen_cmd("sprite",x,y,size,size);
+ fputs(",\"text\":",stdout);lumen_json(asset);
+ printf(",\"index\":%d,\"transparent\":%d}",index,!!transparent);
 }
 static void lumen_page(const char *title) {
  lumen_cmd("page_layout",28,74,544,44);
@@ -183,7 +195,7 @@ static void lumen_open(const char*id){fputs("{\"request\":\"open\",\"app\":",std
 static void lumen_run(void(*draw)(void),int(*input)(const Input*),void(*save)(void)) {
  static char output[65536];setvbuf(stdout,output,_IOFBF,sizeof(output));
  while(lumen_next()) {
-   if(lumen_is("pause")){if(save)save();continue;}
+   if(lumen_is("pause")){Input in={.kind=INPUT_PAUSE};input(&in);if(save)save();continue;}
    if(lumen_is("open")) {
       lumen_language=lumen_number("language");
       Input in={.kind=INPUT_OPEN};input(&in);

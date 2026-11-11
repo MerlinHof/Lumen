@@ -86,23 +86,6 @@ static void v1_init(void) {
             tasks[i].state = tasks[i].state >= 0 && tasks[i].state <= (TASK_DONE | TASK_FLAG) ?
                              tasks[i].state & (TASK_DONE | TASK_FLAG) : 0;
         }
-    if (app_state_load("flashcards-1.bin", flashcards, sizeof(flashcards)))
-        for (int i = 0; i < 512; i++) {
-            flashcards[i].front[511] = flashcards[i].back[1023] = flashcards[i].deck[63] = 0;
-            if (*flashcards[i].front)
-                flash_count = i + 1;
-            MemoryCard *m = &flashcards[i].memory;
-            if (!isfinite(m->stability) || !isfinite(m->difficulty) || m->stability < 0 ||
-                m->stability > 36500 || m->difficulty < 0 || m->difficulty > 10 || m->due < 0)
-                memset(m, 0, sizeof(*m));
-        }
-    char *duration = service_read("timer-duration.txt", 32);
-    if (duration) {
-        int n = atoi(duration);
-        if (n > 0 && n <= 86400)
-            timer_total_seconds = n;
-        free(duration);
-    }
     int lp[5];
     if (app_state_load("language-1.bin", lp, sizeof(lp)) && lp[0] >= 0 && lp[0] < 3 && lp[1] >= 0 &&
         lp[1] < 24 && lp[2] >= 0 && lp[3] >= lp[2]) {
@@ -118,7 +101,6 @@ static void v1_save(void) {
         return;
     launcher_save();
     app_state_save("note-tree-1.bin", &note_tree, sizeof(note_tree));
-    app_state_save("flashcards-1.bin", flashcards, sizeof(flashcards));
     int lp[5] = {lang_pair, lang_index, lang_correct, lang_total, 0};
     app_state_save("language-1.bin", lp, sizeof(lp));
     v1_dirty = 0;

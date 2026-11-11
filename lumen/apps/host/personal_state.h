@@ -10,7 +10,6 @@
 static int v1_ready, v1_dirty, v1_page, v1_delete;
 #include "../notes/folder_state.h"
 #include "../todo/state.h"
-#include "../flashcards/state.h"
 #include "../nonograms/shared_board_state.h"
 #include "../photos/state.h"
 #include "../news/archive_state.h"

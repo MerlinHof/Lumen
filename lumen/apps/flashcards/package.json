@@ -1,0 +1,9 @@
+{
+  "format": "lumen-app-1",
+  "api": 1,
+  "id": "lumen.flashcards",
+  "name": "Karteikarten",
+  "version": "1.0.0",
+  "sources": ["app.c", "scheduler.c"],
+  "assets": ["assets/icon.pgm"]
+}

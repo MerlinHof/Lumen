@@ -5,8 +5,6 @@ static void v1_open(int target) {
     v1_page = 0;
     if (target == 71)
         v1_photos_scan();
-    if (target == 76)
-        flash_next();
     if (target == 79) {
         static int ready;
         if (!ready) {
@@ -42,28 +40,6 @@ static void v1_draw(void) {
         break;
     case 74:
         v1_tasks_draw();
-        break;
-    case 76:
-        v1_flash_draw();
-        break;
-    case 77:
-        heading_actions("Kartenbibliothek", 1);
-        icon_button(528, 74, IC_PLUS);
-        for (int r = 0; r < 7 && flash_page * 7 + r < flash_count; r++) {
-            int i = flash_page * 7 + r, y = 151 + r * 72;
-            region(28, y, 474, 66);
-            drawtext_raw(30, y, flashcards[i].front, ui_font(UI_BODY), 466);
-            drawtext_raw(30, y + 33, flashcards[i].deck, ui_font(UI_SECONDARY), 466);
-            icon_button(522, y + 8, IC_TRASH);
-            divider(28, y + 66, 544);
-        }
-        pager(695, &flash_page, (flash_count + 6) / 7);
-        break;
-    case 78:
-        heading("Karte bearbeiten");
-        button_h(28, 180, 544, 60, "Sammlung", 0);
-        button_h(28, 269, 544, 60, "Frage", 0);
-        button_h(28, 358, 544, 60, "Antwort", 0);
         break;
     case 79:
         sky_draw();
@@ -121,42 +97,6 @@ static int v1_commit(int target, const char *text) {
             task_page = task_tab = 0;
             tasks_save();
         }
-        return 1;
-    }
-    if (target == 111) {
-        if (!*text)
-            return 1;
-        snprintf(flash_deck, 64, "%s", text);
-        open_keyboard(112, "Frage", flash_edit >= 0 ? flashcards[flash_edit].front : "");
-        return 2;
-    }
-    if (target == 112) {
-        if (!*text)
-            return 1;
-        snprintf(flash_front, 512, "%s", text);
-        open_keyboard(113, "Antwort", flash_edit >= 0 ? flashcards[flash_edit].back : "");
-        return 2;
-    }
-    if (target == 113) {
-        if (!*text || (!*flash_front && flash_edit < 0))
-            return 1;
-        int i = flash_edit >= 0 ? flash_edit : flash_count;
-        if (i >= 512) {
-            ui_message("Kartenbibliothek voll.");
-            return 1;
-        }
-        if (flash_edit < 0)
-            memset(&flashcards[i], 0, sizeof(Flashcard));
-        if (!flashcards[i].id)
-            flashcards[i].id = (uint64_t)time(NULL) * 1000 + i;
-        snprintf(flashcards[i].deck, 64, "%s", flash_deck);
-        snprintf(flashcards[i].front, 512, "%s", flash_front);
-        snprintf(flashcards[i].back, 1024, "%s", text);
-        if (i == flash_count)
-            flash_count++;
-        v1_dirty = 1;
-        flash_edit = -1;
-        flash_next();
         return 1;
     }
     if (target == 120) {
@@ -292,12 +232,6 @@ static int v1_input(const Input *in) {
                     v1_photos_scan();
                     extra_return(71);
                 }
-                if (v1_delete == 2 && flash_edit >= 0 && flash_edit < flash_count) {
-                    memmove(&flashcards[flash_edit], &flashcards[flash_edit + 1],
-                            (flash_count - flash_edit - 1) * sizeof(Flashcard));
-                    memset(&flashcards[--flash_count], 0, sizeof(Flashcard));
-                    v1_dirty = 1;
-                }
                 if (v1_delete >= 1000) {
                     int i = v1_delete - 1000;
                     if (i < task_count) {
@@ -338,59 +272,6 @@ static int v1_input(const Input *in) {
         break;
     case 74:
         return polish_tasks_input(in);
-    case 76:
-        if (y >= 74 && y < 118) {
-            if (x >= 516) {
-                flash_edit = -1;
-                open_keyboard(111, "Sammlung", flash_deck);
-            } else if (x >= 456)
-                extra_open(77);
-        } else if (flash_selected >= 0) {
-            if (!flash_reveal && y >= 622 && y < 682)
-                flash_reveal = 1;
-            else if (flash_reveal && y >= 722 && y < 776 && x >= 28 && x < 572) {
-                int grade = (x - 28) / 140 + 1;
-                if (grade <= 4) {
-                    fsrs_review(&flashcards[flash_selected].memory, grade, time(NULL));
-                    char path[2048];
-                    local_path(path, sizeof(path), "flashcard-reviews.tsv");
-                    FILE *log = fopen(path, "a");
-                    if (log) {
-                        MemoryCard *m = &flashcards[flash_selected].memory;
-                        fprintf(log, "%lld\t%llu\t%d\t%.8g\t%.8g\t%lld\n", (long long)m->last,
-                                (unsigned long long)flashcards[flash_selected].id, grade,
-                                m->stability, m->difficulty, (long long)m->due);
-                        fclose(log);
-                    }
-                    v1_dirty = 1;
-                    flash_next();
-                }
-            }
-        }
-        break;
-    case 77:
-        if (y >= 74 && y < 118 && x >= 516) {
-            flash_edit = -1;
-            open_keyboard(111, "Sammlung", flash_deck);
-        } else if (y >= 151 && y < 655) {
-            int i = flash_page * 7 + (y - 151) / 72;
-            if (i < flash_count) {
-                flash_edit = i;
-                if (x >= 510)
-                    v1_delete = 2;
-                else {
-                    snprintf(flash_deck, 64, "%s", flashcards[i].deck);
-                    snprintf(flash_front, 512, "%s", flashcards[i].front);
-                    open_keyboard(111, "Sammlung", flash_deck);
-                }
-            }
-        } else if (y >= 695 && y < 739) {
-            if (x < 300 && flash_page)
-                flash_page--;
-            else if (x >= 300 && (flash_page + 1) * 7 < flash_count)
-                flash_page++;
-        }
-        break;
     case 79:
         if (y >= 74 && y < 118 && x >= 516) {
             extra_open(80);

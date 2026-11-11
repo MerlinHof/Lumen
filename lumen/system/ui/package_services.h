@@ -66,6 +66,38 @@ static int transfer_service(const char *operation,const char *data,int action) {
 #include "annotation_service.h"
 static int package_service_request(const char *name,const char *operation,const char *data,int action) {
     if(!strcmp(name,"transfer"))return transfer_service(operation,data,action);
+    if(!strcmp(name,"dictionary") && !strcmp(operation,"game_word")) {
+        char *end;
+        unsigned long seed=strtoul(data,&end,10);
+        if(!*data || *end)return 0;
+        char word[64],*message=NULL;size_t length=0;
+        dictionary_game_word(options[OPT_LANGUAGE],seed,word);
+        FILE *out=package_reply(&message,&length,action,1);
+        if(!out)return 0;
+        package_field(out,"word",word);
+        package_reply_end(out,&message);
+        return 1;
+    }
+    if(!strcmp(name,"dictionary") && !strcmp(operation,"clues")) {
+        char *message=NULL;size_t length=0;
+        FILE *out=package_reply(&message,&length,action,1);
+        if(!out)return 0;
+        for(int i=0;i<5 && *data;i++) {
+            size_t n=strcspn(data," ");
+            if(!n || n>=24 || strspn(data,"ABCDEFGHIJKLMNOPQRSTUVWXYZ")!=n)break;
+            char term[24],key[16];
+            snprintf(term,sizeof(term),"%.*s",(int)n,data);
+            int language=-1;
+            const char *definition=dictionary_lookup(term,1,&language);
+            if(definition && language==options[OPT_LANGUAGE]) {
+                snprintf(key,sizeof(key),"clue%d",i);
+                package_field(out,key,definition);
+            }
+            data+=n+(data[n]==' ');
+        }
+        package_reply_end(out,&message);
+        return 1;
+    }
     if(!strcmp(name,"annotations"))return annotation_service(operation,data,action);
     if(!strcmp(name,"catalog"))return catalog_service(operation,data,action);
     return 0;

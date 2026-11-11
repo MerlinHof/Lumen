@@ -137,17 +137,9 @@ int main(int argc, char **argv) {
     ui_input(&hold);
     assert(!editor_ui.clip_active);
     editor_ui.keyboard = 0;
-    for (int level = 1; level <= 20; level++) {
-        warehouse_new17(level);
-        int goals = 0, boxes = 0;
-        for (int i = 0; i < warehouse17.w * warehouse17.h; i++) {
-            goals += warehouse17.board[i] == 2 || warehouse17.board[i] == 5;
-            boxes += box17(warehouse17.board[i]);
-        }
-        assert(goals == boxes && boxes > 0);
-        assert(floor17(warehouse17.board[warehouse17.y * warehouse17.w + warehouse17.x]));
-    }
     route_to(118);
+    settle_app();
+    assert(strstr(app_process_frame(),"Sokoban"));
     ui_draw();
     shot17("sokoban");
     route_to(119);
@@ -156,13 +148,9 @@ int main(int argc, char **argv) {
     ui_draw();
     shot17("maze");
     route_to(120);
+    settle_app();
     ui_draw();
     shot17("crossword");
-    crossword_pick16 = 0;
-    cross_commit17("X");
-    assert(!*crossword_answer16[0]);
-    cross_commit17(cross_words16[0]);
-    assert(!strcmp(crossword_answer16[0], cross_words16[0]));
     route_to(110);
     ui_draw();
     shot17("journal-list");
@@ -466,29 +454,6 @@ int main(int argc, char **argv) {
     ui_draw();
     assert(ui_pixels[78*WIDTH+180] == theme_gray(231));
     editor_ui.keyboard = 0;
-    route_to(25);
-    app_new(25);
-    block_game.paused=0;
-    app_next_tick=app_millis()+650;
-    int falling_y=block_game.y;
-    Input tick={.kind=INPUT_STATUS};
-    for (int i=0;i<30;i++) {
-        assert(apps_input(&tick)==2);
-        assert(block_game.y==falling_y);
-    }
-    app_next_tick=app_millis()-1;
-    assert(apps_input(&tick)==1 && block_game.y==falling_y+1);
-    route_to(26);
-    app_new(26);
-    snake_game.paused=0;
-    app_next_tick=app_millis()+550;
-    int snake_head=snake_game.cells[0];
-    for (int i=0;i<30;i++) {
-        assert(apps_input(&tick)==2);
-        assert(snake_game.cells[0]==snake_head);
-    }
-    app_next_tick=app_millis()-1;
-    assert(apps_input(&tick)==1 && snake_game.cells[0]!=snake_head);
     char photo_file[2048];
     snprintf(photo_file,sizeof(photo_file),"%s/rotation-test.pgm",data_root);
     unsigned char *source=malloc(480000), *result=malloc(480000);

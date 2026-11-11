@@ -1,16 +1,11 @@
 // clang-format off
 /* Dependency order: core app models, their views, then cross-app polish. */
 #include "../../system/ui/form_controls.h"
-#include "../../system/ui/game_tiles.h"
 #include "classic_state.h"
 #include "../calendar/storage.h"
 #include "classic_lifecycle.h"
 #include "../calendar/month.h"
 #include "../system_tools/cards.h"
-#include "../minesweeper/view.h"
-#include "../hangman/view.h"
-#include "../tetris/view.h"
-#include "../snake/view.h"
 #include "classic_dispatch.h"
 #include "../insights/model.h"
 #include "tool_state.h"
@@ -45,7 +40,6 @@
 #include "../launcher/view.h"
 #include "../language/lessons.h"
 #include "../language/entry.h"
-#include "../flashcards/view.h"
 #include "../todo/entry.h"
 #include "../photos/storage.h"
 #include "../news/archive_view.h"
@@ -83,8 +77,8 @@
 #include "../reader/markdown.h"
 #include "../journal/model.h"
 #include "journal_dispatch.h"
-#include "../sokoban/model.h"
-#include "../crossword/view.h"
+static int u17_games_draw(void) {return recipes_draw17();}
+static int u17_games_input(const Input *in) {return recipes_input17(in);}
 #include "../games/manuals.h"
 #include "../recipes/app.h"
 #include "../openai/conversation.h"

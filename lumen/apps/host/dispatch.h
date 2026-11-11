@@ -58,10 +58,6 @@ static void app_render(void) {
         break;
     case 21:
     case 22:
-    case 23:
-    case 24:
-    case 25:
-    case 26:
         apps_draw();
         break;
     }

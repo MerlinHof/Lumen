@@ -12,8 +12,6 @@ static void u17_more_choice(int target, int choice) {
 static int u17_more_commit(int target, const char *text) {
     if (target == 176)
         models_loaded17 = 0;
-    if (target == 179)
-        return cross_commit17(text);
     if (target == 171 && journal_date17) {
         if (journal_step16 < 6)
             snprintf(journal_answers16[journal_step16], 8192, "%s", text);
