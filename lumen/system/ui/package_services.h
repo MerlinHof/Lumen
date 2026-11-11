@@ -63,8 +63,10 @@ static int transfer_service(const char *operation,const char *data,int action) {
     package_reply_end(stream,&message);
     return 1;
 }
+#include "annotation_service.h"
 static int package_service_request(const char *name,const char *operation,const char *data,int action) {
     if(!strcmp(name,"transfer"))return transfer_service(operation,data,action);
+    if(!strcmp(name,"annotations"))return annotation_service(operation,data,action);
     if(!strcmp(name,"catalog"))return catalog_service(operation,data,action);
     return 0;
 }

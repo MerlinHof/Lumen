@@ -6,8 +6,6 @@ typedef struct {
 } Warehouse17;
 static Warehouse17 warehouse17, undo_warehouse17, initial_warehouse17;
 static int warehouse_ready17, warehouse_undo17, warehouse_facing17 = 4;
-static unsigned char maze17[33 * 35], maze_trace17[33 * 35];
-static int maze_ready17, maze_x17 = 1, maze_y17 = 1, maze_moves17, maze_win17;
 static int box17(int v) {
     return v == 3 || v == 5;
 }

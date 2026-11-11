@@ -72,10 +72,45 @@ for app,x,y,help_x in [
  if help_x: assert any(frame.get('request')=='reader' for frame in frames),app
 
 commands=['cd /tmp','export LUMEN_SESSION_TEST=works','pwd',
-          'printf "%s\\n" "$LUMEN_SESSION_TEST"','cd /','pwd','ls /','false']
+          'printf "%s\\n" "$LUMEN_SESSION_TEST"','cd /','pwd','ls /','false',r"printf '\033[31mRED\033[0m\n'",'  clear  ']
 frames,folder=app_session('lumen.terminal',[dict(event='text',action=1,text=c) for c in commands])
 lines=[c.get('text') for f in frames for c in f.get('ui',[]) if c.get('type')=='mono']
 assert '/tmp' in lines or '/private/tmp' in lines
 assert '/' in lines and any('bin' in line.split() for line in lines) and 'works' in lines and '[exit 1]' in lines
 assert 'history.bin' not in lines and (folder/'history.bin').is_file()
+assert 'RED' in lines and not any('\x1b' in line for line in lines if line)
+assert len([c for c in frames[-1]['ui'] if c.get('type')=='mono'])==1
 print('PASS standalone app ports, Reader help, private saves and persistent Terminal shell.')
+
+# Read the wall runs actually published by the executable and prove the exit is reachable.
+frames,_=app_session('lumen.maze',[tap(490,92)])
+walls=set()
+for cmd in frames[0]['ui']:
+ if cmd['type']=='surface' and cmd['y']>=140 and cmd['y']<700 and cmd['gray']==38:
+  row=(cmd['y']-140)//16
+  start=(cmd['x']-36)//16
+  walls.update((col,row) for col in range(start,start+cmd['w']//16))
+seen={(1,1)}
+queue=[(1,1)]
+for x,y in queue:
+ for spot in ((x+1,y),(x-1,y),(x,y+1),(x,y-1)):
+  if 0<=spot[0]<33 and 0<=spot[1]<35 and spot not in walls and spot not in seen:
+   seen.add(spot)
+   queue.append(spot)
+assert walls and (31,33) in seen
+assert any(f.get('request')=='intent' and f.get('operation')=='open_document' for f in frames)
+print('PASS packaged Maze renders a solvable board and opens help through a Reader intent.')
+
+frames,folder=app_session('lumen.knights-tour',[tap(130,350),tap(430,92)])
+assert (folder/'tour.bin').read_bytes()[17]==2
+assert any(f.get('request')=='intent' for f in frames)
+print('PASS packaged Knight’s Tour legal move, private save and Reader help.')
+
+frames,_=app_session('lumen.quotes',[
+ dict(event='service',action=1,ok=1,count=1,page=0,quote0='A quoted passage',
+      book0='Example book',ref0='1234567890abcdef:2'),
+ tap(100,160)])
+assert any(f.get('operation')=='list' for f in frames)
+assert any(f.get('operation')=='open' and f.get('text')=='1234567890abcdef:2' for f in frames)
+assert any(c.get('text')=='A quoted passage' for f in frames for c in f.get('ui',[]))
+print('PASS packaged Quotes renders annotations and uses stable book references.')

@@ -34,6 +34,7 @@ typedef struct {
 static AppProcess foreground={.read_fd=-1,.write_fd=-1,.active=-1};
 static AppProcess overlays[APP_OVERLAY_COUNT]={
     {.read_fd=-1,.write_fd=-1,.active=-1},
+    {.read_fd=-1,.write_fd=-1,.active=-1},
     {.read_fd=-1,.write_fd=-1,.active=-1}
 };
 static pid_t retired[64];
@@ -275,6 +276,9 @@ int app_overlay_send(int slot,const char *id,const char *event){
 }
 int app_overlay_poll(int slot){return slot>=0 && slot<APP_OVERLAY_COUNT && process_poll(&overlays[slot]);}
 const char *app_overlay_frame(int slot){return slot>=0 && slot<APP_OVERLAY_COUNT ? overlays[slot].frame : "";}
+uint64_t app_overlay_frame_serial(int slot) {
+    return slot>=0 && slot<APP_OVERLAY_COUNT ? overlays[slot].frame_serial : 0;
+}
 static int version_newer(const char*a,const char*b){for(int i=0;i<3;i++){long x=strtol(a,(char**)&a,10),y=strtol(b,(char**)&b,10);if(x!=y)return x>y;if(*a=='.')a++;if(*b=='.')b++;}return 0;}
 void app_packages_seed(void) {
  char directory[2048];snprintf(directory,sizeof(directory),"%s/../app-packages",data_root);

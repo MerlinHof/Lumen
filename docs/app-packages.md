@@ -80,7 +80,7 @@ Those two drawing commands require LUMEN 4.6 or later.
 A frame is bounded to 256 KiB and 2,048 commands. Input events are queued without
 blocking the system's touch loop. An idle app blocks on stdin, rather than
 polling or animating. LUMEN retains one foreground process and pauses it when
-another tool opens. An independent overlay process hosts Notifications; app state must be saved after meaningful changes. A closed
+another tool opens. Independent overlays run alongside foreground content. Apps should save state after meaningful changes. A closed
 or crashed app does not exit LUMEN. This is process isolation, **not a security
 sandbox**: install only trusted native code.
 
@@ -104,16 +104,26 @@ the app process. Package-owned grayscale PGM files can use `lumen_asset`.
 
 ## Existing app implementations
 
-Frog Solitaire, Sliding Puzzle, Tic Tac Toe, Terminal, 2048, Sudoku, Bingo,
-Connect Four, Hex, Nonograms, Solitaire, Wordle, Periodic Table, Notifications, Home, and File Transfer ship as
-independent packages and use this same protocol. Their sources and build manifests live in their app folders. Other
-existing views still have linked compatibility implementations. They are entries
-in the same catalog and can be replaced individually by a package using the same
-ID (`lumen.calculator`, `lumen.notes`, `lumen.home`, etc.), without changing the
-system. They have not all been ported into independent executable artifacts yet.
-Do not misrepresent that migration as complete. New app development must use the
-package contract, rather than add another linked view or numeric route.
+Twenty-one independent apps ship with LUMEN 5.0. Their build manifests are the
+`lumen/apps/*/package.json` files. Legacy views without manifests still run from
+the host and may be replaced by packages using the same stable identity.
 
-Protocol 1 supports semantic layout through `lumen_page`, `lumen_component_button` and
-`lumen_textfield`, alongside the existing drawing functions. Use `lumen_app_open_with`
-for named open actions and the `lumen_storage_*` helpers for package-owned files.
+Protocol 1 supports semantic layout through `lumen_page`, `lumen_component_button`,
+`lumen_textfield`, `lumen_component_toggle` and `lumen_component_checkbox`.
+A component event includes the stable `id` and a `gesture` of `clicked`,
+`submitted`, `changed` or `long_pressed`. Toggle and checkbox events carry
+the new value as the string `"0"` or `"1"` in `text`.
+
+Use `lumen_app_open_with` to open an app, a library book by stable hexadecimal
+ID or an inline Markdown document. To send a named action to another installed
+package use `lumen_call`. A positive request ID asks for a result. The receiver
+gets `INPUT_INTENT` with the ID and can read `operation` and `text` from the
+event. It can return with `lumen_return`. The caller receives
+`INPUT_INTENT_RESULT` with the original ID and a `status` of `success`,
+`error`, `cancelled` or `unavailable`. Save any caller state needed when the
+foreground process is reopened. Document handles and generic typed file
+references are outside this protocol revision.
+
+Use the `lumen_storage_*` helpers for package-owned files. Keyboard,
+Notifications and Status Bar have independent overlay processes. Core handles
+compositing and routes keyboard output through the shared text editor.

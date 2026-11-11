@@ -37,6 +37,8 @@ int main(int argc, char **argv) {
     assert(engine_init());
     assert(atomic_write("build/tests/test-data/photo-default-seeded","1",1));
     ui_init();
+    for(int i=0;i<200 && !keyboard_layout_serial;i++){usleep(3000);keyboard_package_poll();}
+    assert(keyboard_layout_serial);
     assert(!app_route_valid(124));
     if (argc > 1) {
         selected_recipe17.meal = 0;
@@ -148,22 +150,9 @@ int main(int argc, char **argv) {
     route_to(118);
     ui_draw();
     shot17("sokoban");
-    maze_new17();
-    int seen[1155] = {0}, queue[1155], head = 0, tail = 0;
-    seen[34] = 1;
-    queue[tail++] = 34;
-    while (head < tail) {
-        int at = queue[head++], dirs[] = {1, -1, 33, -33};
-        for (int d = 0; d < 4; d++) {
-            int next = at + dirs[d];
-            if (next >= 0 && next < 1155 && !maze17[next] && !seen[next]) {
-                seen[next] = 1;
-                queue[tail++] = next;
-            }
-        }
-    }
-    assert(seen[33 * 33 + 31]);
     route_to(119);
+    settle_app();
+    assert(strstr(app_process_frame(),"Maze") || strstr(app_process_frame(),"Labyrinth"));
     ui_draw();
     shot17("maze");
     route_to(120);
@@ -554,6 +543,14 @@ int main(int argc, char **argv) {
     rect(0,0,600,800,255);u15_note_overlay();
     assert(ui_pixels[(54+100-58)*600+300]==0);
     editor_ui.keyboard=0;ink_dirty=0;ink_note=ink_page=-1;note_selected=saved_note;
+    route_to(131);
+    settle_app();
+    int call_depth=history_count;
+    package_call_app(APP_MAZE,"show_help","",27);
+    assert(ui_route()==119 && package_call_count==1 && history_count==call_depth+1);
+    settle_app();
+    tap17(20,20);
+    assert(ui_route()==131 && !package_call_count && history_count==call_depth);
     char restart_dir[2048], restart_path[2048];
     snprintf(restart_dir,sizeof(restart_dir),"%s/../.update",data_root);
     mkdir(restart_dir,0700);

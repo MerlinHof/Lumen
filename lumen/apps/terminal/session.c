@@ -47,7 +47,7 @@ static int start(TerminalSession *session,const char *directory) {
                 tty.c_oflag &= ~OPOST;
                 tcsetattr(output[1],TCSANOW,&tty);
             }
-            struct winsize window={.ws_row=32,.ws_col=50};
+            struct winsize window={.ws_row=32,.ws_col=46};
             ioctl(output[1],TIOCSWINSZ,&window);
         } else close(output[0]);
     }
@@ -67,7 +67,7 @@ static int start(TerminalSession *session,const char *directory) {
         if(max_fd<0 || max_fd>4096)max_fd=4096;
         for(int fd=3;fd<max_fd;fd++)close(fd);
         setenv("TERM","dumb",1);
-        setenv("COLUMNS","50",1);
+        setenv("COLUMNS","46",1);
         setenv("CLICOLOR","0",1);
         unsetenv("CLICOLOR_FORCE");
         unsetenv("LS_COLORS");

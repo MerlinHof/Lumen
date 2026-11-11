@@ -1,5 +1,7 @@
 # Changelog
 
+- [5.0](releases/5.0.md) · Keyboard, Maze, Knight’s Tour and Quotes packages, semantic controls and app results.
+
 - [4.9](releases/4.9.md) · Status Bar package, semantic SDK components, per-app artwork and transfer fixes.
 
 ## 4.8

@@ -51,7 +51,7 @@ static int ink_color, ui_y_offset;
 #include "../../apps/wikipedia/shell_state.h"
 #include "../../apps/settings/shell_state.h"
 #include "../../apps/timer/shell_state.h"
-#include "../../apps/keyboard/shell_state.h"
+#include "editor_state.h"
 #include "../../apps/status_bar/shell_state.h"
 #include "../../apps/library/state.h"
 #include "../../apps/reader/state.h"
@@ -231,7 +231,6 @@ static void extra_track(unsigned seconds, unsigned pages, uint64_t id);
 static void extra_zone(void);
 static void extra_wiki_cache(void);
 static void extra_wiki_restore(void);
-static void quotes_load(void);
 static void app_insights(void);
 static void key_outline(int x, int y, int w, int h);
 enum { READER_TOOLBAR_END = 126, READER_CONTENTS_X = 468, READER_SETTINGS_X = 528 };
@@ -270,6 +269,8 @@ static void v1_note_created(int), v1_timer_ring(int), v1_timer_started(void);
 static int v1_sleep_poll(void), v1_sleep_tick(void);
 static void header(void);
 static int status_overlay_poll(void);
+static int keyboard_package_poll(void);
+static void package_back_results(void);
 static void launcher_delete_confirm(int);
 static void polish_photos_grid(void);
 static void polish_tasks(void);
@@ -304,7 +305,7 @@ static void polish_news_draw(void), polish_photo(void), polish_brain(void), poli
 static int polish_photo_input(const Input *), polish_brain_input(const Input *),
     polish_language_input(const Input *);
 static void register_builtin_views(void);
-#include "../../apps/keyboard/endpoint.h"
+#include "keyboard_request.h"
 static void open_keyboard(int target, const char *title, const char *value) {
     const KeyboardRequest request = {target, title, value};
     app_call("keyboard", &request, sizeof(request), extra_millis());
@@ -991,6 +992,7 @@ void ui_set_screen(int n) {
 }
 void ui_init(void) {
     app_packages_scan();app_packages_seed();
+    app_overlay_send(APP_OVERLAY_KEYBOARD,"lumen.keyboard","{\"event\":\"prepare\"}");
     app_runtime_init(&runtime, app_leave, NULL);
     register_builtin_views();
     app_endpoint_register("notifications",receive_notification);
@@ -1406,6 +1408,8 @@ static int ui_dispatch_input(const Input *in) {
     if(in->kind==INPUT_STATUS && app_process_pending())app_process_flush();
     if(in->kind==INPUT_APP && updating){app_process_poll();return 2;}
     if(in->kind==INPUT_OVERLAY) {
+        if(in->x==APP_OVERLAY_KEYBOARD)
+            return keyboard_package_poll() && editor_ui.keyboard && !updating && !sleeping ? 1 : 2;
         int changed=in->x==APP_OVERLAY_STATUS ? status_overlay_poll() : notification_poll();
         return changed && !updating && !sleeping && !editor_ui.keyboard ? 1 : 2;
     }
@@ -1900,6 +1904,7 @@ static int ui_dispatch_input(const Input *in) {
                 }
             }
             route_to(target);
+            package_back_results();
             if (ui_route() == 0)
                 route_to(1);
             if ((ui_route() == 2 || ui_route() == 4 || ui_route() == 5) && current < 0)
@@ -1954,7 +1959,7 @@ int ui_input(const Input *in) {
 
 /* Shared overlays: dropdowns, keyboard and destructive-action confirmation. */
 #include "text_editor.h"
-#include "../../apps/keyboard/view.h"
+#include "keyboard_surface.h"
 static void overlays(void) {
     if (editor_ui.keyboard || dropdown || confirm_delete) {
         int keep = 0;
@@ -2457,8 +2462,6 @@ static int app_send(const AppIntent *intent) {
         note_load((int)intent->object_id);
         route_to(30);
     }
-    if (intent->app == APP_QUOTES)
-        quotes_load();
     return 1;
 }
 #include "../../apps/host/dispatch.h"

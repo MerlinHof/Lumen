@@ -20,10 +20,3 @@ static void app_wiki(void) {
         centered(95, 325, 410, 60, "Artikel wird geladen …", ui_font(UI_PRIMARY));
     }
 }
-
-typedef struct {
-    int book, index;
-    char text[2048];
-    ReaderPosition position;
-} GlobalQuote;
-static int quote_counts[BOOK_LIMIT], global_quote_count, global_quote_page;

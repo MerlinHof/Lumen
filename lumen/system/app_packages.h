@@ -28,9 +28,10 @@ const char *app_process_frame(void);
 uint64_t app_process_frame_serial(void);
 const char *app_process_request(void);
 const char *app_process_error(void);
-enum { APP_OVERLAY_NOTIFICATION, APP_OVERLAY_STATUS, APP_OVERLAY_COUNT };
+enum { APP_OVERLAY_NOTIFICATION, APP_OVERLAY_STATUS, APP_OVERLAY_KEYBOARD, APP_OVERLAY_COUNT };
 int app_overlay_send(int slot,const char *id,const char *event);
 int app_overlay_fd(int slot);
 int app_overlay_poll(int slot);
 const char *app_overlay_frame(int slot);
+uint64_t app_overlay_frame_serial(int slot);
 #endif

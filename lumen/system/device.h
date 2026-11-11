@@ -33,7 +33,9 @@ enum {
     INPUT_PAGE,
     INPUT_TICK,
     INPUT_REFRESH,
-    INPUT_COMPONENT
+    INPUT_COMPONENT,
+    INPUT_INTENT,
+    INPUT_INTENT_RESULT
 };
 int device_init(void);
 void device_close(void);

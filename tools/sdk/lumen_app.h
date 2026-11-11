@@ -130,6 +130,18 @@ static void lumen_component_button(const char *id,const char *label,int primary)
  fputs(",\"text\":",stdout);lumen_json(label);
  printf(",\"primary\":%d}",primary);
 }
+static void lumen_component_choice(const char *id,const char *label,int checked,int checkbox) {
+ lumen_cmd(checkbox ? "component_checkbox" : "component_toggle",28,0,544,50);
+ fputs(",\"id\":",stdout);lumen_json(id);
+ fputs(",\"text\":",stdout);lumen_json(label);
+ printf(",\"checked\":%d}",!!checked);
+}
+static void lumen_component_toggle(const char *id,const char *label,int checked) {
+ lumen_component_choice(id,label,checked,0);
+}
+static void lumen_component_checkbox(const char *id,const char *label,int checked) {
+ lumen_component_choice(id,label,checked,1);
+}
 static void lumen_textfield(const char *id,const char *label,const char *value) {
  lumen_cmd("component_field",28,0,544,52);
  fputs(",\"id\":",stdout);lumen_json(id);
@@ -156,6 +168,17 @@ static void lumen_app_open_with(const char *app,const char *action,const char *o
  fputs(",\"title\":",stdout);lumen_json(title);
  fputs(",\"text\":",stdout);lumen_json(text);puts("}");fflush(stdout);
 }
+/* A positive request ID asks the destination to return a result. */
+static void lumen_call(const char *app,const char *operation,const char *data,int request_id) {
+ fputs("{\"request\":\"intent\",\"app\":",stdout);lumen_json(app);
+ fputs(",\"operation\":",stdout);lumen_json(operation);
+ fputs(",\"text\":",stdout);lumen_json(data);
+ printf(",\"request_id\":%d}\n",request_id);fflush(stdout);
+}
+static void lumen_return(int request_id,int success,const char *data) {
+ printf("{\"request\":\"intent_return\",\"request_id\":%d,\"ok\":%d,\"text\":",request_id,!!success);
+ lumen_json(data);puts("}");fflush(stdout);
+}
 static void lumen_open(const char*id){fputs("{\"request\":\"open\",\"app\":",stdout);lumen_json(id);puts("}");fflush(stdout);}
 static void lumen_run(void(*draw)(void),int(*input)(const Input*),void(*save)(void)) {
  static char output[65536];setvbuf(stdout,output,_IOFBF,sizeof(output));
@@ -168,6 +191,13 @@ static void lumen_run(void(*draw)(void),int(*input)(const Input*),void(*save)(vo
    if(lumen_is("resume")){Input in={.kind=INPUT_RESUME};input(&in);}
    if(lumen_is("service")){Input in={.kind=INPUT_SERVICE,.x=lumen_number("action"),.y=lumen_number("ok")};input(&in);if(save)save();}
    if(lumen_is("component")){Input in={.kind=INPUT_COMPONENT,.x=lumen_number("changed")};input(&in);if(save)save();}
+   char operation[48];
+   int named_intent=lumen_is("intent") && lumen_string("operation",operation,sizeof(operation));
+   if(named_intent||lumen_is("intent_result")) {
+      Input in={.kind=lumen_is("intent")?INPUT_INTENT:INPUT_INTENT_RESULT,
+                .x=lumen_number("request_id"),.y=lumen_number("ok")};
+      input(&in);if(save)save();
+   }
    if(lumen_is("refresh")){Input in={.kind=INPUT_REFRESH};input(&in);}
    if(lumen_is("tick")){Input in={.kind=INPUT_TICK};input(&in);}
    if(lumen_is("page")){Input in={.kind=INPUT_PAGE,.x=lumen_number("page")};input(&in);if(save)save();}
@@ -175,7 +205,7 @@ static void lumen_run(void(*draw)(void),int(*input)(const Input*),void(*save)(vo
    if(lumen_is("back")){Input in={.kind=INPUT_BACK};input(&in);if(save)save();}
    if(lumen_is("text")||lumen_is("select")){Input in={.kind=lumen_is("text")?INPUT_TEXT:INPUT_SELECT,.x=lumen_number("action"),.y=lumen_number("value")};input(&in);if(save)save();}
    if(lumen_is("input")){Input in={lumen_number("kind"),lumen_number("x"),lumen_number("y"),lumen_number("dx"),lumen_number("dy")};input(&in);if(save)save();}
-   if(lumen_is("open")||lumen_is("resume")||lumen_is("input")||lumen_is("back")||lumen_is("text")||lumen_is("select")||lumen_is("viewport")||lumen_is("service")||lumen_is("page")||lumen_is("tick")||lumen_is("refresh")||lumen_is("component")){lumen_begin();draw();lumen_end();}
+   if(lumen_is("open")||lumen_is("resume")||lumen_is("input")||lumen_is("back")||lumen_is("text")||lumen_is("select")||lumen_is("viewport")||lumen_is("service")||lumen_is("page")||lumen_is("tick")||lumen_is("refresh")||lumen_is("component")||named_intent||lumen_is("intent_result")){lumen_begin();draw();lumen_end();}
  }
  if(save)save();
 }

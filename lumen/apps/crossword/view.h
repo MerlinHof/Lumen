@@ -106,14 +106,6 @@ static void games_save17(void) {
         Warehouse17 states[2] = {warehouse17, initial_warehouse17};
         app_state_save("sokoban17.bin", states, sizeof(states));
     }
-    if (maze_ready17) {
-        unsigned char b[33 * 35 + 12];
-        memcpy(b, maze17, sizeof(maze17));
-        int state[] = {maze_x17, maze_y17, maze_moves17};
-        memcpy(b + sizeof(maze17), state, 12);
-        app_state_save("maze17.bin", b, sizeof(b));
-        app_state_save("maze-trace.bin",maze_trace17,sizeof(maze_trace17));
-    }
 }
 static int u17_games_draw(void) {
     if (ui_route() == 118) {
@@ -152,24 +144,6 @@ static int u17_games_draw(void) {
         direction_keys16();
         return 1;
     }
-    if (ui_route() == 119) {
-        if (!maze_ready17)
-            maze_new17();
-        heading_actions("Labyrinth", 1);
-        icon_button(528, 74, IC_RESTART);
-        for (int y = 0; y < 35; y++)
-            for (int x = 0; x < 33; x++)
-                {
-                    paper_tile17(36+x*16,140+y*16,16,maze17[y*33+x] ? 1 : 0);
-                    if (maze_trace17[y*33+x] && !maze17[y*33+x])
-                        aa_disc(44+x*16,148+y*16,2,136);
-                }
-        paper_tile17(36 + 31 * 16, 140 + 33 * 16, 16, 9);
-        paper_tile17(36 + maze_x17 * 16, 140 + maze_y17 * 16, 16, 4);
-        region(36, 140, 528, 560);
-        direction_keys16();
-        return 1;
-    }
     if (ui_route() == 120) {
         crossword_draw17();
         return 1;
@@ -178,10 +152,10 @@ static int u17_games_draw(void) {
 }
 static int u17_games_input(const Input *in) {
     int x = in->x, y = in->y;
-    if (ui_route() != 118 && ui_route() != 119 && ui_route() != 120)
+    if (ui_route() != 118 && ui_route() != 120)
         return recipes_input17(in);
     if (in->kind == INPUT_TAP && y >= 74 && y < 118) {
-        int helpx = (ui_route() == 118 || ui_route() == 120) ? 408 : 468;
+        int helpx = 408;
         if (x >= helpx && x < helpx + 44) {
             game_help16(ui_route());
             return 1;
@@ -191,8 +165,6 @@ static int u17_games_input(const Input *in) {
                 warehouse17 = initial_warehouse17;
                 warehouse_undo17 = 0;
             }
-            if (ui_route() == 119)
-                maze_new17();
             if (ui_route() == 120) {
                 crossword_new16(random16());
                 cross_checked17 = 0;
@@ -234,11 +206,10 @@ static int u17_games_input(const Input *in) {
         }
         return y < 48 ? -1 : 1;
     }
-    int dx = 0, dy = 0, steps = 1;
+    int dx = 0, dy = 0;
     if (in->kind == INPUT_SWIPE) {
         dx = abs(in->dx) > abs(in->dy) ? (in->dx > 0 ? 1 : -1) : 0;
         dy = dx ? 0 : (in->dy > 0 ? 1 : -1);
-        steps = ui_route() == 119 ? 4 : 1;
     } else if (in->kind == INPUT_TAP && y >= 728 && y < 772) {
         if (x >= 150 && x < 210)
             dx = -1;
@@ -249,38 +220,17 @@ static int u17_games_input(const Input *in) {
         else if (x >= 387 && x < 447)
             dx = 1;
     } else if (in->kind == INPUT_TAP && y >= 140 && y < 710) {
-        int xx, yy, px, py;
-        if (ui_route() == 118) {
-            int cell = 528 / warehouse17.h;
-            if (cell > 544 / warehouse17.w)
-                cell = 544 / warehouse17.w;
-            if (cell > 40)
-                cell = 40;
-            xx = (x - (300 - warehouse17.w * cell / 2)) / cell;
-            yy = (y - 170) / cell;
-            px = warehouse17.x;
-            py = warehouse17.y;
-        } else {
-            xx = (x - 36) / 16;
-            yy = (y - 140) / 16;
-            px = maze_x17;
-            py = maze_y17;
-        }
-        if (abs(xx - px) > abs(yy - py)) {
-            dx = xx > px ? 1 : -1;
-            if (ui_route() == 119)
-                steps = abs(xx - px);
-        } else if (yy != py) {
-            dy = yy > py ? 1 : -1;
-            if (ui_route() == 119)
-                steps = abs(yy - py);
-        }
+        int cell = 528 / warehouse17.h;
+        if (cell > 544 / warehouse17.w)cell = 544 / warehouse17.w;
+        if (cell > 40)cell = 40;
+        int xx = (x - (300 - warehouse17.w * cell / 2)) / cell;
+        int yy = (y - 170) / cell;
+        int px = warehouse17.x, py = warehouse17.y;
+        if (abs(xx - px) > abs(yy - py))dx = xx > px ? 1 : -1;
+        else if (yy != py)dy = yy > py ? 1 : -1;
     }
     if (dx || dy) {
-        if (ui_route() == 118)
-            warehouse_step17(dx, dy);
-        else
-            maze_step17(dx, dy, steps);
+        warehouse_step17(dx, dy);
         return 1;
     }
     return in->kind == INPUT_TAP && y >= 120 ? 1 : -1;

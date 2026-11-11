@@ -340,12 +340,6 @@ static void game_new16(int route) {
     game_turn16 = 1;
     game_won16 = game_moves16 = 0;
     game_undo_valid16 = 0;
-    if (route == 117) {
-        game_px16 = 0;
-        game_py16 = 0;
-        game_board16[0] = 1;
-        game_moves16 = 1;
-    }
     if (route == 118) { /* A solvable warehouse with room for deliberate planning. */
         static const char *maps[][7] = {
             {"########", "#  .   #", "#  $   #", "# . $  #", "#  @   #", "#      #", "########"},
@@ -486,12 +480,6 @@ static void game_help16(int route) {
     const char *title = app_definition(app_for_route(route))->name;
     const char *text = "";
     switch (route) {
-    case 117:
-        text = "Springertour\n\nBesuche alle 64 Felder genau einmal mit einem Schachspringer. Ein "
-               "Zug geht zwei Felder in eine Richtung und eines quer dazu. Kleine Punkte zeigen "
-               "erlaubte nächste Züge. Tippe ein erreichbares Feld an. Überlege voraus, damit "
-               "keine Ecke unzugänglich wird.";
-        break;
     case 118:
         text =
             "Sokoban\n\nSchiebe alle Kisten auf die Zielkreise. Du kannst Kisten schieben, aber "
@@ -575,28 +563,6 @@ static void game_draw16(void) {
     char b[100];
     if (ui_route() == 118 || ui_route() == 119 || ui_route() == 121)
         icon_button(468, 74, IC_UNDO);
-    if (ui_route() == 117) {
-        snprintf(b, 100, "%d / 64%s", game_moves16, game_moves16 == 64 ? " · Geschafft!" : "");
-        centered(28, 132, 544, 45, b, ui_font(UI_PRIMARY));
-        for (int y = 0; y < 8; y++)
-            for (int x = 0; x < 8; x++) {
-                int xx = 28 + x * 68, yy = 190 + y * 64, v = game_board16[y * 8 + x];
-                rect(xx, yy, 68, 64, (x + y) % 2 ? 225 : 255);
-                region(xx, yy, 68, 64);
-                if (v) {
-                    snprintf(b, 100, "%d", v);
-                    ink_color = 110;
-                    centered(xx, yy, 68, 64, b, ui_font(UI_SECONDARY));
-                    ink_color = 0;
-                }
-                int dx = abs(x - game_px16), dy = abs(y - game_py16);
-                if (!v && dx * dy == 2)
-                    aa_disc(xx + 34, yy + 32, 5, 0);
-                if (x == game_px16 && y == game_py16)
-                    chess_piece(xx + 10, yy + 7, 2);
-            }
-        return;
-    }
     int cols = ui_route() == 118   ? 8
                : ui_route() == 119 ? 11
                                : 9,
@@ -752,7 +718,7 @@ static void companion_enter16(void) {
                 crossword_answer16[i][15] = 0;
         }
     }
-    if (ui_route() == 117 || ui_route() == 118 || ui_route() == 119 ||
+    if (ui_route() == 118 || ui_route() == 119 ||
         ui_route() == 121) {
         static int active_game = -1;
         if (active_game != ui_route()) {
@@ -816,7 +782,7 @@ static int u16_apps_draw(void) {
         pager(745, &companion_page16, (files_count16 + 4) / 5);
         return 1;
     }
-    if (ui_route() == 117 || ui_route() == 118 || ui_route() == 119 ||
+    if (ui_route() == 118 || ui_route() == 119 ||
         ui_route() == 121) {
         game_draw16();
         return 1;
@@ -1016,7 +982,7 @@ static int u16_apps_input(const Input *in) {
         }
         return 1;
     }
-    if (ui_route() == 117 || ui_route() == 118 || ui_route() == 119 ||
+    if (ui_route() == 118 || ui_route() == 119 ||
         ui_route() == 121) {
         if (y >= 74 && y < 118 && x >= 460 && x < 516 &&
             (ui_route() == 118 || ui_route() == 119 || ui_route() == 121)) {
@@ -1035,16 +1001,6 @@ static int u16_apps_input(const Input *in) {
         }
         if (y >= 74 && y < 118 && x >= 516) {
             game_new16(ui_route());
-            return 1;
-        }
-        if (ui_route() == 117 && x >= 28 && x < 572 && y >= 190 && y < 702) {
-            int xx = (x - 28) / 68, yy = (y - 190) / 64, dx = abs(xx - game_px16),
-                dy = abs(yy - game_py16);
-            if (dx * dy == 2 && !game_board16[yy * 8 + xx]) {
-                game_px16 = xx;
-                game_py16 = yy;
-                game_board16[yy * 8 + xx] = ++game_moves16;
-            }
             return 1;
         }
         if (ui_route() == 118 || ui_route() == 119 || ui_route() == 121) {
@@ -1132,8 +1088,7 @@ static void recipe_archive16(void) {
 static void companion_checkpoint16(void) {
     if (companion_route16 == 116)
         explorer_page16 = companion_page16;
-    if (companion_route16 == 117 ||
-        companion_route16 == 118 || companion_route16 == 119 || companion_route16 == 121) {
+    if (companion_route16 == 118 || companion_route16 == 119 || companion_route16 == 121) {
         char name[64];
         snprintf(name, 64, "game16-%d.bin", companion_route16);
         int state[152];

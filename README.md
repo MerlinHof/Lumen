@@ -6,8 +6,8 @@
 
 An illustrated Home, a shared Reader, and useful tools for a paper screen.
 
-[**Download 4.9**](https://github.com/MerlinHof/Lumen/releases/tag/v4.9) ·
-[Release notes](docs/releases/4.9.md) ·
+[**Download 5.0**](https://github.com/MerlinHof/Lumen/releases/tag/v5.0) ·
+[Release notes](docs/releases/5.0.md) ·
 [Installation](docs/installation.md) ·
 [Build](docs/building.md) ·
 [Agent guide](AGENTS.md)
@@ -67,13 +67,13 @@ Online features depend on their providers. Home Assistant and OpenAI use your
 own server or account configuration. The calendar is local. Timers provide a
 visual interruption while LUMEN is awake and cannot wake the Kindle from deep sleep.
 
-## What's new in 4.9
+## What's new in 5.0
 
-Status Bar now runs from its own app package alongside Notifications. Launcher artwork lives with each app, Manage Apps shows package versions and removal controls, and photo transfers preserve the original when supported.
+Keyboard, Maze, Knight’s Tour and Quotes now ship as independent app packages. The SDK adds semantic switches and checkboxes and lets packages request a result from another app.
 
 [App SDK and package guide](docs/app-packages.md) · [GitHub updates](docs/wireless-updates.md)
 
-[Full 4.9 release notes](docs/releases/4.9.md) · [Version history](docs/changelog.md)
+[Full 5.0 release notes](docs/releases/5.0.md) · [Version history](docs/changelog.md)
 
 <table>
 <tr>
@@ -93,7 +93,7 @@ Status Bar now runs from its own app package alongside Notifications. Launcher a
 Each individual screen is 600 × 800 pixels. They are software previews;
 physical E-Ink appearance and response time depend on the Kindle.*
 
-## Install LUMEN 4.9
+## Install LUMEN 5.0
 
 Already on 4.7? Use **Settings → System → Update** on the Kindle. The steps below cover first installation and USB recovery.
 
@@ -102,7 +102,7 @@ Already on 4.7? Use **Settings → System → Update** on the Kindle. The steps 
 A compatible jailbreak, the Kindle .sh launcher and FBInk must already be
 installed. LUMEN's installer checks these prerequisites.
 
-1. [Download LUMEN-4.9.zip](https://github.com/MerlinHof/Lumen/releases/download/v4.9/LUMEN-4.9.zip)
+1. [Download LUMEN-5.0.zip](https://github.com/MerlinHof/Lumen/releases/download/v5.0/LUMEN-5.0.zip)
    and extract the complete folder.
 2. Connect the prepared Kindle over USB.
 3. Open **Install-LUMEN.command** on macOS, or run the Python installer with

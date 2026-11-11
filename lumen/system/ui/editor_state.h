@@ -1,4 +1,4 @@
-/* State owned by the keyboard app in the legacy view host. */
+/* Shared text editor and keyboard compositor state. */
 typedef struct {
     int keyboard;
     int keyboard_target;

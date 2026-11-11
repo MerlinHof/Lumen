@@ -46,9 +46,6 @@ static void extra_draw(void) {
     case 36:
         app_wiki();
         break;
-    case 38:
-        app_quotes();
-        break;
     case 39:
         app_time_settings();
         break;
@@ -474,34 +471,6 @@ static int extra_input(const Input *in) {
     }
     if (ui_route() == 36)
         return wiki_history_input(in);
-    if (ui_route() == 38) {
-        if (y >= 146 && y < 650) {
-            int row = -1;
-            for (int r = 0; r < quote_hit_count; r++)
-                if (y >= quote_hit_top[r] && y < quote_hit_bottom[r]) {
-                    row = r;
-                    break;
-                }
-            int i = global_quote_page * 4 + row;
-            if (row >= 0 && i < global_quote_count) {
-                GlobalQuote q;
-                if (quote_get(i, &q)) {
-                    AppIntent request = {.app = APP_READER,
-                                         .kind = INTENT_BOOK,
-                                         .object_id = library[q.book].id,
-                                         .has_position = 1,
-                                         .position = q.position};
-                    app_send(&request);
-                }
-            }
-        } else if (y >= 745 && y < 789) {
-            if (x < 300 && global_quote_page)
-                global_quote_page--;
-            else if (x >= 300 && (global_quote_page + 1) * 4 < global_quote_count)
-                global_quote_page++;
-        }
-        return 1;
-    }
     if (ui_route() == 39) {
         if (y >= 286 && y < 348) {
             options[OPT_AUTO_TIME] ^= 1;

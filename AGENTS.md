@@ -92,7 +92,7 @@ page. Prefer a label on the left and selector on the right in the same row.
 Connected tab selectors should look like one component. Do not duplicate widget
 implementations in an app.
 
-The status bar is shell chrome. Apps use the screen below it for their own
+The status bar is an independently packaged overlay composed by the shell. Apps use the screen below it for their own
 content. Home owns the illustrated landing page and app grid. Settings owns
 app visibility and ordering. Use shared segmented controls inside app views.
 
@@ -101,7 +101,7 @@ app visibility and ordering. Use shared segmented controls inside app views.
 - Show Back only when there is somewhere to go. Give it a forgiving hit target.
 - Use system Back for folder navigation; do not add a second redundant Up bar.
 - A content tap that dismisses reader controls must not also turn the page.
-- Reader controls belong above content; the system tabs appear below when open.
+- Reader controls belong above content. LUMEN has no bottom navigation bar.
 - A pager exists only when multiple pages exist. At an endpoint its unavailable
   arrow stays visible but gray. Horizontal swiping uses the same paging state.
 - Every interactive control needs immediate touch-down feedback and normal
@@ -131,7 +131,7 @@ labels are not text selection targets. Password treatment must remain deliberate
 Never make rapid typing lose input because a render or disk write blocks events.
 
 `text_input` describes field capacity and behavior, `text_edit` owns byte-boundary
-operations, and the system keyboard/editor render them. Do not invent a second
+operations, and the packaged Keyboard provides key layouts and the shared editor renders editable text. Do not invent a second
 editor in an app. Multiline tasks use measured dynamic row height; completion
 strikes each actual text line through its middle.
 
@@ -146,7 +146,7 @@ lumen/
   vendor/       clearly credited embedded third-party source
 ```
 
-All app identities use one catalog and installation contract. New apps are independent executable packages using Protocol 1, never another linked view. Read docs/app-packages.md first. Preserve existing IDs, state, navigation and package API compatibility. Frog Solitaire and Sliding Puzzle use the package contract already. Other existing views retain linked compatibility implementations; they can be replaced by packages under the same ID, but their source migration is not complete. Be precise about that boundary. Process isolation is not a security sandbox.
+All app identities use one catalog and installation contract. New apps are independent executable packages using Protocol 1, never another linked view. Read docs/app-packages.md first. Preserve existing IDs, state, navigation and package API compatibility. The independently built apps are identified by their app-folder package manifests. Other existing views retain linked compatibility implementations; they can be replaced by packages under the same ID, but their source migration is not complete. Be precise about that boundary. Process isolation is not a security sandbox.
 
 Use `AppIntent` for navigation/data delivery: copied text, stable book IDs and
 value-based reading positions. Do not retain pointers to another app's temporary
