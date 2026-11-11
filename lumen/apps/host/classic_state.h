@@ -12,10 +12,6 @@ typedef struct {
 } AppData;
 static AppData app_data;
 static int apps_dirty;
-static int calendar_view16=2;
-static int calendar_year, calendar_month, calendar_day;
-static char calendar_note[512];
-static unsigned calendar_note_days;
 static int64_t app_last_time;
 static int64_t app_millis(void) {
     struct timespec t;

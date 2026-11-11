@@ -344,7 +344,17 @@ static void extra_overlay(void) {
     char name[80];
     snprintf(name, sizeof(name), "calendar/%04d%02d%02d.txt", t.tm_year + 1900, t.tm_mon + 1,
              t.tm_mday);
-    char *agenda = service_read(name, 511);
+    char agenda_path[2048];
+    snprintf(agenda_path,sizeof(agenda_path),"%s/../appdata/lumen.calendar/%s",
+             data_root,name+strlen("calendar/"));
+    FILE *day_note=fopen(agenda_path,"rb");
+    char *agenda=NULL;
+    if(day_note) {
+        char content[512];
+        size_t n=fread(content,1,sizeof(content)-1,day_note);
+        fclose(day_note);
+        content[n]=0;agenda=strdup(content);
+    } else agenda=service_read(name,511);
     wrapped_raw(42, 390, agenda && *agenda ? agenda : tr("Keine Tagesnotiz"), ui_font(UI_BODY), 516, 5);
     free(agenda);
     button(80, 620, 440, "Weiterlesen", 0);

@@ -31,10 +31,3 @@ static void solar16(void) {
     button_h(302, 714, 125, 48, "−1 Jahr", 0);
     button_h(439, 714, 133, 48, "+1 Jahr", 0);
 }
-static const char *journal_prompts16[] = {"Gedanken abladen",
-                                          "Was war heute schön?",
-                                          "Was war schwierig?",
-                                          "Was hast du gelernt?",
-                                          "Was möchtest du morgen anders machen?",
-                                          "Wofür bist du dankbar?",
-                                          "Wie geht es dir heute?"};

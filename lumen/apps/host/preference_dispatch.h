@@ -1,8 +1,5 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 static void u16_dropdown(int target, int choice) {
-    if (target == 920) {
-        u16_calendar_choice(choice);
-    }
     if (target == 916) {
         reader_ui.reader_progress_mode = choice;
         options[OPT_PROGRESS] = choice != 5;

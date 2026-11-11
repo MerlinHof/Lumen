@@ -103,7 +103,11 @@ int main(int argc, char **argv) {
     capture("calculator");
     for (int p = 0; p < 4; p++) {
         route_to(21);
-        calendar_view16 = p;
+        app_process_open(APP_CALENDAR);
+        char selection[128];
+        snprintf(selection,sizeof(selection),"{\"event\":\"component\",\"id\":\"view\",\"gesture\":\"selected\",\"text\":\"%d\"}",p);
+        app_process_send(selection);
+        for(int i=0;i<30;i++){usleep(5000);package_ui_poll();}
         char name[40];
         snprintf(name, 40, "calendar-%d", p);
         capture(name);

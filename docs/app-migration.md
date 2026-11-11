@@ -51,6 +51,12 @@ comparison, shared FSRS-6 scheduling and a bounded reading-activity service.
 The entries above retain the 5.1 baseline for comparison. The [architecture
 guide](architecture.md) lists the current linked apps.
 
+## Progress in 5.3
+
+Journal and Calendar have independent packages, bringing the total to
+**33 packaged / 19 linked**. Both use shared multiline editing. Calendar
+also uses a bounded monthly reading-activity query.
+
 ## Completion checks
 
 A migration counts when the app owns its behavior in an independently built

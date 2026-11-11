@@ -35,6 +35,7 @@ TextInputSpec text_input_spec(int target) {
         break;
     case 30:
     case 60:
+    case 2002:
     case 171:
     case 174:
     case 177:

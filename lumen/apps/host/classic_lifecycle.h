@@ -14,12 +14,7 @@ static void apps_init(void) {
     app_data.magic = 0x4c415050;
     app_data.version = 1;
     app_last_time = app_millis();
-    time_t now = time(NULL);
-    struct tm t;
-    localtime_r(&now, &t);
-    calendar_year = t.tm_year + 1900;
-    calendar_month = t.tm_mon + 1;
-    calendar_day = t.tm_mday;
+
 }
 static void apps_checkpoint(void) {
     int64_t now = app_millis(), delta = (now - app_last_time) / 1000;

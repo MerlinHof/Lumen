@@ -56,10 +56,6 @@ static void app_render(void) {
         if (ui_route() >= 27)
             extra_draw();
         break;
-    case 21:
-    case 22:
-        apps_draw();
-        break;
     }
 }
 static int app_handle_input(const Input *in) {
@@ -84,8 +80,6 @@ static int app_handle_input(const Input *in) {
         return system_input(in);
     if (ui_route() >= 27 || ui_route() == 22)
         return extra_input(in);
-    if (ui_route() >= 20 && ui_route() <= 26)
-        return apps_input(in);
     if (ui_route() == 13 && in->kind == INPUT_TAP && y >= 134 && y < 494) {
         int row = (y - 134) / 72;
         settings_ui.setting_page = 0;

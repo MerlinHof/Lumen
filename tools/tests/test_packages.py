@@ -47,11 +47,13 @@ assert state.read_text()=='keep' and hashlib.sha256((base/'lumen/bin/lumen').rea
 print('PASS full runtime assets, trial rollback, interrupted activation recovery, keep, private-path rejection and independent app replacement.')
 
 # The ports exercise the same system input and paint protocol as user packages.
-def app_session(key,events):
+def app_session(key,events,legacy=None):
  folder=base/'lumen/data/app-state'/key;folder.mkdir(parents=True,exist_ok=True)
  app=ROOT/'build/apps/host'/key/'app'
  wire=''.join(json.dumps(e,separators=(',',':'))+'\n' for e in [dict(event='open',language=1),*events])
- result=subprocess.run([str(app)],input=wire,env=dict(os.environ,LUMEN_APP_DATA=str(folder)),
+ env=dict(os.environ,LUMEN_APP_DATA=str(folder))
+ if legacy is not None:env['LUMEN_LEGACY_DATA']=str(legacy)
+ result=subprocess.run([str(app)],input=wire,env=env,
                        capture_output=True,text=True,check=True,timeout=12)
  return [json.loads(line) for line in result.stdout.splitlines()],folder
 
@@ -177,3 +179,25 @@ assert any(c.get('text')=='15 / 30 min' for f in frames for c in f.get('ui',[]))
 assert any(c.get('text')=='Reading sample' for f in frames for c in f.get('ui',[]))
 assert any(f.get('operation')=='books' for f in frames)
 print('PASS packaged Reading Statistics uses reading summaries, goal persistence and paged book activity.')
+
+
+import datetime,struct
+today=datetime.date.today().strftime('%Y%m%d')
+legacy=base/'legacy-dates'
+(legacy/'calendar').mkdir(parents=True)
+(legacy/'journals17').mkdir()
+(legacy/'calendar'/f'{today}.txt').write_text('Old appointment')
+record=struct.pack('=iii',1,int(today),4)+b'Legacy journal'.ljust(6*8192,b'\0')
+(legacy/'journals17'/f'{today}.bin').write_bytes(struct.pack('=II',0x4c554d16,len(record))+record)
+frames,folder=app_session('lumen.journal',[tap(100,170),tap(100,250),
+    dict(event='text',action=10,text='Two lines\nSecond line'),dict(event='back')],legacy)
+assert any(f.get('request')=='multiline' and f.get('text')=='Legacy journal' for f in frames)
+assert b'Two lines\nSecond line' in (folder/f'{today}.bin').read_bytes()
+frames,folder=app_session('lumen.calendar',[tap(545,95),dict(event='text',action=1,text='Updated appointment'),
+    component('view','selected','1'),component('view','selected','0'),component('view','selected','3')],legacy)
+assert any(f.get('request')=='multiline' and f.get('text')=='Old appointment' for f in frames)
+assert any(f.get('operation')=='month' for f in frames)
+assert (folder/f'{today}.txt').read_text()=='Updated appointment'
+assert (legacy/'calendar'/f'{today}.txt').read_text()=='Old appointment'
+assert {c.get('selected') for f in frames for c in f.get('ui',[]) if c.get('type')=='component_segments'}=={0,1,2,3}
+print('PASS packaged Journal and Calendar import legacy data, edit using multiline input and save privately.')

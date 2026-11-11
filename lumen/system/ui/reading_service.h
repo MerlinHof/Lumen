@@ -10,6 +10,20 @@ static int reading_compare(const void *a,const void *b) {
     return left->book->id<right->book->id ? -1 : left->book->id!=right->book->id;
 }
 static int package_reading_activity(const char *operation,const char *data,int action) {
+    if(!strcmp(operation,"month")) {
+        char *end;long month=strtol(data,&end,10);
+        if(!*data || *end || month<190001 || month>210012 || month%100<1 || month%100>12)return 0;
+        char *message=NULL;size_t length=0;
+        FILE *out=package_reply(&message,&length,action,1);
+        if(!out)return 0;
+        fprintf(out,",\"month\":%ld",month);
+        for(int i=1;i<=31;i++) {
+            ReadingDay *entry=app_day((int)month*100+i,0);
+            fprintf(out,",\"day%d\":%u",i,entry ? entry->seconds : 0);
+        }
+        package_reply_end(out,&message);
+        return 1;
+    }
     if(strcmp(operation,"summary") && strcmp(operation,"books"))return 0;
     char *message=NULL;size_t length=0;
     FILE *out=package_reply(&message,&length,action,1);

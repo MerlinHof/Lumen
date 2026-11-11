@@ -25,8 +25,8 @@ linking is required. App replacement is a directory transaction and does not
 restart LUMEN. Crashes are confined to the app process; this is not a filesystem
 security sandbox. Native packages must be trusted.
 
-Thirty-one standalone packages ship from their individual app folders,
-including Home, File Transfer, Terminal, Periodic Table, Keyboard, Notifications, Status Bar, Quotes, Flashcards, Languages, BrainTrain, Reading Statistics and nineteen games.
+Thirty-three standalone packages ship from their individual app folders,
+including Home, File Transfer, Terminal, Periodic Table, Keyboard, Notifications, Status Bar, Quotes, Flashcards, Languages, BrainTrain, Reading Statistics, Journal, Calendar and nineteen games.
 Keyboard, Notifications and Status Bar run in separate overlay processes while the foreground app remains active. Other existing views retain linked
 compatibility adapters in `apps/host/compose.h`. Their IDs use the same catalog
 and accept independent replacement packages, but those older implementations
@@ -35,10 +35,10 @@ package interface. Do not describe every old implementation as migrated.
 
 [App-by-app migration inventory and SDK dependencies](app-migration.md)
 
-### Remaining linked apps in 5.2
+### Remaining linked apps in 5.3
 
 - Reading and content · Library, Reader, Store, Wikipedia, News, Recipes.
-- Personal tools · Calendar, Clock, Notes, ToDo, Journal, Photos, Weather, Home Assistant, OpenAI.
+- Personal tools · Clock, Notes, ToDo, Photos, Weather, Home Assistant, OpenAI.
 - Learning and reference · Calculator, Study, Planetarium.
 - Games · Chess.
 - Device surfaces · Settings and Lock Screen.

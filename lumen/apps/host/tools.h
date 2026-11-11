@@ -1,13 +1,10 @@
 /* Focused paper apps. Networking runs in a bounded child, never in the input loop. */
 #include <fcntl.h>
 static int companion_page16, companion_route16 = -1;
-static int calendar_loaded16, calendar_day_page16;
 static char files_dir16[4096], explorer_dir16[4096], file_names16[512][256];
 static int explorer_page16;
 static unsigned char file_dirs16[512];
 static int files_count16;
-static int journal_step16, journal_score16 = 3;
-static char journal_answers16[7][8192];
 static int game_board16[144], game_turn16 = 1, game_won16, game_moves16, game_mode16,
                               game_level16 = 1;
 static int game_undo16[8], game_undo_valid16;
@@ -330,8 +327,6 @@ static int u16_jobs_tick(void) {
 
     return 1;
 }
-#include "../calendar/events.h"
-#include "../calendar/classic_view.h"
 
 #include "../planetarium/solar_view.h"
 
@@ -608,13 +603,6 @@ static void game_draw16(void) {
     direction_keys16();
 }
 static int u16_apps_commit(int target, const char *text) {
-    if (target == 171) {
-        snprintf(journal_answers16[journal_step16], 8192, "%s", text);
-        char n[64];
-        snprintf(n, 64, "journal-draft16-%d.txt", journal_step16);
-        extra_write_text(n, text);
-        return 1;
-    }
     if (target == 172) {
         job_start16(1, text);
         return 1;
@@ -686,13 +674,6 @@ static void companion_enter16(void) {
         recipe_archive16();
         recipes_parse17();
     }
-    if (ui_route() == 110) {
-        for (int i = 0; i < 6; i++) {
-            char n[80];
-            snprintf(n, 80, "journal-draft16-%d.txt", i);
-            config16(n, journal_answers16[i], 8192);
-        }
-    }
     if (ui_route() == 122) {
         config16("llm-model.txt", llm_model16, sizeof(llm_model16));
         config16("llm-prompt16.txt", llm_prompt16, sizeof(llm_prompt16));
@@ -729,10 +710,6 @@ static void companion_enter16(void) {
     }
 }
 static int u16_apps_draw(void) {
-    if (ui_route() == 21) {
-        companion_route16 = 21;
-        return calendar_draw16();
-    }
     if (ui_route() < 110 || ui_route() > 127) {
         companion_route16 = -1;
         return 0;
@@ -789,10 +766,9 @@ static int u16_apps_draw(void) {
     }
     return 0;
 }
-#include "../calendar/navigation.h"
 
 static int u16_apps_input(const Input *in) {
-    if (ui_route() == 110 || ui_route() == 126 || ui_route() == 122 || ui_route() == 123 || ui_route() == 114 ||
+    if (ui_route() == 122 || ui_route() == 123 || ui_route() == 114 ||
         ui_route() == 118 || ui_route() == 119 || ui_route() == 120)
         return -1;
     if (in->kind != INPUT_TAP)
@@ -805,52 +781,6 @@ static int u16_apps_input(const Input *in) {
             (id >= APP_KNIGHTS && id <= APP_RPG)) {
             game_help16(ui_route());
             return 1;
-        }
-    }
-    if (ui_route() == 21) {
-        if (y >= 74 && y < 118) {
-
-            if (x >= 28 && x < 438) {
-                calendar_view16=(x-28)*4/410;
-                calendar_day_page16=0;
-                return 1;
-            }
-        }
-        if (calendar_view16 != 2) {
-            if (calendar_view16 == 1 && y >= 200 && y < 690) {
-                time_t start = calendar_time16(calendar_year, calendar_month, calendar_day);
-                struct tm t;
-                localtime_r(&start, &t);
-                t.tm_mday -= (t.tm_wday + 6) % 7;
-                t.tm_mday += (y - 200) / 70;
-                mktime(&t);
-                calendar_year = t.tm_year + 1900;
-                calendar_month = t.tm_mon + 1;
-                calendar_day = t.tm_mday;
-                calendar_view16 = 0;
-                calendar_day_page16 = 0;
-                app_calendar_load();
-                return 1;
-            }
-            if (y >= 135 && y < 181 && (x < 80 || x >= 520)) {
-                calendar_shift16(x < 300 ? -1 : 1);
-                return 1;
-            }
-            if (calendar_view16 == 3 && y >= 205 && y < 697) {
-                int m = (y - 205) / 123 * 3 + (x - 28) / 185 + 1;
-                if (m >= 1 && m <= 12) {
-                    calendar_month = m;
-                    calendar_day = 1;
-                    calendar_view16 = 2;
-                    app_calendar_load();
-                }
-                return 1;
-            }
-            if (y >= 120) {
-                if (calendar_view16 == 0 && y >= 745 && y < 789)
-                    return -1;
-                return 1;
-            }
         }
     }
     if (ui_route() == 79 && y >= 74 && y < 118 && x >= 460 && x < 516) {
@@ -997,11 +927,6 @@ static int u16_apps_input(const Input *in) {
         return 1;
     }
     return -1;
-}
-
-static void u16_calendar_choice(int choice) {
-    if (choice >= 0 && choice < 4)
-        calendar_view16 = choice;
 }
 
 static int ink_pending16(void) {

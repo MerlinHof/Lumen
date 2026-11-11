@@ -337,7 +337,7 @@ static int package_ui_input(const Input*in) {
     app_process_open(app_for_route(ui_route()));app_process_send(event);return 2;
 }
 static int package_ui_commit(int target,const char*text) {
-    if(target!=2000)return 0;
+    if(target!=2000 && target!=2002)return 0;
     if(*package_focused_component) {
         package_component_event(package_focused_component,"submitted",text);
         package_focused_component[0]=0;
@@ -409,12 +409,12 @@ static int package_ui_poll(void) {
             package_timer_owner=app_for_route(ui_route());
         }
     }
-    if(changed && editor_ui.keyboard && editor_ui.keyboard_target==2000)editor_ui.keyboard_background_valid18=0;
+    if(changed && editor_ui.keyboard && (editor_ui.keyboard_target==2000 || editor_ui.keyboard_target==2002))editor_ui.keyboard_background_valid18=0;
     if(changed && *app_process_error())ui_message(app_process_error());
     const char*message=app_process_request();if(!*message)return changed;
     Json j;JsonToken t[512];if(!json_parse(&j,message,t,512))return changed;
     char kind[32],text[8192],title[128];json_string(&j,json_get(&j,0,"request"),kind,sizeof(kind));json_string(&j,json_get(&j,0,"text"),text,sizeof(text));json_string(&j,json_get(&j,0,"title"),title,sizeof(title));
-    if(!strcmp(kind,"input")){package_focused_component[0]=0;package_input_action=package_value(&j,0,"action");open_keyboard(2000,title,text);}
+    if(!strcmp(kind,"input") || !strcmp(kind,"multiline")){package_focused_component[0]=0;package_input_action=package_value(&j,0,"action");open_keyboard(!strcmp(kind,"multiline") ? 2002 : 2000,title,text);}
     else if(!strcmp(kind,"select")) {
         int array=json_get(&j,0,"options");if(array>=0 && j.tokens[array].type=='[' && j.tokens[array].count>0 && j.tokens[array].count<=48) {
             int count=j.tokens[array].count;for(int i=0;i<count;i++){json_string(&j,json_at(&j,array,i),package_options[i],128);package_labels[i]=package_options[i];}

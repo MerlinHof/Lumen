@@ -196,18 +196,6 @@ static void extra_commit(int target, const char *text) {
         } else
             ui_message("Uhrzeit als HH:MM eingeben.");
         extra_save();
-    } else if (target == 40) {
-        int y, m;
-        char tail;
-        if (sscanf(text, "%d-%d%c", &y, &m, &tail) == 2 && y >= 1900 && y <= 2100 && m >= 1 &&
-            m <= 12) {
-            calendar_year = y;
-            calendar_month = m;
-            if (calendar_day > calendar_days(y, m))
-                calendar_day = calendar_days(y, m);
-            app_calendar_load();
-        } else
-            ui_message("Ungültiger Monat.");
     }
 }
 
@@ -507,14 +495,7 @@ static int extra_input(const Input *in) {
             extra_return(40);
         return 1;
     }
-    if (ui_route() == 45) {
-        if (y >= 455 && y < 503) {
-            apps_note_commit("");
-            extra_return(21);
-        } else if (y >= 530 && y < 578)
-            extra_return(21);
-        return 1;
-    }
+
     if(ui_route()==43){
         if(y>=455 && y<503){note_delete16(note_selected);notes_scan();extra_return(29);}
         else if(y>=530 && y<578)extra_return(29);

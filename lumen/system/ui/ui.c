@@ -78,7 +78,6 @@ static int ink_pending16(void), job_pending16(void);
 static void help_overlay16(void), companion_checkpoint16(void),
     companion_close16(void);
 static int u17_notes_depth(void), text_editable_hit(const Input *);
-static void u17_calendar_dirty(void);
 static void small_number17(int, int, const char *, int);
 static void u17_gray_icon(int, int);
 static void models_parse17(void), reader_markdown17(const char *, const char *, int);
@@ -89,8 +88,7 @@ static void chat_draw(void), chats_draw(void);
 static int chat_input(const Input *), chats_input(const Input *);
 static int recipes_back(void);
 static int recipes_draw17(void), recipes_input17(const Input *);
-static void journal_store17(void),
-    u17_game_manual(int, const char *, const char *);
+static void u17_game_manual(int, const char *, const char *);
 static int u17_games_draw(void), u17_games_input(const Input *), recipes_fetch17(const char *);
 static void recipes_search17(const char *), recipes_parse17(void), recipes_open_ready17(void);
 static void u17_more_choice(int, int);
@@ -99,8 +97,7 @@ static void u17_notes_up(void), u17_sleep_row(int), u17_sleep_select(int);
 static void u17_choice(int, int), u17_notes_menu(int, int, int), checkbox(int, int, int),
     select_row17(int, const char *, const char *);
 static int u17_commit(int, const char *), u17_input(const Input *), u17_draw(void);
-static int u16_apps_commit(int, const char *), event_on16(int);
-static void u16_calendar_choice(int);
+static int u16_apps_commit(int, const char *);
 static int keyboard_multiline(void);
 static void u15_note_editor_touch(int,int);
 static void u15_note_scroll(int);
@@ -195,12 +192,9 @@ static void wifi_input(const Input *in);
 static void settings_home(void);
 static void reading_input(const Input *in);
 static void apps_init(void);
-static void apps_draw(void);
-static int apps_input(const Input *in);
 static void apps_pause(void);
 static void apps_checkpoint(void);
 static void apps_save(void);
-static void apps_note_commit(const char *text);
 static void apps_page_turned(void);
 static void open_store(void);
 static void store_search(void);
@@ -1072,11 +1066,9 @@ static int restore_anchor(const Book *book, int fallback, int bookmark) {
 
 void ui_save(void) {
     app_pages_checkpoint();
-    if (ui_route() == 126)
-        journal_store17();
     companion_checkpoint16();
     u15_flush();
-    if (editor_ui.keyboard && (editor_ui.keyboard_target == 30 || editor_ui.keyboard_target == 60 || editor_ui.keyboard_target == 171 ||
+    if (editor_ui.keyboard && (editor_ui.keyboard_target == 30 || editor_ui.keyboard_target == 60 ||
                      editor_ui.keyboard_target == 174))
         extra_commit(editor_ui.keyboard_target, editor_ui.edit);
     apps_checkpoint();
@@ -1558,8 +1550,6 @@ static int ui_dispatch_input(const Input *in) {
             return 1;
         }
     }
-    if (!app_package_installed(APP_MINES) && ui_route() == 23 && in->kind == INPUT_HOLD && !sleeping)
-        return apps_input(in);
     if (!sleeping && !app_package_installed(APP_READER) && ui_route() == 2 && in->kind == INPUT_HOLD && !reader_ui.reader_chrome && in->y > 60 &&
         in->y < 735) {
         reader_ui.selection_last_x = reader_ui.selection_x = in->x;
@@ -1658,8 +1648,6 @@ static int ui_dispatch_input(const Input *in) {
         editor_ui.cursor_epoch = extra_millis();
     }
     if (in->kind == INPUT_STATUS) {
-        if (ui_route() >= 20 && ui_route() <= 26 && !sleeping)
-            return apps_input(in);
         if (ui_route() == 12 && wifi_ui.wifi_enabled) {
             char old[128];
             snprintf(old, sizeof(old), "%s", wifi_ui.wifi_ssid);
@@ -2041,12 +2029,6 @@ static void commit_keyboard(void) {
         pressed = -1;
         return;
     }
-    if (editor_ui.keyboard_target == 8) {
-        apps_note_commit(editor_ui.edit);
-        editor_ui.keyboard = 0;
-        pressed = -1;
-        return;
-    }
     if (editor_ui.keyboard_target == 6) {
         snprintf(store_ui.store_query, sizeof(store_ui.store_query), "%s", editor_ui.edit);
         store_search();
@@ -2320,8 +2302,6 @@ static void app_leave(AppId app, void *ctx) {
     app_page_checkpoint(app);
     if (app == APP_PHOTOS) photo_app_leave();
     (void)ctx;
-    if (app == APP_JOURNAL)
-        journal_store17();
     companion_checkpoint16();
     if (app >= APP_2048)
         new_apps_save();
@@ -2442,15 +2422,6 @@ static int app_send(const AppIntent *intent) {
         recipe_archive16();
     } else if (app_definition(intent->app)->entry >= 27)
         extra_prepare(ui_route());
-    else if (intent->app == APP_CALENDAR) {
-        time_t now=time(NULL);
-        struct tm today;
-        localtime_r(&now,&today);
-        calendar_year=today.tm_year+1900;
-        calendar_month=today.tm_mon+1;
-        calendar_day=today.tm_mday;
-        app_calendar_load();
-    }
     if (intent->app == APP_NOTES && intent->object_id) {
         note_load((int)intent->object_id);
         route_to(30);

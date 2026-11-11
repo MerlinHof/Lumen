@@ -2,10 +2,7 @@
 /* Dependency order: core app models, their views, then cross-app polish. */
 #include "../../system/ui/form_controls.h"
 #include "classic_state.h"
-#include "../calendar/storage.h"
 #include "classic_lifecycle.h"
-#include "../calendar/month.h"
-#include "classic_dispatch.h"
 #include "../../system/ui/reading_activity.h"
 #include "tool_state.h"
 #include "../timer/actions.h"
@@ -64,12 +61,10 @@
 #include "../settings/sleep.h"
 #include "../notes/move.h"
 #include "form_dispatch.h"
-#include "../calendar/day_week.h"
 #include "../../system/ui/clipboard.h"
 #include "../todo/view.h"
 #include "../openai/models.h"
 #include "../reader/markdown.h"
-#include "../journal/model.h"
 #include "journal_dispatch.h"
 static int u17_games_draw(void) {return recipes_draw17();}
 static int u17_games_input(const Input *in) {return recipes_input17(in);}

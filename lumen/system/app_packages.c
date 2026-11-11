@@ -180,7 +180,7 @@ static void flush_events(AppProcess *p) {
  while(p->write_fd>=0 && p->pending_n){ssize_t n=write(p->write_fd,p->pending,p->pending_n);if(n<=0)break;memmove(p->pending,p->pending+n,p->pending_n-n);p->pending_n-=n;}
 }
 static int process_send(AppProcess *p,const char*event) {
- if(p->write_fd<0||!event)return 0;size_t n=strlen(event);if(n>16384 || n+1>sizeof(p->pending)-p->pending_n)return 0;
+ if(p->write_fd<0||!event)return 0;size_t n=strlen(event);if(n>49152 || n+1>sizeof(p->pending)-p->pending_n)return 0;
  memcpy(p->pending+p->pending_n,event,n);p->pending_n+=n;p->pending[p->pending_n++]='\n';flush_events(p);return 1;
 }
 static void process_pause(AppProcess *p){if(p->child>0&&!p->paused){process_send(p,"{\"event\":\"pause\"}");p->paused=1;}}

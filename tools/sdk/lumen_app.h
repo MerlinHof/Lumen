@@ -13,7 +13,7 @@
 #include "../../lumen/system/device.h"
 #include "../../lumen/system/ui/icon_ids.h"
 typedef enum{PAINT_BODY,PAINT_HEADING,PAINT_DISPLAY,PAINT_SECONDARY,PAINT_TITLE}PaintText;
-static char lumen_event[20000];static int lumen_first,lumen_language,lumen_back,lumen_frame_tick,lumen_ready=1;
+static char lumen_event[65536];static int lumen_first,lumen_language,lumen_back,lumen_frame_tick,lumen_ready=1;
 static void lumen_json(const char*s){putchar('"');for(;*s;s++){unsigned char c=*s;if(c=='"'||c=='\\')putchar('\\');if(c<32)printf("\\u%04x",c);else putchar(c);}putchar('"');}
 static int lumen_number(const char*key){char needle[80];snprintf(needle,sizeof(needle),"\"%s\":",key);const char*p=strstr(lumen_event,needle);return p?atoi(p+strlen(needle)):0;}
 static int lumen_string(const char*key,char*out,size_t cap){char needle[80];snprintf(needle,sizeof(needle),"\"%s\":",key);const char*p=strstr(lumen_event,needle);size_t n=0;if(!cap)return 0;out[0]=0;if(!p)return 0;p+=strlen(needle);while(*p==' ')p++;if(*p++!='"')return 0;while(*p&&*p!='"'&&n+1<cap){unsigned char c=*p++;if(c=='\\'){c=*p++;if(c=='n')c='\n';else if(c=='r')c='\r';else if(c=='t')c='\t';else if(c=='u'){unsigned value=0;if(sscanf(p,"%4x",&value)!=1)return 0;p+=4;if(value<128)c=value;else if(value<2048){if(n+2>=cap)break;out[n++]=0xc0|(value>>6);c=0x80|(value&63);}else{if(n+3>=cap)break;out[n++]=0xe0|(value>>12);out[n++]=0x80|((value>>6)&63);c=0x80|(value&63);}}}out[n++]=c;}out[n]=0;return 1;}
@@ -185,6 +185,9 @@ static void lumen_wrapped(int x,int y,int w,int h,const char *text,PaintText rol
 }
 static void lumen_request(const char*kind,const char*title,const char*text,int action){fputs("{\"request\":",stdout);lumen_json(kind);fputs(",\"title\":",stdout);lumen_json(title);fputs(",\"text\":",stdout);lumen_json(text);printf(",\"action\":%d}\n",action);fflush(stdout);}
 /* Existing small app modules can reuse their Input-based controller directly. */
+static void lumen_multiline(const char *title,const char *text,int action) {
+ lumen_request("multiline",title,text,action);
+}
 static void lumen_app_open_with(const char *app,const char *action,const char *object,
                                 const char *title,const char *text) {
  fputs("{\"request\":\"intent\",\"app\":",stdout);lumen_json(app);

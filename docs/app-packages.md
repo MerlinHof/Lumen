@@ -104,7 +104,7 @@ the app process. Package-owned grayscale PGM files can use `lumen_asset`.
 
 ## Existing app implementations
 
-Thirty-one independent apps ship with LUMEN 5.2. Their build manifests are the
+Thirty-three independent apps ship with LUMEN 5.3. Their build manifests are the
 `lumen/apps/*/package.json` files. Legacy views without manifests still run from
 the host and may be replaced by packages using the same stable identity.
 
@@ -138,3 +138,7 @@ The `reading` service provides a bounded `summary` of the last 31 days and
 paged `books` activity. The `text` service’s `equivalent` operation compares two
 newline-separated answers after the same folding used in LUMEN search. For
 local spaced repetition, include the exported `lumen_fsrs.h` helper.
+
+LUMEN 5.3 adds `lumen_multiline(title, text, action)` for the shared editor.
+The committed value uses the existing `INPUT_TEXT` response. The reading
+service’s `month` operation returns daily activity for a `YYYYMM` key.
