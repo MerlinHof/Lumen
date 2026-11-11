@@ -148,3 +148,32 @@ assert any(f.get('request')=='input' and f.get('action')==10 for f in frames)
 assert any(f.get('request')=='notify' and 'letters' in f.get('text','') for f in frames)
 assert any(f.get('operation')=='open_document' for f in frames)
 print('PASS packaged Sokoban assets, save and help, and Crossword clues, editing, validation and help.')
+
+def component(id,gesture='clicked',text=None):
+    event=dict(event='component',id=id,gesture=gesture,changed=int(text is not None))
+    if text is not None:event['text']=text
+    return event
+
+frames,folder=app_session('lumen.braintrain',[component('exercise0'),tap(100,735),tap(150,300),tap(100,735)])
+assert len([c for c in frames[0]['ui'] if c['type']=='component_card'])==6
+assert (folder/'training.bin').is_file()
+frames,folder=app_session('lumen.languages',[
+    component('pair','selected','1'),component('practice','selected','2'),tap(100,425),
+    dict(event='text',action=1,text='Translation'),dict(event='service',action=1,ok=1,match=1),
+    tap(545,92),dict(event='page',page=2),dict(event='back')])
+assert any(c.get('type')=='component_segments' for f in frames for c in f.get('ui',[]))
+assert any(f.get('service')=='text' and f.get('operation')=='equivalent' for f in frames)
+assert any(f.get('back') for f in frames) and not frames[-1].get('back')
+assert (folder/'progress.bin').is_file() and (folder/'pair.bin').is_file()
+print('PASS packaged BrainTrain practice cards and Languages segments, grading, glossary and saves.')
+
+frames,folder=app_session('lumen.insights',[
+    dict(event='service',action=1,ok=1,goal=30,day0=900,total=4500,sessions=3,remaining=-1),
+    tap(440,500),dict(event='text',action=3,text='25'),
+    component('stats','selected','1'),dict(event='service',action=2,ok=1,page=0,count=1,
+         title0='Reading sample',seconds0=900,pages0=12,sessions0=3,position0=12,length0=60)])
+assert (folder/'goal.bin').is_file()
+assert any(c.get('text')=='15 / 30 min' for f in frames for c in f.get('ui',[]))
+assert any(c.get('text')=='Reading sample' for f in frames for c in f.get('ui',[]))
+assert any(f.get('operation')=='books' for f in frames)
+print('PASS packaged Reading Statistics uses reading summaries, goal persistence and paged book activity.')

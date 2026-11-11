@@ -4,7 +4,7 @@
 static void settle_app(void) {
     if(!app_package_installed(app_for_route(ui_route())))return;
     app_process_open(app_for_route(ui_route()));
-    for(int i=0;i<30;i++) {
+    for(int i=0;i<200 && (i<30 || !*app_process_frame());i++) {
         if(!app_package_installed(app_for_route(ui_route())))break;
         usleep(5000);
         package_ui_poll();
@@ -516,6 +516,17 @@ int main(int argc, char **argv) {
     settle_app();
     tap17(20,20);
     assert(ui_route()==131 && !package_call_count && history_count==call_depth);
+    route_to(66);
+    settle_app();
+    ui_draw();
+    assert(strstr(app_process_frame(),"exercise1"));
+    tap17(400,275);
+    assert(!strstr(app_process_frame(),"exercise1") && strstr(app_process_frame(),"back\":true"));
+    route_to(73);
+    settle_app();
+    ui_draw();
+    tap17(310,150);
+    assert(strstr(app_process_frame(),"selected\":1"));
     char restart_dir[2048], restart_path[2048];
     snprintf(restart_dir,sizeof(restart_dir),"%s/../.update",data_root);
     mkdir(restart_dir,0700);

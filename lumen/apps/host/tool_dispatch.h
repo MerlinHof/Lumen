@@ -208,11 +208,6 @@ static void extra_commit(int target, const char *text) {
             app_calendar_load();
         } else
             ui_message("Ungültiger Monat.");
-    } else if (target == 38) {
-        int v = atoi(text);
-        if (v >= 1 && v <= 240)
-            reading_goal = v;
-        extra_save();
     }
 }
 
@@ -225,34 +220,6 @@ static int extra_input(const Input *in) {
 
     if (in->kind != INPUT_TAP)
         return 2;
-    if (ui_route() == 22) {
-        if (y >= 128 && y < 166) {
-            stats_page = (x - 28) / 186;
-            if (stats_page < 0)
-                stats_page = 0;
-            if (stats_page > 2)
-                stats_page = 2;
-            extra_page = 0;
-        } else if (stats_page == 0 && y >= 484 && y < 528 && x >= 390) {
-            char b[32];
-            snprintf(b, sizeof(b), "%d", reading_goal);
-            open_keyboard(38, "Tagesziel: Minuten", b);
-        } else if (stats_page == 1 && y >= 745 && y < 789) {
-            if (x < 300 && extra_page)
-                extra_page--;
-            else if (x >= 300) {
-                int n = 0;
-                for (int i = 0; i < library_count; i++) {
-                    BookInsight *v = insight_get(library[i].id, 0);
-                    if (v && (v->seconds || v->pages))
-                        n++;
-                }
-                if ((extra_page + 1) * 5 < n)
-                    extra_page++;
-            }
-        }
-        return 1;
-    }
 
     if (ui_route() == 27) {
         if (y >= 74 && y < 118 && x >= 408 && x < 460) {

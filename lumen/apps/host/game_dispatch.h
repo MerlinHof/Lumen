@@ -14,9 +14,6 @@ static void new_apps_draw(void) {
     case 62:
         graph_range_screen();
         break;
-    case 66:
-        app_focus();
-        break;
     case 67:
         app_newspaper();
         break;
@@ -108,9 +105,6 @@ static int new_apps_input(const Input *in) {
         } else if (y >= 650 && y < 706)
             extra_return(61);
         return 1;
-    }
-    if (ui_route() == 66) {
-        return polish_brain_input(in);
     }
     if (ui_route() == 67) {
         return polish_news_input(in);

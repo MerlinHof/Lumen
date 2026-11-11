@@ -1,3 +1,38 @@
+#include "lumen_app.h"
+#include "lumen_fsrs.h"
+#include "lessons.h"
+#include "strings.h"
+
+static int lang_pair,lang_index,lang_reveal,glossary,checking;
+static const char *tr(const char *key) {
+    int language=lumen_language>=0 && lumen_language<3 ? lumen_language : 0;
+    for(size_t i=0;i<sizeof(strings)/sizeof(*strings);i++)
+        if(!strcmp(strings[i].key,key))return strings[i].values[language];
+    return key;
+}
+static int today_key(void) {
+    time_t now=time(NULL);
+    struct tm date;
+    localtime_r(&now,&date);
+    return (date.tm_year+1900)*10000+(date.tm_mon+1)*100+date.tm_mday;
+}
+
+#define UI_PRIMARY PAINT_HEADING
+#define UI_SECONDARY PAINT_SECONDARY
+#define UI_DISPLAY PAINT_DISPLAY
+#define UI_TITLE PAINT_TITLE
+#define UI_BODY PAINT_BODY
+#define ui_font(r) (r)
+#define heading_actions ui_paint_heading
+#define icon_button ui_paint_icon_button
+#define button_h(x,y,w,h,s,p) lumen_button(x,y,w,h,tr(s),p)
+#define rect(x,y,w,h,c) ui_paint_surface(x,y,w,h,0,c,c)
+#define label_at(x,y,w,h,s,r) lumen_text(x,y,w,h,tr(s),r,-1,1)
+#define centered(x,y,w,h,s,r) ui_paint_text(x,y,w,h,tr(s),r)
+#define drawtext_raw(x,y,s,r,w) label_at(x,y,w,34,s,r)
+#define wrapped_raw(x,y,s,r,w,n) lumen_wrapped(x,y,w,40*(n),tr(s),r,n)
+#define divider(x,y,w) ui_paint_line(x,y,x+w,y,1,190)
+
 static struct {
     MemoryCard cards[3][24];
     int attempts, correct, day, count, lastday, streak;
@@ -15,12 +50,26 @@ static void language_init(void) {
     if (language_ready)
         return;
     language_ready = 1;
-    if (!app_state_load("language-plus-1.1.bin", &language_progress, sizeof(language_progress)))
-        memset(&language_progress, 0, sizeof(language_progress));
+    if(!app_state_load("progress.bin",&language_progress,sizeof(language_progress))) {
+        unsigned char legacy[8+sizeof(language_progress)];
+        if(lumen_legacy_state("language-plus-1.1.bin",legacy,sizeof(legacy))) {
+            uint32_t header[2];memcpy(header,legacy,8);
+            if(header[0]==0x4c554d16 && header[1]==sizeof(language_progress))
+                memcpy(&language_progress,legacy+8,sizeof(language_progress));
+        }
+    }
+    int saved;
+    if(app_state_load("pair.bin",&saved,sizeof(saved))) {
+        if(saved>=0 && saved<3)lang_pair=saved;
+    } else {
+        uint32_t old[7];
+        if(lumen_legacy_state("language-1.bin",old,sizeof(old)) &&
+           old[0]==0x4c554d16 && old[1]==20 && old[2]<3)lang_pair=(int)old[2];
+    }
 }
 static void language_new(void) {
     language_init();
-    language_answered = 0;
+    language_answered = checking = 0;
     language_choice = -1;
     lang_reveal = 0;
     language_written[0] = 0;
@@ -30,8 +79,8 @@ static void language_new(void) {
             (found < 0 || language_progress.cards[lang_pair][i].due <
                               language_progress.cards[lang_pair][found].due))
             found = i;
-    lang_index = found >= 0 ? found : pro_random() % 24;
-    int correct = pro_random() % 4;
+    lang_index = found >= 0 ? found : rand() % 24;
+    int correct = rand() % 4;
     for (int i = 0; i < 4; i++) {
         if (i == correct) {
             language_options[i] = lang_index;
@@ -39,7 +88,7 @@ static void language_new(void) {
         }
         int q;
         do {
-            q = pro_random() % 24;
+            q = rand() % 24;
             int dup = q == lang_index;
             for (int j = 0; j < i; j++)
                 if (language_options[j] == q)
@@ -53,7 +102,7 @@ static void language_new(void) {
 static void language_grade(int good) {
     language_progress.attempts++;
     language_progress.correct += good;
-    int today = news_date();
+    int today = today_key();
     if (language_progress.day != today) {
         language_progress.day = today;
         language_progress.count = 0;
@@ -69,38 +118,32 @@ static void language_grade(int good) {
         language_progress.lastday = today;
     }
     fsrs_review(&language_progress.cards[lang_pair][lang_index], good ? 3 : 1, time(NULL));
-    app_state_save("language-plus-1.1.bin", &language_progress, sizeof(language_progress));
+    app_state_save("progress.bin", &language_progress, sizeof(language_progress));
     language_answered = good ? 1 : 2;
 }
-static void language_normalize(const char *s, char *out, int n) {
-    char folded[1024];
-    utf8_fold(s, folded, sizeof(folded));
-    int k = 0;
-    for (const unsigned char *p = (unsigned char *)folded; *p && k < n - 1; p++)
-        if (isalnum(*p) || *p >= 128)
-            out[k++] = *p;
-    out[k] = 0;
-}
 static void language_check_written(const char *text) {
-    snprintf(language_written, sizeof(language_written), "%s", text);
-    char a[1024], b[1024];
-    language_normalize(text, a, sizeof(a));
-    language_normalize(v1_lessons[lang_index][language_target()], b, sizeof(b));
-    language_grade(!strcmp(a, b));
+    snprintf(language_written,sizeof(language_written),"%.*s",(int)sizeof(language_written)-1,text);
+    if(!*language_written)return;
+    char pair[1024];
+    snprintf(pair,sizeof(pair),"%s\n%s",v1_lessons[lang_index][language_target()],language_written);
+    checking=1;
+    lumen_service("text","equivalent",pair,1);
 }
-static void polish_language(void) {
+static void language_book(void);
+static void draw(void) {
     language_init();
     static int started;
     if (!started) {
         started = 1;
         language_new();
     }
-    heading_actions("Sprachen", 1);
+    if(glossary){language_book();return;}
+    heading_actions(tr("Sprachen"), 1);
     icon_button(528, 74, IC_BOOK);
     const char *pair[] = {"DE → EN", "DE → FR", "EN → DE"};
-    segments(28, 132, 544, 39, pair, 3, lang_pair);
-    const char *tabs[] = {"Karten", "Quiz", "Schreiben", "Fortschritt"};
-    segments(28, 184, 544, 42, tabs, 4, language_tab);
+    lumen_segments("pair",28,132,544,39,pair,3,lang_pair);
+    const char *tabs[] = {tr("Karten"),tr("Quiz"),tr("Schreiben"),tr("Fortschritt")};
+    lumen_segments("practice",28,184,544,42,tabs,4,language_tab);
     char b[180];
     if (language_tab == 3) {
         int known = 0, due = 0;
@@ -155,7 +198,7 @@ static void polish_language(void) {
         }
     }
     if (language_tab == 0 || !language_answered) {
-        int count = language_progress.day == news_date() ? language_progress.count : 0;
+        int count = language_progress.day == today_key() ? language_progress.count : 0;
         snprintf(b, 180, "%d / 10 · %s", count,
                  tr(count >= 10 ? "Tagesziel erreicht!" : "Tagesziel"));
         label_at(30, 653, 540, 32, b, ui_font(UI_SECONDARY));
@@ -163,26 +206,37 @@ static void polish_language(void) {
         rect(30, 701, 54 * (count > 10 ? 10 : count), 5, 0);
     }
 }
-static int polish_language_input(const Input *in) {
+static int input(const Input *in) {
+    if(in->kind==INPUT_BACK){glossary=lumen_back=0;return 1;}
+    if(in->kind==INPUT_PAGE && glossary){language_book_page=in->x;return 1;}
+    if(in->kind==INPUT_TEXT && in->x==1 && !glossary && !checking) {
+        char text[512];
+        if(lumen_string("text",text,sizeof(text)))language_check_written(text);
+        return 1;
+    }
+    if(in->kind==INPUT_SERVICE && in->x==1 && checking) {
+        checking=0;
+        if(in->y)language_grade(lumen_number("match"));
+        return 1;
+    }
+    if(in->kind==INPUT_COMPONENT && !glossary) {
+        char id[32],value[16],gesture[24];
+        lumen_string("id",id,sizeof(id));
+        if(!lumen_string("text",value,sizeof(value)) || strlen(value)!=1 || value[0]<'0' || value[0]>'3')return 0;
+        lumen_string("gesture",gesture,sizeof(gesture));
+        if(strcmp(gesture,"selected"))return 0;
+        int choice=value[0]-'0';
+        if(!strcmp(id,"pair") && choice<3) {
+            lang_pair=choice;app_state_save("pair.bin",&lang_pair,sizeof(lang_pair));language_new();
+        } else if(!strcmp(id,"practice")){language_tab=choice;language_new();}
+        return 1;
+    }
+    if(glossary)return 0;
     if (in->kind != INPUT_TAP)
         return 2;
     int x = in->x, y = in->y;
     if (x >= 516 && y >= 74 && y < 118) {
-        extra_open(99);
-        return 1;
-    }
-    if (y >= 132 && y < 171 && x >= 28 && x < 572) {
-        lang_pair = (x - 28) / (544 / 3);
-        if (lang_pair > 2)
-            lang_pair = 2;
-        language_new();
-        return 1;
-    }
-    if (y >= 184 && y < 226 && x >= 28 && x < 572) {
-        language_tab = (x - 28) / (544 / 4);
-        if (language_tab > 3)
-            language_tab = 3;
-        language_new();
+        glossary=lumen_back=1;language_book_page=0;
         return 1;
     }
     if (language_tab == 3) {
@@ -209,19 +263,25 @@ static int polish_language_input(const Input *in) {
                 language_grade(language_options[i] == lang_index);
             }
         }
-    } else if (y >= 391 && y < 453 && !language_answered)
-        open_keyboard(158, "Übersetzung", language_written);
+    } else if (y >= 391 && y < 453 && !language_answered && !checking)
+        lumen_request("input",tr("Übersetzung"),language_written,1);
     else if (language_answered && y >= 658 && y < 718)
         language_new();
     return 1;
 }
 static void language_book(void) {
-    heading("Wortschatz");
+    ui_paint_heading(tr("Wortschatz"),0);
     for (int r = 0; r < 6 && language_book_page * 6 + r < 24; r++) {
         int i = language_book_page * 6 + r, y = 145 + r * 86;
         drawtext_raw(30, y, v1_lessons[i][language_source()], ui_font(UI_PRIMARY), 540);
         drawtext_raw(30, y + 38, v1_lessons[i][language_target()], ui_font(UI_BODY), 540);
         divider(28, y + 76, 544);
     }
-    pager(745, &language_book_page, 4);
+    lumen_pager(745,language_book_page,4);
+}
+
+int main(void) {
+    srand((unsigned)time(NULL));
+    lumen_run(draw,input,NULL);
+    return 0;
 }

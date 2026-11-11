@@ -1,5 +1,4 @@
-/* App-owned module; assembled by apps/host/compose.h. */
-/* LUMEN apps: persistent local tools and asynchronous network dashboards. */
+/* Shared reading activity records used by Reader and package clients. */
 #include <ctype.h>
 #include <dirent.h>
 #include <sys/time.h>

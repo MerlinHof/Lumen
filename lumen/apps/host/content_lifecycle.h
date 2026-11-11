@@ -16,8 +16,6 @@ static void polish_open(int route) {
         news_save_settings();
         news_cancel();
     }
-    if (route == 99)
-        language_book_page = 0;
 }
 static void polish_view(void) {
     switch (ui_route()) {
@@ -29,9 +27,6 @@ static void polish_view(void) {
     case 97:
         polish_news_draw();
         break;
-    case 99:
-        language_book();
-        break;
     }
 }
 static int polish_input(const Input *in) {
@@ -39,13 +34,6 @@ static int polish_input(const Input *in) {
         return wiki_history_input(in);
     if (ui_route() == 95 || ui_route() == 96 || ui_route() == 97)
         return polish_news_input(in);
-    if (ui_route() == 99 && in->kind == INPUT_TAP && in->y >= 679 && in->y < 723) {
-        if (in->x < 300 && language_book_page)
-            language_book_page--;
-        else if (in->x >= 300 && language_book_page < 3)
-            language_book_page++;
-        return 1;
-    }
     return 2;
 }
 static int polish_tick(void) {
@@ -121,10 +109,6 @@ static int polish_commit(int target, const char *text) {
         press_loading_kind = 1;
         press_search(text, options[OPT_LANGUAGE]);
         extra_open(95);
-        return 1;
-    }
-    if (target == 158) {
-        language_check_written(text);
         return 1;
     }
     return 0;

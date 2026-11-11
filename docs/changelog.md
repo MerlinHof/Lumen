@@ -1,5 +1,7 @@
 # Changelog
 
+- [5.2](releases/5.2.md) · Independent BrainTrain, Languages and Reading Statistics packages.
+
 - [5.1](releases/5.1.md) · Independent packages for Flashcards and six games.
 
 - [5.0](releases/5.0.md) · Keyboard, Maze, Knight’s Tour and Quotes packages, semantic controls and app results.

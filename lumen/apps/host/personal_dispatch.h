@@ -35,9 +35,6 @@ static void v1_draw(void) {
     case 72:
         v1_photo_draw();
         break;
-    case 73:
-        v1_language_draw();
-        break;
     case 74:
         v1_tasks_draw();
         break;
@@ -202,8 +199,6 @@ static int v1_input(const Input *in) {
         return polish_news_input(in);
     if (ui_route() == 72 && !v1_delete)
         return polish_photo_input(in);
-    if (ui_route() == 73)
-        return polish_language_input(in);
     if (in->kind != INPUT_TAP)
         return 2;
     int x = in->x, y = in->y;
@@ -251,25 +246,6 @@ static int v1_input(const Input *in) {
     case 71:
         photo_grid_input(x, y);
         return 1;
-    case 73:
-        if (y >= 135 && y < 179) {
-            lang_pair = (x - 28) / (544 / 3);
-            if (lang_pair < 0)
-                lang_pair = 0;
-            if (lang_pair > 2)
-                lang_pair = 2;
-            lang_reveal = 0;
-        } else if (!lang_reveal && y >= 537 && y < 597)
-            lang_reveal = 1;
-        else if (lang_reveal && y >= 610 && y < 666) {
-            lang_total++;
-            v1_dirty = 1;
-            if (x >= 300)
-                lang_correct++;
-            lang_index = (lang_index + 1) % 24;
-            lang_reveal = 0;
-        }
-        break;
     case 74:
         return polish_tasks_input(in);
     case 79:

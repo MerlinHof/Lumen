@@ -64,7 +64,30 @@ static int transfer_service(const char *operation,const char *data,int action) {
     return 1;
 }
 #include "annotation_service.h"
+static void package_fold_answer(const char *input,char *out,size_t capacity) {
+    utf8_fold(input,out,capacity);
+    char *write=out;
+    for(const unsigned char *read=(const unsigned char *)out;*read;read++)
+        if(isalnum(*read) || *read>=128)*write++=(char)*read;
+    *write=0;
+}
+static int package_equivalent(const char *data,int action) {
+    const char *split=strchr(data,'\n');
+    if(!split || split-data>=512 || strlen(split+1)>=512)return 0;
+    char left[512],a[512],b[512],*message=NULL;size_t length=0;
+    snprintf(left,sizeof(left),"%.*s",(int)(split-data),data);
+    package_fold_answer(left,a,sizeof(a));
+    package_fold_answer(split+1,b,sizeof(b));
+    FILE *out=package_reply(&message,&length,action,1);
+    if(!out)return 0;
+    fprintf(out,",\"match\":%d",!strcmp(a,b));
+    package_reply_end(out,&message);
+    return 1;
+}
+#include "reading_service.h"
 static int package_service_request(const char *name,const char *operation,const char *data,int action) {
+    if(!strcmp(name,"text") && !strcmp(operation,"equivalent"))return package_equivalent(data,action);
+    if(!strcmp(name,"reading"))return package_reading_activity(operation,data,action);
     if(!strcmp(name,"transfer"))return transfer_service(operation,data,action);
     if(!strcmp(name,"dictionary") && !strcmp(operation,"game_word")) {
         char *end;

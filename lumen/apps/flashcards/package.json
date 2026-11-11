@@ -3,7 +3,7 @@
   "api": 1,
   "id": "lumen.flashcards",
   "name": "Karteikarten",
-  "version": "1.0.0",
-  "sources": ["app.c", "scheduler.c"],
+  "version": "1.0.1",
+  "sources": ["app.c"],
   "assets": ["assets/icon.pgm"]
 }

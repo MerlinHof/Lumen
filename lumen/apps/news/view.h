@@ -315,7 +315,5 @@ static int polish_news_input(const Input *in) {
     }
     return 1;
 }
-#include "../braintrain/app.h"
-#include "../language/app.h"
 static time_t press_retry_at;
 static int press_daily_enabled;

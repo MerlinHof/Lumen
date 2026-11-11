@@ -104,7 +104,7 @@ the app process. Package-owned grayscale PGM files can use `lumen_asset`.
 
 ## Existing app implementations
 
-Twenty-eight independent apps ship with LUMEN 5.1. Their build manifests are the
+Thirty-one independent apps ship with LUMEN 5.2. Their build manifests are the
 `lumen/apps/*/package.json` files. Legacy views without manifests still run from
 the host and may be replaced by packages using the same stable identity.
 
@@ -131,3 +131,10 @@ compositing and routes keyboard output through the shared text editor.
 LUMEN 5.1 adds `lumen_sprite` for a vertical P5 sheet of square tiles, an
 `INPUT_PAUSE` lifecycle event, and shared dictionary operations
 `game_word` and `clues`. A package should pause its simulation when suspended.
+
+LUMEN 5.2 adds `lumen_card` and `lumen_segments`. Cards emit `clicked` by ID.
+Segmented controls emit `selected` with the zero-based option in `text`.
+The `reading` service provides a bounded `summary` of the last 31 days and
+paged `books` activity. The `text` service’s `equivalent` operation compares two
+newline-separated answers after the same folding used in LUMEN search. For
+local spaced repetition, include the exported `lumen_fsrs.h` helper.

@@ -86,14 +86,6 @@ static void v1_init(void) {
             tasks[i].state = tasks[i].state >= 0 && tasks[i].state <= (TASK_DONE | TASK_FLAG) ?
                              tasks[i].state & (TASK_DONE | TASK_FLAG) : 0;
         }
-    int lp[5];
-    if (app_state_load("language-1.bin", lp, sizeof(lp)) && lp[0] >= 0 && lp[0] < 3 && lp[1] >= 0 &&
-        lp[1] < 24 && lp[2] >= 0 && lp[3] >= lp[2]) {
-        lang_pair = lp[0];
-        lang_index = lp[1];
-        lang_correct = lp[2];
-        lang_total = lp[3];
-    }
     v1_photos_scan();
 }
 static void v1_save(void) {
@@ -101,8 +93,6 @@ static void v1_save(void) {
         return;
     launcher_save();
     app_state_save("note-tree-1.bin", &note_tree, sizeof(note_tree));
-    int lp[5] = {lang_pair, lang_index, lang_correct, lang_total, 0};
-    app_state_save("language-1.bin", lp, sizeof(lp));
     v1_dirty = 0;
 }
 #include "../../system/ui/chess_icons.h"

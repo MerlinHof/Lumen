@@ -1,13 +1,6 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 static void new_apps_init(void) {
     v1_init();
-    pro_rng = (uint32_t)time(NULL) ^ (uint32_t)extra_millis();
-    if (!app_state_load("focus-v1.bin", &focus_stats, sizeof(focus_stats)) || focus_stats.span < 2 ||
-        focus_stats.span > 8 || focus_stats.level < 1 || focus_stats.level > 5) {
-        memset(&focus_stats, 0, sizeof(focus_stats));
-        focus_stats.span = 3;
-        focus_stats.level = 1;
-    }
     char *s = service_read("news-settings.txt", 80);
     if (s) {
         unsigned m = 63;
@@ -34,8 +27,6 @@ static void news_save_settings(void) {
 }
 static void new_apps_save(void) {
     v1_save();
-    if ((new_dirty & 8) && app_state_save("focus-v1.bin", &focus_stats, sizeof(focus_stats)))
-        new_dirty &= ~8u;
 }
 static void new_apps_open(int route) {
     if (route == 67) {

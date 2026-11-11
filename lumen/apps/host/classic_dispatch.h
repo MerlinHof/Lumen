@@ -4,9 +4,6 @@ static void apps_draw(void) {
     case 21:
         app_calendar();
         break;
-    case 22:
-        app_insights();
-        break;
     }
 }
 static int apps_input(const Input *in) {

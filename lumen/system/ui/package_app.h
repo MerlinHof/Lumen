@@ -70,13 +70,13 @@ static char package_options[48][128];
 static const char *package_labels[48];
 static void package_ui_choice(int choice){char event[128];snprintf(event,sizeof(event),"{\"event\":\"select\",\"action\":%d,\"value\":%d}",package_select_action,choice);app_process_send(event);}
 typedef struct {
-    int top,height,kind,checked;
+    int left,top,width,height,kind,checked,count;
     char id[64],label[120],value[512];
 } PackageComponent;
 static PackageComponent package_components[16];
 static int package_component_count,package_component_layout,package_component_top;
 static char package_focused_component[64];
-enum { COMPONENT_BUTTON, COMPONENT_FIELD, COMPONENT_TOGGLE, COMPONENT_CHECKBOX };
+enum { COMPONENT_BUTTON, COMPONENT_FIELD, COMPONENT_TOGGLE, COMPONENT_CHECKBOX, COMPONENT_SEGMENTS };
 static void package_component_event(const char *id,const char *gesture,const char *text) {
     char *message=NULL;size_t length=0;
     FILE *out=open_memstream(&message,&length);
@@ -100,6 +100,44 @@ static void package_paint_frame(const char *text) {
             package_component_layout=1;package_component_top=141;
             heading_actions(label,0);continue;
         }
+        if(!strcmp(type,"component_segments")) {
+            int labels=json_get(&j,item,"labels");
+            int count=labels>=0 && j.tokens[labels].type=='[' ? j.tokens[labels].count : 0;
+            int selected=package_value(&j,item,"selected");
+            if(x<0 || y<STATUS_HEIGHT || w>WIDTH-x || h>HEIGHT-y || h<32 ||
+               count<2 || count>8 || w<count*42 || selected<0 || selected>=count ||
+               package_component_count>=16)continue;
+            PackageComponent *component=&package_components[package_component_count];
+            json_string(&j,json_get(&j,item,"id"),component->id,sizeof(component->id));
+            if(!*component->id)continue;
+            char storage[8][64];const char *names[8];
+            for(int k=0;k<count;k++) {
+                json_string(&j,json_at(&j,labels,k),storage[k],sizeof(storage[k]));
+                names[k]=storage[k];
+            }
+            component->left=x;component->top=y;component->width=w;component->height=h;
+            component->kind=COMPONENT_SEGMENTS;component->count=count;
+            segments(x,y,w,h,names,count,selected);
+            package_component_count++;
+            continue;
+        }
+        if(!strcmp(type,"component_card")) {
+            if(x<0 || y<STATUS_HEIGHT || w<100 || h<68 || w>WIDTH-x ||
+               h>HEIGHT-y || package_component_count>=16)continue;
+            PackageComponent *component=&package_components[package_component_count];
+            json_string(&j,json_get(&j,item,"id"),component->id,sizeof(component->id));
+            if(!*component->id)continue;
+            component->left=x;component->top=y;component->width=w;component->height=h;
+            component->kind=COMPONENT_BUTTON;
+            char detail[256];
+            json_string(&j,json_get(&j,item,"detail"),detail,sizeof(detail));
+            key_outline(x,y,w,h);
+            region(x,y,w,h);
+            label_ellipsis(x+14,y+8,w-28,h/2,label,ui_font(UI_PRIMARY),0);
+            label_ellipsis(x+14,y+h/2,w-28,h/2-6,detail,ui_font(UI_SECONDARY),0);
+            package_component_count++;
+            continue;
+        }
         int component_kind=!strcmp(type,"component_field") ? COMPONENT_FIELD :
             !strcmp(type,"component_toggle") ? COMPONENT_TOGGLE :
             !strcmp(type,"component_checkbox") ? COMPONENT_CHECKBOX : COMPONENT_BUTTON;
@@ -111,6 +149,7 @@ static void package_paint_frame(const char *text) {
             PackageComponent *component=&package_components[package_component_count];
             json_string(&j,json_get(&j,item,"id"),component->id,sizeof(component->id));
             if(!*component->id)continue;
+            component->left=28;component->width=544;
             component->top=package_component_top;component->height=height;component->kind=component_kind;
             component->checked=!!package_value(&j,item,"checked");
             snprintf(component->label,sizeof(component->label),"%.*s",(int)sizeof(component->label)-1,label);
@@ -259,10 +298,11 @@ static void package_ui_draw(void) {
 }
 static int package_ui_input(const Input*in) {
     if(in->kind!=INPUT_TAP && in->kind!=INPUT_SWIPE && in->kind!=INPUT_HOLD)return 2;
-    if((in->kind==INPUT_TAP || in->kind==INPUT_HOLD) && in->x>=28 && in->x<572) {
+    if(in->kind==INPUT_TAP || in->kind==INPUT_HOLD) {
         for(int i=0;i<package_component_count;i++) {
             PackageComponent *component=&package_components[i];
-            if(in->y<component->top || in->y>=component->top+component->height)continue;
+            if(in->x<component->left || in->x>=component->left+component->width ||
+               in->y<component->top || in->y>=component->top+component->height)continue;
             if(in->kind==INPUT_HOLD) {
                 package_component_event(component->id,"long_pressed",NULL);
                 return 2;
@@ -272,7 +312,11 @@ static int package_ui_input(const Input*in) {
                 open_keyboard(2000,component->label,component->value);
                 return 1;
             }
-            if(component->kind==COMPONENT_TOGGLE || component->kind==COMPONENT_CHECKBOX)
+            if(component->kind==COMPONENT_SEGMENTS) {
+                int selected=(in->x-component->left)*component->count/component->width;
+                char number[2]={(char)('0'+selected),0};
+                package_component_event(component->id,"selected",number);
+            } else if(component->kind==COMPONENT_TOGGLE || component->kind==COMPONENT_CHECKBOX)
                 package_component_event(component->id,"changed",component->checked ? "0" : "1");
             else package_component_event(component->id,"clicked",NULL);
             return 2;

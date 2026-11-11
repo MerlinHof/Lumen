@@ -1,6 +1,5 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 /* LUMEN 1.0: native, paper-first applications, shared local persistence. */
-#include "../flashcards/api.h"
 #include "../../vendor/astronomy.h"
 #include "../../vendor/ha_icon.h"
 #include "../../vendor/sky_catalog.h"

@@ -1,3 +1,49 @@
+#include "lumen_app.h"
+#include "strings.h"
+
+static const char *tr(const char *key) {
+    int language=lumen_language>=0 && lumen_language<3 ? lumen_language : 0;
+    for(size_t i=0;i<sizeof(strings)/sizeof(*strings);i++)
+        if(!strcmp(strings[i].key,key))return strings[i].values[language];
+    return key;
+}
+static int today_key(void) {
+    time_t now=time(NULL);
+    struct tm date;
+    localtime_r(&now,&date);
+    return (date.tm_year+1900)*10000+(date.tm_mon+1)*100+date.tm_mday;
+}
+static int import_record(const char *name,void *record,size_t size) {
+    unsigned char bytes[1024];
+    if(size>sizeof(bytes)-8 || !lumen_legacy_state(name,bytes,size+8))return 0;
+    uint32_t header[2];
+    memcpy(header,bytes,8);
+    if(header[0]!=0x4c554d16 || header[1]!=size)return 0;
+    memcpy(record,bytes+8,size);
+    return 1;
+}
+
+#define RADIUS_MEDIUM 10
+#define UI_PRIMARY PAINT_HEADING
+#define UI_SECONDARY PAINT_SECONDARY
+#define UI_DISPLAY PAINT_DISPLAY
+#define UI_TITLE PAINT_TITLE
+#define UI_BODY PAINT_BODY
+#define ui_font(r) (r)
+#define heading_actions ui_paint_heading
+#define icon_button ui_paint_icon_button
+#define button_h(x,y,w,h,s,p) lumen_button(x,y,w,h,tr(s),p)
+#define rect(x,y,w,h,c) ui_paint_surface(x,y,w,h,0,c,c)
+#define key_outline(x,y,w,h) ui_paint_surface(x,y,w,h,RADIUS_MEDIUM,255,115)
+#define control_surface(x,y,w,h,r,c) ui_paint_surface(x,y,w,h,r,c,c)
+#define region ui_paint_hitbox
+#define label_at(x,y,w,h,s,r) lumen_text(x,y,w,h,tr(s),r,-1,1)
+#define centered(x,y,w,h,s,r) ui_paint_text(x,y,w,h,tr(s),r)
+#define drawtext(x,y,s,r,w) label_at(x,y,w,37,s,r)
+#define drawtext_raw drawtext
+#define wrapped(x,y,s,r,w,n) lumen_wrapped(x,y,w,40*(n),tr(s),r,n)
+#define wrapped_raw wrapped
+
 /* Deliberate practice, bounded sessions, no medical or general-IQ claims. */
 static struct {
     int levels[6], attempts[6], correct[6], sessions, streak, lastday, scores[30], days[30];
@@ -13,16 +59,23 @@ static void brain_init(void) {
     if (brain_ready)
         return;
     brain_ready = 1;
-    if (!app_state_load("braintrain-1.1.bin", &brain_stats, sizeof(brain_stats))) {
-        memset(&brain_stats, 0, sizeof(brain_stats));
-        brain_stats.sessions = focus_stats.sessions;
-        for (int i = 0; i < 30; i++) {
-            brain_stats.scores[i] = focus_stats.scores[i] * 100 / 8;
-            brain_stats.days[i] = focus_stats.days[i];
+    if(!app_state_load("training.bin",&brain_stats,sizeof(brain_stats))) {
+        if(!import_record("braintrain-1.1.bin",&brain_stats,sizeof(brain_stats))) {
+            struct {int span,level,sessions,streak[4],failed[4],scores[30],days[30],times[30];} previous;
+            if(import_record("focus-v1.bin",&previous,sizeof(previous)) &&
+               previous.span>=2 && previous.span<=8 && previous.level>=1 && previous.level<=5) {
+                brain_stats.sessions=previous.sessions;
+                for(int i=0;i<30;i++) {
+                    int score=previous.scores[i];
+                    brain_stats.scores[i]=score>=0 && score<=8 ? score*100/8 : 0;
+                    brain_stats.days[i]=previous.days[i];
+                }
+                brain_stats.levels[0]=previous.span-2;
+                brain_stats.levels[2]=previous.level;
+            }
         }
-        brain_stats.levels[0] = focus_stats.span > 2 ? focus_stats.span - 2 : 1;
-        brain_stats.levels[2] = focus_stats.level;
     }
+    if(brain_stats.sessions<0)brain_stats.sessions=0;
 
     for (int i = 0; i < 6; i++)
         if (brain_stats.levels[i] < 1 || brain_stats.levels[i] > 8)
@@ -47,7 +100,7 @@ static void brain_new(void) {
         if (n > 9)
             n = 9;
         for (int k = 0; k < n;) {
-            int c = pro_random() % 16;
+            int c = rand() % 16;
             if (!brain_target[c]) {
                 brain_target[c] = 1;
                 k++;
@@ -65,7 +118,7 @@ static void brain_new(void) {
             n = 10;
         char sequence[64];
         for (int i = 0; i < n; i++)
-            sequence[i] = '1' + pro_random() % 9;
+            sequence[i] = '1' + rand() % 9;
         sequence[n] = 0;
         snprintf(brain_question, 512, "%s", sequence);
         snprintf(brain_answer, 64, "%c", sequence[n - 3]);
@@ -75,9 +128,9 @@ static void brain_new(void) {
                  "Stellen vor der letzten.");
     }
     if (brain_task == 2) {
-        int a = 3 + pro_random() % (10 + level * 9), b = 2 + pro_random() % (5 + level * 2),
-            c = pro_random() % 12;
-        int type = pro_random() % 3, value;
+        int a = 3 + rand() % (10 + level * 9), b = 2 + rand() % (5 + level * 2),
+            c = rand() % 12;
+        int type = rand() % 3, value;
         if (type == 0) {
             snprintf(brain_question, 512, "%d + %d × %d", a, b, c);
             value = a + b * c;
@@ -98,7 +151,7 @@ static void brain_new(void) {
         snprintf(brain_answer, 64, "%d", value);
     }
     if (brain_task == 3) {
-        int a = 1 + pro_random() % 9, d = 2 + pro_random() % 5, type = pro_random() % 4, v[5];
+        int a = 1 + rand() % 9, d = 2 + rand() % 5, type = rand() % 4, v[5];
         v[0] = a;
         for (int i = 1; i < 5; i++)
             v[i] = type == 0   ? v[i - 1] + d * i
@@ -117,10 +170,10 @@ static void brain_new(void) {
     }
     if (brain_task == 4) {
         brain_goal = 0;
-        brain_attention_target = pro_random() % 4;
+        brain_attention_target = rand() % 4;
         brain_attention_cells = level >= 4 ? 24 : 16;
         for (int i = 0; i < brain_attention_cells; i++) {
-            brain_grid[i] = pro_random() % 4;
+            brain_grid[i] = rand() % 4;
             if (brain_grid[i] == brain_attention_target)
                 brain_goal++;
         }
@@ -133,7 +186,7 @@ static void brain_new(void) {
     if (brain_task == 5) {
         memset(brain_grid, 0, sizeof(brain_grid));
         for (int i = 0; i < 2 + level; i++)
-            brain_lights(pro_random() % 9);
+            brain_lights(rand() % 9);
         int any = 0;
         for (int i = 0; i < 9; i++)
             any |= brain_grid[i];
@@ -148,6 +201,7 @@ static void brain_new(void) {
 static void brain_start(int mode) {
     brain_init();
     brain_mode = mode;
+    lumen_back=1;
     brain_round = brain_score = 0;
     brain_total = mode < 0 ? 12 : 8;
     brain_new();
@@ -163,7 +217,7 @@ static void brain_feedback(int correct) {
     if (!correct && brain_stats.levels[t] > 1)
         brain_stats.levels[t]--;
     brain_phase = 3;
-    app_state_save("braintrain-1.1.bin", &brain_stats, sizeof(brain_stats));
+    app_state_save("training.bin", &brain_stats, sizeof(brain_stats));
 }
 static void brain_check(void) {
     if (brain_task == 0) {
@@ -178,9 +232,9 @@ static void brain_check(void) {
 static void brain_finish(void) {
     int at = brain_stats.sessions % 30;
     brain_stats.scores[at] = brain_score * 100 / brain_total;
-    brain_stats.days[at] = news_date();
+    brain_stats.days[at] = today_key();
     brain_stats.sessions++;
-    int today = news_date();
+    int today = today_key();
     if (brain_stats.lastday != today) {
         time_t yesterday = time(NULL) - 86400;
         struct tm t;
@@ -189,23 +243,20 @@ static void brain_finish(void) {
         brain_stats.streak = brain_stats.lastday == y ? brain_stats.streak + 1 : 1;
         brain_stats.lastday = today;
     }
-    app_state_save("braintrain-1.1.bin", &brain_stats, sizeof(brain_stats));
+    app_state_save("training.bin", &brain_stats, sizeof(brain_stats));
     brain_phase = 4;
 }
-static void polish_brain(void) {
+static void draw(void) {
     brain_init();
     heading_actions("BrainTrain", 1);
     icon_button(528, 74, brain_phase ? IC_CLOSE : IC_HISTORY);
     char b[160];
     if (!brain_phase) {
         button_h(28, 145, 544, 62, "Tagesrunde · 12 Aufgaben", 0);
-        for (int i = 0; i < 6; i++) {
-            int x = 28 + (i % 2) * 282, y = 234 + (i / 2) * 135;
-            key_outline(x, y, 262, 112);
-            region(x, y, 262, 112);
-            label_ellipsis(x + 14, y + 14, 234, 34, tr(brain_modes[i]), ui_font(UI_PRIMARY), 0);
-            snprintf(b, 160, "%s %d", tr("Stufe"), brain_stats.levels[i]);
-            label_at(x + 14, y + 63, 234, 24, b, ui_font(UI_SECONDARY));
+        for(int i=0;i<6;i++) {
+            char id[16];snprintf(id,sizeof(id),"exercise%d",i);
+            snprintf(b,sizeof(b),"%s %d",tr("Stufe"),brain_stats.levels[i]);
+            lumen_card(id,28+(i%2)*282,234+(i/2)*135,262,112,tr(brain_modes[i]),b);
         }
         snprintf(b, 160, "%d %s · %d %s", brain_stats.streak, tr("Tage in Folge"),
                  brain_stats.sessions, tr("Runden"));
@@ -314,30 +365,35 @@ static void polish_brain(void) {
     for (int i = 0; i < 12; i++)
         button_h(28 + (i % 3) * 185, top + (i / 3) * (kh + 8), 174, kh, keys[i], 0);
 }
-static int polish_brain_input(const Input *in) {
+static int input(const Input *in) {
+    if(in->kind==INPUT_BACK){brain_phase=lumen_back=0;return 1;}
+    if(in->kind==INPUT_COMPONENT && !brain_phase) {
+        char id[32],gesture[24];
+        lumen_string("id",id,sizeof(id));
+        lumen_string("gesture",gesture,sizeof(gesture));
+        if(!strcmp(gesture,"clicked") && !strncmp(id,"exercise",8) &&
+           strlen(id)==9 && id[8]>='0' && id[8]<='5')brain_start(id[8]-'0');
+        return 1;
+    }
     if (in->kind != INPUT_TAP)
         return 2;
     brain_init();
     int x = in->x, y = in->y;
     if (x >= 516 && y >= 74 && y < 118) {
         brain_phase = brain_phase ? 0 : 5;
+        lumen_back=brain_phase!=0;
         return 1;
     }
     if (!brain_phase) {
         if (y >= 145 && y < 207)
             brain_start(-1);
-        else if (x >= 28 && x < 572 && y >= 234 && y < 639) {
-            int i = ((y - 234) / 135) * 2 + (x >= 310);
-            if (i < 6)
-                brain_start(i);
-        }
         return 1;
     }
     if (brain_phase == 5)
         return 1;
     if (brain_phase == 4) {
         if (y >= 657 && y < 717)
-            brain_phase = 0;
+            brain_phase = lumen_back = 0;
         return 1;
     }
     if (brain_phase == 3) {
@@ -406,4 +462,10 @@ static int polish_brain_input(const Input *in) {
         }
     }
     return 1;
+}
+
+int main(void) {
+    srand((unsigned)time(NULL));
+    lumen_run(draw,input,NULL);
+    return 0;
 }

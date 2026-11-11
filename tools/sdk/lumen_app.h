@@ -132,6 +132,19 @@ static void lumen_sprite(const char *asset,int x,int y,int size,int index,int tr
  fputs(",\"text\":",stdout);lumen_json(asset);
  printf(",\"index\":%d,\"transparent\":%d}",index,!!transparent);
 }
+static void lumen_segments(const char *id,int x,int y,int w,int h,const char **labels,int count,int selected) {
+ lumen_cmd("component_segments",x,y,w,h);
+ fputs(",\"id\":",stdout);lumen_json(id);
+ fputs(",\"labels\":[",stdout);
+ for(int i=0;i<count;i++){if(i)putchar(',');lumen_json(labels[i]);}
+ printf("],\"selected\":%d}",selected);
+}
+static void lumen_card(const char *id,int x,int y,int w,int h,const char *title,const char *detail) {
+ lumen_cmd("component_card",x,y,w,h);
+ fputs(",\"id\":",stdout);lumen_json(id);
+ fputs(",\"text\":",stdout);lumen_json(title);
+ fputs(",\"detail\":",stdout);lumen_json(detail);putchar('}');
+}
 static void lumen_page(const char *title) {
  lumen_cmd("page_layout",28,74,544,44);
  fputs(",\"text\":",stdout);lumen_json(title);putchar('}');

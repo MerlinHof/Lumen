@@ -230,7 +230,6 @@ static void extra_track(unsigned seconds, unsigned pages, uint64_t id);
 static void extra_zone(void);
 static void extra_wiki_cache(void);
 static void extra_wiki_restore(void);
-static void app_insights(void);
 static void key_outline(int x, int y, int w, int h);
 enum { READER_TOOLBAR_END = 126, READER_CONTENTS_X = 468, READER_SETTINGS_X = 528 };
 static void control_surface(int x, int y, int w, int h, int r, int color);
@@ -300,9 +299,8 @@ static void clock_show_face(void);
 static void photo_app_leave(void);
 static int polish_photo_full(void);
 static int polish_notes_input(const Input *), polish_news_input(const Input *);
-static void polish_news_draw(void), polish_photo(void), polish_brain(void), polish_language(void);
-static int polish_photo_input(const Input *), polish_brain_input(const Input *),
-    polish_language_input(const Input *);
+static void polish_news_draw(void), polish_photo(void);
+static int polish_photo_input(const Input *);
 static void register_builtin_views(void);
 #include "keyboard_request.h"
 static void open_keyboard(int target, const char *title, const char *value) {
