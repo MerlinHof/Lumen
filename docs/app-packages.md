@@ -104,7 +104,7 @@ the app process. Package-owned grayscale PGM files can use `lumen_asset`.
 
 ## Existing app implementations
 
-Thirty-five independent apps ship with LUMEN 5.4. Their build manifests are the
+Thirty-six independent apps ship with LUMEN 5.5. Their build manifests are the
 `lumen/apps/*/package.json` files. Legacy views without manifests still run from
 the host and may be replaced by packages using the same stable identity.
 
@@ -146,3 +146,8 @@ service’s `month` operation returns daily activity for a `YYYYMM` key.
 LUMEN 5.4 adds `lumen_chess_piece` with optional piece rotation and
 `lumen_weather_symbol` for monochrome forecast graphics. The weather service
 provides bounded `open`, `refresh` and `status` operations.
+
+LUMEN 5.5 adds measured lists via `lumen_flow_list`, `lumen_flow_row` and
+`lumen_flow_end`. Clients choose row order, stable IDs and one or two columns.
+The renderer wraps text, lays out and paginates the rows, and emits `clicked`,
+`toggled`, `pinned` and `deleted` events for row actions.

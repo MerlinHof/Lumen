@@ -47,7 +47,6 @@ static int ink_color, ui_y_offset;
 #include "../../apps/wifi/shell_state.h"
 #include "../../apps/store/shell_state.h"
 #include "../../apps/notes/shell_state.h"
-#include "../../apps/todo/shell_state.h"
 #include "../../apps/wikipedia/shell_state.h"
 #include "../../apps/settings/shell_state.h"
 #include "../../apps/timer/shell_state.h"
@@ -102,8 +101,6 @@ static int keyboard_multiline(void);
 static void u15_note_editor_touch(int,int);
 static void u15_note_scroll(int);
 static void editor_reset18(void);
-static void tasks_draw18(void);
-static int tasks_input18(const Input *in);
 static int keyboard_intercept18(const Input *in);
 static int u16_apps_draw(void), u16_apps_input(const Input *), u16_jobs_tick(void);
 static void note_delete16(int);
@@ -262,8 +259,6 @@ static int keyboard_package_poll(void);
 static void package_back_results(void);
 static void launcher_delete_confirm(int);
 static void polish_photos_grid(void);
-static void polish_tasks(void);
-static int polish_tasks_input(const Input *);
 static void polish_wiki_refetched(void);
 static int article_wiki_open(void);
 static void article_wiki_request(void);
@@ -949,8 +944,13 @@ static void system_loading(int target) {
     if (target != 2 && target != 79 && target != 40)
         return;
 #ifndef LUMEN_HOST
-    memset(ui_pixels, 255, sizeof(ui_pixels));
-    aa_arc(300, 370, 15, 35, 310, 3);
+    /* Keep the previous page intact while a synchronous load runs. Only the
+       small busy indicator reaches the panel until content is ready. */
+    rect(258,336,84,68,255);
+    aa_arc(300,370,15,35,310,3);
+    if(options[OPT_INVERT])
+        for(int y=336;y<404;y++)for(int x=258;x<342;x++)
+            ui_pixels[y*WIDTH+x]=255-ui_pixels[y*WIDTH+x];
     device_present_async(ui_pixels);
 #endif
 }
@@ -2306,7 +2306,6 @@ static void app_leave(AppId app, void *ctx) {
         commit_keyboard();
     if (app == APP_NOTES)
         v1_save();
-    if (app == APP_TASKS) memset(task_recent_done,0,sizeof(task_recent_done));
 
 
     if (app == APP_BLOCKS || app == APP_SNAKE)

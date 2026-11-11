@@ -63,6 +63,12 @@ Chess and Weather now run from independent packages, bringing the total to
 **35 packaged / 17 linked**. Their migration adds reusable chess-piece
 rotation, forecast symbols and bounded forecast requests.
 
+## Progress in 5.5
+
+ToDo is independently packaged, bringing the total to **36 packaged / 16
+linked**. Its migration adds a reusable, measured multiline list with stable
+row actions and one- or two-column layouts.
+
 ## Completion checks
 
 A migration counts when the app owns its behavior in an independently built

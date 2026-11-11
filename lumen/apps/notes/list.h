@@ -94,9 +94,3 @@ static int polish_notes_input(const Input *in) {
     }
     return 1;
 }
-static void polish_tasks(void) {
-    tasks_draw18();
-}
-static int polish_tasks_input(const Input *in) {
-    return tasks_input18(in);
-}

@@ -41,13 +41,6 @@ static void u17_choice(int target, int choice) {
     u17_more_choice(target, choice);
 }
 static int u17_commit(int target, const char *text) {
-    if (target == 180) {
-        if (todo_ui.task_edit17 >= 0 && todo_ui.task_edit17 < task_count && *text) {
-            snprintf(tasks[todo_ui.task_edit17].title, 200, "%s", text);
-            tasks_save();
-        }
-        return 1;
-    }
     return u17_more_commit(target, text);
 }
 static int u17_input(const Input *in) {

@@ -37,8 +37,13 @@ static void date_draw(void) {
 static int pages(void) {return 1+(count>FIRST_COUNT ? (count-FIRST_COUNT+PAGE_COUNT-1)/PAGE_COUNT : 0);}
 static int start(void) {return page ? FIRST_COUNT+(page-1)*PAGE_COUNT : 0;}
 static int top(void) {return page ? GRID_Y : FIRST_Y;}
+static void set_page(int next) {
+    if(next==page)return;
+    page=next;
+    app_state_save("page.bin",&page,sizeof(page));
+}
 static void draw(void) {
-    if(page>=pages())page=pages()-1;
+    if(!lumen_ready)return;
     if(!page){date_draw();lumen_schedule(60000);}
     int begin=start(),n=page ? PAGE_COUNT : FIRST_COUNT;
     for(int i=0;i<n && begin+i<count;i++)
@@ -68,8 +73,8 @@ static int input(const Input *in) {
         lumen_service("catalog","list","",1);
         return 1;
     }
-    if(in->kind==INPUT_SERVICE && in->x==1){if(in->y){read_catalog();lumen_ready=1;}return 1;}
-    if(in->kind==INPUT_PAGE){if(in->x>=0 && in->x<pages())page=in->x;return 1;}
+    if(in->kind==INPUT_SERVICE && in->x==1){if(in->y){read_catalog();if(page>=pages())set_page(pages()-1);lumen_ready=1;}return 1;}
+    if(in->kind==INPUT_PAGE){if(in->x>=0 && in->x<pages())set_page(in->x);return 1;}
     if(in->kind==INPUT_SELECT) {
         if(in->x==2 && in->y==0)lumen_service("catalog","hide",selected,1);
         if(in->x==2 && in->y==1) {
@@ -93,8 +98,14 @@ static int input(const Input *in) {
         const char *choices[]={localized("App ausblenden","Hide app","Masquer l’application"),
                                localized("App löschen","Delete app","Supprimer l’application")};
         lumen_select(choices,2,-1,2);
-    } else if(!strcmp(apps[index],"lumen.home"))page=0;
+    } else if(!strcmp(apps[index],"lumen.home"))set_page(0);
     else lumen_open(apps[index]);
     return 1;
 }
-int main(void){lumen_run(draw,input,NULL);return 0;}
+int main(void) {
+    int saved;
+    if(app_state_load("page.bin",&saved,sizeof(saved)) && saved>=0 && saved<=MAX_APPS/PAGE_COUNT+1)
+        page=saved;
+    lumen_run(draw,input,NULL);
+    return 0;
+}

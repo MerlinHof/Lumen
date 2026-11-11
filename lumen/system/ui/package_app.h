@@ -73,10 +73,11 @@ typedef struct {
     int left,top,width,height,kind,checked,count;
     char id[64],label[120],value[512];
 } PackageComponent;
-static PackageComponent package_components[16];
+enum { PACKAGE_COMPONENT_LIMIT=64 };
+static PackageComponent package_components[PACKAGE_COMPONENT_LIMIT];
 static int package_component_count,package_component_layout,package_component_top;
 static char package_focused_component[64];
-enum { COMPONENT_BUTTON, COMPONENT_FIELD, COMPONENT_TOGGLE, COMPONENT_CHECKBOX, COMPONENT_SEGMENTS };
+enum { COMPONENT_BUTTON, COMPONENT_FIELD, COMPONENT_TOGGLE, COMPONENT_CHECKBOX, COMPONENT_SEGMENTS, COMPONENT_FLOW };
 static void package_component_event(const char *id,const char *gesture,const char *text) {
     char *message=NULL;size_t length=0;
     FILE *out=open_memstream(&message,&length);
@@ -88,6 +89,7 @@ static void package_component_event(const char *id,const char *gesture,const cha
     fputc('}',out);fclose(out);
     app_process_send(message);free(message);
 }
+#include "package_flow_list.h"
 static void package_paint_frame(const char *text) {
     Json j;if(!json_parse(&j,text,package_tokens,32768))return;
     int commands=json_get(&j,0,"ui");if(commands<0 || j.tokens[commands].type!='[' || j.tokens[commands].count>2048)return;
@@ -100,6 +102,7 @@ static void package_paint_frame(const char *text) {
             package_component_layout=1;package_component_top=141;
             heading_actions(label,0);continue;
         }
+        if(!strcmp(type,"flow_list")){package_flow_list(&j,item);continue;}
         if(!strcmp(type,"component_segments")) {
             int labels=json_get(&j,item,"labels");
             int count=labels>=0 && j.tokens[labels].type=='[' ? j.tokens[labels].count : 0;
@@ -314,6 +317,12 @@ static int package_ui_input(const Input*in) {
             PackageComponent *component=&package_components[i];
             if(in->x<component->left || in->x>=component->left+component->width ||
                in->y<component->top || in->y>=component->top+component->height)continue;
+            if(component->kind==COMPONENT_FLOW) {
+                const char *actions[]={"clicked","toggled","pinned","deleted"};
+                if(in->kind==INPUT_TAP)package_component_event(component->id,actions[component->checked],NULL);
+                else package_component_event(component->id,"long_pressed",NULL);
+                return 2;
+            }
             if(in->kind==INPUT_HOLD) {
                 package_component_event(component->id,"long_pressed",NULL);
                 return 2;

@@ -140,6 +140,17 @@ static void lumen_sprite(const char *asset,int x,int y,int size,int index,int tr
  fputs(",\"text\":",stdout);lumen_json(asset);
  printf(",\"index\":%d,\"transparent\":%d}",index,!!transparent);
 }
+static void lumen_flow_list(int columns,int page) {
+ lumen_cmd("flow_list",28,137,544,583);
+ printf(",\"columns\":%d,\"page\":%d,\"rows\":[",columns,page);
+}
+static void lumen_flow_row(int row,const char *id,const char *title,int column,int checked,int pinned) {
+ if(row)putchar(',');
+ fputs("{\"id\":",stdout);lumen_json(id);
+ fputs(",\"title\":",stdout);lumen_json(title);
+ printf(",\"column\":%d,\"checked\":%d,\"pinned\":%d}",column,!!checked,!!pinned);
+}
+static void lumen_flow_end(void){fputs("]}",stdout);}
 static void lumen_segments(const char *id,int x,int y,int w,int h,const char **labels,int count,int selected) {
  lumen_cmd("component_segments",x,y,w,h);
  fputs(",\"id\":",stdout);lumen_json(id);

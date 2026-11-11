@@ -94,14 +94,6 @@ int main(void) {
     note_tree.current = 0;
     route_to(29);
     picture("notes-list");
-    task_count = 3;
-    task_tab = task_board = task_page = 0;
-    snprintf(tasks[0].title, 200, "Read one chapter\nLeave a sentence in the journal");
-    tasks[0].state = 0;
-    snprintf(tasks[1].title, 200, "Try a recipe for the weekend");
-    tasks[1].state = 0;
-    snprintf(tasks[2].title, 200, "Take a slow walk");
-    tasks[2].state = 2;
     route_to(74);
     picture("todo");
     chat_clear();

@@ -22,6 +22,9 @@ def run(http=False,native_only=False):
     shutil.rmtree(OUT/'apps',ignore_errors=True)
     binary=compile_test('integration','tools/tests/test_integration.c',True);subprocess.run([str(binary)],check=True)
     binary=compile_test('fresh-settings','tools/tests/test_fresh_settings.c');subprocess.run([str(binary)],check=True)
+    refresh=OUT/'refresh'
+    subprocess.run(['clang','-O1','-fsanitize=address,undefined','tools/tests/test_refresh.c','-o',str(refresh)],check=True)
+    subprocess.run([str(refresh)],check=True)
     signal=OUT/'signal';subprocess.run(['clang','-O1','-g','-fsanitize=address,undefined','tools/tests/test_signal.c','lumen/apps/sliding_puzzle/engine.c','-lm','-o',str(signal)],check=True);subprocess.run([str(signal)],check=True)
     binary=compile_test('release-client','tools/tests/test_release_update.c');subprocess.run([str(binary)],check=True)
     subprocess.run([sys.executable,'tools/tests/test_packages.py'],check=True)

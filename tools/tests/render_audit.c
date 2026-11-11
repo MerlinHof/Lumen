@@ -44,11 +44,6 @@ int main(int argc, char **argv) {
         library[0].page = 14;
         library[0].total = 32;
     }
-    task_count = 3;
-    snprintf(tasks[0].title, 200, "Read a chapter\nWrite down one thought");
-    snprintf(tasks[1].title, 200, "A small task for today");
-    tasks[2].state = 2;
-    snprintf(tasks[2].title, 200, "Take a walk");
     note_selected = -1;
     extra_commit(30, "A quiet morning\n\nOne idea worth keeping.");
     for (int id = 0; id < APP_COUNT; id++) {

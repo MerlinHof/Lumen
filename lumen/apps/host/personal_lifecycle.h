@@ -78,14 +78,6 @@ static void v1_init(void) {
         if (note_tree.folder[i].parent == note_tree.folder[i].id)
             note_tree.folder[i].parent = 0;
     }
-    if (app_state_load("tasks-1.bin", tasks, sizeof(tasks)))
-        for (int i = 0; i < 256; i++) {
-            tasks[i].title[199] = 0;
-            if (*tasks[i].title)
-                task_count = i + 1;
-            tasks[i].state = tasks[i].state >= 0 && tasks[i].state <= (TASK_DONE | TASK_FLAG) ?
-                             tasks[i].state & (TASK_DONE | TASK_FLAG) : 0;
-        }
     v1_photos_scan();
 }
 static void v1_save(void) {

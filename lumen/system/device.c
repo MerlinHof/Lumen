@@ -34,7 +34,7 @@ static int stride, xoff, yoff;
 static struct input_absinfo ax, ay;
 static int xcode = ABS_MT_POSITION_X, ycode = ABS_MT_POSITION_Y;
 static unsigned char previous[WIDTH * HEIGHT];
-static int initialized;
+static int initialized,clean_paper;
 static pid_t feedback_pid = -1;
 int device_refresh_busy(void) {
     if (feedback_pid <= 0) return 0;
@@ -294,32 +294,18 @@ void device_ip(char *out, int size) {
 }
 static void present_frame(const unsigned char *pixels, int full, int asynchronous) {
     feedback_join();
-    int top = HEIGHT, bottom = 0, left = WIDTH, right = 0;
-    for (int y = 0; y < HEIGHT; y++)
-        for (int x = 0; x < WIDTH; x++)
-            if (!initialized || pixels[y * WIDTH + x] != previous[y * WIDTH + x]) {
-                if (y < top)
-                    top = y;
-                if (y >= bottom)
-                    bottom = y + 1;
-                if (x < left)
-                    left = x;
-                if (x >= right)
-                    right = x + 1;
-            }
-    if (top == HEIGHT && !full)
-        return;
-    int coverage = initialized ? 0 : 100;
-    if (initialized && top < HEIGHT && (right - left) * (bottom - top) >= WIDTH * HEIGHT * 60 / 100)
-        coverage = refresh_coverage(previous, pixels, WIDTH, HEIGHT);
-    if (!initialized || full) {
-        top = 0;
-        left = 0;
-        bottom = HEIGHT;
-        right = WIDTH;
-        full = 1;
+    RefreshBounds dirty=initialized ? refresh_bounds(previous,pixels,WIDTH,HEIGHT) :
+                                      (RefreshBounds){0,0,WIDTH,HEIGHT};
+    if(dirty.top==HEIGHT && !full)return;
+    int top=dirty.top,bottom=dirty.bottom,left=dirty.left,right=dirty.right;
+    RefreshDelta change={0};
+    if(!initialized || (top<HEIGHT && (right-left)*(bottom-top)>=WIDTH*HEIGHT*60/100))
+        change=refresh_delta(previous,pixels,WIDTH,HEIGHT);
+    int clear=!initialized || refresh_clear(change,clean_paper,full);
+    if(!initialized || full) {
+        top=left=0;
+        bottom=HEIGHT;right=WIDTH;
     }
-    int clear = coverage >= 70;
     /* Header widgets move when visibility/width changes. Refresh the whole strip
        as one unit so the old positions cannot survive at a clipped boundary. */
     if (top < STATUS_HEIGHT) {
@@ -363,12 +349,13 @@ static void present_frame(const unsigned char *pixels, int full, int asynchronou
             }
     memcpy(previous, pixels, sizeof(previous));
     initialized = 1;
+    clean_paper = clear && change.next_light;
     char *partial[] = {"fbink", "-q",   "-W", top == 0 ? "GC16" : binary ? "DU" : "GL16",
                        "-s",    region, NULL};
     char *clean[] = {"fbink", "-q", "-W", "GC16", "-f", "-s", "top=0,left=0,width=600,height=800",
                      NULL};
     if (clear)
-        fprintf(stderr, "display_clear_coverage=%d\n", coverage);
+        fprintf(stderr, "display_clear_coverage=%d\n", change.coverage);
     char **args = clear ? clean : partial;
     const char *path = "/mnt/us/libkh/bin/fbink";
     if (!asynchronous) {

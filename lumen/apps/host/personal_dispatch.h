@@ -35,9 +35,6 @@ static void v1_draw(void) {
     case 72:
         v1_photo_draw();
         break;
-    case 74:
-        v1_tasks_draw();
-        break;
     case 79:
         sky_draw();
         break;
@@ -85,17 +82,6 @@ static void v1_draw(void) {
 static int v1_commit(int target, const char *text) {
     if (target >= 150)
         return polish_commit(target, text);
-    if (target == 110) {
-        if (*text && task_count < 256) {
-            snprintf(tasks[task_count].title, 200, "%s", text);
-            task_recent_done[task_count]=0;
-            tasks[task_count].created = time(NULL);
-            tasks[task_count++].state = 0;
-            task_page = task_tab = 0;
-            tasks_save();
-        }
-        return 1;
-    }
     if (target == 120) {
         if (*text && note_tree.nf < 512) {
             int id = 1;
@@ -225,16 +211,6 @@ static int v1_input(const Input *in) {
                     v1_photos_scan();
                     extra_return(71);
                 }
-                if (v1_delete >= 1000) {
-                    int i = v1_delete - 1000;
-                    if (i < task_count) {
-                        memmove(&tasks[i], &tasks[i + 1], (task_count - i - 1) * sizeof(tasks[0]));
-                        memmove(task_recent_done+i,task_recent_done+i+1,(size_t)(task_count-i-1));
-                        memset(&tasks[--task_count], 0, sizeof(tasks[0]));
-                        task_recent_done[task_count]=0;
-                        tasks_save();
-                    }
-                }
             }
             v1_delete = 0;
         }
@@ -244,8 +220,6 @@ static int v1_input(const Input *in) {
     case 71:
         photo_grid_input(x, y);
         return 1;
-    case 74:
-        return polish_tasks_input(in);
     case 79:
         if (y >= 74 && y < 118 && x >= 516) {
             extra_open(80);

@@ -221,3 +221,25 @@ assert any(f.get('operation')=='refresh' and f.get('text')=='Paris' for f in fra
 assert any(c.get('type')=='weather_symbol' and c.get('code')==2 for f in frames for c in f.get('ui',[]))
 assert (folder/'city.txt').read_text()=='Paris'
 print('PASS packaged Weather renders cached forecasts, imports location and requests refresh.')
+
+catalog=dict(event='service',action=1,ok=1,data='\n'.join(['lumen.library']*10))
+frames,folder=app_session('lumen.home',[catalog,dict(event='page',page=1)])
+assert any(c.get('type')=='pager' and c.get('page')==1 for c in frames[-1]['ui'])
+frames,_=app_session('lumen.home',[catalog])
+assert any(c.get('type')=='pager' and c.get('page')==1 for c in frames[-1]['ui'])
+frames,_=app_session('lumen.home',[dict(catalog,data='lumen.library')])
+assert any(c.get('type')=='pager' and c.get('page')==0 for c in frames[-1]['ui'])
+print('PASS Home restores its page after a fresh process and clamps it after catalog changes.')
+
+frames,folder=app_session('lumen.todo',[
+    dict(event='text',action=1,text='Older task'),
+    dict(event='text',action=1,text='New task\nSecond line'),
+    component('0','pinned'),component('0','toggled'),component('0'),
+    dict(event='text',action=2,text='Edited task'),
+    tap(490,92)])
+lists=[c for f in frames for c in f.get('ui',[]) if c.get('type')=='flow_list']
+assert any(c['rows'] and c['rows'][0]['title']=='Older task' and c['rows'][0]['checked'] for c in lists)
+assert any(f.get('request')=='input' and f.get('text')=='Older task' for f in frames)
+assert lists[-1]['columns']==2 and lists[-1]['rows'][0]['title']=='Edited task'
+assert (folder/'tasks.bin').is_file()
+print('PASS packaged ToDo preserves multiline rows, flags, completion, editing and board grouping.')
