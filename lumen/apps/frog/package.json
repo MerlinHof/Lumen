@@ -2,9 +2,12 @@
   "format": "lumen-app-1",
   "api": 1,
   "id": "lumen.frog-solitaire",
-  "name": "Frosch-Solit\u00e4r",
-  "version": "1.0.0",
+  "name": "Frosch-Solitär",
+  "version": "1.0.1",
   "sources": [
     "app.c"
+  ],
+  "assets": [
+    "assets/icon.pgm"
   ]
 }

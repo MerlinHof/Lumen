@@ -4,6 +4,7 @@
 #include "services.h"
 #include "library.h"
 #include "version.h"
+#include "system_update.h"
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -14,6 +15,9 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#ifdef LUMEN_HOST
+#include "host_icons.h"
+#endif
 /* IDs are a package identity, never an origin or privilege class. */
 static const char *keys[APP_COUNT]={
  "lumen.library","lumen.reader","lumen.settings","lumen.store","lumen.transfer","lumen.calendar","lumen.insights","lumen.minesweeper","lumen.hangman","lumen.tetris","lumen.snake","lumen.calculator","lumen.clock","lumen.notes","retired.drawing","lumen.weather","lumen.home-assistant","lumen.wikipedia","lumen.quotes","lumen.chess","lumen.tic-tac-toe","retired.numscratch","lumen.2048","lumen.solitaire","lumen.sudoku","lumen.braintrain","lumen.news","lumen.wordle","lumen.photos","lumen.languages","lumen.todo","lumen.flashcards","lumen.planetarium","lumen.nonograms","lumen.hex","lumen.status-bar","retired.tabs","lumen.lock-screen","lumen.keyboard","lumen.journal","lumen.study","lumen.bingo","lumen.connect-four","lumen.recipes","lumen.periodic-table","retired.files","lumen.knights-tour","lumen.sokoban","lumen.maze","lumen.crossword","retired.rpg","lumen.openai","lumen.sliding-puzzle","lumen.frog-solitaire","lumen.home"};
@@ -28,7 +32,10 @@ typedef struct {
 } AppProcess;
 
 static AppProcess foreground={.read_fd=-1,.write_fd=-1,.active=-1};
-static AppProcess overlay={.read_fd=-1,.write_fd=-1,.active=-1};
+static AppProcess overlays[APP_OVERLAY_COUNT]={
+    {.read_fd=-1,.write_fd=-1,.active=-1},
+    {.read_fd=-1,.write_fd=-1,.active=-1}
+};
 static pid_t retired[64];
 static uint64_t frame_serial;
 
@@ -81,7 +88,8 @@ void app_packages_scan(void) {
  }
  closedir(d);free(p);
  char slots[4096];size_t n=0;for(int i=APP_COUNT;i<APP_LIMIT;i++)if(*entries[i].key)n+=snprintf(slots+n,sizeof(slots)-n,"%d %s\n",i,entries[i].key);
- refresh_process(&foreground);refresh_process(&overlay);
+ refresh_process(&foreground);
+ for(int i=0;i<APP_OVERLAY_COUNT;i++)refresh_process(&overlays[i]);
  root(file,"slots.txt");char old[4096];size_t old_n=0;FILE*before=fopen(file,"rb");if(before){old_n=fread(old,1,sizeof(old),before);fclose(before);}
  if(old_n!=n || memcmp(old,slots,n))atomic_write(file,slots,n);
 }
@@ -109,8 +117,16 @@ int app_package_install(const char*archive) {
  }
  if(!ok)package_remove(stage);free(p);return ok;
 }
+int app_package_can_remove(AppId id) {
+    if(id<0 || id>=APP_LIMIT || !*entries[id].key || app_package_deleted(id))return 0;
+    static const char *essential[]={"lumen.home","lumen.settings","lumen.reader",
+        "lumen.keyboard","lumen.notifications","lumen.status-bar","lumen.lock-screen","lumen.transfer"};
+    for(size_t i=0;i<sizeof(essential)/sizeof(*essential);i++)
+        if(!strcmp(entries[id].key,essential[i]))return 0;
+    return 1;
+}
 int app_package_remove(const char*id) {
- if(!valid_id(id))return 0;
+ if(!valid_id(id) || !app_package_can_remove(app_package_find(id)))return 0;
  char key[64], dir[2048], marker[2048];snprintf(key,sizeof(key),"%s",id);
  root(dir,key);deleted_path(marker,key);
  if(!atomic_write(marker,"1",1))return 0;
@@ -119,10 +135,39 @@ int app_package_remove(const char*id) {
  app_packages_scan();
  return ok;
 }
+static int read_icon(const char *path,unsigned char *pixels) {
+ FILE *file=fopen(path,"rb");
+ if(!file)return 0;
+ static const char header[]="P5\n76 76\n255\n";
+ char actual[sizeof(header)-1];
+ int ok=fread(actual,1,sizeof(actual),file)==sizeof(actual) &&
+        !memcmp(actual,header,sizeof(actual)) &&
+        fread(pixels,1,76*76,file)==76*76 && fgetc(file)==EOF;
+ fclose(file);
+ return ok;
+}
 int app_package_icon(AppId id,unsigned char pixels[76*76]) {
- if(!app_package_installed(id)||entries[id].has_icon<0)return 0;char file[2048],leaf[160];snprintf(leaf,sizeof(leaf),"%s/icon.pgm",entries[id].key);root(file,leaf);
- FILE*f=fopen(file,"rb");if(!f){entries[id].has_icon=-1;return 0;}char header[15];const char expected[]="P5\n76 76\n255\n";
- int ok=fread(header,1,sizeof(expected)-1,f)==sizeof(expected)-1&&!memcmp(header,expected,sizeof(expected)-1)&&fread(pixels,1,76*76,f)==76*76&&fgetc(f)==EOF;fclose(f);entries[id].has_icon=ok ? 1 : -1;return ok;
+ if(id<0 || id>=APP_LIMIT || !*entries[id].key || entries[id].has_icon<0)return 0;
+ char file[2048],leaf[160];
+ int ok=0;
+ if(app_package_installed(id)) {
+     snprintf(leaf,sizeof(leaf),"%s/assets/icon.pgm",entries[id].key);root(file,leaf);
+     ok=read_icon(file,pixels);
+     if(!ok) {
+         snprintf(leaf,sizeof(leaf),"%s/icon.pgm",entries[id].key);root(file,leaf);
+         ok=read_icon(file,pixels);
+     }
+ }
+ if(!ok && id<APP_COUNT) {
+     snprintf(file,sizeof(file),"%s/../home/icons/%s.pgm",data_root,entries[id].key);
+     ok=read_icon(file,pixels);
+ }
+#ifdef LUMEN_HOST
+ if(!ok)for(size_t i=0;i<sizeof(host_icons)/sizeof(*host_icons);i++)
+     if(!strcmp(entries[id].key,host_icons[i].id)){ok=read_icon(host_icons[i].path,pixels);break;}
+#endif
+ entries[id].has_icon=ok ? 1 : -1;
+ return ok;
 }
 static void json_text(FILE*f,const char*s){fputc('"',f);for(;*s;s++){unsigned char c=*s;if(c=='"'||c=='\\')fputc('\\',f);if(c<32)fprintf(f,"\\u%04x",c);else fputc(c,f);}fputc('"',f);}
 static void process_close(AppProcess *p) {
@@ -142,14 +187,33 @@ static int process_open(AppProcess *p,AppId id,const char *role) {
  if(!app_package_installed(id))return 0;
  if(p->active==(int)id&&p->child>0){if(p->paused)process_send(p,"{\"event\":\"resume\"}");p->paused=0;return 1;}
  reap_apps();process_close(p);signal(SIGPIPE,SIG_IGN);int in[2],out[2];if(pipe(in))return 0;if(pipe(out)){close(in[0]);close(in[1]);return 0;}
- char dir[2048],file[2048],state[2048];root(dir,entries[id].key);snprintf(file,sizeof(file),"%s/app",dir);snprintf(state,sizeof(state),"%s/app-state/%s",data_root,entries[id].key);
+ char dir[2048],file[2048],state[2048];root(dir,entries[id].key);snprintf(file,sizeof(file),"%s/app",dir);snprintf(state,sizeof(state),"%s/../appdata/%s",data_root,entries[id].key);
  char*absolute=realpath(dir,NULL);if(absolute){snprintf(dir,sizeof(dir),"%s",absolute);free(absolute);snprintf(file,sizeof(file),"%s/app",dir);}
- if(!package_mkdirs(state)){close(in[0]);close(in[1]);close(out[0]);close(out[1]);return 0;}
+ char old_state[2048],parent[2048];
+ snprintf(old_state,sizeof(old_state),"%s/app-state/%s",data_root,entries[id].key);
+ snprintf(parent,sizeof(parent),"%s/../appdata",data_root);
+ int state_ready=package_mkdirs(parent);
+ struct stat old_info,new_info;
+ if(state_ready && !lstat(state,&new_info))
+     state_ready=S_ISDIR(new_info.st_mode);
+ else if(state_ready && errno==ENOENT && !lstat(old_state,&old_info))
+     {
+         state_ready=S_ISDIR(old_info.st_mode);
+         if(state_ready && system_update_trial())snprintf(state,sizeof(state),"%s",old_state);
+         else if(state_ready)state_ready=!rename(old_state,state);
+     }
+ else if(state_ready && errno==ENOENT)
+     state_ready=package_mkdirs(state);
+ else state_ready=0;
+ if(!state_ready){close(in[0]);close(in[1]);close(out[0]);close(out[1]);return 0;}
  absolute=realpath(state,NULL);if(absolute){snprintf(state,sizeof(state),"%s",absolute);free(absolute);}
+ char *legacy=realpath(data_root,NULL);
+ if(legacy){snprintf(old_state,sizeof(old_state),"%s",legacy);free(legacy);}
+ else old_state[0]=0;
  package_sha256(file,p->process_hash);
  p->child=fork();if(p->child<0){p->child=0;close(in[0]);close(in[1]);close(out[0]);close(out[1]);return 0;}
  if(!p->child){setpgid(0,0);signal(SIGTERM,SIG_DFL);signal(SIGPIPE,SIG_DFL);dup2(in[0],0);dup2(out[1],1);close(in[0]);close(in[1]);close(out[0]);close(out[1]);
-   int null=open("/dev/null",O_WRONLY);dup2(null,2);close(null);for(int fd=3;fd<1024;fd++)close(fd);chdir(dir);setenv("LUMEN_APP_DATA",state,1);setenv("LUMEN_APP_ASSETS",dir,1);execl(file,file,NULL);_exit(127);}
+   int null=open("/dev/null",O_WRONLY);dup2(null,2);close(null);for(int fd=3;fd<1024;fd++)close(fd);chdir(dir);setenv("LUMEN_APP_DATA",state,1);setenv("LUMEN_APP_ASSETS",dir,1);setenv("LUMEN_LEGACY_DATA",old_state,1);execl(file,file,NULL);_exit(127);}
  close(in[0]);close(out[1]);p->write_fd=in[1];p->read_fd=out[0];fcntl(p->write_fd,F_SETFL,O_NONBLOCK);fcntl(p->read_fd,F_SETFL,O_NONBLOCK);fcntl(p->write_fd,F_SETFD,FD_CLOEXEC);fcntl(p->read_fd,F_SETFD,FD_CLOEXEC);
  p->active=id;p->paused=0;char*event=NULL;size_t n=0;FILE*f=open_memstream(&event,&n);fprintf(f,"{\"event\":\"open\",\"api\":1,\"width\":600,\"height\":800,\"content_y\":56,\"language\":%d,\"data_dir\":",options[OPT_LANGUAGE]);json_text(f,state);fputs(",\"role\":",f);json_text(f,role);fputc('}',f);fclose(f);int ok=process_send(p,event);free(event);return ok;
 }
@@ -181,13 +245,17 @@ static int process_poll(AppProcess *p) {
  return changed;
 }
 
-void app_process_close(void){process_close(&foreground);process_close(&overlay);}
+void app_process_close(void){process_close(&foreground);for(int i=0;i<APP_OVERLAY_COUNT;i++)process_close(&overlays[i]);}
 void app_process_pause(void){process_pause(&foreground);}
 int app_process_open(AppId id){return process_open(&foreground,id,"foreground");}
 int app_process_fd(void){return foreground.read_fd;}
-int app_overlay_fd(void){return overlay.read_fd;}
-int app_process_pending(void){return foreground.pending_n || overlay.pending_n;}
-void app_process_flush(void){flush_events(&foreground);flush_events(&overlay);}
+int app_overlay_fd(int slot){return slot>=0 && slot<APP_OVERLAY_COUNT ? overlays[slot].read_fd : -1;}
+int app_process_pending(void){
+ if(foreground.pending_n)return 1;
+ for(int i=0;i<APP_OVERLAY_COUNT;i++)if(overlays[i].pending_n)return 1;
+ return 0;
+}
+void app_process_flush(void){flush_events(&foreground);for(int i=0;i<APP_OVERLAY_COUNT;i++)flush_events(&overlays[i]);}
 int app_process_send(const char *event){return process_send(&foreground,event);}
 int app_process_poll(void){return process_poll(&foreground);}
 const char *app_process_frame(void){return foreground.frame;}
@@ -199,12 +267,14 @@ const char *app_process_request(void){
     return taken;
 }
 const char *app_process_error(void){return foreground.failure;}
-int app_overlay_send(const char *id,const char *event){
-    int slot=identify(id);
-    return slot>=0 && process_open(&overlay,slot,"overlay") && process_send(&overlay,event);
+int app_overlay_send(int slot,const char *id,const char *event){
+    if(slot<0 || slot>=APP_OVERLAY_COUNT)return 0;
+    int app=identify(id);
+    AppProcess *process=&overlays[slot];
+    return app>=0 && process_open(process,app,"overlay") && process_send(process,event);
 }
-int app_overlay_poll(void){return process_poll(&overlay);}
-const char *app_overlay_frame(void){return overlay.frame;}
+int app_overlay_poll(int slot){return slot>=0 && slot<APP_OVERLAY_COUNT && process_poll(&overlays[slot]);}
+const char *app_overlay_frame(int slot){return slot>=0 && slot<APP_OVERLAY_COUNT ? overlays[slot].frame : "";}
 static int version_newer(const char*a,const char*b){for(int i=0;i<3;i++){long x=strtol(a,(char**)&a,10),y=strtol(b,(char**)&b,10);if(x!=y)return x>y;if(*a=='.')a++;if(*b=='.')b++;}return 0;}
 void app_packages_seed(void) {
  char directory[2048];snprintf(directory,sizeof(directory),"%s/../app-packages",data_root);

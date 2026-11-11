@@ -3,8 +3,11 @@
   "api": 1,
   "id": "lumen.tic-tac-toe",
   "name": "Tic Tac Toe",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "sources": [
     "app.c"
+  ],
+  "assets": [
+    "assets/icon.pgm"
   ]
 }

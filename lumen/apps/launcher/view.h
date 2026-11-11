@@ -8,30 +8,13 @@ static int v1_visible(int *out) {
     }
     return n;
 }
-enum { ENGRAVED_ICON_SIDE = 76, MANAGE_ICON_SIDE = 44, ENGRAVED_ATLAS_COUNT = APP_HOME+1 };
+enum { ENGRAVED_ICON_SIDE = 76, MANAGE_ICON_SIDE = 44 };
 static int engraved_app_icon(int x, int y, int side, int id) {
-    if (side != ENGRAVED_ICON_SIDE && side != MANAGE_ICON_SIDE) return 0;
-    static unsigned char sheet[ENGRAVED_ATLAS_COUNT][ENGRAVED_ICON_SIDE*ENGRAVED_ICON_SIDE];
-    static int loaded;
-    if (!loaded) {
-        char path[2048];
-        snprintf(path,sizeof(path),"%s/../home/engraved.gray",data_root);
-        FILE *file=fopen(path,"rb");
-#ifdef LUMEN_HOST
-        if (!file) file=fopen("lumen/assets/home/engraved.gray","rb");
-#endif
-        loaded=file && fread(sheet,1,sizeof(sheet),file) == sizeof(sheet) && fgetc(file) == EOF ? 1 : -1;
-        if (file) fclose(file);
-    }
-    unsigned char installed[76*76];
-    if(app_package_icon(id,installed)) {
-        if(side==76)ui_paint_image(x,y,76,76,installed);
-        else for(int yy=0;yy<side;yy++)for(int xx=0;xx<side;xx++)rect(x+xx,y+yy,1,1,installed[yy*76/side*76+xx*76/side]);
-        return 1;
-    }
-    if (loaded < 0 || id < 0 || id >= ENGRAVED_ATLAS_COUNT) return 0;
-    if (side == ENGRAVED_ICON_SIDE) {
-        ui_paint_image(x,y,side,side,sheet[id]);
+    if(side!=ENGRAVED_ICON_SIDE && side!=MANAGE_ICON_SIDE)return 0;
+    unsigned char source[76*76];
+    if(!app_package_icon(id,source))return 0;
+    if(side==ENGRAVED_ICON_SIDE) {
+        ui_paint_image(x,y,side,side,source);
         return 1;
     }
     /* Average the corresponding source area for the smaller Manage Apps list. */
@@ -43,7 +26,7 @@ static int engraved_app_icon(int x, int y, int side, int id) {
             unsigned sum=0;
             for (int sy=start_y; sy<end_y; sy++)
                 for (int sx=start_x; sx<end_x; sx++)
-                    sum+=sheet[id][sy*ENGRAVED_ICON_SIDE+sx];
+                    sum+=source[sy*ENGRAVED_ICON_SIDE+sx];
             small_icon[row*side+col]=sum/((end_y-start_y)*(end_x-start_x));
         }
     ui_paint_image(x,y,side,side,small_icon);
@@ -52,25 +35,21 @@ static int engraved_app_icon(int x, int y, int side, int id) {
 static void app_tile(int x, int y, int width, int id) {
     int tile_x = x + (width-78)/2;
     region(tile_x, y+2, 78, 78);
-    if (options[OPT_APP_ICON_STYLE] && engraved_app_icon(tile_x+1,y+3,ENGRAVED_ICON_SIDE,id)) {
-        widget_shape(tile_x,y+2,78,78,RADIUS_MEDIUM,0,1);
-    } else {
-        widget_shape(tile_x,y+2,78,78,32,3,0);
-        control_surface(tile_x,y+2,78,78,32,0);
-        control_surface(tile_x+2,y+4,74,74,30,255);
-        app_icon(tile_x+17,y+17,id);
-    }
+    widget_shape(tile_x,y+2,78,78,RADIUS_MEDIUM,0,1);
+    if(!engraved_app_icon(tile_x+1,y+3,ENGRAVED_ICON_SIDE,id))
+        icon_sized(tile_x+19,y+21,IC_BOOK,40);
     const char *name = tr(app_definition(id)->name);
-    const Font *font=ui_font(UI_BODY);
+    const Font *font=&small;
     char label[256];
     snprintf(label,sizeof(label),"%s",name);
-    if (textwidth_raw(label,font) > width-12) {
+    if (textwidth_raw(label,font) > width-16) {
         size_t n=strlen(label);
-        while (n && textwidth_raw(label,font)+textwidth_raw("...",font)>width-12) {
+        while (n && textwidth_raw(label,font)+textwidth_raw("...",font)>width-16) {
             do { n--; } while (n && (label[n]&0xc0)==0x80);
             label[n]=0;
         }
         snprintf(label+n,sizeof(label)-n,"...");
     }
-    centered(x,y+79,width,28,label,font);
+    int measured=textwidth_raw(label,font);
+    label_at(x+(width-measured)/2,y+79,measured,28,label,font);
 }

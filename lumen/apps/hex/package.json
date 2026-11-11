@@ -3,9 +3,12 @@
   "api": 1,
   "id": "lumen.hex",
   "name": "Hex",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "sources": [
     "app.c",
     "rules.c"
+  ],
+  "assets": [
+    "assets/icon.pgm"
   ]
 }

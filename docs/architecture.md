@@ -8,9 +8,9 @@ versus “custom”. A package using an existing identity replaces that app in p
 
 `system/app_packages` owns discovery, installation, process lifecycle and bounded
 IPC. Packages live in `lumen/apps/<id>`; personal state lives in
-`lumen/data/app-state/<id>`. `AppIntent` still owns navigation payloads and stable
+`lumen/appdata/<id>`. `AppIntent` still owns navigation payloads and stable
 book references. Existing numeric IDs remain stable; package slots do not
-renumber built-in entries or the engraved icon atlas.
+renumber built-in entries. Engraved artwork lives in each app’s assets folder.
 
 An independent app is a static ARMv7 executable plus assets and a SHA-256 manifest.
 It exchanges Protocol 1 newline JSON with LUMEN. The system renders its UI through
@@ -25,9 +25,9 @@ linking is required. App replacement is a directory transaction and does not
 restart LUMEN. Crashes are confined to the app process; this is not a filesystem
 security sandbox. Native packages must be trusted.
 
-Sixteen standalone packages ship from their individual app folders,
-including Home, File Transfer, Terminal, Periodic Table, Notifications and eleven games.
-The Notifications package uses a second process for the overlay while the foreground app remains active. Other existing views retain linked
+Seventeen standalone packages ship from their individual app folders,
+including Home, File Transfer, Terminal, Periodic Table, Notifications, Status Bar and eleven games.
+Notifications and Status Bar run in separate overlay processes while the foreground app remains active. Other existing views retain linked
 compatibility adapters in `apps/host/compose.h`. Their IDs use the same catalog
 and accept independent replacement packages, but those older implementations
 have not all been extracted into executable artifacts. New apps must use the

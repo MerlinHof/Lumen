@@ -37,8 +37,11 @@ for bad in ['../escape','lumen/data/private.txt','lumen/apps/user-app/custom.txt
  assert(base/'lumen/data/private.txt').read_bytes()==b'personal'
 app=ROOT/'build/apps/host/lumen.sliding-puzzle/lumen.sliding-puzzle.lumen-app'
 core=hashlib.sha256((base/'lumen/bin/lumen').read_bytes()).hexdigest()
-run('install',app);run('launch')
-state=data/'app-state/lumen.sliding-puzzle/keep.txt';state.parent.mkdir(parents=True,exist_ok=True);state.write_text('keep')
+run('install',app)
+legacy=data/'app-state/lumen.sliding-puzzle/keep.txt';legacy.parent.mkdir(parents=True,exist_ok=True);legacy.write_text('keep')
+run('launch')
+state=base/'lumen/appdata/lumen.sliding-puzzle/keep.txt'
+assert not legacy.exists() and state.read_text()=='keep'
 run('install',app)
 assert state.read_text()=='keep' and hashlib.sha256((base/'lumen/bin/lumen').read_bytes()).hexdigest()==core
 print('PASS full runtime assets, trial rollback, interrupted activation recovery, keep, private-path rejection and independent app replacement.')

@@ -3,7 +3,12 @@
   "api": 1,
   "id": "lumen.terminal",
   "name": "Terminal",
-  "version": "1.2.0",
-  "sources": ["app.c", "session.c"],
-  "assets": ["icon.pgm"]
+  "version": "1.2.1",
+  "sources": [
+    "app.c",
+    "session.c"
+  ],
+  "assets": [
+    "assets/icon.pgm"
+  ]
 }

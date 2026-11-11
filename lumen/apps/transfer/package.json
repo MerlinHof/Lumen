@@ -3,6 +3,11 @@
   "api": 1,
   "id": "lumen.transfer",
   "name": "Dateiübertragung",
-  "version": "1.0.0",
-  "sources": ["app.c"]
+  "version": "1.0.1",
+  "sources": [
+    "app.c"
+  ],
+  "assets": [
+    "assets/icon.pgm"
+  ]
 }

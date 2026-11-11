@@ -17,12 +17,14 @@ def destination(root,relative):
     return target
 
 def runtime_path(relative):
-    return relative=='documents/LUMEN.sh' or (relative.startswith('lumen/') and not relative.startswith(('lumen/data/','lumen/backups/','lumen/apps/','lumen/.update/')))
+    return relative=='documents/LUMEN.sh' or (relative.startswith('lumen/') and not relative.startswith(('lumen/data/','lumen/appdata/','lumen/backups/','lumen/apps/','lumen/.update/')))
 
 def storage(root):
     sizes={}
     for label,path in [('runtime',root/'lumen'),('data',root/'lumen/data'),('backups',root/'lumen/backups')]:
         sizes[label]=sum(p.stat().st_size for p in path.rglob('*') if p.is_file() and not p.is_symlink()) if path.exists() else 0
+    appdata=root/'lumen/appdata'
+    if appdata.exists():sizes['data']+=sum(p.stat().st_size for p in appdata.rglob('*') if p.is_file() and not p.is_symlink())
     sizes['runtime']-=sizes['data']+sizes['backups']
     return sizes
 

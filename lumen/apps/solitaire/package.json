@@ -3,9 +3,12 @@
   "api": 1,
   "id": "lumen.solitaire",
   "name": "Solitaire",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "sources": [
     "app.c",
     "../games/puzzles.c"
+  ],
+  "assets": [
+    "assets/icon.pgm"
   ]
 }

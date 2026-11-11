@@ -47,7 +47,7 @@ static int start(TerminalSession *session,const char *directory) {
                 tty.c_oflag &= ~OPOST;
                 tcsetattr(output[1],TCSANOW,&tty);
             }
-            struct winsize window={.ws_row=32,.ws_col=64};
+            struct winsize window={.ws_row=32,.ws_col=50};
             ioctl(output[1],TIOCSWINSZ,&window);
         } else close(output[0]);
     }
@@ -67,7 +67,11 @@ static int start(TerminalSession *session,const char *directory) {
         if(max_fd<0 || max_fd>4096)max_fd=4096;
         for(int fd=3;fd<max_fd;fd++)close(fd);
         setenv("TERM","dumb",1);
-        setenv("COLUMNS","64",1);
+        setenv("COLUMNS","50",1);
+        setenv("CLICOLOR","0",1);
+        unsetenv("CLICOLOR_FORCE");
+        unsetenv("LS_COLORS");
+        unsetenv("LSCOLORS");
         unsetenv("ENV");
         signal(SIGPIPE,SIG_DFL);
         execl("/bin/sh","sh",(char *)0);
@@ -103,8 +107,18 @@ static int send_script(int fd,const char *command,unsigned sequence,int64_t dead
     }
     return 1;
 }
-static void append(char *out,size_t cap,size_t *used,unsigned char c) {
-    if((c==9 || c==10 || c>=32) && *used+1<cap)out[(*used)++]=(char)c;
+/* Interpret the boundaries of ANSI controls before displaying plain text. */
+static void append(char *out,size_t cap,size_t *used,unsigned char c,int *escape) {
+    if(*escape==1) {
+        *escape=c=='[' ? 2 : c==']' || c=='P' || c=='_' || c=='^' ? 3 : 0;
+        return;
+    }
+    if(*escape==2) {if(c>=0x40 && c<=0x7e)*escape=0;return;}
+    if(*escape==3) {if(c==7)*escape=0;else if(c==27)*escape=4;return;}
+    if(*escape==4) {*escape=c=='\\' ? 0 : 3;return;}
+    if(c==27){*escape=1;return;}
+    if(c==8){if(*used && out[*used-1]!='\n')(*used)--;return;}
+    if((c==9 || c==10 || (c>=32 && c!=127)) && *used+1<cap)out[(*used)++]=(char)c;
 }
 int terminal_session_command(TerminalSession *session,const char *directory,
                              const char *command,char *out,size_t capacity) {
@@ -120,7 +134,7 @@ int terminal_session_command(TerminalSession *session,const char *directory,
     char marker[32],status[4];
     size_t prefix=(size_t)snprintf(marker,sizeof(marker),"\036LUMEN%08x:",sequence);
     size_t match=0, digits=0, used=0;
-    int result=124;
+    int result=124,escape=0;
     for(;;) {
         int64_t remaining=deadline-milliseconds();
         if(remaining<=0)break;
@@ -142,12 +156,12 @@ int terminal_session_command(TerminalSession *session,const char *directory,
             }
             if(match<prefix && c==(unsigned char)marker[match]){match++;continue;}
             if(match) {
-                for(size_t j=0;j<match;j++)append(out,capacity,&used,marker[j]);
-                for(size_t j=0;j<digits;j++)append(out,capacity,&used,status[j]);
+                for(size_t j=0;j<match;j++)append(out,capacity,&used,marker[j],&escape);
+                for(size_t j=0;j<digits;j++)append(out,capacity,&used,status[j],&escape);
                 match=digits=0;
                 if(c==(unsigned char)marker[0]){match=1;continue;}
             }
-            append(out,capacity,&used,c);
+            append(out,capacity,&used,c,&escape);
         }
     }
     out[used]=0;

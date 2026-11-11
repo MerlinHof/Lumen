@@ -464,13 +464,17 @@ static int v1_input(const Input *in) {
             int pos = launcher_settings_page * 8 + (y - 174) / 68;
             if (pos < count) {
                 int i = indices[pos], id = launcher_order[i];
-                if (x >= 460)
-                    launcher_visible[id] ^= 1;
-                else if (x >= 354 && x < 400 && pos > 0) {
+                if(x>=526 && x<570 && app_package_can_remove(id)) {
+                    static const char *actions[]={"Abbrechen","App endgültig entfernen"};
+                    manage_delete_id=id;
+                    open_dropdown(2004,actions,2,-1,315,y+20>675 ? 675 : y+20,258);
+                } else if(x>=427 && x<503)
+                    launcher_visible[id]^=1;
+                else if (x >= 329 && x < 373 && pos > 0) {
                     int other = indices[pos - 1];
                     launcher_order[i] = launcher_order[other];
                     launcher_order[other] = id;
-                } else if (x >= 405 && x < 455 && pos + 1 < count) {
+                } else if (x >= 375 && x < 419 && pos + 1 < count) {
                     int other = indices[pos + 1];
                     launcher_order[i] = launcher_order[other];
                     launcher_order[other] = id;

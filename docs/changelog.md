@@ -1,5 +1,7 @@
 # Changelog
 
+- [4.9](releases/4.9.md) · Status Bar package, semantic SDK components, per-app artwork and transfer fixes.
+
 ## 4.8
 
 Standalone Home and File Transfer, new app SDK services and shared controls, and a hidden-by-default Notifications tile. [Release notes](releases/4.8.md).

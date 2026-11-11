@@ -325,6 +325,8 @@ int main(int argc, char **argv) {
     assert(ui_route() == 71 && !photo_slideshow && photo_folder == 1);
     options[OPT_DATE] = options[OPT_CLOCK] = 1;
     ui_draw();
+    for(int i=0;i<100 && !status_ui.status_date_w;i++){usleep(3000);status_overlay_poll();ui_draw();}
+    assert(status_ui.status_date_w && status_ui.status_clock_w);
     tap17(status_ui.status_clock_x + 10, 20);
     assert(ui_route() == 28 && timer_panel == 0);
     tap17(20, 20);
@@ -416,6 +418,7 @@ int main(int argc, char **argv) {
     options[OPT_DATE] = options[OPT_CLOCK] = options[OPT_WIFI] = 1;
     assert(ui_prepare_home());
     ui_draw();
+    for(int i=0;i<100 && !status_ui.status_date_w;i++){usleep(3000);status_overlay_poll();ui_draw();}
     assert(status_ui.status_date_x < status_ui.status_clock_x &&
            status_ui.status_clock_x < status_ui.status_wifi_x);
     assert(package_pager.count>1 && package_pager.page==0);

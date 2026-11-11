@@ -268,7 +268,9 @@ static void clipboard_draw(void), v1_effect(void), v1_close(void);
 static int v1_sleep_photo(void), v1_chess_tick(void);
 static void v1_note_created(int), v1_timer_ring(int), v1_timer_started(void);
 static int v1_sleep_poll(void), v1_sleep_tick(void);
-static void app_icon(int, int, int);
+static void header(void);
+static int status_overlay_poll(void);
+static void launcher_delete_confirm(int);
 static void polish_photos_grid(void);
 static void polish_tasks(void);
 static int polish_tasks_input(const Input *);
@@ -1210,7 +1212,6 @@ static int refresh_status(int force) {
     }
     return 0;
 }
-#include "../../apps/status_bar/view.h"
 static void more_settings(void);
 #include "../../apps/library/view.h"
 #include "../../apps/reader/view.h"
@@ -1405,7 +1406,7 @@ static int ui_dispatch_input(const Input *in) {
     if(in->kind==INPUT_STATUS && app_process_pending())app_process_flush();
     if(in->kind==INPUT_APP && updating){app_process_poll();return 2;}
     if(in->kind==INPUT_OVERLAY) {
-        int changed=notification_poll();
+        int changed=in->x==APP_OVERLAY_STATUS ? status_overlay_poll() : notification_poll();
         return changed && !updating && !sleeping && !editor_ui.keyboard ? 1 : 2;
     }
     if(updating) {
@@ -2152,6 +2153,7 @@ static void modal_input(const Input *in) {
                 return;
             }
             if(drop_target==2001){package_ui_choice(choice);}
+            else if(drop_target==2004){launcher_delete_confirm(choice);}
             else if (drop_target == 941 || drop_target == 942) {
                 photo_setting_choice(drop_target,choice);
             } else if (drop_target == 940) {

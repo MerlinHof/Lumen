@@ -123,4 +123,4 @@ static void v1_save(void) {
     app_state_save("language-1.bin", lp, sizeof(lp));
     v1_dirty = 0;
 }
-#include "../../system/ui/app_icons.h"
+#include "../../system/ui/chess_icons.h"

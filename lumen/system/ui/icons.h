@@ -296,15 +296,10 @@ static void icon_native(int x, int y, int kind) {
     case IC_FULLSCREEN:
     case IC_FIT:
         for(int i=0;i<4;i++) {
-            int xx=x+(i%2 ? 35 : 9),yy=y+(i/2 ? 35 : 9);
+            int xx=x+(i%2 ? 34 : 10),yy=y+(i/2 ? 34 : 10);
             int sx=i%2 ? -1 : 1,sy=i/2 ? -1 : 1;
-            aa_stroke(xx+sx*4,yy,xx+sx*11,yy,4);
-            aa_stroke(xx,yy+sy*4,xx,yy+sy*11,4);
-            for(int j=0;j<12;j++) {
-                double a=j*1.570796327/12,b=(j+1)*1.570796327/12;
-                aa_stroke(xx+sx*4*(1-cos(a)),yy+sy*4*(1-sin(a)),
-                          xx+sx*4*(1-cos(b)),yy+sy*4*(1-sin(b)),4);
-            }
+            aa_stroke(xx,yy,xx+sx*7,yy,4);
+            aa_stroke(xx,yy,xx,yy+sy*7,4);
         }
         break;
     case IC_EDIT:

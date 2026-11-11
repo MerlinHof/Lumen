@@ -155,7 +155,7 @@ static void u15_note_overlay(void) {
         button_h(180, 58, 80, 44, ink_width == 3 ? "Fein" : "Breit", 0);
         icon_button(280, 58, IC_UNDO);
         region(518, 58, 64, 44);
-        app_icon(528, 58, APP_PHOTOS);
+        engraved_app_icon(528,58,MANAGE_ICON_SIDE,APP_PHOTOS);
     } else
         u15_note_tools();
 }

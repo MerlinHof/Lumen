@@ -6,15 +6,16 @@ static const char *t(const char *de,const char *en,const char *fr) {
     return lumen_language==1 ? en : lumen_language==2 ? fr : de;
 }
 static void draw(void) {
-    ui_paint_heading(t("Dateiübertragung","File Transfer","Transfert de fichiers"),settings ? 0 : 1);
     if(settings) {
+        lumen_page(t("Dateiübertragung","File Transfer","Transfert de fichiers"));
         char number[16];
         snprintf(number,sizeof(number),"%d",port);
-        lumen_select_row(149,t("Server-Port","Server port","Port du serveur"),number);
+        lumen_textfield("port",t("Server-Port","Server port","Port du serveur"),number);
         snprintf(number,sizeof(number),"%d",timeout);
-        lumen_select_row(219,t("Inaktivität (Minuten)","Idle timeout (minutes)","Inactivité (minutes)"),number);
+        lumen_textfield("timeout",t("Inaktivität (Minuten)","Idle timeout (minutes)","Inactivité (minutes)"),number);
         return;
     }
+    ui_paint_heading(t("Dateiübertragung","File Transfer","Transfert de fichiers"),1);
     ui_paint_icon_button(528,74,IC_SETTINGS);
     lumen_text(30,145,430,48,t("Transfer-Server","Transfer server","Serveur de transfert"),PAINT_HEADING,0,1);
     lumen_toggle(492,150,active);
@@ -63,20 +64,15 @@ static int input(const Input *in) {
         return 1;
     }
     if(in->kind==INPUT_BACK){settings=lumen_back=0;lumen_service("transfer","status","",1);return 1;}
-    if(in->kind==INPUT_TEXT && (in->x==2 || in->x==3)) {
-        char text[32];
-        if(lumen_string("text",text,sizeof(text)))lumen_service("transfer",in->x==2 ? "port" : "timeout",text,1);
+    if(in->kind==INPUT_COMPONENT && in->x && settings) {
+        char id[32],text[32];
+        if(lumen_string("id",id,sizeof(id)) && lumen_string("text",text,sizeof(text)) &&
+           (!strcmp(id,"port") || !strcmp(id,"timeout")))
+            lumen_service("transfer",id,text,1);
         return 1;
     }
-    if(in->kind!=INPUT_TAP)return 1;
-    if(settings) {
-        int field=in->y>=149 && in->y<197 ? 2 : in->y>=219 && in->y<267 ? 3 : 0;
-        if(field) {
-            char initial[16];snprintf(initial,sizeof(initial),"%d",field==2 ? port : timeout);
-            lumen_request("input",field==2 ? t("Server-Port","Server port","Port du serveur") :
-                t("Inaktivität (Minuten)","Idle timeout (minutes)","Inactivité (minutes)"),initial,field);
-        }
-    } else if(in->x>=516 && in->y>=72 && in->y<124)settings=lumen_back=1;
+    if(in->kind!=INPUT_TAP || settings)return 1;
+    if(in->x>=516 && in->y>=72 && in->y<124)settings=lumen_back=1;
     else if(in->x>=478 && in->y>=142 && in->y<198)
         lumen_service("transfer",active ? "stop" : "start","",1);
     return 1;

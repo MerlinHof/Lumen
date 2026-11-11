@@ -15,24 +15,24 @@ static int receive_notification(const void *payload,size_t size,int64_t now) {
             notification_generation,request->duration_ms);
     json_escape16(out,request->text);
     fputc('}',out);fclose(out);
-    int sent=app_overlay_send(notification_app,event);
+    int sent=app_overlay_send(APP_OVERLAY_NOTIFICATION,notification_app,event);
     free(event);
     notification_pending=sent;
     return sent;
 }
 static void notification_dismiss(void) {
-    if(notification_w || notification_pending)app_overlay_send(notification_app,"{\"event\":\"dismiss\"}");
+    if(notification_w || notification_pending)app_overlay_send(APP_OVERLAY_NOTIFICATION,notification_app,"{\"event\":\"dismiss\"}");
     notification_w=0;
     notification_pending=0;
     notification_generation=(notification_generation+1)%1000000;
 }
 static int notification_poll(void) {
-    if(!app_overlay_poll())return 0;
+    if(!app_overlay_poll(APP_OVERLAY_NOTIFICATION))return 0;
     int before=notification_w;
     notification_w=0;
     notification_pending=0;
     Json j;JsonToken tokens[512];
-    if(json_parse(&j,app_overlay_frame(),tokens,512) &&
+    if(json_parse(&j,app_overlay_frame(APP_OVERLAY_NOTIFICATION),tokens,512) &&
        json_number(&j,json_get(&j,0,"generation"))==notification_generation) {
         int rect=json_get(&j,0,"capture");
         int values[4]={0};
@@ -52,7 +52,7 @@ static int notification_visible(void) {
     return notification_w && !editor_ui.keyboard && !sleeping && !extra_ringing() && !power_menu;
 }
 static void notification_draw(void) {
-    if(notification_visible())package_paint_frame(app_overlay_frame());
+    if(notification_visible())package_paint_frame(app_overlay_frame(APP_OVERLAY_NOTIFICATION));
 }
 static int notification_input(const Input *in,int visible) {
     int inside=visible && in->x>=notification_x && in->x<notification_x+notification_w &&
@@ -69,7 +69,7 @@ static int notification_input(const Input *in,int visible) {
     if(captured && visible) {
         char event[128];
         snprintf(event,sizeof(event),"{\"event\":\"input\",\"kind\":%d,\"x\":%d,\"y\":%d}",in->kind,in->x,in->y);
-        app_overlay_send(notification_app,event);
+        app_overlay_send(APP_OVERLAY_NOTIFICATION,notification_app,event);
     }
     return captured;
 }

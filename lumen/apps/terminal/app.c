@@ -1,7 +1,7 @@
 #include "lumen_app.h"
 #include "session.h"
 
-enum { HISTORY=16, COMMAND=512, OUTPUT=8192, TOP=66, LINE=21, COLUMNS=64 };
+enum { HISTORY=16, COMMAND=512, OUTPUT=8192, TOP=66, LINE=26, COLUMNS=50 };
 static char history[HISTORY][COMMAND];
 static char transcript[32768];
 static size_t transcript_length;
@@ -48,15 +48,20 @@ static void draw(void) {
             size_t n=(size_t)(end-start);
             if(n>=sizeof(line))n=sizeof(line)-1;
             memcpy(line,start,n);line[n]=0;
-            lumen_mono_columns(22,TOP+(i-first)*LINE,556,LINE,line,0,8);
+            lumen_mono_columns(22,TOP+(i-first)*LINE,556,LINE,line,0,11);
         }
         start=*end=='\n' ? end+1 : end;
+    }
+    if(bottom<800 && !total) {
+        int visible=count<rows ? count : rows;
+        for(int i=0;i<visible;i++)
+            lumen_mono_columns(22,TOP+i*LINE,556,LINE,history[visible-1-i],96,11);
     }
     prompt_y=TOP+(last-first)*LINE;
     if(bottom==800) {
         ui_paint_hitbox(16,prompt_y,568,LINE+8);
-        lumen_mono_columns(22,prompt_y,556,LINE,running ? "…" : prompt,0,8);
-        if(!running)ui_paint_surface(22+(int)strlen(prompt)*8,prompt_y+4,7,12,0,0,0);
+        lumen_mono_columns(22,prompt_y,556,LINE,running ? "…" : prompt,0,11);
+        if(!running)ui_paint_surface(22+(int)strlen(prompt)*11,prompt_y+4,7,12,0,0,0);
     }
 }
 static void edit_command(const char *text) {lumen_request("input",prompt,text,1);}
@@ -70,6 +75,10 @@ static int input(const Input *in) {
             snprintf(history[0],sizeof(history[0]),"%s",command);
             if(count<HISTORY)count++;
             app_state_save("history.bin",history,sizeof(history));
+        }
+        if(!strcmp(command,"clear")) {
+            transcript[0]=0;transcript_length=0;scroll=0;
+            return 1;
         }
         scroll=0;append(prompt);append(command);append("\n");
         running=1;lumen_begin();draw();lumen_end();

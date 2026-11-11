@@ -437,7 +437,7 @@ int device_wait(Input *input) {
     static int64_t began, power_began;
     static int power_active, power_sent;
     memset(input, 0, sizeof(*input));
-    struct pollfd p[6] = {
+    struct pollfd p[5+APP_OVERLAY_COUNT] = {
         {touch, POLLIN, 0}, {power, POLLIN, 0}, {eventfd, POLLIN, 0}, {usbfd, POLLIN, 0}, {-1, POLLIN, 0}, {-1, POLLIN, 0}};
     while (alive) {
         if (network_ready) {
@@ -471,8 +471,8 @@ int device_wait(Input *input) {
                 timeout = remain;
         }
         p[4].fd = app_process_fd();
-        p[5].fd=app_overlay_fd();
-        int n = poll(p, 6, timeout);
+        for(int i=0;i<APP_OVERLAY_COUNT;i++)p[5+i]=(struct pollfd){app_overlay_fd(i),POLLIN,0};
+        int n=poll(p,5+APP_OVERLAY_COUNT,timeout);
         if (!n) {
             if (active && started && !held) {
                 struct timespec t;
@@ -600,9 +600,8 @@ int device_wait(Input *input) {
                 }
             }
         }
-        if (p[5].revents & (POLLIN | POLLHUP | POLLERR)) {
-            input->kind=INPUT_OVERLAY;
-            return 1;
+        for(int i=0;i<APP_OVERLAY_COUNT;i++)if(p[5+i].revents&(POLLIN|POLLHUP|POLLERR)) {
+            input->kind=INPUT_OVERLAY;input->x=i;return 1;
         }
         if (p[4].revents & (POLLIN | POLLHUP | POLLERR)) {
             input->kind = INPUT_APP;

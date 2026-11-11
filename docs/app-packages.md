@@ -36,7 +36,7 @@ LUMEN's executable and its system source are not linked or rebuilt.
 The result is a `.lumen-app` ZIP containing `manifest.json` and regular files
 under `payload/`. The manifest lists each file's length and SHA-256. The entry
 point is `app`, a static ARMv7 Linux executable. Optional `assets` in the build
-manifest are relative paths beside the app source. `icon.pgm` is a binary P5
+manifest are relative paths beside the app source. `assets/icon.pgm` is a binary P5
 76×76 grayscale engraved icon; otherwise the existing identity/fallback is used.
 
 ## Install or replace
@@ -55,7 +55,7 @@ package IDs, names and versions. App installation never replaces the LUMEN
 executable or restarts it. Apps appear in Home and the existing app-order editor.
 
 Installed code/assets are in `lumen/apps/<id>`. Personal state is separate in
-`lumen/data/app-state/<id>` and exposed as `LUMEN_APP_DATA`. The read-only-by-convention assets directory is exposed as `LUMEN_APP_ASSETS`. App replacement and
+`lumen/appdata/<id>` and exposed as `LUMEN_APP_DATA`. The read-only-by-convention assets directory is exposed as `LUMEN_APP_ASSETS`. App replacement and
 system updates preserve it. Save validated bounded state atomically. Shipped
 package updates are applied only when their app version is newer; explicit web
 installs may replace the same version during development. Home removal preserves app state and prevents automatic reseeding until an explicit reinstall.
@@ -113,3 +113,7 @@ ID (`lumen.calculator`, `lumen.notes`, `lumen.home`, etc.), without changing the
 system. They have not all been ported into independent executable artifacts yet.
 Do not misrepresent that migration as complete. New app development must use the
 package contract, rather than add another linked view or numeric route.
+
+Protocol 1 supports semantic layout through `lumen_page`, `lumen_component_button` and
+`lumen_textfield`, alongside the existing drawing functions. Use `lumen_app_open_with`
+for named open actions and the `lumen_storage_*` helpers for package-owned files.

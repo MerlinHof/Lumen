@@ -3,7 +3,12 @@
   "api": 1,
   "id": "lumen.home",
   "name": "Startseite",
-  "version": "1.0.0",
-  "sources": ["app.c"],
-  "assets": ["scene.pgm"]
+  "version": "1.0.1",
+  "sources": [
+    "app.c"
+  ],
+  "assets": [
+    "scene.pgm",
+    "assets/icon.pgm"
+  ]
 }

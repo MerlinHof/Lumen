@@ -124,9 +124,9 @@ int main(void) {
     }
     if(wordle_game.row<0 || wordle_game.row>6 || wordle_game.over<0 || wordle_game.over>2)
         memset(&wordle_game,0,sizeof(wordle_game));
-    const char *root=getenv("LUMEN_APP_DATA");
+    const char *root=getenv("LUMEN_LEGACY_DATA");
     if(root) {
-        char path[2048];snprintf(path,sizeof(path),"%s/../../wordle-calendar-offset-v11.txt",root);
+        char path[2048];snprintf(path,sizeof(path),"%s/wordle-calendar-offset-v11.txt",root);
         FILE *file=fopen(path,"r");
         if(file){if(fscanf(file,"%d",&offset)!=1)offset=0;fclose(file);}
     }

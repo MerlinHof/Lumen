@@ -8,11 +8,12 @@ def validate_runtime_mapping(mapping):
     for destination,source in mapping.items():
         parts=PurePosixPath(destination)
         if parts.is_absolute() or '..' in parts.parts or any(p.startswith('._') for p in parts.parts):raise RuntimeError('Unsafe package destination')
-        if destination!='documents/LUMEN.sh' and (not destination.startswith('lumen/') or (destination in ('lumen/data','lumen/backups','lumen/apps') or destination.startswith(('lumen/data/','lumen/backups/','lumen/apps/','lumen/.update/')))):raise RuntimeError('Personal data or backups must never enter a release')
+        if destination!='documents/LUMEN.sh' and (not destination.startswith('lumen/') or (destination in ('lumen/data','lumen/appdata','lumen/backups','lumen/apps') or destination.startswith(('lumen/data/','lumen/appdata/','lumen/backups/','lumen/apps/','lumen/.update/')))):raise RuntimeError('Personal data or backups must never enter a release')
         path=(ROOT/source).resolve()
         if not path.is_relative_to(ROOT):raise RuntimeError('Unsafe package source')
         relative=path.relative_to(ROOT);parts=relative.parts
         if not (relative.is_relative_to('lumen/assets') or relative.is_relative_to('tools/device')
+                or (len(parts)==5 and parts[:2]==('lumen','apps') and parts[3:]==('assets','icon.pgm'))
                 or parts[0] in {'docs', 'build', 'LICENSE'}):
             raise RuntimeError('Non-runtime package source')
         if parts[0]=='build' and not relative.is_relative_to('build/apps/kindle') and relative.as_posix() not in {'build/kindle/lumen','build/kindle/mobitool','build/kindle/amazon-runtime.tar.gz'}:raise RuntimeError('Build/test data must never enter a release')

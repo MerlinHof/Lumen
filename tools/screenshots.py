@@ -74,16 +74,22 @@ first,games=app_group('launcher_first'),app_group('launcher_games')
 order=first+[id for id in ids if id not in first and id not in games]+games
 order=[id for id in order if id in names]
 translations=json.loads((ROOT/'lumen/system/translations.json').read_text())
-raw=(ROOT/'lumen/assets/home/engraved.gray').read_bytes()
-assert len(raw)==len(ids)*76*76 and len(order)==50
+package_source=(ROOT/'lumen/system/app_packages.c').read_text()
+keys=re.findall(r'"([^"]+)"',package_source.split('keys[APP_COUNT]={',1)[1].split('};',1)[0])
+runtime=json.loads((ROOT/'tools/config/runtime.json').read_text())
+packaged={json.loads(p.read_text())['id']: p.parent/'assets/icon.pgm'
+          for p in (ROOT/'lumen/apps').glob('*/package.json')}
 plate=Image.new('RGB',(1120,1070),'white');ink=ImageDraw.Draw(plate)
 ink.text((36,26),'50 engraved app icons',font=ImageFont.truetype(serif,39),fill='#191919')
 ink.text((38,85),'Actual LUMEN artwork, shown at its native 76 x 76 pixels.',font=ImageFont.truetype(sans,17),fill='#686868')
 label_font=ImageFont.truetype(sans,14)
 for position,id in enumerate(order):
     x=position%8*140;y=140+position//8*130
-    at=ids.index(id)*76*76
-    plate.paste(Image.frombytes('L',(76,76),raw[at:at+76*76]).convert('RGB'),(x+32,y))
+    key=keys[ids.index(id)]
+    artwork=packaged.get(key)
+    if artwork is None:
+        artwork=ROOT/runtime[f'lumen/home/icons/{key}.pgm']
+    plate.paste(Image.open(artwork).convert('RGB'),(x+32,y))
     label=translations.get(names[id],[names[id]]*3)[1]
     for j,line in enumerate(textwrap.wrap(label,18)):
         ink.text((x+70,y+88+j*18),line,font=label_font,fill='#333',anchor='mt')

@@ -35,6 +35,23 @@ static void package_asset_paint(const char *name,int x,int y,int w,int h) {
 static char package_options[48][128];
 static const char *package_labels[48];
 static void package_ui_choice(int choice){char event[128];snprintf(event,sizeof(event),"{\"event\":\"select\",\"action\":%d,\"value\":%d}",package_select_action,choice);app_process_send(event);}
+typedef struct {
+    int top,height,field;
+    char id[64],label[120],value[512];
+} PackageComponent;
+static PackageComponent package_components[16];
+static int package_component_count,package_component_layout,package_component_top;
+static char package_focused_component[64];
+static void package_component_event(const char *id,const char *text) {
+    char *message=NULL;size_t length=0;
+    FILE *out=open_memstream(&message,&length);
+    if(!out)return;
+    fprintf(out,"{\"event\":\"component\",\"changed\":%d,\"id\":",text!=NULL);
+    json_escape16(out,id);
+    if(text){fputs(",\"text\":",out);json_escape16(out,text);}
+    fputc('}',out);fclose(out);
+    app_process_send(message);free(message);
+}
 static void package_paint_frame(const char *text) {
     Json j;if(!json_parse(&j,text,package_tokens,32768))return;
     int commands=json_get(&j,0,"ui");if(commands<0 || j.tokens[commands].type!='[' || j.tokens[commands].count>2048)return;
@@ -43,6 +60,29 @@ static void package_paint_frame(const char *text) {
         char type[32],label[2048];
         json_string(&j,json_get(&j,item,"type"),type,sizeof(type));json_string(&j,json_get(&j,item,"text"),label,sizeof(label));
         int x=package_value(&j,item,"x"),y=package_value(&j,item,"y"),w=package_value(&j,item,"w"),h=package_value(&j,item,"h");
+        if(!strcmp(type,"page_layout")) {
+            package_component_layout=1;package_component_top=141;
+            heading_actions(label,0);continue;
+        }
+        int field=!strcmp(type,"component_field");
+        if(field || !strcmp(type,"component_button")) {
+            int height=field ? 70 : 50;
+            if(!package_component_layout || package_component_count>=16 ||
+               package_component_top+height>HEIGHT-8)continue;
+            PackageComponent *component=&package_components[package_component_count];
+            json_string(&j,json_get(&j,item,"id"),component->id,sizeof(component->id));
+            if(!*component->id)continue;
+            component->top=package_component_top;component->height=height;component->field=field;
+            snprintf(component->label,sizeof(component->label),"%.*s",(int)sizeof(component->label)-1,label);
+            if(field) {
+                json_string(&j,json_get(&j,item,"value"),component->value,sizeof(component->value));
+                type_label(28,component->top,544,22,label,UI_SECONDARY);
+                control_surface(28,component->top+22,544,44,RADIUS_SMALL,236);
+                label_ellipsis(40,component->top+22,520,44,component->value,ui_font(UI_BODY),0);
+                region(28,component->top,544,height);
+            } else button_h(28,component->top,544,height,label,package_value(&j,item,"primary"));
+            package_component_top+=height+12;package_component_count++;continue;
+        }
         /* Content coordinates may never paint or intercept the status bar. */
         if((y<STATUS_HEIGHT && strcmp(type,"asset")) || y<0 || y>800 || x < -600 || x>600 || w<0 || w>1200 || h<0 || h>800)continue;
         size_t estimate=(size_t)w*h;
@@ -100,26 +140,27 @@ static void package_paint_frame(const char *text) {
             if(ink<0 || ink>255)ink=0;
             int advance=package_value(&j,item,"advance");
             if(advance<7 || advance>12)advance=12;
-            int glyph_height=advance<=9 ? 22 : caption.h;
+            const Font *mono_font=h>=26 && advance==11 ? &small : &caption;
+            int glyph_height=advance<=9 ? 22 : mono_font->h;
             int baseline=y+(h-glyph_height)/2;
             const char *start=label;
             for(int column=0;*start && column*advance+advance<=w;column++) {
                 if(*start=='\t'){column+=3-column%4;start++;continue;}
                 unsigned code=glyph(&start);
-                const GlyphBounds *bounds=text_bounds(&caption,code);
-                const unsigned char *pixels=glyph_pixels(&caption,code);
+                const GlyphBounds *bounds=text_bounds(mono_font,code);
+                const unsigned char *pixels=glyph_pixels(mono_font,code);
                 int left=bounds ? bounds->left : 0, top=bounds ? bounds->top : 0;
-                int width=bounds ? bounds->right-left : caption.w;
-                int bottom=bounds ? bounds->bottom : caption.h;
+                int width=bounds ? bounds->right-left : mono_font->w;
+                int bottom=bounds ? bounds->bottom : mono_font->h;
                 int span=width<advance-1 ? width : advance-1;
                 int at=x+column*advance+(advance-span)/2;
                 for(int row=top;row<bottom;row++) {
-                    int yy=baseline+row*glyph_height/caption.h;
+                    int yy=baseline+row*glyph_height/mono_font->h;
                     if(yy<STATUS_HEIGHT || yy>=HEIGHT)continue;
                     for(int px=0;px<span;px++) {
                         int xx=at+px;
                         if(xx<0 || xx>=WIDTH)continue;
-                        int alpha=255-pixels[row*caption.w+left+px*width/span];
+                        int alpha=255-pixels[row*mono_font->w+left+px*width/span];
                         unsigned char *dst=ui_pixels+yy*WIDTH+xx;
                         *dst=(unsigned char)(*dst+(ink-*dst)*alpha/255);
                     }
@@ -155,6 +196,7 @@ static void package_paint_frame(const char *text) {
 }
 static void package_ui_draw(void) {
     package_pager.count=0;
+    package_component_count=package_component_layout=0;
     if(!*app_process_error())app_process_open(app_for_route(ui_route()));
     static unsigned char status_bar[600*STATUS_HEIGHT];
     memcpy(status_bar,ui_pixels,sizeof(status_bar));
@@ -165,6 +207,18 @@ static void package_ui_draw(void) {
 }
 static int package_ui_input(const Input*in) {
     if(in->kind!=INPUT_TAP && in->kind!=INPUT_SWIPE && in->kind!=INPUT_HOLD)return 2;
+    if(in->kind==INPUT_TAP && in->x>=28 && in->x<572) {
+        for(int i=0;i<package_component_count;i++) {
+            PackageComponent *component=&package_components[i];
+            if(in->y<component->top || in->y>=component->top+component->height)continue;
+            if(component->field) {
+                snprintf(package_focused_component,sizeof(package_focused_component),"%s",component->id);
+                open_keyboard(2000,component->label,component->value);
+                return 1;
+            }
+            package_component_event(component->id,NULL);return 2;
+        }
+    }
     if(package_pager.count>1) {
         int next=-1;
         if(in->kind==INPUT_SWIPE && abs(in->dx)>abs(in->dy))
@@ -181,6 +235,11 @@ static int package_ui_input(const Input*in) {
 }
 static int package_ui_commit(int target,const char*text) {
     if(target!=2000)return 0;
+    if(*package_focused_component) {
+        package_component_event(package_focused_component,text);
+        package_focused_component[0]=0;
+        return 1;
+    }
     char*event=NULL;size_t n=0;FILE*f=open_memstream(&event,&n);fprintf(f,"{\"event\":\"text\",\"action\":%d,\"text\":",package_input_action);
     json_escape16(f,text);fputc('}',f);fclose(f);app_process_send(event);free(event);return 1;
 }
@@ -202,7 +261,7 @@ static int package_ui_poll(void) {
     const char*message=app_process_request();if(!*message)return changed;
     Json j;JsonToken t[512];if(!json_parse(&j,message,t,512))return changed;
     char kind[32],text[8192],title[128];json_string(&j,json_get(&j,0,"request"),kind,sizeof(kind));json_string(&j,json_get(&j,0,"text"),text,sizeof(text));json_string(&j,json_get(&j,0,"title"),title,sizeof(title));
-    if(!strcmp(kind,"input")){package_input_action=package_value(&j,0,"action");open_keyboard(2000,title,text);}
+    if(!strcmp(kind,"input")){package_focused_component[0]=0;package_input_action=package_value(&j,0,"action");open_keyboard(2000,title,text);}
     else if(!strcmp(kind,"select")) {
         int array=json_get(&j,0,"options");if(array>=0 && j.tokens[array].type=='[' && j.tokens[array].count>0 && j.tokens[array].count<=48) {
             int count=j.tokens[array].count;for(int i=0;i<count;i++){json_string(&j,json_at(&j,array,i),package_options[i],128);package_labels[i]=package_options[i];}
@@ -217,6 +276,22 @@ static int package_ui_poll(void) {
     }
     else if(!strcmp(kind,"notify"))ui_message(text);
     else if(!strcmp(kind,"reader"))reader_markdown17(title,text,ui_route());
+    else if(!strcmp(kind,"intent")) {
+        char app[64],operation[48],object[32];
+        json_string(&j,json_get(&j,0,"app"),app,sizeof(app));
+        json_string(&j,json_get(&j,0,"operation"),operation,sizeof(operation));
+        json_string(&j,json_get(&j,0,"object"),object,sizeof(object));
+        int id=app_package_find(app);
+        if(id>=0 && !strcmp(operation,"open")) {
+            AppIntent intent={.app=id,.kind=INTENT_OPEN};
+            app_send(&intent);
+        } else if(id==APP_READER && !strcmp(operation,"open_book") &&
+                  strlen(object)==16 && strspn(object,"0123456789abcdef")==16) {
+            AppIntent intent={.app=APP_READER,.kind=INTENT_BOOK,.object_id=strtoull(object,NULL,16)};
+            app_send(&intent);
+        } else if(id==APP_READER && !strcmp(operation,"open_document") && *text)
+            reader_markdown17(title,text,ui_route());
+    }
     else if(!strcmp(kind,"open")){char key[96];json_string(&j,json_get(&j,0,"app"),key,sizeof(key));int id=-1;for(int i=0;i<APP_LIMIT;i++)if(!strcmp(key,app_package_key(i))){id=i;break;}if(id>=0){AppIntent intent={.app=id,.kind=*text?INTENT_SEARCH:INTENT_OPEN};snprintf(intent.text,sizeof(intent.text),"%s",text);app_send(&intent);}}
     return 1;
 }
