@@ -3,6 +3,19 @@
 from pathlib import Path
 import hashlib,json,shutil,zipfile,re
 ROOT=Path(__file__).resolve().parents[1]
+def runtime_mapping():
+    mapping=json.loads((ROOT/'tools/config/runtime.json').read_text())
+    for manifest in sorted((ROOT/'lumen/apps').glob('*/package.json')):
+        app_id=json.loads(manifest.read_text())['id']
+        if not re.fullmatch(r'[a-z0-9][a-z0-9.-]{0,62}',app_id):
+            raise RuntimeError('Invalid app ID in '+str(manifest))
+        filename=app_id+'.lumen-app'
+        destination='lumen/app-packages/'+filename
+        if destination in mapping:
+            raise RuntimeError('Duplicate shipped app: '+app_id)
+        mapping[destination]=f'build/apps/kindle/{app_id}/{filename}'
+    return mapping
+
 def validate_runtime_mapping(mapping):
     from pathlib import PurePosixPath
     for destination,source in mapping.items():
@@ -28,7 +41,7 @@ def package():
     version=validate_version((ROOT/'VERSION').read_text().strip());dist=ROOT/'dist';dist.mkdir(exist_ok=True)
     bundle=dist/('LUMEN-'+version);payload=bundle/'Kindle'
     if bundle.exists():shutil.rmtree(bundle)
-    mapping=json.loads((ROOT/'tools/config/runtime.json').read_text());validate_runtime_mapping(mapping);manifest={}
+    mapping=runtime_mapping();validate_runtime_mapping(mapping);manifest={}
     for rel,local in mapping.items():
         source=ROOT/local
         if not source.is_file():raise RuntimeError('Missing runtime file: '+local+'; build Kindle first.')

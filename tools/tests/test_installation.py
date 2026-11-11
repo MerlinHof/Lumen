@@ -1,6 +1,6 @@
 """Fresh install, upgrades, retention, corruption and path-boundary tests."""
 from pathlib import Path
-import importlib.util,json,shutil,sys
+import importlib.util,json,shutil,sys,zipfile
 ROOT=Path(__file__).resolve().parents[2];sys.path.insert(0,str(ROOT/'tools'))
 from package import package
 spec=importlib.util.spec_from_file_location('installer',ROOT/'tools/update-device.py');u=importlib.util.module_from_spec(spec);spec.loader.exec_module(u)
@@ -11,7 +11,17 @@ if '--fixture' in sys.argv:
     for rel,content in paths.items():
         target=payload/rel;target.parent.mkdir(parents=True,exist_ok=True);target.write_text(content);manifest[rel]=u.digest(target)
     (bundle/'manifest.json').write_text(json.dumps(manifest));(bundle/'release.json').write_text(json.dumps({'version':'1.9'}));(bundle/'legacy-files.json').write_text('{}')
-else: bundle=package()
+else:
+    bundle=package()
+    expected={'lumen/app-packages/'+json.loads(p.read_text())['id']+'.lumen-app'
+              for p in (ROOT/'lumen/apps').glob('*/package.json')}
+    usb=json.loads((bundle/'manifest.json').read_text())
+    with zipfile.ZipFile(bundle.parent/(bundle.name+'.lumen-system')) as archive:
+        wireless={f['path']:f['sha256'] for f in json.loads(archive.read('manifest.json'))['files']}
+    assert expected and expected=={p for p in usb if p.startswith('lumen/app-packages/')}
+    assert expected=={p for p in wireless if p.startswith('lumen/app-packages/')}
+    assert all(usb[p]==wireless[p] for p in expected)
+    print(f'PASS all {len(expected)} independently built apps appear in both installers.')
 root=ROOT/'build/tests/installation'
 shutil.rmtree(root,ignore_errors=True);(root/'documents').mkdir(parents=True)
 try:u.update(bundle,root)
