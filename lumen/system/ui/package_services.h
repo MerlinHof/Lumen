@@ -85,9 +85,11 @@ static int package_equivalent(const char *data,int action) {
     return 1;
 }
 #include "reading_service.h"
+#include "weather_service.h"
 static int package_service_request(const char *name,const char *operation,const char *data,int action) {
     if(!strcmp(name,"text") && !strcmp(operation,"equivalent"))return package_equivalent(data,action);
     if(!strcmp(name,"reading"))return package_reading_activity(operation,data,action);
+    if(!strcmp(name,"weather"))return package_weather(operation,data,action);
     if(!strcmp(name,"transfer"))return transfer_service(operation,data,action);
     if(!strcmp(name,"dictionary") && !strcmp(operation,"game_word")) {
         char *end;

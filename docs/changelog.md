@@ -1,5 +1,7 @@
 # Changelog
 
+- [5.4](releases/5.4.md) · Independent Chess and Weather packages.
+
 - [5.3](releases/5.3.md) · Journal and Calendar packages, shared multiline editing.
 
 - [5.2](releases/5.2.md) · Independent BrainTrain, Languages and Reading Statistics packages.

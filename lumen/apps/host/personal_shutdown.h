@@ -5,12 +5,7 @@ static void v1_note_created(int id) {
 
 static void v1_close(void) {
     v1_save();
-    if (chess_worker > 0) {
-        kill(chess_worker, SIGTERM);
-        while (waitpid(chess_worker, NULL, 0) < 0 && errno == EINTR) {
-        }
-        chess_worker = -1;
-    }
+
     free(photo_pixels);
     photo_pixels = NULL;
 }

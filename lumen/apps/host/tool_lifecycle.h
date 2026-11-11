@@ -17,7 +17,6 @@ static void extra_init(void) {
         fclose(input);
     }
     insights.magic = 0x494e5331;
-    extra_load_text("weather-city.txt", weather_city, sizeof(weather_city));
     extra_load_text("ha-url.txt", ha_url, sizeof(ha_url));
     extra_load_text("ha-token.txt", ha_token, sizeof(ha_token));
     char calc_state[160] = "";
@@ -108,8 +107,6 @@ static void extra_open(int target) {
     extra_prepare(target);
 }
 static void extra_prepare(int target) {
-    if (target == 32)
-        weather_snapshot_valid = 0;
     if (target >= 60)
         new_apps_open(target);
 
@@ -123,8 +120,6 @@ static void extra_prepare(int target) {
             ha_refresh_at = time(NULL) + 5;
         }
     }
-    if (target == 48 || target == 49)
-        games_init(target);
     extra_page = 0;
     if (target == 40)
         storage_scan();
@@ -136,13 +131,6 @@ static void extra_prepare(int target) {
         extra_wiki_restore();
 
 #ifndef LUMEN_HOST
-    if (target == 32 && !service_busy()) {
-        char p[2048];
-        local_path(p, sizeof(p), "weather.json");
-        struct stat st;
-        if (stat(p, &st) || time(NULL) - st.st_mtime > 1800)
-            service_start(SERVICE_WEATHER, weather_city, "", "");
-    }
     if (target == 33 && *ha_url && *ha_token && !service_busy())
         service_start(SERVICE_HA, ha_url, ha_token, "");
 #endif
@@ -212,10 +200,11 @@ static int extra_poll(void) {
     return wait;
 }
 static int extra_tick(void) {
-    int changed = new_apps_tick() | v1_tick() | v1_chess_tick(), done = service_poll();
+    int changed = new_apps_tick() | v1_tick(), done = service_poll();
     if (release_poll() && ui_route()==40) changed=1;
-    if (done == SERVICE_WEATHER || done == -SERVICE_WEATHER)
-        weather_snapshot_valid = 0;
+    if ((done == SERVICE_WEATHER || done == -SERVICE_WEATHER) &&
+        app_for_route(ui_route())==APP_WEATHER && app_package_installed(APP_WEATHER))
+        app_process_send("{\"event\":\"refresh\"}");
 
     if ((editor_ui.keyboard || ui_route() == 27) && extra_millis() - editor_ui.cursor_epoch >= 600) {
         editor_ui.cursor_epoch = extra_millis();

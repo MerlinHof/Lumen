@@ -104,7 +104,7 @@ the app process. Package-owned grayscale PGM files can use `lumen_asset`.
 
 ## Existing app implementations
 
-Thirty-three independent apps ship with LUMEN 5.3. Their build manifests are the
+Thirty-five independent apps ship with LUMEN 5.4. Their build manifests are the
 `lumen/apps/*/package.json` files. Legacy views without manifests still run from
 the host and may be replaced by packages using the same stable identity.
 
@@ -142,3 +142,7 @@ local spaced repetition, include the exported `lumen_fsrs.h` helper.
 LUMEN 5.3 adds `lumen_multiline(title, text, action)` for the shared editor.
 The committed value uses the existing `INPUT_TEXT` response. The reading
 service’s `month` operation returns daily activity for a `YYYYMM` key.
+
+LUMEN 5.4 adds `lumen_chess_piece` with optional piece rotation and
+`lumen_weather_symbol` for monochrome forecast graphics. The weather service
+provides bounded `open`, `refresh` and `status` operations.

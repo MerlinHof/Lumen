@@ -178,8 +178,6 @@ static int v1_poll(void) {
         int64_t remaining = photo_next_frame - extra_millis();
         return remaining > 0 ? (int)remaining : 1;
     }
-    if (ui_route() == 48 && chess_computer && chess.turn < 0)
-        return 250;
     if (alarm_ring && timer_flash_started && extra_millis() - timer_flash_started < 60000)
         return 500;
     if (ui_route() == 87)
@@ -416,6 +414,3 @@ static int v1_input(const Input *in) {
     }
     return 1;
 }
-static pid_t chess_worker = -1;
-static ChessPosition chess_job;
-static unsigned chess_nodes;

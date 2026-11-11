@@ -57,6 +57,12 @@ Journal and Calendar have independent packages, bringing the total to
 **33 packaged / 19 linked**. Both use shared multiline editing. Calendar
 also uses a bounded monthly reading-activity query.
 
+## Progress in 5.4
+
+Chess and Weather now run from independent packages, bringing the total to
+**35 packaged / 17 linked**. Their migration adds reusable chess-piece
+rotation, forecast symbols and bounded forecast requests.
+
 ## Completion checks
 
 A migration counts when the app owns its behavior in an independently built

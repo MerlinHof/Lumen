@@ -1,0 +1,13 @@
+{
+  "format": "lumen-app-1",
+  "api": 1,
+  "id": "lumen.chess",
+  "name": "Schach",
+  "version": "1.0.0",
+  "sources": [
+    "app.c"
+  ],
+  "assets": [
+    "assets/icon.pgm"
+  ]
+}

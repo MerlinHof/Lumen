@@ -42,6 +42,14 @@ static void ui_paint_hitbox(int x,int y,int w,int h){lumen_cmd("hit",x,y,w,h);pu
 static void ui_paint_surface(int x,int y,int w,int h,int radius,int gray,int outline){lumen_cmd("surface",x,y,w,h);printf(",\"radius\":%d,\"gray\":%d,\"outline\":%d}",radius,gray,outline);}
 static void ui_paint_ellipse(int x,int y,int rx,int ry,int gray){lumen_cmd("ellipse",x,y,0,0);printf(",\"rx\":%d,\"ry\":%d,\"gray\":%d}",rx,ry,gray);}
 static void ui_paint_line(int x,int y,int x2,int y2,int weight,int gray){lumen_cmd("line",x,y,0,0);printf(",\"x2\":%d,\"y2\":%d,\"weight\":%d,\"gray\":%d}",x2,y2,weight,gray);}
+static void lumen_weather_symbol(int x,int y,int size,int code) {
+ lumen_cmd("weather_symbol",x,y,size,size);
+ printf(",\"code\":%d}",code);
+}
+static void lumen_chess_piece(int x,int y,int kind,int rotated) {
+ lumen_cmd("chess_piece",x,y,66,66);
+ printf(",\"piece\":%d,\"rotated\":%d}",kind,!!rotated);
+}
 static void lumen_hex_cell(int x,int y,int gray){lumen_cmd("hex_cell",x,y,0,0);printf(",\"gray\":%d}",gray);}
 static void ui_paint_ring(int x,int y,int radius,int weight){lumen_cmd("ring",x,y,0,0);printf(",\"radius\":%d,\"weight\":%d}",radius,weight);}
 static void lumen_button(int x,int y,int w,int h,const char*s,int primary){lumen_cmd("button",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(s);printf(",\"primary\":%d}",primary);}

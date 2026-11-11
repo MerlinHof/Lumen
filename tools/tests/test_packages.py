@@ -201,3 +201,23 @@ assert (folder/f'{today}.txt').read_text()=='Updated appointment'
 assert (legacy/'calendar'/f'{today}.txt').read_text()=='Old appointment'
 assert {c.get('selected') for f in frames for c in f.get('ui',[]) if c.get('type')=='component_segments'}=={0,1,2,3}
 print('PASS packaged Journal and Calendar import legacy data, edit using multiline input and save privately.')
+
+frames,folder=app_session('lumen.chess',[component('opponent','selected','0'),
+    tap(333,615),tap(333,485),dict(event='tick'),tap(425,760)])
+saved=(folder/'game.bin').read_bytes()
+assert saved[52]==0 and saved[36]==1 and struct.unpack_from('=i',saved,64)[0]==1
+assert any(f.get('tick')==80 for f in frames)
+assert any(c.get('rotated')==1 for f in frames for c in f.get('ui',[]))
+frames,_=app_session('lumen.chess',[tap(80,760)])
+assert (folder/'game.bin').read_bytes()[52]==1
+print('PASS packaged Chess legal pawn move, computer reply, piece rotation and persisted undo.')
+
+(legacy/'weather-city.txt').write_text('Rosenheim')
+frames,folder=app_session('lumen.weather',[
+    dict(event='service',action=1,ok=1,forecast=1,temp=19,code=2,daylight_now=1,place='Rosenheim'),
+    tap(490,92),dict(event='text',action=2,text='Paris')],legacy)
+assert any(f.get('operation')=='open' and f.get('text')=='Rosenheim' for f in frames)
+assert any(f.get('operation')=='refresh' and f.get('text')=='Paris' for f in frames)
+assert any(c.get('type')=='weather_symbol' and c.get('code')==2 for f in frames for c in f.get('ui',[]))
+assert (folder/'city.txt').read_text()=='Paris'
+print('PASS packaged Weather renders cached forecasts, imports location and requests refresh.')

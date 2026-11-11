@@ -237,9 +237,6 @@ static void note_editor_touch(int x, int y);
 static void keyboard_insert(const char *s);
 static void keyboard_backspace(void);
 static void system_screen(void);
-static void games_init(int target);
-static void app_chess(void);
-static int games_input(const Input *in);
 static int system_input(const Input *in);
 static void new_apps_init(void);
 static void new_apps_open(int route);
@@ -256,7 +253,7 @@ static int v1_input(const Input *), v1_commit(int, const char *), v1_tick(void),
 static int v1_notes_input(const Input *), clipboard_input(const Input *);
 static void v1_notes_draw(void), v1_note_tools(void);
 static void clipboard_draw(void), v1_effect(void), v1_close(void);
-static int v1_sleep_photo(void), v1_chess_tick(void);
+static int v1_sleep_photo(void);
 static void v1_note_created(int), v1_timer_ring(int), v1_timer_started(void);
 static int v1_sleep_poll(void), v1_sleep_tick(void);
 static void header(void);
@@ -2469,9 +2466,6 @@ void ui_close(void) {
     app_process_close();
     release_cancel();
     cover_tiles_clear();
-    free(weather_snapshot);
-    weather_snapshot = NULL;
-    weather_snapshot_valid = 0;
     chat_clear();
     companion_close16();
     u15_flush();

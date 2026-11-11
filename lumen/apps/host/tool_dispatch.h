@@ -13,15 +13,6 @@ static void extra_draw(void) {
                  discover_lookup_image_name());
         wrapped_raw(30, 470, source, ui_font(UI_SECONDARY), 540, 10);
         break;
-    case 48:
-        app_chess();
-        break;
-    case 50:
-        heading("Neue Partie?");
-        wrapped(30, 200, "Aktuelle Schachpartie beenden?", ui_font(UI_TITLE), 540, 4);
-        button_h(28, 455, 544, 60, "Neue Partie", 0);
-        button_h(28, 540, 544, 60, "Abbrechen", 0);
-        break;
     case 27:
         app_calculator();
         break;
@@ -33,9 +24,6 @@ static void extra_draw(void) {
         break;
     case 30:
         app_note();
-        break;
-    case 32:
-        app_weather();
         break;
     case 33:
         app_home_assistant();
@@ -156,13 +144,6 @@ static void extra_commit(int target, const char *text) {
         }
         snprintf(ha_token, sizeof(ha_token), "%s", text);
         extra_write_text("ha-token.txt", ha_token);
-    } else if (target == 33) {
-        if (!*text)
-            return;
-        snprintf(weather_city, sizeof(weather_city), "%s", text);
-        extra_write_text("weather-city.txt", weather_city);
-        if (!service_start(SERVICE_WEATHER, weather_city, "", ""))
-            ui_message("Anfrage läuft bereits.");
     } else if (target == 34) {
         wiki_ui.wiki_article_language = options[OPT_LANGUAGE];
         snprintf(wiki_query, sizeof(wiki_query), "%s", text);
@@ -203,8 +184,6 @@ static void extra_commit(int target, const char *text) {
 static int extra_input(const Input *in) {
     if (ui_route()==60) return sensor_graph_input(in);
     int x = in->x, y = in->y;
-    if (ui_route() == 48 || ui_route() == 49 || ui_route() == 50)
-        return games_input(in);
 
     if (in->kind != INPUT_TAP)
         return 2;
@@ -340,16 +319,6 @@ static int extra_input(const Input *in) {
         return 1;
     }
 
-    if (ui_route() == 32) {
-        if (y >= 74 && y < 118) {
-            if (x >= 516) {
-                if (!service_start(SERVICE_WEATHER, weather_city, "", ""))
-                    ui_message("Anfrage läuft bereits.");
-            } else if (x >= 460)
-                open_keyboard(33, "Wetter: Ort", weather_city);
-        }
-        return 1;
-    }
     if (ui_route() == 33) {
         if (y >= 74 && y < 118) {
             if (x >= 516) {

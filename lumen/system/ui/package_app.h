@@ -260,9 +260,20 @@ static void package_paint_frame(const char *text) {
         else if(!strcmp(type,"dropdown"))dropdown_button(x,y,w,h,label);
         else if(!strcmp(type,"select")){char value[256];json_string(&j,json_get(&j,item,"value"),value,sizeof(value));select_row17(y,label,value);}
         else if(!strcmp(type,"icon"))icon_button(x,y,package_value(&j,item,"icon"));
+        else if(!strcmp(type,"weather_symbol") && w==h && w>=12 && w<=160 &&
+                x>=0 && x+w<WIDTH && y+h<HEIGHT)
+            weather_symbol(x,y,package_value(&j,item,"code"),w);
         else if(!strcmp(type,"chess_piece")) {
             int piece=package_value(&j,item,"piece");
-            if(piece && abs(piece)<=6)chess_piece(x,y,piece);
+            if(piece && abs(piece)<=6) {
+                chess_piece(x,y,piece);
+                if(package_value(&j,item,"rotated") && x>=0 && x<=WIDTH-66 && y<=HEIGHT-66)
+                    for(int row=5;row<32;row++)for(int col=5;col<62;col++) {
+                        unsigned char *a=ui_pixels+(y+row)*WIDTH+x+col;
+                        unsigned char *b=ui_pixels+(y+64-row)*WIDTH+x+66-col;
+                        unsigned char gray=*a;*a=*b;*b=gray;
+                    }
+            }
         }
         else if(!strcmp(type,"hit"))region(x,y,w,h);
         else if(!strcmp(type,"surface"))ui_paint_surface(x,y,w,h,package_value(&j,item,"radius"),package_value(&j,item,"gray"),package_value(&j,item,"outline"));

@@ -1,10 +1,31 @@
+#include "lumen_app.h"
+#include "strings.h"
+
+static const char *tr(const char *text) {
+    int language=lumen_language==1 ? 1 : lumen_language==2 ? 2 : 0;
+    for(size_t i=0;i<sizeof(strings)/sizeof(*strings);i++)
+        if(!strcmp(strings[i].key,text))return strings[i].values[language];
+    return text;
+}
+#define heading_actions ui_paint_heading
+#define icon_button ui_paint_icon_button
+#define UI_PRIMARY PAINT_HEADING
+#define UI_SECONDARY PAINT_SECONDARY
+#define ui_font(x) (x)
+#define centered(x,y,w,h,s,r) ui_paint_text(x,y,w,h,tr(s),r)
+#define rect(x,y,w,h,c) ui_paint_surface(x,y,w,h,0,c,c)
+#define region ui_paint_hitbox
+#define ring ui_paint_ring
+#define disc(x,y,r,c) ui_paint_ellipse(x,y,r,r,c)
+#define button_h(x,y,w,h,s,p) lumen_button(x,y,w,h,tr(s),p)
+
 /* Local two-player board games. Rules and rendering kept separate from navigation. */
 typedef struct {
     signed char b[64];
     int turn, rights, ep, half;
 } ChessPosition;
 static ChessPosition chess, chess_undo[256];
-static int chess_ready, chess_history, chess_selected = -1, chess_flip, chess_promotion = -1,
+static int chess_history, chess_selected = -1, chess_flip, chess_promotion = -1,
                                        chess_promotion_from;
 static int chess_computer;
 static int side(int p) {
@@ -25,7 +46,6 @@ static void chess_reset(void) {
     chess_selected = -1;
     chess_history = 0;
     chess_promotion = -1;
-    chess_ready = 1;
 }
 static int chess_attacked(const ChessPosition *p, int sq, int by) {
     int x = sq % 8, y = sq / 8;
@@ -173,41 +193,48 @@ static int chess_drawn(void) {
             repeat++;
     return repeat >= 3;
 }
+typedef struct {
+    ChessPosition current,history[256];
+    int count,computer,rotated;
+} ChessSave;
 static void chess_store(void) {
-    char p[2048];
-    local_path(p, sizeof(p), "chess-v1.bin");
-    atomic_write(p, &chess, sizeof(chess));
+    static ChessSave saved;
+    saved.current=chess;saved.count=chess_history;saved.computer=chess_computer;saved.rotated=chess_flip;
+    memset(saved.history,0,sizeof(saved.history));
+    memcpy(saved.history,chess_undo,(size_t)chess_history*sizeof(*chess_undo));
+    app_state_save("game.bin",&saved,sizeof(saved));
 }
-static void games_init(int target) {
-    if (target == 48 && !chess_ready) {
-        chess_reset();
-        char p[2048];
-        local_path(p, sizeof(p), "chess-v1.bin");
-        FILE *f = fopen(p, "rb");
-        if (f) {
-            ChessPosition q;
-            if (fread(&q, sizeof(q), 1, f) == 1 && (q.turn == 1 || q.turn == -1) && q.ep >= -1 &&
-                q.ep < 64) {
-                int good = 1, k1 = 0, k2 = 0;
-                for (int i = 0; i < 64; i++) {
-                    if (abs(q.b[i]) > 6)
-                        good = 0;
-                    k1 += q.b[i] == 6;
-                    k2 += q.b[i] == -6;
-                }
-                if (good && k1 == 1 && k2 == 1)
-                    chess = q;
-            }
-            fclose(f);
+static int valid(const ChessPosition *saved) {
+    if((saved->turn!=1 && saved->turn!=-1) || saved->ep< -1 || saved->ep>=64 ||
+       saved->rights<0 || saved->rights>15 || saved->half<0)return 0;
+    int white=0,black=0;
+    for(int i=0;i<64;i++) {
+        if(abs(saved->b[i])>6)return 0;
+        white+=saved->b[i]==6;black+=saved->b[i]==-6;
+    }
+    return white==1 && black==1;
+}
+static void load(void) {
+    chess_reset();
+    static ChessSave saved;
+    if(app_state_load("game.bin",&saved,sizeof(saved)) && valid(&saved.current)) {
+        chess=saved.current;chess_computer=!!saved.computer;chess_flip=!!saved.rotated;
+        if(saved.count>=0 && saved.count<=256) {
+            for(int i=0;i<saved.count;i++)if(!valid(saved.history+i))return;
+            memcpy(chess_undo,saved.history,(size_t)saved.count*sizeof(*chess_undo));
+            chess_history=saved.count;
         }
+    } else {
+        ChessPosition old;
+        if(lumen_legacy_state("chess-v1.bin",&old,sizeof(old)) && valid(&old))chess=old;
     }
 }
-#include "../../system/ui/chess_icons.h"
-static void app_chess(void) {
-    heading_actions("Schach", 1);
+static void draw(void) {
+    heading_actions(tr("Schach"),2);
+    lumen_button(468,74,44,44,"?",0);
     icon_button(528, 74, IC_RESTART);
-    const char *modes[] = {"Computer", "Multiplayer"};
-    segments(28, 125, 544, 36, modes, 2, !chess_computer);
+    const char *modes[] = {tr("Computer"),tr("Multiplayer")};
+    lumen_segments("opponent",28,125,544,36,modes,2,!chess_computer);
     char b[80];
     int moves = chess_moves(), check = chess_check(&chess, chess.turn), draw = chess_drawn();
     const char *label = !moves            ? (check ? "Schachmatt" : "Patt")
@@ -224,21 +251,7 @@ static void app_chess(void) {
         if (chess_selected == sq) {
             rect(x, y, 66, 66, 120);
         }
-        if (chess.b[sq]) {
-            chess_piece(x, y, chess.b[sq]);
-            if (chess_flip) {
-                for (int yy = 5; yy < 58; yy++)
-                    for (int xx = 5; xx < 61; xx++) {
-                        int ox = 66 - xx, oy = 64 - yy;
-                        if (yy * 66 + xx >= oy * 66 + ox)
-                            continue;
-                        int a = (y + yy) * 600 + x + xx, b = (y + oy) * 600 + x + ox;
-                        unsigned char v = ui_pixels[a];
-                        ui_pixels[a] = ui_pixels[b];
-                        ui_pixels[b] = v;
-                    }
-            }
-        }
+        if(chess.b[sq])lumen_chess_piece(x,y,chess.b[sq],chess_flip);
         if (chess_selected >= 0 && chess_legal(&chess, chess_selected, sq)) {
             if (chess.b[sq])
                 ring(x + 33, y + 33, 29, 3);
@@ -254,20 +267,27 @@ static void app_chess(void) {
         int pieces[] = {5, 4, 3, 2};
         for (int i = 0; i < 4; i++) {
             button_h(48 + i * 132, 373, 108, 80, "", 0);
-            chess_piece(70 + i * 132, 379, chess.turn * pieces[i]);
+            lumen_chess_piece(70+i*132,379,chess.turn*pieces[i],0);
         }
     }
+    if(chess_computer && chess.turn<0 && moves && !draw)lumen_schedule(80);
 }
-static int games_input(const Input *in) {
-    if (in->kind != INPUT_TAP)
-        return 2;
-    int x = in->x, y = in->y;
-    if (ui_route() == 48) {
-        if (y >= 125 && y < 161) {
-            chess_computer = x < 300;
-            chess_selected = -1;
-            return 1;
+static void computer_move(void);
+static int input(const Input *in) {
+    if(in->kind==INPUT_TICK){computer_move();return 1;}
+    if(in->kind==INPUT_COMPONENT) {
+        char id[24],value[8],gesture[16];
+        lumen_string("id",id,sizeof(id));lumen_string("text",value,sizeof(value));
+        lumen_string("gesture",gesture,sizeof(gesture));
+        if(!strcmp(id,"opponent") && !strcmp(gesture,"selected") && chess_promotion<0) {
+            chess_computer=!strcmp(value,"0");chess_selected=-1;chess_store();
         }
+        return 1;
+    }
+    if(in->kind==INPUT_SELECT && in->x==1 && in->y==1){chess_reset();chess_store();return 1;}
+    if(in->kind!=INPUT_TAP)return 0;
+    int x=in->x,y=in->y;
+    {
         if (chess_promotion >= 0) {
             if (y >= 373 && y < 453 && x >= 48 && x < 576) {
                 int i = (x - 48) / 132;
@@ -283,11 +303,16 @@ static int games_input(const Input *in) {
             }
             return 1;
         }
-        if (y >= 74 && y < 118 && x >= 516) {
-            if (history_count < 64)
-                history[history_count++] = 48;
-            route_to(50);
+        if(y>=74 && y<118 && x>=468 && x<512) {
+            lumen_app_open_with("lumen.reader","open_document","",tr("Schach"),
+                lumen_language==1 ? "Checkmate the opposing king. Tap a piece, then a legal square. Play the computer or take turns on this Kindle." :
+                lumen_language==2 ? "Mettez le roi adverse échec et mat. Touchez une pièce, puis une case autorisée." :
+                "Setze den gegnerischen König matt. Tippe eine Figur und dann ein erlaubtes Zielfeld an.");
             return 1;
+        }
+        if(y>=74 && y<118 && x>=528 && x<572) {
+            const char *choices[]={tr("Abbrechen"),tr("Neue Partie")};
+            lumen_select(choices,2,-1,1);return 1;
         }
         if (y >= 740) {
             if (x < 300 && chess_history) {
@@ -296,8 +321,10 @@ static int games_input(const Input *in) {
                     chess = chess_undo[--chess_history];
                 chess_selected = -1;
                 chess_store();
-            } else if (x >= 300)
+            } else if (x >= 300) {
                 chess_flip ^= 1;
+                chess_store();
+            }
             return 1;
         }
         if (chess_computer && chess.turn < 0)
@@ -321,14 +348,64 @@ static int games_input(const Input *in) {
             chess_selected = side(chess.b[sq]) == chess.turn ? sq : -1;
         return 1;
     }
-    if (ui_route() == 50) {
-        if (y >= 455 && y < 515) {
-            chess_reset();
-            chess_store();
-            extra_return(48);
-        } else if (y >= 540 && y < 600)
-            extra_return(48);
-        return 1;
-    }
-    return 1;
 }
+
+static unsigned chess_nodes;
+static int chess_eval(const ChessPosition *p) {
+    static const int val[] = {0, 100, 320, 330, 500, 900, 20000};
+    int n = 0;
+    for (int i = 0; i < 64; i++) {
+        int v = p->b[i];
+        if (v) {
+            int center = 7 - abs(i % 8 * 2 - 7) / 2 - abs(i / 8 * 2 - 7) / 2;
+            n += side(v) * (val[abs(v)] + (abs(v) == 1  ? (v > 0 ? 6 - i / 8 : i / 8 - 1) * 5
+                                           : abs(v) < 4 ? center * 5
+                                                        : 0));
+        }
+    }
+    return n * p->turn;
+}
+static int chess_search(const ChessPosition *p, int depth, int alpha, int beta) {
+    if (!depth || ++chess_nodes > 3500)
+        return chess_eval(p);
+    int best = -30000, moves = 0;
+    for (int captures = 1; captures >= 0; captures--)
+        for (int f = 0; f < 64; f++)
+            if (side(p->b[f]) == p->turn)
+                for (int t = 0; t < 64; t++) {
+                    if ((p->b[t] != 0) != captures || !chess_pseudo(p, f, t) ||
+                        !chess_legal(p, f, t))
+                        continue;
+                    moves++;
+                    ChessPosition q = *p;
+                    chess_apply(&q, f, t, 5);
+                    int score = -chess_search(&q, depth - 1, -beta, -alpha);
+                    if (score > best)
+                        best = score;
+                    if (score > alpha)
+                        alpha = score;
+                    if (alpha >= beta)
+                        return alpha;
+                }
+    return moves ? best : chess_check(p, p->turn) ? -29000 - depth : 0;
+}
+static void computer_move(void) {
+    if(!chess_computer || chess.turn!=-1 || chess_drawn())return;
+    chess_nodes=0;
+    int move[2]={-1,-1},best=-40000;
+    for(int from=0;from<64;from++) {
+        if(side(chess.b[from])!=chess.turn)continue;
+        for(int to=0;to<64;to++) {
+            if(!chess_legal(&chess,from,to))continue;
+            ChessPosition next=chess;
+            chess_apply(&next,from,to,5);
+            int score=-chess_search(&next,2,-30000,30000);
+            if(score>best){best=score;move[0]=from;move[1]=to;}
+        }
+    }
+    if(move[0]<0)return;
+    if(chess_history<256)chess_undo[chess_history++]=chess;
+    chess_apply(&chess,move[0],move[1],5);
+    chess_store();
+}
+int main(void){load();lumen_run(draw,input,NULL);return 0;}

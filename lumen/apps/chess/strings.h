@@ -1,0 +1,17 @@
+static const struct {const char *key,*values[3];} strings[]={
+{" · Check",{" · Check"," · Check"," · Échec"}},
+{"Abbrechen",{"Abbrechen","Cancel","Annuler"}},
+{"Computer",{"Computer","Computer","Ordinateur"}},
+{"Computer denkt …",{"Computer denkt …","Computer is thinking …","L’ordinateur réfléchit…"}},
+{"Figuren drehen",{"Figuren drehen","Rotate pieces","Tourner les pièces"}},
+{"Multiplayer",{"Multiplayer","Two players","Deux joueurs"}},
+{"Neue Partie",{"Neue Partie","New game","Nouvelle partie"}},
+{"Patt",{"Patt","Stalemate","Pat"}},
+{"Remis",{"Remis","Draw","Nulle"}},
+{"Schach",{"Schach","Chess","Échecs"}},
+{"Schachmatt",{"Schachmatt","Checkmate","Échec et mat"}},
+{"Schwarz am Zug",{"Schwarz am Zug","Black to move","Aux noirs de jouer"}},
+{"Umwandlung",{"Umwandlung","Promotion","Promotion"}},
+{"Weiß am Zug",{"Weiß am Zug","White to move","Aux blancs de jouer"}},
+{"Zug zurück",{"Zug zurück","Undo move","Annuler le coup"}},
+};

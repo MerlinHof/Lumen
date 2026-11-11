@@ -88,19 +88,14 @@ static void quality_tests(void) {
     assert(app_package_installed(APP_SOLITAIRE));
     route_to(119);
     assert(game_help_x() == 408);
-    /* First render populates, repeated render reuses, activation invalidates. */
+    /* Forecast data reaches the package through the bounded cache service. */
     extra_write_text("weather.json",
                      "{\"current\":{\"temperature_2m\":18,\"weather_code\":0,\"apparent_"
                      "temperature\":17,\"wind_speed_10m\":4,\"is_day\":1},\"daily\":{}}");
     route_to(32);
-    extra_prepare(32);
+    settle_app();
+    assert(strstr(app_process_frame(),"18 °C"));
     ui_draw();
-    assert(weather_snapshot_valid && weather_snapshot);
-    char *snapshot = weather_snapshot;
-    ui_draw();
-    assert(snapshot == weather_snapshot);
-    extra_prepare(32);
-    assert(!weather_snapshot_valid);
     route_to(27);editor_ui.keyboard=0;alarm_ring=power_menu=0;
     ui_message("Notification test");
     for(int i=0;i<100 && !notification_visible();i++){usleep(5000);notification_poll();}
@@ -139,5 +134,5 @@ static void quality_tests(void) {
     fake.modified++;assert(!library_import_path(&fake,imported,sizeof(imported)));
     unlink(source);
     puts("PASS quality: 100 pixel-identical clipped text cases, shared row geometry, exact cover "
-         "cache/invalidation, non-overlapping game actions and weather snapshot lifecycle.");
+         "cache/invalidation, non-overlapping game actions and weather package cache bridge.");
 }
