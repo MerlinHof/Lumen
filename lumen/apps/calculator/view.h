@@ -73,8 +73,8 @@ static const char *calc_label(const char *key) {
         return "−";
     return key;
 }
-static void calc_key(int x, int y, int w, int h, const char *label) {
-    region(x, y, w, h);
+static void calc_key(const char *id,int x, int y, int w, int h, const char *label) {
+    lumen_custom_action(id,x,y,w,h);
     key_outline(x, y, w, h);
     centered(x, y, w, h, label, ui_font(UI_PRIMARY));
 }
@@ -84,8 +84,8 @@ static int calc_function_left(void) {
 static int calc_function_pitch(void) {
     return 63;
 }
-static void calc_function_key(int x, int y, const char *key) {
-    region(x, y, 57, 44);
+static void calc_function_key(const char *id,int x, int y, const char *key) {
+    lumen_custom_action(id,x,y,57,44);
     key_outline(x, y, 57, 44);
     if (!strcmp(key, "1/")) {
         centered(x, y + 3, 57, 16, "1", ui_font(UI_SECONDARY));
@@ -122,15 +122,14 @@ static void calc_function_key(int x, int y, const char *key) {
 static void app_calculator(void) {
     calc_alt = !!calc_alt;
     heading_actions("Rechner", 3);
-    icon_button(408, 74, IC_GRAPH);
-    icon_button(468, 74, IC_HISTORY);
-    icon_button(528, 74, IC_SETTINGS);
+    lumen_icon_action("graph",408,74,IC_GRAPH);
+    lumen_icon_action("history",468,74,IC_HISTORY);
+    lumen_icon_action("settings",528,74,IC_SETTINGS);
 
     key_outline(28, 132, 544, 216);
     key_outline(28, 361, 498, 52);
-    region(536, 365, 36, 44);
-    icon(532, 365, IC_DELETE);
-    lumen_editor_line(43,361,468,52,calc_expr,calc_cursor);
+    lumen_icon_action("erase",528,365,IC_DELETE);
+    lumen_editor_action("expression-input",43,361,468,52,calc_expr,calc_cursor);
     if (calc_memory != 0)
         drawtext(525, 145, "M", ui_font(UI_SECONDARY), 30);
     lumen_formula(43,140,514,150,calc_expr);
@@ -141,15 +140,16 @@ static void app_calculator(void) {
         lumen_text(43,288,514,54,value,PAINT_DISPLAY,0,0);
     }
     const char **top = calc_alt ? calc_all1 : calc_all0;
-    icon_button(calc_alt ? 20 : 536, 454, calc_alt ? IC_PREV : IC_NEXT);
-    for (int i = 0; i < 16; i++)
-        calc_function_key(calc_function_left() + (i % 8) * calc_function_pitch(),
-                          429 + (i / 8) * 51, top[i]);
-    for (int i = 0; i < 16; i++)
-        calc_key(28 + (i % 4) * 108, 540 + (i / 4) * 62, 100, 56, calc_label(calc_digits[i]));
-    calc_key(460, 540, 112, 56, "±");
-    calc_key(460, 602, 112, 56, "AC");
-    filled_button(460, 664, 112, 118, "=", ui_font(UI_PRIMARY));
+    lumen_icon_action("functions",calc_alt ? 20 : 536,454,calc_alt ? IC_PREV : IC_NEXT);
+    for (int i=0;i<16;i++) {
+        char id[16];snprintf(id,sizeof(id),"function-%d",i);
+        calc_function_key(id,calc_function_left()+(i%8)*calc_function_pitch(),429+(i/8)*51,top[i]);
+        snprintf(id,sizeof(id),"digit-%d",i);
+        calc_key(id,28+(i%4)*108,540+(i/4)*62,100,56,calc_label(calc_digits[i]));
+    }
+    calc_key("sign",460,540,112,56,"±");
+    calc_key("clear",460,602,112,56,"AC");
+    lumen_button_action("equals",460,664,112,118,"=",1);
 }
 static void app_calc_history(void) {
     heading("Rechenverlauf");
@@ -159,7 +159,8 @@ static void app_calc_history(void) {
             break;
         int y = 145 + r * 64;
         lumen_wrapped(31,y+7,540,54,calc_history[i],PAINT_BODY,2);
-        ui_paint_hitbox(28,y,544,64);
+        char id[16];snprintf(id,sizeof(id),"history-%d",r);
+        lumen_custom_action(id,28,y,544,64);
         ui_paint_line(28,y+63,572,y+63,1,185);
     }
     lumen_pager(679,extra_page, (calc_history_count + 7) / 8);

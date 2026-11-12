@@ -2,8 +2,7 @@
 #define LUMEN_SERVICES_H
 #include <stddef.h>
 enum {
-    SERVICE_WEATHER = 1,
-    SERVICE_HA,
+    SERVICE_HA = 2,
     SERVICE_TOGGLE,
     SERVICE_TIME,
     SERVICE_WIKI_IMAGE,

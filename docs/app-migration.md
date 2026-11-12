@@ -129,7 +129,10 @@ comparison on the same Kindle against 6.0.
 The runtime supports manifest-declared operations in temporary package workers.
 Study's material enumeration and Languages' written grading run in their own
 packages. Home, Study and Languages handle ordinary actions through semantic
-components. Study's uploads are still stored in the existing transfer directory,
+components. Calculator, Clock, Reading Statistics, Weather and Reader also
+use semantic controls for their standard actions. The Calculator caret uses
+a shared editor control, and Weather owns its network job, forecast parsing and
+cache. Study's uploads are still stored in the existing transfer directory,
 and opening an uploaded document still uses a host bridge. Notes, Reader,
 Settings and the other host handlers in the table still need extraction.
 

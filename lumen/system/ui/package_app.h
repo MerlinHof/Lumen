@@ -71,13 +71,13 @@ static const char *package_labels[48];
 static void package_ui_choice(int choice){char event[128];snprintf(event,sizeof(event),"{\"event\":\"select\",\"action\":%d,\"value\":%d}",package_select_action,choice);app_process_send(event);}
 typedef struct {
     int left,top,width,height,kind,checked,count;
-    char id[64],label[120],value[512];
+    char id[64],label[120],value[1024];
 } PackageComponent;
 enum { PACKAGE_COMPONENT_LIMIT=64 };
 static PackageComponent package_components[PACKAGE_COMPONENT_LIMIT];
 static int package_component_count,package_component_layout,package_component_top;
 static char package_focused_component[64];
-enum { COMPONENT_BUTTON, COMPONENT_FIELD, COMPONENT_TOGGLE, COMPONENT_CHECKBOX, COMPONENT_SEGMENTS, COMPONENT_FLOW };
+enum { COMPONENT_BUTTON, COMPONENT_FIELD, COMPONENT_TOGGLE, COMPONENT_CHECKBOX, COMPONENT_SEGMENTS, COMPONENT_FLOW, COMPONENT_EDITOR_LINE };
 static void package_component_event(const char *id,const char *gesture,const char *text) {
     char *message=NULL;size_t length=0;
     FILE *out=open_memstream(&message,&length);
@@ -95,6 +95,20 @@ static int package_line_start(const char *text,int cursor,int width) {
     return text_visible_start(text,text_boundary(text,cursor<0 ? 0 : (size_t)cursor),
                               ui_font(UI_BODY),width,0);
 }
+static int package_line_offset(const PackageComponent *component,int x) {
+    const Font *font=ui_font(UI_BODY);
+    const char *value=component->value;
+    const char *at=value+package_line_start(value,component->checked,component->width);
+    int width=0;
+    while(*at) {
+        const char *next=at;
+        int advance=glyph_advance(font,glyph(&next));
+        if(x<width+advance/2)break;
+        width+=advance;
+        at=next;
+    }
+    return (int)(at-value);
+}
 static void package_editor_line(int x,int y,int w,int h,const char *text,int cursor) {
     cursor=text_boundary(text,cursor<0 ? 0 : (size_t)cursor);
     int start=package_line_start(text,cursor,w),height;
@@ -104,7 +118,10 @@ static void package_editor_line(int x,int y,int w,int h,const char *text,int cur
     char prefix[2048];
     snprintf(prefix,sizeof(prefix),"%.*s",cursor-start,text+start);
     int caret=x+textwidth(prefix,ui_font(UI_BODY));
-    if(caret<x+w)text_caret(caret,baseline,ui_font(UI_BODY));
+    if(caret<x+w) {
+        package_caret_visible=1;
+        text_caret(caret,baseline,ui_font(UI_BODY));
+    }
 }
 static void package_paint_frame(const char *text) {
     Json j;if(!json_parse(&j,text,package_tokens,32768))return;
@@ -135,6 +152,22 @@ static void package_paint_frame(const char *text) {
             ListLayout row=list_row(28,y,544,h,-1,62,label,detail,ui_font(UI_PRIMARY),1);
             icon(526,row.action_y,icon_id);
             package_component_count++;
+            continue;
+        }
+        if(!strcmp(type,"select_action") || !strcmp(type,"custom_action")) {
+            int selector=!strcmp(type,"select_action");
+            if(x<0 || y<STATUS_HEIGHT || w<44 || h<44 || x+w>WIDTH || y+h>HEIGHT ||
+               package_component_count>=PACKAGE_COMPONENT_LIMIT)continue;
+            PackageComponent *component=&package_components[package_component_count];
+            json_string(&j,json_get(&j,item,"id"),component->id,sizeof(component->id));
+            if(!*component->id)continue;
+            component->left=x;component->top=y;component->width=w;component->height=h;
+            component->kind=COMPONENT_BUTTON;package_component_count++;
+            if(selector) {
+                char value[256];
+                json_string(&j,json_get(&j,item,"value"),value,sizeof(value));
+                select_row17(y,label,value);
+            } else region(x,y,w,h);
             continue;
         }
         if(!strcmp(type,"icon_action") || !strcmp(type,"button_action")) {
@@ -317,8 +350,20 @@ static void package_paint_frame(const char *text) {
         }
         else if(!strcmp(type,"heading"))heading_actions(label,package_value(&j,item,"actions"));
         else if(!strcmp(type,"formula") && strlen(label)<1024)math_formula(label,x,y,w,h);
-        else if(!strcmp(type,"editor_line") && strlen(label)<1024)
-            package_editor_line(x,y,w,h,label,package_value(&j,item,"cursor"));
+        else if(!strcmp(type,"editor_line") && strlen(label)<1024) {
+            int cursor=package_value(&j,item,"cursor");
+            package_editor_line(x,y,w,h,label,cursor);
+            if(x>=0 && x+w<=WIDTH && y+h<=HEIGHT && w>=44 && h>=44 &&
+               package_component_count<PACKAGE_COMPONENT_LIMIT) {
+                PackageComponent *component=&package_components[package_component_count];
+                json_string(&j,json_get(&j,item,"id"),component->id,sizeof(component->id));
+                if(*component->id) {
+                    component->left=x;component->top=y;component->width=w;component->height=h;
+                    component->kind=COMPONENT_EDITOR_LINE;component->checked=cursor;
+                    strcpy(component->value,label);package_component_count++;
+                }
+            }
+        }
         else if(!strcmp(type,"text")) {
             int role=package_value(&j,item,"role");
             static const TextRole roles[]={UI_BODY,UI_HEADING,UI_DISPLAY,UI_SECONDARY,UI_TITLE};
@@ -439,12 +484,13 @@ static void package_ui_draw(void) {
     static unsigned char status_bar[600*STATUS_HEIGHT];
     memcpy(status_bar,ui_pixels,sizeof(status_bar));
     const char*text=app_process_frame();
-    if(!*text) {heading(app_definition(app_for_route(ui_route()))->name);centered(28,340,544,60,*app_process_error()?tr(app_process_error()):tr("App wird geöffnet …"),ui_font(UI_BODY));return;}
+    if(app_process_frame_loading()) {heading(app_definition(app_for_route(ui_route()))->name);centered(28,340,544,60,*app_process_error()?tr(app_process_error()):tr("App wird geöffnet …"),ui_font(UI_BODY));return;}
     package_paint_frame(text);
     if(!package_fullscreen)memcpy(ui_pixels,status_bar,sizeof(status_bar));
     if(!package_document_visible && app_for_route(ui_route())==APP_READER)reader_ui.reader_chrome=0;
 }
 static int package_ui_input(const Input*in) {
+    if(app_process_frame_loading())return 2;
     if(in->kind!=INPUT_TAP && in->kind!=INPUT_SWIPE && in->kind!=INPUT_HOLD)return 2;
     if(in->kind==INPUT_TAP || in->kind==INPUT_HOLD) {
         for(int i=0;i<package_component_count;i++) {
@@ -459,6 +505,12 @@ static int package_ui_input(const Input*in) {
             }
             if(in->kind==INPUT_HOLD) {
                 package_component_event(component->id,"long_pressed",NULL);
+                return 2;
+            }
+            if(component->kind==COMPONENT_EDITOR_LINE) {
+                char offset[16];
+                snprintf(offset,sizeof(offset),"%d",package_line_offset(component,in->x-component->left));
+                package_component_event(component->id,"caret",offset);
                 return 2;
             }
             if(component->kind==COMPONENT_FIELD) {
@@ -575,12 +627,9 @@ static int package_ui_poll(void) {
     uint64_t serial=app_process_frame_serial();
     if(serial!=timer_frame && app_package_installed(app_for_route(ui_route()))) {
         timer_frame=serial;
-        Json frame;
-        if(json_parse(&frame,app_process_frame(),package_tokens,32768)) {
-            int tick=package_value(&frame,0,"tick");
-            package_deadline=tick>=20 && tick<=60000 ? extra_millis()+tick : 0;
-            package_timer_owner=app_for_route(ui_route());
-        }
+        int tick=app_process_frame_tick();
+        package_deadline=tick>=20 && tick<=60000 ? extra_millis()+tick : 0;
+        package_timer_owner=app_for_route(ui_route());
     }
     if(changed && editor_ui.keyboard && (editor_ui.keyboard_target==2000 || editor_ui.keyboard_target==2002))editor_ui.keyboard_background_valid18=0;
     if(changed && *app_process_error())ui_message(app_process_error());

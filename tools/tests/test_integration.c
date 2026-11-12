@@ -29,12 +29,23 @@ static void shot17(const char *n) {
 #include "test_input_ui.h"
 #include "test_improvements.h"
 #include "test_quality.h"
+static void test_package_surfaces(void) {
+    memset(ui_pixels,255,WIDTH*HEIGHT);
+    package_paint_frame("{\"ui\":["
+        "{\"type\":\"surface\",\"x\":30,\"y\":100,\"w\":80,\"h\":50,\"radius\":10,\"gray\":255,\"outline\":105},"
+        "{\"type\":\"surface\",\"x\":120,\"y\":100,\"w\":80,\"h\":50,\"radius\":8,\"gray\":215,\"outline\":215},"
+        "{\"type\":\"surface\",\"x\":210,\"y\":100,\"w\":80,\"h\":50,\"radius\":8,\"gray\":255,\"outline\":2}]}");
+    assert(ui_pixels[125*WIDTH+30]==105 && ui_pixels[125*WIDTH+32]==255);
+    assert(ui_pixels[125*WIDTH+120]==theme_gray(215) && ui_pixels[125*WIDTH+150]==theme_gray(215));
+    assert(ui_pixels[125*WIDTH+210]==0 && ui_pixels[125*WIDTH+212]==255);
+}
 int main(int argc, char **argv) {
     (void)argv;
     library_root = "build/tests/fixtures";
     data_root = "build/tests/test-data";
     mkdir(data_root, 0700);
     assert(engine_init());
+    test_package_surfaces();
     assert(atomic_write("build/tests/test-data/photo-default-seeded","1",1));
     ui_init();
     for(int i=0;i<200 && !keyboard_layout_serial;i++){usleep(3000);keyboard_package_poll();}
@@ -87,6 +98,8 @@ int main(int argc, char **argv) {
     shot17("todo");
     route_to(27);
     settle_app();
+    ui_draw();
+    assert(ui_pixels[245*WIDTH+28]==105 && ui_pixels[245*WIDTH+33]==255);
     tap17(550,95);
     shot17("calc-settings");
     tap17(400, 225);
@@ -146,12 +159,12 @@ int main(int argc, char **argv) {
     shot17("llm");
     reader_markdown17("Markdown test", "# Heading\n\nA **bold** paragraph.\n\n- One\n- Two\n", 122);
     assert(ui_route() == 2 && reader_ui.reader_document_active);
-    settle_app();ui_draw();tap17(300,55);
+    settle_app();ui_draw();tap17(300,70);
     assert(reader_ui.reader_chrome);shot17("reader");
     int page_before=page;
     tap17(300,300);
     assert(!reader_ui.reader_chrome && page==page_before);
-    tap17(300,55);assert(reader_ui.reader_chrome);
+    tap17(300,70);assert(reader_ui.reader_chrome);
     tap17(550,95);assert(ui_route()==2 && strstr(app_process_frame(),"Schriftfamilie"));
     tap17(314,766);
     assert(strstr(app_process_frame(),"Lesefortschritt"));
@@ -245,12 +258,18 @@ int main(int argc, char **argv) {
     tap17(450,156);assert(ui_route()==71 && package_fullscreen);
     app_process_send("{\"event\":\"tick\"}");settle_app();
     tap17(300,300);assert(ui_route()==71 && !package_fullscreen && photo_folder==1);
+    route_to(22);settle_app();ui_draw();
+    assert(ui_pixels[250*WIDTH+28]==115 && ui_pixels[250*WIDTH+34]==255);
+    route_to(71);settle_app();
     options[OPT_DATE] = options[OPT_CLOCK] = 1;
     ui_draw();
     for(int i=0;i<100 && !status_ui.status_date_w;i++){usleep(3000);status_overlay_poll();ui_draw();}
     assert(status_ui.status_date_w && status_ui.status_clock_w);
     tap17(status_ui.status_clock_x + 10, 20);
     assert(ui_route() == 28 && strstr(app_process_frame(),"selected\":0"));
+    tap17(480,95);
+    assert(strstr(app_process_frame(),"\"selected\":2") &&
+           ui_pixels[400*WIDTH+28]==105 && ui_pixels[400*WIDTH+34]==255);
     tap17(20, 20);
     assert(ui_route() == 71);
     tap17(status_ui.status_date_x + 10, 20);
@@ -350,7 +369,7 @@ int main(int argc, char **argv) {
     tap17(drop_x+70,drop_y+5+48+23);
     assert(options[OPT_LOCK]==5 && !dropdown);
     route_to(1);
-    ui_draw();
+    settle_app();ui_draw();
     tap17(550,83);
     assert(ui_route() == 1 && strstr(app_process_frame(),"Sortierung"));
 

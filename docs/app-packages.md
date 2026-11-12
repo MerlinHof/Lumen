@@ -194,7 +194,7 @@ accepts an empty string and returns the count of locally available documents.
 
 The app starts in a separate process with its own data and assets, and receives
 `service_call` without foreground initialization. The runtime closes the worker
-after its reply, on failure, when the caller leaves, or after ten seconds.
+after its reply, on failure, when the caller leaves, or after thirty seconds.
 There is one in-flight worker at a time. Handlers should perform bounded work
 and coordinate any shared writes with their foreground or overlay instance.
 
@@ -209,3 +209,13 @@ Use `lumen_button_action` for a button that needs explicit placement and
 `lumen_app_tile_action` for an interactive app tile. Both report stable
 component IDs. The app tile also reports long presses. Standard app controls
 should handle those events instead of repeating hit geometry in input handlers.
+
+`lumen_editor_action` emits a `caret` gesture with a UTF-8 byte offset.
+`lumen_select_action` emits a named click from a shared selector row.
+`lumen_custom_action` adds semantic interaction and feedback to artwork with
+custom rendering, such as a calculator function key. Plot sampling and other
+position-dependent content interactions can still receive raw coordinates.
+
+`lumen_https_get` from `lumen_http.h` performs a bounded HTTPS GET from a
+package worker using the device's curl and trusted CA bundle. Weather uses
+this in its own `refresh_forecast` operation.

@@ -26,7 +26,7 @@ static const char *keys[APP_COUNT]={
 static struct {AppDefinition def;char key[64],name[96],version[32];int installed,removed,has_icon;} entries[APP_LIMIT];
 typedef struct {
     pid_t child;
-    int read_fd,write_fd,active,paused,frame_back,frame_ready;
+    int read_fd,write_fd,active,paused,frame_back,frame_ready,frame_tick,frame_loading;
     size_t incoming_n,pending_n;
     uint64_t frame_serial, generation;
     char process_hash[65],pending[65536],incoming[APP_FRAME_MAX],frame[APP_FRAME_MAX];
@@ -182,7 +182,7 @@ static void json_text(FILE*f,const char*s){fputc('"',f);for(;*s;s++){unsigned ch
 static void process_close(AppProcess *p) {
  if(p->child>0){kill(-p->child,SIGTERM);kill(p->child,SIGTERM);waitpid(p->child,NULL,WNOHANG);}
  if(p->child>0 && waitpid(p->child,NULL,WNOHANG)==0)for(int i=0;i<64;i++)if(!retired[i]){retired[i]=p->child;break;}
- p->child=0;if(p->read_fd>=0)close(p->read_fd);if(p->write_fd>=0)close(p->write_fd);p->read_fd=p->write_fd=-1;p->active=-1;p->frame[0]=p->request[0]=p->failure[0]=0;p->incoming_n=p->pending_n=0;p->frame_back=p->frame_ready=0;
+ p->child=0;if(p->read_fd>=0)close(p->read_fd);if(p->write_fd>=0)close(p->write_fd);p->read_fd=p->write_fd=-1;p->active=-1;p->frame[0]=p->request[0]=p->failure[0]=0;p->incoming_n=p->pending_n=0;p->frame_back=p->frame_ready=p->frame_tick=p->frame_loading=0;
 }
 static void flush_events(AppProcess *p) {
  while(p->write_fd>=0 && p->pending_n){ssize_t n=write(p->write_fd,p->pending,p->pending_n);if(n<=0)break;memmove(p->pending,p->pending+n,p->pending_n-n);p->pending_n-=n;}
@@ -192,6 +192,25 @@ static int process_send(AppProcess *p,const char*event) {
  memcpy(p->pending+p->pending_n,event,n);p->pending_n+=n;p->pending[p->pending_n++]='\n';flush_events(p);return 1;
 }
 static void process_pause(AppProcess *p){if(p->child>0&&!p->paused){process_send(p,"{\"event\":\"pause\"}");p->paused=1;}}
+static void close_inherited_fds(void) {
+#ifdef __linux__
+    DIR *directory=opendir("/proc/self/fd");
+#else
+    DIR *directory=opendir("/dev/fd");
+#endif
+    if(!directory) {
+        for(int fd=3;fd<1024;fd++)close(fd);
+        return;
+    }
+    int own=dirfd(directory);
+    struct dirent *entry;
+    while((entry=readdir(directory))) {
+        char *end;
+        long fd=strtol(entry->d_name,&end,10);
+        if(!*end && fd>=3 && fd<=INT_MAX && fd!=own)close((int)fd);
+    }
+    closedir(directory);
+}
 static int process_open(AppProcess *p,AppId id,const char *role) {
  if(!app_package_installed(id))return 0;
  if(p->active==(int)id&&p->child>0){if(p->paused)process_send(p,"{\"event\":\"resume\"}");p->paused=0;return 1;}
@@ -222,7 +241,12 @@ static int process_open(AppProcess *p,AppId id,const char *role) {
  package_sha256(file,p->process_hash);
  p->child=fork();if(p->child<0){p->child=0;close(in[0]);close(in[1]);close(out[0]);close(out[1]);return 0;}
  if(!p->child){setpgid(0,0);signal(SIGTERM,SIG_DFL);signal(SIGPIPE,SIG_DFL);dup2(in[0],0);dup2(out[1],1);close(in[0]);close(in[1]);close(out[0]);close(out[1]);
-   int null=open("/dev/null",O_WRONLY);dup2(null,2);close(null);for(int fd=3;fd<1024;fd++)close(fd);chdir(dir);setenv("LUMEN_APP_DATA",state,1);setenv("LUMEN_APP_ASSETS",dir,1);setenv("LUMEN_LEGACY_DATA",old_state,1);execl(file,file,NULL);_exit(127);}
+   int null=open("/dev/null",O_WRONLY);dup2(null,2);close(null);close_inherited_fds();chdir(dir);setenv("LUMEN_APP_DATA",state,1);setenv("LUMEN_APP_ASSETS",dir,1);setenv("LUMEN_LEGACY_DATA",old_state,1);
+   char ca[2048];
+   int ca_length=snprintf(ca,sizeof(ca),"%s/../certs/ca-bundle.pem",old_state);
+   if(*old_state && ca_length>0 && (size_t)ca_length<sizeof(ca) && !access(ca,R_OK))
+       setenv("CURL_CA_BUNDLE",ca,0);
+   execl(file,file,NULL);_exit(127);}
  close(in[0]);close(out[1]);p->write_fd=in[1];p->read_fd=out[0];fcntl(p->write_fd,F_SETFL,O_NONBLOCK);fcntl(p->read_fd,F_SETFL,O_NONBLOCK);fcntl(p->write_fd,F_SETFD,FD_CLOEXEC);fcntl(p->read_fd,F_SETFD,FD_CLOEXEC);
  p->active=id;p->paused=0;p->generation=++process_generation;
  if(p==service)return 1;
@@ -251,6 +275,10 @@ static int process_poll(AppProcess *p) {
            } else if(p!=service) {
                p->frame_back=wire_true("back");
                p->frame_ready=wire_true("ready");
+               p->frame_tick=lumen_number("tick");
+               const WireField *ready=wire_get("ready");
+               p->frame_loading=ready && ready->end-ready->value==5 &&
+                   !memcmp(ready->value,"false",5);
                p->frame_serial=++frame_serial;
                if(strcmp(p->frame,p->incoming)) {
                    memcpy(p->frame,p->incoming,p->incoming_n+1);
@@ -277,7 +305,7 @@ static int process_poll(AppProcess *p) {
  return changed;
 }
 
-enum { SERVICE_TIMEOUT_MS=10000, SERVICE_DATA_MAX=4096 };
+enum { SERVICE_TIMEOUT_MS=30000, SERVICE_DATA_MAX=4096 };
 static int64_t service_now(void) {
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC,&now);
@@ -394,6 +422,8 @@ int app_process_send(const char *event){return process_send(&foreground,event);}
 int app_process_poll(void){return process_poll(&foreground);}
 int app_process_frame_back(void){return foreground.frame_back;}
 int app_process_frame_ready(void){return foreground.frame_ready;}
+int app_process_frame_tick(void){return foreground.frame_tick;}
+int app_process_frame_loading(void){return foreground.frame_loading || !*foreground.frame;}
 const char *app_process_frame(void){return foreground.frame;}
 uint64_t app_process_frame_serial(void){return foreground.frame_serial;}
 const char *app_process_request(void){

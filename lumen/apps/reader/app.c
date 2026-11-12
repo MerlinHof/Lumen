@@ -61,15 +61,19 @@ static void draw_settings(void) {
     for(int row=0;row<8 && settings_page*8+row<10;row++) {
         int id=settings_page*8+row,y=155+row*68,n=0;
         const char **options=choices(id,&n);
-        if(options)lumen_select_row(y,setting_label(id),options[preferences[id]>=0 && preferences[id]<n ? preferences[id] : 0]);
+        char key[16];snprintf(key,sizeof(key),"setting-%d",id);
+        if(options)lumen_select_action(key,y,setting_label(id),options[preferences[id]>=0 && preferences[id]<n ? preferences[id] : 0]);
         else {
             lumen_text(30,y,351,48,setting_label(id),PAINT_BODY,0,1);
-            if(id==7)lumen_toggle(492,y+6,preferences[id]);
+            if(id==7) {
+                lumen_toggle(492,y+6,preferences[id]);lumen_custom_action(key,470,y,102,48);
+            }
             else {
                 char value[16];
                 if(id==2)snprintf(value,sizeof(value),"%.2f",preferences[id]/100.0);
                 else snprintf(value,sizeof(value),"%d",preferences[id]);
-                lumen_button(394,y,48,44,"−",0);lumen_button(524,y,48,44,"+",0);
+                snprintf(key,sizeof(key),"decrease-%d",id);lumen_button_action(key,394,y,48,44,"−",0);
+                snprintf(key,sizeof(key),"increase-%d",id);lumen_button_action(key,524,y,48,44,"+",0);
                 ui_paint_text(443,y,81,44,value,PAINT_BODY);
             }
             ui_paint_line(28,y+62,572,y+62,1,190);
@@ -82,15 +86,21 @@ static void draw(void) {
     if(view==SETTINGS){draw_settings();return;}
     if(view==CONTENTS) {
         ui_paint_heading(word("Inhalt","Contents","Sommaire"),1);
-        ui_paint_icon_button(528,74,IC_PIN);
+        if(confirm<0)lumen_icon_action("bookmark",528,74,IC_PIN);
         const char *tabs[]={word("Kapitel","Chapters","Chapitres"),word("Lesezeichen","Bookmarks","Signets"),
             word("Markierungen","Highlights","Surlignages")};
-        lumen_segments("contents",28,145,544,48,tabs,3,category);
+        if(confirm<0)lumen_segments("contents",28,145,544,48,tabs,3,category);
         for(int row=0;row<8 && list_page*8+row<count;row++) {
             int y=213+row*62;
             lumen_wrapped(30,y+5,category==2 ? 480 : 535,49,labels[row],PAINT_BODY,2);
-            if(category==2)ui_paint_icon_button(522,y+8,IC_TRASH);
-            ui_paint_hitbox(28,y,544,61);
+            if(confirm<0) {
+                char id[16];snprintf(id,sizeof(id),"entry-%d",row);
+                lumen_custom_action(id,28,y,category==2 ? 494 : 544,61);
+                if(category==2) {
+                    snprintf(id,sizeof(id),"delete-%d",row);
+                    lumen_icon_action(id,522,y+8,IC_TRASH);
+                }
+            }
             ui_paint_line(28,y+61,572,y+61,1,190);
         }
         if(!count)ui_paint_text(28,264,544,70,word("Noch keine Einträge.","No entries yet.","Aucune entrée."),PAINT_BODY);
@@ -98,23 +108,23 @@ static void draw(void) {
         if(confirm>=0) {
             ui_paint_surface(24,275,552,220,16,255,100);
             ui_paint_text(35,295,530,85,word("Markierung löschen?","Delete highlight?","Supprimer le surlignage ?"),PAINT_HEADING);
-            lumen_button(38,412,250,52,word("Abbrechen","Cancel","Annuler"),0);
-            lumen_button(312,412,250,52,word("Löschen","Delete","Supprimer"),1);
+            lumen_button_action("cancel",38,412,250,52,word("Abbrechen","Cancel","Annuler"),0);
+            lumen_button_action("remove",312,412,250,52,word("Löschen","Delete","Supprimer"),1);
         }
         return;
     }
     if(!total) {
         ui_paint_heading(word("Lesen","Reader","Lecture"),0);
-        lumen_button(28,298,544,54,word("Weiterlesen","Continue reading","Reprendre la lecture"),1);
-        lumen_button(28,369,544,54,word("Bibliothek","Library","Bibliothèque"),0);
+        lumen_button_action("resume",28,298,544,54,word("Weiterlesen","Continue reading","Reprendre la lecture"),1);
+        lumen_button_action("library",28,369,544,54,word("Bibliothek","Library","Bibliothèque"),0);
         return;
     }
     lumen_document_page(chrome);
     if(chrome) {
         ui_paint_surface(0,56,600,77,0,255,-1);
         lumen_text(28,74,420,44,title,PAINT_HEADING,0,1);
-        ui_paint_icon_button(468,74,IC_CONTENTS);
-        ui_paint_icon_button(528,74,IC_SETTINGS);
+        lumen_icon_action("contents",468,74,IC_CONTENTS);
+        lumen_icon_action("settings",528,74,IC_SETTINGS);
         ui_paint_line(0,130,599,130,1,174);
         return;
     }
@@ -130,6 +140,51 @@ static void draw(void) {
             ui_paint_line(28,787,28+543*(page+1)/total,787,3,0);
         }
     }
+}
+static int index_for(const char *id,const char *prefix) {
+    size_t n=strlen(prefix);
+    return !strncmp(id,prefix,n) && strlen(id)==n+1 && id[n]>='0' && id[n]<='9' ? id[n]-'0' : -1;
+}
+static int activate(const char *id) {
+    if(view==SETTINGS) {
+        int index=index_for(id,"setting-");
+        if(index>=0) {
+            int count=0;const char **options=choices(index,&count);
+            if(options)lumen_select(options,count,preferences[index],10+index);
+            else if(index==7)setting(index,!preferences[index]);
+        } else {
+            static const int step[]={0,2,5,3,0,4,2},low[]={0,16,110,0,0,0,0},
+                high[]={0,34,190,30,0,24,20};
+            int increase=index_for(id,"increase-"),decrease=index_for(id,"decrease-");
+            int index=increase>=0 ? increase : decrease;
+            if(index>=0 && index<7 && step[index]) {
+                int value=preferences[index]+step[index]*(increase>=0 ? 1 : -1);
+                if(value<low[index])value=low[index];
+                if(value>high[index])value=high[index];
+                setting(index,value);
+            }
+        }
+    } else if(view==CONTENTS) {
+        if(confirm>=0) {
+            if(!strcmp(id,"remove"))number("remove_annotation",confirm,3);
+            if(!strcmp(id,"remove") || !strcmp(id,"cancel"))confirm=-1;
+        } else if(!strcmp(id,"bookmark"))request("bookmark","",3);
+        else {
+            int row=index_for(id,"entry-"),remove=index_for(id,"delete-");
+            if(category==2 && remove>=0 && remove<8 && list_page*8+remove<count)confirm=positions[remove];
+            else if(row>=0 && row<8 && list_page*8+row<count) {
+                view=BOOK;chrome=lumen_back=0;
+                number(category==2 ? "annotation" : "goto",positions[row],1);
+            }
+        }
+    } else if(!total) {
+        if(!strcmp(id,"resume"))request("resume_book","",1);
+        else if(!strcmp(id,"library"))lumen_open("lumen.library");
+    } else if(chrome) {
+        if(!strcmp(id,"settings")){settings_page=0;show(SETTINGS);}
+        else if(!strcmp(id,"contents"))show(CONTENTS);
+    }
+    return 1;
 }
 static int input(const Input *in) {
     if(in->kind==INPUT_OPEN || in->kind==INPUT_RESUME || in->kind==INPUT_REFRESH){if(view==CONTENTS)contents();else state();return 1;}
@@ -160,52 +215,23 @@ static int input(const Input *in) {
         }
         return 1;
     }
-    if(in->kind==INPUT_COMPONENT && view==CONTENTS) {
-        char value[8];lumen_string("text",value,sizeof(value));
-        if(value[0]>='0' && value[0]<='2'){category=value[0]-'0';list_page=0;contents();}
+    if(in->kind==INPUT_COMPONENT) {
+        char id[24],gesture[24],value[8];
+        if(!lumen_string("id",id,sizeof(id)) || !lumen_string("gesture",gesture,sizeof(gesture)))return 0;
+        if(!strcmp(gesture,"clicked"))return activate(id);
+        if(view==CONTENTS && confirm<0 && !strcmp(id,"contents") && !strcmp(gesture,"selected") &&
+           lumen_string("text",value,sizeof(value)) && strlen(value)==1 && value[0]>='0' && value[0]<='2') {
+            category=value[0]-'0';list_page=0;contents();
+        }
         return 1;
     }
     if(in->kind==INPUT_SWIPE && view==BOOK && !chrome && total && preferences[7]){
         number("turn",in->dx<0 ? 1 : -1,1);return 1;
     }
-    if(in->kind!=INPUT_TAP)return 0;
-    int x=in->x,y=in->y;
-    if(view==SETTINGS) {
-        if(y>=155 && y<699) {
-            int row=(y-155)/68,id=settings_page*8+row;
-            if(id>=10 || (y-155)%68>=48)return 1;
-            int n=0;const char **options=choices(id,&n);
-            if(options){if(x>=360)lumen_select(options,n,preferences[id],10+id);}
-            else if(id==7){if(x>=484)setting(id,!preferences[id]);}
-            else {
-                int delta=x>=524 ? 1 : x>=394 && x<442 ? -1 : 0;
-                const int step[]={0,2,5,3,0,4,2},lo[]={0,16,110,0,0,0,0},hi[]={0,34,190,30,0,24,20};
-                int value=preferences[id]+step[id]*delta;
-                if(value<lo[id])value=lo[id];if(value>hi[id])value=hi[id];
-                if(delta)setting(id,value);
-            }
-        }
-    } else if(view==CONTENTS) {
-        if(confirm>=0) {
-            if(y>=412 && y<464){if(x>=312)number("remove_annotation",confirm,3);confirm=-1;}
-        } else if(y>=74 && y<118 && x>=528)request("bookmark","",3);
-        else if(y>=213 && y<709) {
-            int row=(y-213)/62;
-            if(list_page*8+row<count) {
-                if(category==2 && x>=522)confirm=positions[row];
-                else {view=BOOK;chrome=lumen_back=0;number(category==2 ? "annotation" : "goto",positions[row],1);}
-            }
-        }
-    } else if(!total) {
-        if(y>=298 && y<352)request("resume_book","",1);
-        else if(y>=369 && y<423)lumen_open("lumen.library");
-    } else if(chrome) {
-        if(y>=74 && y<118 && x>=468) {
-            if(x>=528){settings_page=0;show(SETTINGS);}
-            else show(CONTENTS);
-        } else chrome=0;
-    } else if(y<78 || y>=722)chrome=1;
-    else number("turn",x<(preferences[8] ? 80 : 200) ? -1 : 1,1);
+    if(in->kind!=INPUT_TAP || view!=BOOK || !total)return 0;
+    if(chrome)chrome=0;
+    else if(in->y<78 || in->y>=722)chrome=1;
+    else number("turn",in->x<(preferences[8] ? 80 : 200) ? -1 : 1,1);
     return 1;
 }
 int main(void){lumen_run(draw,input,NULL);return 0;}

@@ -49,7 +49,7 @@ static void overview(void) {
     metric(312,326,word("Lesesitzungen","Reading sessions","Séances de lecture"),line);
     progress_bar(28,456,544,(int)mins,goal);
     text(30,488,330,word("Mein Tagesziel","My daily goal","Mon objectif quotidien"),PAINT_BODY);
-    lumen_button(390,484,182,44,word("Ändern","Change","Modifier"),0);
+    lumen_button_action("goal",390,484,182,44,word("Ändern","Change","Modifier"),0);
     if(remaining>=0) {
         snprintf(line,sizeof(line),"%s: %d %s",word("Aktuelles Buch","Current book","Livre actuel"),
                  remaining,word("Seiten übrig","pages left","pages restantes"));
@@ -114,6 +114,10 @@ static int input(const Input *in) {
         if(!strcmp(id,"stats") && !strcmp(gesture,"selected") &&
            lumen_string("text",selection,sizeof(selection)) && strlen(selection)==1 &&
            selection[0]>='0' && selection[0]<='2'){tab=selection[0]-'0';page=0;fetch();}
+        if(!tab && !strcmp(id,"goal") && !strcmp(gesture,"clicked")) {
+            char value[16];snprintf(value,sizeof(value),"%d",goal);
+            lumen_request("input",word("Tagesziel: Minuten","Daily goal in minutes","Objectif quotidien en minutes"),value,3);
+        }
         return 1;
     }
     if(in->kind==INPUT_SERVICE && in->y) {
@@ -144,10 +148,6 @@ static int input(const Input *in) {
             if(!*end && value>=1 && value<=240){goal=(int)value;goal_saved=app_state_save("goal.bin",&goal,sizeof(goal));}
         }
         return 1;
-    }
-    if(in->kind==INPUT_TAP && !tab && in->x>=390 && in->x<572 && in->y>=484 && in->y<528) {
-        char value[16];snprintf(value,sizeof(value),"%d",goal);
-        lumen_request("input",word("Tagesziel: Minuten","Daily goal in minutes","Objectif quotidien en minutes"),value,3);
     }
     return 1;
 }

@@ -70,7 +70,6 @@ static int transfer_service(const char *operation,const char *data,int action) {
 }
 #include "annotation_service.h"
 #include "reading_service.h"
-#include "weather_service.h"
 #include "study_services.h"
 #include "clock_service.h"
 #include "recipe_service.h"
@@ -84,33 +83,8 @@ static int transfer_service(const char *operation,const char *data,int action) {
 #include "document_service.h"
 #include "notes_service.h"
 #include "settings_service.h"
-static int editor_caret_service(const char *data,int action) {
-    int x,cursor,offset=0;
-    if(sscanf(data,"%d %d %n",&x,&cursor,&offset)!=2 || !offset || strlen(data+offset)>1023)
-        return package_acknowledge(action,0);
-    const char *value=data+offset;
-    const Font *font=ui_font(UI_BODY);
-    const char *at=value+text_visible_start(value,
-        text_boundary(value,cursor<0 ? 0 : (size_t)cursor),font,468,0);
-    int width=0;
-    while(*at) {
-        const char *next=at;
-        int advance=glyph_advance(font,glyph(&next));
-        if(x<width+advance/2)break;
-        width+=advance;
-        at=next;
-    }
-    char *message=NULL;size_t length=0;
-    FILE *out=package_reply(&message,&length,action,1);
-    if(!out)return 0;
-    fprintf(out,",\"offset\":%d",(int)(at-value));
-    package_reply_end(out,&message);
-    return 1;
-}
 static int package_service_request(const char *name,const char *operation,const char *data,int action) {
-    if(!strcmp(name,"editor") && !strcmp(operation,"caret"))return editor_caret_service(data,action);
     if(!strcmp(name,"reading"))return package_reading_activity(operation,data,action);
-    if(!strcmp(name,"weather"))return package_weather(operation,data,action);
     if(!strcmp(name,"study_material"))return package_study_material(operation,data,action);
     if(!strcmp(name,"notes") && !strcmp(operation,"create_learning"))return package_learning_note(data,action);
     if(!strcmp(name,"clock")) {

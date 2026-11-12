@@ -62,7 +62,7 @@ static int package_ui_poll(void);
 static int package_exit_requested;
 static void package_ui_draw(void),package_clock_tick(void);
 static int package_clock_wait(void);
-static int package_fullscreen,package_document_visible;
+static int package_fullscreen,package_document_visible,package_caret_visible;
 static AppId package_fullscreen_owner=APP_COUNT;
 static int package_ui_input(const Input *);
 static int package_ui_commit(int target,const char *text);
@@ -1214,7 +1214,29 @@ void ui_update_progress(int step,int percent,const char *version,const char *err
         button_h(40,706,520,50,"Zurück",0);
     }
 }
+int ui_defer_app_frame(void) {
+    enum { LOADING_HINT_MS=120 };
+    static AppId waiting=-1;
+    static int64_t until;
+    AppId owner=app_for_route(ui_route());
+    if(updating || sleeping || editor_ui.keyboard || dropdown || !app_package_installed(owner) ||
+       *app_process_error() || !app_process_open(owner) || !app_process_frame_loading()) {
+        waiting=-1;
+        return 0;
+    }
+    if(waiting!=owner) {
+        waiting=owner;
+        until=extra_millis()+LOADING_HINT_MS;
+        widget_count=0;
+        package_caret_visible=0;
+        pressed=-1;
+    }
+    /* A ready frame wakes the event loop immediately. Only the fallback
+       loading screen has a threshold, so Back does not clear the old page. */
+    return extra_millis()<until;
+}
 void ui_draw(void) {
+    package_caret_visible=0;
     if(updating) {
         int percent=0,step=release_progress(&percent);
         ui_update_progress(step,percent,release_version(),update_error);
@@ -2032,8 +2054,18 @@ int ui_poll_interval(void) {
 void ui_paint_heading(const char *text, int actions) { heading_actions(text, actions); }
 void ui_paint_icon_button(int x, int y, int id) { icon_button(x, y, id); }
 void ui_paint_surface(int x,int y,int w,int h,int radius,int gray,int outline) {
-    control_surface(x,y,w,h,radius,outline ? 0 : gray);
-    if (outline) control_surface(x+outline,y+outline,w-2*outline,h-2*outline,radius-outline,gray);
+    /* Protocol 1 packs small black border widths and grayscale border tones
+       into one field. A tone is never an inset. */
+    if ((unsigned)gray > 255 || outline < -1 || outline > 255)
+        return;
+    if (outline <= 0 || outline == gray) {
+        control_surface(x,y,w,h,radius,gray);
+        return;
+    }
+    int width = outline <= 3 ? outline : 2;
+    int color = outline <= 3 ? 0 : outline;
+    control_surface(x,y,w,h,radius,color);
+    control_surface(x+width,y+width,w-2*width,h-2*width,radius-width,gray);
 }
 void ui_paint_hitbox(int x, int y, int w, int h) { region(x, y, w, h); }
 void ui_paint_text(int x, int y, int w, int h, const char *text, PaintText role) {

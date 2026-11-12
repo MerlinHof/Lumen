@@ -111,17 +111,17 @@ static const char *wire_value(const char *p,unsigned depth) {
     return wire_number(p);
 }
 typedef struct {char key[48];const char *value,*end;} WireField;
-static WireField wire_fields[160];
-static unsigned wire_count;
-static int wire_read(const char *p) {
-    wire_count=0;
+typedef struct {WireField fields[160];unsigned count;} WireObject;
+static WireObject wire_event;
+static int wire_read_object(WireObject *object,const char *p) {
+    object->count=0;
     p=wire_skip_space(p);
     if(*p++!='{')return 0;
     p=wire_skip_space(p);
     if(*p=='}')return !*wire_skip_space(p+1);
     for(;;) {
-        if(wire_count>=sizeof(wire_fields)/sizeof(*wire_fields))return 0;
-        WireField *field=&wire_fields[wire_count++];
+        if(object->count>=sizeof(object->fields)/sizeof(*object->fields))return 0;
+        WireField *field=&object->fields[object->count++];
         const char *key_start=p;
         p=wire_string(p,field->key,sizeof(field->key));
         if(!p)return 0;
@@ -136,9 +136,17 @@ static int wire_read(const char *p) {
         p=wire_skip_space(p+1);
     }
 }
-static const WireField *wire_get(const char *key) {
-    for(unsigned i=0;i<wire_count;i++)if(!strcmp(wire_fields[i].key,key))return &wire_fields[i];
+static inline const WireField *wire_object_get(const WireObject *object,const char *key) {
+    for(unsigned i=0;i<object->count;i++)
+        if(!strcmp(object->fields[i].key,key))return &object->fields[i];
     return NULL;
+}
+static inline int wire_read(const char *p) {return wire_read_object(&wire_event,p);}
+static inline const WireField *wire_get(const char *key) {return wire_object_get(&wire_event,key);}
+static inline int wire_field_string(const WireField *field,char *out,size_t cap) {
+    if(!cap)return 0;
+    out[0]=0;
+    return field && *field->value=='"' && wire_string(field->value,out,cap)==field->end;
 }
 static inline int wire_bounded_string(const char *key,char *out,size_t cap) {
     const WireField *field=wire_get(key);
@@ -155,8 +163,6 @@ static inline int lumen_number(const char *key) {
     return errno || end!=field->end || value<INT_MIN || value>INT_MAX ? 0 : (int)value;
 }
 static inline int lumen_string(const char *key,char *out,size_t cap) {
-    if(!cap)return 0;
-    out[0]=0;const WireField *field=wire_get(key);
-    return field && *field->value=='"' && wire_string(field->value,out,cap)==field->end;
+    return wire_field_string(wire_get(key),out,cap);
 }
 #endif

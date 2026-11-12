@@ -48,7 +48,6 @@ enum {UI_SECONDARY=PAINT_SECONDARY,UI_PRIMARY=PAINT_BODY,UI_BODY=PAINT_BODY};
 #define ui_font(role) (role)
 #define heading_actions(title,count) ui_paint_heading(tr(title),count)
 #define heading(title) ui_paint_heading(tr(title),0)
-#define region ui_paint_hitbox
 #define key_outline(x,y,w,h) ui_paint_surface(x,y,w,h,10,255,105)
 #define centered(x,y,w,h,text,role) ui_paint_text(x,y,w,h,tr(text),role)
 #define label_at(x,y,w,h,text,role) lumen_text(x,y,w,h,text,role,0,1)
@@ -57,10 +56,6 @@ enum {UI_SECONDARY=PAINT_SECONDARY,UI_PRIMARY=PAINT_BODY,UI_BODY=PAINT_BODY};
 #define wrapped(x,y,text,role,w,lines) lumen_wrapped(x,y,w,lines*28,tr(text),role,lines)
 #define rect(x,y,w,h,gray) ui_paint_surface(x,y,w,h,0,gray,-1)
 #define stroke(x,y,u,v,w) ui_paint_line(x,y,u,v,w,0)
-#define icon ui_paint_icon_button
-#define icon_button ui_paint_icon_button
-#define button_h(x,y,w,h,text,active) lumen_button(x,y,w,h,tr(text),active)
-#define filled_button(x,y,w,h,text,role) lumen_button(x,y,w,h,text,1)
 #include "view.h"
 #include "plots.h"
 
@@ -101,20 +96,98 @@ static void draw(void) {
     else if(page==SETTINGS) {
         char value[16];snprintf(value,sizeof(value),"%d",calc_precision16);
         heading(word("Rechner · Einstellungen","Calculator settings","Réglages de la calculatrice"));
-        lumen_select_row(203,word("Winkelmaß","Angle unit","Unité d’angle"),calc_degrees ? "DEG" : "RAD");
-        lumen_select_row(271,word("Ergebnisstellen","Significant digits","Chiffres significatifs"),value);
-        lumen_button(28,367,544,48,word("Verlauf löschen","Clear history","Effacer l’historique"),0);
+        lumen_select_action("angle",203,word("Winkelmaß","Angle unit","Unité d’angle"),calc_degrees ? "DEG" : "RAD");
+        lumen_select_action("precision",271,word("Ergebnisstellen","Significant digits","Chiffres significatifs"),value);
+        lumen_button_action("clear-history",28,367,544,48,word("Verlauf löschen","Clear history","Effacer l’historique"),0);
     } else app_calculator();
+}
+static int action_index(const char *id,const char *prefix,int count) {
+    size_t length=strlen(prefix);
+    if(strncmp(id,prefix,length) || !isdigit((unsigned char)id[length]))return -1;
+    char *end;long index=strtol(id+length,&end,10);
+    return *end || index<0 || index>=count ? -1 : (int)index;
+}
+static void function_key(const char *key) {
+    if (!strcmp(key,"M+")) {
+        double value;char error[80];
+        calc_memory+=calc_evaluate(calc_expr,calc_degrees,calc_answer,calc_memory,&value,error,sizeof(error))
+                     ? value : calc_answer;
+    } else if (!strcmp(key,"MC"))calc_memory=0;
+    else {
+        calc_insert(key);
+        if(isalpha((unsigned char)key[0]) && strcmp(key,"pi") && strcmp(key,"e") &&
+           strcmp(key,"ans") && strcmp(key,"mem") && strcmp(key,"x") && strcmp(key,"y"))
+            calc_insert("(");
+    }
+    persist();
+}
+static void graph_zoom(double factor) {
+    double cx=(plot_bounds[0]+plot_bounds[1])/2,cy=(plot_bounds[2]+plot_bounds[3])/2,
+           dx=(plot_bounds[1]-plot_bounds[0])*factor/2,dy=(plot_bounds[3]-plot_bounds[2])*factor/2;
+    if(dx>1e-9 && dx<1e12 && dy>1e-9 && dy<1e12) {
+        plot_bounds[0]=cx-dx;plot_bounds[1]=cx+dx;
+        plot_bounds[2]=cy-dy;plot_bounds[3]=cy+dy;
+    }
+}
+static int component(const char *id) {
+    if(page==SETTINGS) {
+        if(!strcmp(id,"angle")){const char *choices[]={"DEG","RAD"};lumen_select(choices,2,!calc_degrees,1);}
+        else if(!strcmp(id,"precision")) {
+            const char *choices[]={"6","10","15"};
+            lumen_select(choices,3,calc_precision16==6 ? 0 : calc_precision16==15 ? 2 : 1,2);
+        } else if(!strcmp(id,"clear-history")){calc_history_count=0;lumen_storage_write("calculator-history.txt","",0);}
+        return 1;
+    }
+    if(page==CALCULATOR) {
+        int function=action_index(id,"function-",16),digit=action_index(id,"digit-",16);
+        if(function>=0)function_key((calc_alt ? calc_all1 : calc_all0)[function]);
+        else if(digit>=0)calc_insert(calc_digits[digit]);
+        else if(!strcmp(id,"graph")) {
+            if(!*calc_expr)snprintf(calc_expr,sizeof(calc_expr),"sin(x)");
+            set_page(GRAPH);
+        } else if(!strcmp(id,"history")){extra_page=0;set_page(HISTORY);}
+        else if(!strcmp(id,"settings"))set_page(SETTINGS);
+        else if(!strcmp(id,"erase"))calc_backspace();
+        else if(!strcmp(id,"functions"))calc_alt^=1;
+        else if(!strcmp(id,"equals")){calc_run();persist();}
+        else if(!strcmp(id,"clear")){calc_expr[0]=calc_result[0]=calc_error[0]=0;calc_cursor=0;}
+        else if(!strcmp(id,"sign")) {
+            if(!*calc_expr)calc_insert("-");
+            else if(strlen(calc_expr)<sizeof(calc_expr)-4) {
+                char opposite[1024];
+                snprintf(opposite,sizeof(opposite),"-(%s)",calc_expr);
+                snprintf(calc_expr,sizeof(calc_expr),"%s",opposite);
+                calc_cursor=strlen(calc_expr);calc_preview();
+            }
+        }
+        return 1;
+    }
+    if(page==HISTORY) {
+        int row=action_index(id,"history-",8);
+        int index=calc_history_count-1-(extra_page*8+row);
+        if(row>=0 && index>=0) {
+            snprintf(calc_expr,sizeof(calc_expr),"%s",calc_history[index]);
+            calc_cursor=strlen(calc_expr);set_page(CALCULATOR);calc_preview();calc_error[0]=0;
+        }
+    } else if(page==GRAPH) {
+        if(!strcmp(id,"expression"))edit(80,"y = f(x)",calc_expr);
+        else if(!strcmp(id,"range"))set_page(RANGE);
+        else if(!strcmp(id,"auto-y"))graph_auto_y();
+        else if(!strcmp(id,"zoom-out"))graph_zoom(2);
+        else if(!strcmp(id,"zoom-in"))graph_zoom(.5);
+    } else if(page==RANGE) {
+        int bound=action_index(id,"bound-",4);
+        if(bound>=0) {
+            char value[80];snprintf(value,sizeof(value),"%.10g",plot_bounds[bound]);
+            edit(81+bound,"Graph-Bereich",value);
+        } else if(!strcmp(id,"done"))set_page(GRAPH);
+    }
+    return 1;
 }
 static int input(const Input *in) {
     if(in->kind==INPUT_OPEN){load();return 1;}
     if(in->kind==INPUT_BACK){set_page(page==RANGE ? GRAPH : CALCULATOR);return 1;}
     if(in->kind==INPUT_PAGE && page==HISTORY){extra_page=in->x;return 1;}
-    if(in->kind==INPUT_SERVICE && in->x==7 && in->y) {
-        int offset=lumen_number("offset");
-        calc_cursor=boundary(calc_expr,offset<0 ? 0 : (size_t)offset);
-        return 1;
-    }
     if(in->kind==INPUT_SELECT && page==SETTINGS) {
         if(in->x==1 && in->y>=0 && in->y<2)calc_degrees=in->y==0;
         if(in->x==2 && in->y>=0 && in->y<3)calc_precision16=(int[]){6,10,15}[in->y];
@@ -133,149 +206,25 @@ static int input(const Input *in) {
         }
         return 1;
     }
-    if(in->kind==INPUT_HOLD && page==CALCULATOR && in->x>=28 && in->x<526 && in->y>=361 && in->y<413){
-        edit(80,"Rechner",calc_expr);return 1;
-    }
-    if(in->kind!=INPUT_TAP)return 0;
-    int x=in->x,y=in->y;
-    if(page==SETTINGS) {
-        if(x>=360 && y>=203 && y<251){const char *choices[]={"DEG","RAD"};lumen_select(choices,2,!calc_degrees,1);}
-        else if(x>=360 && y>=271 && y<319){const char *choices[]={"6","10","15"};lumen_select(choices,3,calc_precision16==6 ? 0 : calc_precision16==15 ? 2 : 1,2);}
-        else if(y>=367 && y<415){calc_history_count=0;lumen_storage_write("calculator-history.txt","",0);}
-        return 1;
-    }
-    if (page == CALCULATOR) {
-        if (y >= 74 && y < 118 && x >= 408 && x < 460) {
-            if (!*calc_expr)
-                snprintf(calc_expr, sizeof(calc_expr), "sin(x)");
-            set_page(GRAPH);
-            return 1;
-        }
-        if (y >= 74 && y < 118 && x >= 460 && x < 516) {
-            extra_page=0;set_page(HISTORY);
-            return 1;
-        }
-        if(y>=74 && y<118 && x>=528){set_page(SETTINGS);return 1;}
-        if (y >= 361 && y < 413 && x >= 528) {
-            calc_backspace();
-            return 1;
-        }
-        if (y >= 361 && y < 413) {
-            char target[1100];
-            snprintf(target,sizeof(target),"%d %d %s",x-43,calc_cursor,calc_expr);
-            lumen_service("editor","caret",target,7);
-            return 1;
-        }
-        if (y >= 429 && y < 531 && x >= 28 && x < 572) {
-            if ((!calc_alt && x >= 534) || (calc_alt && x < 66)) {
-                calc_alt ^= 1;
-                return 1;
-            }
-            int r = (y - 429) / 51, c = (x - calc_function_left()) / calc_function_pitch();
-            if (c >= 0 && c < 8 && y < 429 + r * 51 + 44 &&
-                x < calc_function_left() + c * calc_function_pitch() + 57) {
-                const char *key = (calc_alt ? calc_all1 : calc_all0)[r * 8 + c];
-                if (!strcmp(key, "M+")) {
-                    double value;
-                    char err[80];
-                    calc_memory += calc_evaluate(calc_expr, calc_degrees, calc_answer, calc_memory,
-                                                 &value, err, sizeof(err))
-                                       ? value
-                                       : calc_answer;
-                } else if (!strcmp(key, "MC"))
-                    calc_memory = 0;
-                else if (isalpha((unsigned char)key[0]) && strcmp(key, "pi") && strcmp(key, "e") &&
-                         strcmp(key, "ans") && strcmp(key, "mem") && strcmp(key, "x") &&
-                         strcmp(key, "y")) {
-                    calc_insert(key);
-                    calc_insert("(");
-                } else
-                    calc_insert(key);
-            }
-            persist();
-            return 1;
-        }
-        if (y >= 540 && y < 782) {
-            if (x >= 460) {
-                if (y >= 664)
-                    {calc_run();persist();}
-                else if (y < 596) {
-                    if (!*calc_expr)
-                        calc_insert("-");
-                    else if (strlen(calc_expr) < sizeof(calc_expr) - 4) {
-                        char opposite[1024];
-                        snprintf(opposite, sizeof(opposite), "-(%s)", calc_expr);
-                        snprintf(calc_expr, sizeof(calc_expr), "%s", opposite);
-                        calc_cursor = strlen(calc_expr);
-                        calc_preview();
-                    }
-                } else if (y >= 602 && y < 658) {
-                    calc_expr[0] = calc_result[0] = calc_error[0] = 0;
-                    calc_cursor = 0;
-                }
-            } else if (x >= 28 && x < 452) {
-                int c = (x - 28) / 108, r = (y - 540) / 62;
-                if (c < 4 && r < 4 && x < 28 + c * 108 + 100 && y < 540 + r * 62 + 56)
-                    calc_insert(calc_digits[r * 4 + c]);
-            }
-            return 1;
-        }
-        return 1;
-    }
-    if (page == HISTORY) {
-        if (y >= 145 && y < 657) {
-            int i = calc_history_count - 1 - (extra_page * 8 + (y - 145) / 64);
-            if (i >= 0) {
-                snprintf(calc_expr, sizeof(calc_expr), "%s", calc_history[i]);
-                calc_cursor = strlen(calc_expr);
-                set_page(CALCULATOR);
-                calc_preview();
-                calc_error[0] = 0;
-            }
-        } else if (y >= 679 && y < 723) {
-            if (x < 300 && extra_page)
-                extra_page--;
-            else if (x >= 300 && (extra_page + 1) * 8 < calc_history_count)
-                extra_page++;
-        }
-        return 1;
-    }
-    if (page == GRAPH) {
-        if (y >= 128 && y < 178)
-            edit(80, "y = f(x)", calc_expr);
-        else if (y >= 220 && y < 647 && x >= 66 && x < 558)
-            plot_trace = x - 66 + 1;
-        else if (y >= 712) {
-            if (x < 178)
-                set_page(RANGE);
-            else if (x >= 416)
-                graph_auto_y();
-            else {
-                double f = x < 300 ? 2 : .5, cx = (plot_bounds[0] + plot_bounds[1]) / 2,
-                       cy = (plot_bounds[2] + plot_bounds[3]) / 2,
-                       dx = (plot_bounds[1] - plot_bounds[0]) * f / 2,
-                       dy = (plot_bounds[3] - plot_bounds[2]) * f / 2;
-                if (dx > 1e-9 && dx < 1e12 && dy > 1e-9 && dy < 1e12) {
-                    plot_bounds[0] = cx - dx;
-                    plot_bounds[1] = cx + dx;
-                    plot_bounds[2] = cy - dy;
-                    plot_bounds[3] = cy + dy;
+    if(in->kind==INPUT_COMPONENT) {
+        char id[32],gesture[24];
+        if(!lumen_string("id",id,sizeof(id)) || !lumen_string("gesture",gesture,sizeof(gesture)))return 0;
+        if(page==CALCULATOR && !strcmp(id,"expression-input")) {
+            if(!strcmp(gesture,"long_pressed"))edit(80,"Rechner",calc_expr);
+            else if(!strcmp(gesture,"caret")) {
+                char offset[16],*end;
+                if(lumen_string("text",offset,sizeof(offset))) {
+                    long value=strtol(offset,&end,10);
+                    if(end!=offset && !*end && value>=0)calc_cursor=boundary(calc_expr,(size_t)value);
                 }
             }
+            return 1;
         }
-        return 1;
+        return !strcmp(gesture,"clicked") && component(id);
     }
-    if (page == RANGE) {
-        if (y >= 165 && y < 549) {
-            int i = (y - 165) / 108;
-            if (i < 4) {
-                char b[80];
-                snprintf(b, sizeof(b), "%.10g", plot_bounds[i]);
-                edit(81 + i, "Graph-Bereich", b);
-            }
-        } else if (y >= 650 && y < 706)
-            set_page(GRAPH);
-        return 1;
+    /* A trace samples the plotted function at the tapped coordinate. */
+    if(page==GRAPH && in->kind==INPUT_TAP && in->y>=220 && in->y<647 && in->x>=66 && in->x<558) {
+        plot_trace=in->x-66+1;return 1;
     }
     return 0;
 }

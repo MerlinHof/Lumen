@@ -3,7 +3,8 @@
   "api": 1,
   "id": "lumen.weather",
   "name": "Wetter",
-  "version": "1.0.0",
+  "version": "1.1.0",
+  "operations": ["refresh_forecast"],
   "sources": ["app.c"],
   "assets": ["assets/icon.pgm"]
 }

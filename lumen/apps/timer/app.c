@@ -44,11 +44,7 @@ enum {UI_SECONDARY=PAINT_SECONDARY,UI_PRIMARY=PAINT_BODY,UI_BODY=PAINT_BODY,
 #define divider(x,y,w) ui_paint_line(x,y,x+w,y,1,185)
 #define centered(x,y,w,h,text,role) ui_paint_text(x,y,w,h,tr(text),role)
 #define label_at(x,y,w,h,text,role) lumen_text(x,y,w,h,tr(text),role,-1,1)
-#define icon_button ui_paint_icon_button
 #define icon_sized(x,y,id,size) ui_paint_icon_button(x,y,id)
-#define dropdown_button(x,y,w,h,text) lumen_button(x,y,w,h,text,0)
-#define button_h(x,y,w,h,text,active) lumen_button(x,y,w,h,tr(text),active)
-#define action_button(x,y,w,h,text) lumen_button(x,y,w,h,tr(text),1)
 #define key_outline(x,y,w,h) ui_paint_surface(x,y,w,h,16,255,105)
 #define toggle lumen_toggle
 #define wrapped(x,y,text,role,w,lines) lumen_wrapped(x,y,w,lines*34,tr(text),role,lines)
@@ -87,6 +83,27 @@ static void load_face(void) {
            clock_style<0 || clock_style>13)clock_style=0;
     }
 }
+static void activate(const char *id) {
+    if(!strcmp(id,"fullscreen")){fullscreen=timer_panel==1 ? 2 : 1;lumen_back=1;}
+    else if(!strcmp(id,"faces")) {
+        const char *labels[CLOCK_FACE_COUNT];
+        for(int i=0;i<CLOCK_FACE_COUNT;i++)labels[i]=face_label(i);
+        lumen_select(labels,CLOCK_FACE_COUNT,clock_style_row(),2);
+    } else if(!strcmp(id,"start-pause"))change("timer",0);
+    else if(!strcmp(id,"reset"))change("timer",1);
+    else if(!strcmp(id,"shorter") && timer_minutes>1)change("minutes",timer_minutes-1);
+    else if(!strcmp(id,"longer") && timer_minutes<1440)change("minutes",timer_minutes+1);
+    else if(!strcmp(id,"duration")) {
+        char value[16];snprintf(value,sizeof(value),"%d",timer_minutes);
+        lumen_request("input",word("Timer: Minuten","Timer minutes","Minuterie : minutes"),value,3);
+    } else if(!strcmp(id,"hour-up"))change("hour",(alarm_hour+1)%24);
+    else if(!strcmp(id,"hour-down"))change("hour",(alarm_hour+23)%24);
+    else if(!strcmp(id,"minute-up"))change("minute",(alarm_minute+1)%60);
+    else if(!strcmp(id,"minute-down"))change("minute",(alarm_minute+59)%60);
+    else if(!strcmp(id,"arm"))change("armed",!alarm_enabled);
+    else if(strlen(id)==8 && !strncmp(id,"preset-",7) && id[7]>='0' && id[7]<='3')
+        change("minutes",(int[]){5,10,20,30}[id[7]-'0']);
+}
 static int input(const Input *in) {
     if(in->kind==INPUT_OPEN){load_face();request_state();return 1;}
     if(in->kind==INPUT_RESUME || in->kind==INPUT_REFRESH){request_state();return 1;}
@@ -109,11 +126,12 @@ static int input(const Input *in) {
     }
     if(in->kind==INPUT_BACK && fullscreen){fullscreen=lumen_back=0;return 1;}
     if(in->kind==INPUT_COMPONENT){
-        char id[16],value[8];
-        if(lumen_string("id",id,sizeof(id)) && !strcmp(id,"mode") &&
+        char id[24],value[8],gesture[24];
+        if(!lumen_string("id",id,sizeof(id)) || !lumen_string("gesture",gesture,sizeof(gesture)))return 0;
+        if(!strcmp(gesture,"selected") && !strcmp(id,"mode") &&
            lumen_string("text",value,sizeof(value)) && strlen(value)==1 && value[0]>='0' && value[0]<='2'){
             timer_panel=value[0]-'0';request_state();
-        }
+        } else if(!strcmp(gesture,"clicked"))activate(id);
         return 1;
     }
     if(in->kind==INPUT_SELECT && in->x==2 && in->y>=0 && in->y<CLOCK_FACE_COUNT) {
@@ -127,36 +145,10 @@ static int input(const Input *in) {
         }
         return 1;
     }
-    if(in->kind!=INPUT_TAP)return 0;
-    int x=in->x,y=in->y;
-    if(fullscreen) {
-        if(fullscreen==2 && y>=665 && y<725)change("timer",x>=300);
-        else fullscreen=lumen_back=0;
-    } else if(!timer_panel && y>=137 && y<181) {
-        if(x>=528){fullscreen=1;lumen_back=1;}
-        else if(x>=28 && x<338){
-            const char *labels[CLOCK_FACE_COUNT];
-            for(int i=0;i<CLOCK_FACE_COUNT;i++)labels[i]=face_label(i);
-            lumen_select(labels,CLOCK_FACE_COUNT,clock_style_row(),2);
-        }
-    } else if(timer_panel==1) {
-        if(y>=185 && y<229 && x>=528){fullscreen=2;lumen_back=1;}
-        else if(y>=397 && y<445 && x>=28 && x<572)change("minutes",(int[]){5,10,20,30}[(x-28)/140]);
-        else if(y>=472 && y<524) {
-            if(x<108 && timer_minutes>1)change("minutes",timer_minutes-1);
-            else if(x>=492 && timer_minutes<1440)change("minutes",timer_minutes+1);
-            else if(x>=122 && x<478) {
-                char value[16];snprintf(value,sizeof(value),"%d",timer_minutes);
-                lumen_request("input",word("Timer: Minuten","Timer minutes","Minuterie : minutes"),value,3);
-            }
-        } else if(y>=566 && y<630)change("timer",x>=300);
-    } else if(timer_panel==2) {
-        if((y>=258 && y<302)||(y>=443 && y<487)){
-            int delta=y<302 ? 1 : -1;
-            if(x>=204 && x<272)change("hour",(alarm_hour+24+delta)%24);
-            if(x>=327 && x<395)change("minute",(alarm_minute+60+delta)%60);
-        } else if(y>=522 && y<588)change("armed",!alarm_enabled);
+    if(in->kind==INPUT_TAP && fullscreen) {
+        fullscreen=lumen_back=0;
+        return 1;
     }
-    return 1;
+    return 0;
 }
 int main(void){lumen_run(draw,input,NULL);return 0;}

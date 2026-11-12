@@ -88,10 +88,10 @@ static void quality_tests(void) {
     assert(app_package_installed(APP_SOLITAIRE));
     route_to(119);
     assert(game_help_x() == 408);
-    /* Forecast data reaches the package through the bounded cache service. */
+    /* Weather imports the existing cache directly. */
     extra_write_text("weather.json",
                      "{\"current\":{\"temperature_2m\":18,\"weather_code\":0,\"apparent_"
-                     "temperature\":17,\"wind_speed_10m\":4,\"is_day\":1},\"daily\":{}}");
+                     "temperature\":17,\"wind_speed_10m\":4,\"is_day\":1},\"daily\":{\"time\":[\"2026-11-12\"]}}");
     route_to(32);
     settle_app();
     assert(strstr(app_process_frame(),"18 °C"));
@@ -134,5 +134,5 @@ static void quality_tests(void) {
     fake.modified++;assert(!library_import_path(&fake,imported,sizeof(imported)));
     unlink(source);
     puts("PASS quality: 100 pixel-identical clipped text cases, shared row geometry, exact cover "
-         "cache/invalidation, non-overlapping game actions and weather package cache bridge.");
+         "cache/invalidation, non-overlapping game actions and package-owned weather cache migration.");
 }

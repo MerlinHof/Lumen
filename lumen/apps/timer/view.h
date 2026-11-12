@@ -116,28 +116,29 @@ static void app_timer(void) {
     lumen_segments("mode",28,74,544,44,tabs,3,timer_panel);
     char b[80];
     if (!timer_panel) {
-        dropdown_button(28,137,310,44,face_label(clock_style_row()));
-        icon_button(528, 137, IC_FULLSCREEN);
+        lumen_button_action("faces",28,137,310,44,face_label(clock_style_row()),0);
+        lumen_icon_action("fullscreen",528,137,IC_FULLSCREEN);
         clock_face(0);
         return;
     }
     if (timer_panel == 1) {
         v1_timer_ring(0);
-        icon_button(528, 185, IC_FULLSCREEN);
+        lumen_icon_action("fullscreen",528,185,IC_FULLSCREEN);
         const int presets[] = {5, 10, 20, 30};
         for (int i = 0; i < 4; i++) {
             snprintf(b, sizeof(b), "%d min", presets[i]);
-            button_h(28 + i * 140, 397, 124, 48, b, !timer_due && timer_minutes == presets[i]);
+            char id[12];snprintf(id,sizeof(id),"preset-%d",i);
+            lumen_button_action(id,28+i*140,397,124,48,b,!timer_due && timer_minutes==presets[i]);
         }
-        button_h(28, 472, 80, 52, "−", 0);
+        lumen_button_action("shorter",28,472,80,52, "−", 0);
         snprintf(b, sizeof(b), "%d min", timer_minutes);
-        button_h(122, 472, 356, 52, b, 0);
-        button_h(492, 472, 80, 52, "+", 0);
-        action_button(28, 566, 260, 64,
-                 timer_due      ? "Pause"
+        lumen_button_action("duration",122,472,356,52, b, 0);
+        lumen_button_action("longer",492,472,80,52, "+", 0);
+        lumen_button_action("start-pause",28,566,260,64,
+                 tr(timer_due      ? "Pause"
                  : timer_paused ? "Fortsetzen"
-                                : "Timer starten");
-        button_h(312, 566, 260, 64, "Zurücksetzen", 0);
+                                : "Timer starten"),1);
+        lumen_button_action("reset",312,566,260,64,tr("Zurücksetzen"),0);
     } else {
         /* One deliberate alarm card: time, adjustment and armed state together. */
         key_outline(28,194,544,408);
@@ -145,13 +146,14 @@ static void app_timer(void) {
         label_at(98,210,420,44,tr("Weckzeit"),ui_font(UI_BODY));
         snprintf(b,sizeof(b),"%02d:%02d",alarm_hour,alarm_minute);
         type_display(70,305,460,120,b,1,96,0);
-        icon_button(216,258,IC_UP);
-        icon_button(339,258,IC_UP);
-        icon_button(216,443,IC_DOWN);
-        icon_button(339,443,IC_DOWN);
+        lumen_icon_action("hour-up",216,258,IC_UP);
+        lumen_icon_action("minute-up",339,258,IC_UP);
+        lumen_icon_action("hour-down",216,443,IC_DOWN);
+        lumen_icon_action("minute-down",339,443,IC_DOWN);
         divider(52,506,496);
         label_at(54,528,390,48,tr("Wecker aktiv"),ui_font(UI_PRIMARY));
         toggle(470,536,alarm_enabled);
+        lumen_custom_action("arm",52,522,496,66);
         wrapped(30,620,"Einmaliger Wecker zur eingestellten Uhrzeit.",ui_font(UI_BODY),540,2);
 
     }

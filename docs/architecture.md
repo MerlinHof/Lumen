@@ -51,7 +51,7 @@ The Reader uses a preferences snapshot and reflows only on changes. CommonMark
 and GFM use the pinned cmark-gfm implementation. Image contrast and sampling are
 shared. Cover resampling has a bounded RAM cache and no new persistent copies.
 
-Kindle and emulator use the same refresh planner. It applies the 5.4 coverage and waveform rules to the shared dirty-region planner. The status strip uses GC16. Firmware
+Kindle and emulator use the same refresh planner. It weighs changed coverage, contrast, and erased ink across the screen. Small binary changes use DU, ordinary changes use GL16, and broad tonal changes can use GC16 without clearing. Firmware
 power, Wi-Fi, USB and app-manager services remain available.
 
 ## Complete system updates

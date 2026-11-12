@@ -89,7 +89,7 @@ static const char *plot_formula(void) {
 }
 static void calculator_graph(void) {
     heading("Funktionsgraph");
-    button_h(28, 128, 544, 50, *calc_expr ? calc_expr : "y = sin(x)", 0);
+    lumen_button_action("expression",28,128,544,50, *calc_expr ? calc_expr : "y = sin(x)", 0);
     const char *f = plot_formula();
     double xmin = plot_bounds[0], xmax = plot_bounds[1], ymin = plot_bounds[2],
            ymax = plot_bounds[3];
@@ -113,10 +113,10 @@ static void calculator_graph(void) {
     }
     if (!any)
         centered(80, 370, 464, 70, "Ausdruck oder Wertebereich prüfen.", ui_font(UI_BODY));
-    button_h(28, 712, 150, 52, "Bereich", 0);
-    button_h(194, 712, 95, 52, "−", 0);
-    button_h(305, 712, 95, 52, "+", 0);
-    button_h(416, 712, 156, 52, "Auto Y", 0);
+    lumen_button_action("range",28,712,150,52,tr("Bereich"), 0);
+    lumen_button_action("zoom-out",194,712,95,52, "−", 0);
+    lumen_button_action("zoom-in",305,712,95,52, "+", 0);
+    lumen_button_action("auto-y",416,712,156,52, "Auto Y", 0);
     if (plot_trace) {
         double x = xmin + (xmax - xmin) * (plot_trace - 1) / 489, y;
         if (f && calc_evaluate_xy(f, calc_degrees, calc_answer, calc_memory, x, 0, &y, err,
@@ -159,7 +159,8 @@ static void graph_range_screen(void) {
     for (int i = 0; i < 4; i++) {
         drawtext(30, 175 + i * 108, names[i], ui_font(UI_PRIMARY), 170);
         snprintf(b, sizeof(b), "%.9g", plot_bounds[i]);
-        button_h(220, 165 + i * 108, 352, 60, b, 0);
+        char id[16];snprintf(id,sizeof(id),"bound-%d",i);
+        lumen_button_action(id,220,165+i*108,352,60,b,0);
     }
-    button_h(28, 650, 544, 56, "Fertig", 0);
+    lumen_button_action("done",28,650,544,56,tr("Fertig"), 0);
 }

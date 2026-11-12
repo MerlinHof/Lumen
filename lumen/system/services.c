@@ -204,19 +204,6 @@ int service_url_valid(const char *s) {
         return 0;
     return 1;
 }
-static void encode(const char *s, char *out, int cap) {
-    int n = 0;
-    for (; *s && n < cap - 4; s++) {
-        unsigned char c = *s;
-        if (isalnum(c) || strchr("-._~", c))
-            out[n++] = c;
-        else {
-            snprintf(out + n, 4, "%%%02X", c);
-            n += 3;
-        }
-    }
-    out[n] = 0;
-}
 static int fetch(const char *url, const char *out, const char *auth, const char *body) {
     char cfg[2048], ca[2048];
     path(cfg, sizeof(cfg), "service-private.tmp");
@@ -459,7 +446,7 @@ int service_start(int kind, const char *arg, const char *auth, const char *entit
         setpgid(history_worker, history_worker);
         return 1;
     }
-    if (worker > 0 || kind < SERVICE_WEATHER || kind > SERVICE_HA_HISTORY)
+    if (worker > 0 || kind < SERVICE_HA || kind > SERVICE_HA_HISTORY)
         return 0;
     if ((kind == SERVICE_HA || kind == SERVICE_TOGGLE || kind == SERVICE_HA_HISTORY) &&
         (!service_url_valid(arg) || !auth || !*auth))
@@ -507,43 +494,6 @@ int service_start(int kind, const char *arg, const char *auth, const char *entit
                      atomic_write(key, arg, strlen(arg));
                 unlink(pgm);
             }
-        } else if (kind == SERVICE_WEATHER) {
-            char city[1024];
-            encode(arg, city, sizeof(city));
-            snprintf(url, sizeof(url),
-                     "https://geocoding-api.open-meteo.com/v1/"
-                     "search?name=%s&count=1&language=de&format=json",
-                     city);
-            if (fetch(url, out, NULL, NULL)) {
-                char *s = service_read("service-result.tmp", 65536);
-                JsonToken tokens[2048];
-                Json j;
-                if (s && json_parse(&j, s, tokens, 2048)) {
-                    int first = json_at(&j, json_get(&j, 0, "results"), 0);
-                    double lat = json_number(&j, json_get(&j, first, "latitude")),
-                           lon = json_number(&j, json_get(&j, first, "longitude"));
-                    if (isfinite(lat) && isfinite(lon)) {
-                        char geo[2048];
-                        path(geo, sizeof(geo), "weather-place.json");
-
-                        snprintf(
-                            url, sizeof(url),
-                            "https://api.open-meteo.com/v1/"
-                            "forecast?latitude=%.5f&longitude=%.5f&current=temperature_2m,apparent_"
-                            "temperature,weather_code,wind_speed_10m,is_day&daily=weather_code,"
-                            "temperature_2m_max,temperature_2m_min,sunrise,sunset,daylight_"
-                            "duration,precipitation_probability_max&timezone=auto&forecast_days=5",
-                            lat, lon);
-                        ok = fetch(url, out, NULL, NULL);
-                        if (ok) {
-                            char pending[2048];
-                            path(pending, sizeof(pending), "weather-place.pending");
-                            atomic_write(pending, s, strlen(s));
-                        };
-                    }
-                }
-                free(s);
-            }
         } else {
             char base[512];
             snprintf(base, sizeof(base), "%s", arg);
@@ -580,16 +530,8 @@ int service_start(int kind, const char *arg, const char *auth, const char *entit
             JsonToken *tokens = calloc(cap, sizeof(*tokens));
             Json parsed;
             ok = body && tokens && json_parse(&parsed, body, tokens, cap);
-            if (ok) {
-                if (kind == SERVICE_WEATHER) {
-                    int current = json_get(&parsed, 0, "current");
-                    ok = isfinite(
-                             json_number(&parsed, json_get(&parsed, current, "temperature_2m"))) &&
-                         json_at(&parsed, json_get(&parsed, json_get(&parsed, 0, "daily"), "time"),
-                                 0) >= 0;
-                } else
-                    ok = parsed.tokens[0].type == '[';
-            }
+            if (ok)
+                ok = parsed.tokens[0].type == '[';
             if (ok && kind == SERVICE_HA_HISTORY)
                 ok = history_compact(&parsed, out);
             free(tokens);
@@ -598,22 +540,10 @@ int service_start(int kind, const char *arg, const char *auth, const char *entit
         if (ok && kind != SERVICE_TIME && kind != SERVICE_WIKI_IMAGE) {
             char target[2048];
             path(target, sizeof(target),
-                 kind == SERVICE_WEATHER      ? "weather.json"
-                 : kind == SERVICE_HA         ? "ha-states.json"
+                 kind == SERVICE_HA           ? "ha-states.json"
                  : kind == SERVICE_HA_HISTORY ? "ha-history.json"
                                               : "ha-action.json");
             ok = !rename(out, target);
-            if (ok && kind == SERVICE_WEATHER) {
-                char pending[2048], place[2048];
-                path(pending, sizeof(pending), "weather-place.pending");
-                path(place, sizeof(place), "weather-place.json");
-                rename(pending, place);
-            }
-        }
-        if (kind == SERVICE_WEATHER) {
-            char pending[2048];
-            path(pending, sizeof(pending), "weather-place.pending");
-            unlink(pending);
         }
         unlink(out);
         _exit(ok ? 0 : 1);
@@ -647,7 +577,6 @@ int service_poll(void) {
         free(code);
         const char *message =
             job == SERVICE_TIME      ? "Zeitserver nicht erreichbar. WLAN prüfen."
-            : job == SERVICE_WEATHER ? "Wetter nicht geladen. Ort und WLAN prüfen."
             : c == 6                 ? "Servername nicht gefunden. Adresse prüfen."
             : c == 7                 ? "Server nicht erreichbar. Adresse und Port prüfen."
             : c == 22 ? "Server lehnt die Anfrage ab. Token und Zugriffsrechte prüfen."

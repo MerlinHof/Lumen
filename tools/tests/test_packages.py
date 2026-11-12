@@ -265,14 +265,35 @@ assert (folder/'game.bin').read_bytes()[52]==1
 print('PASS packaged Chess legal pawn move, computer reply, piece rotation and persisted undo.')
 
 (legacy/'weather-city.txt').write_text('Rosenheim')
+forecast_fixture=dict(current=dict(temperature_2m=19,weather_code=2,is_day=1),
+                      daily=dict(time=['2026-11-12'],weather_code=[2]))
+(legacy/'weather.json').write_text(json.dumps(forecast_fixture))
 frames,folder=app_session('lumen.weather',[
-    dict(event='service',action=1,ok=1,forecast=1,temp=19,code=2,daylight_now=1,place='Rosenheim'),
-    tap(490,92),dict(event='text',action=2,text='Paris')],legacy)
-assert any(f.get('operation')=='open' and f.get('text')=='Rosenheim' for f in frames)
-assert any(f.get('operation')=='refresh' and f.get('text')=='Paris' for f in frames)
+    component('search'),dict(event='text',action=2,text='Paris')],legacy)
+assert any(f.get('operation')=='refresh_forecast' and f.get('text')=='Paris' for f in frames)
 assert any(c.get('type')=='weather_symbol' and c.get('code')==2 for f in frames for c in f.get('ui',[]))
 assert (folder/'city.txt').read_text()=='Paris'
-print('PASS packaged Weather renders cached forecasts, imports location and requests refresh.')
+
+fake_weather=base/'weather-bin';fake_weather.mkdir()
+curl=fake_weather/'curl'
+curl.write_text("""#!/bin/sh
+case "$*" in
+ *geocoding-api.open-meteo.com*) echo '{"results":[{"name":"Paris","latitude":48.8,"longitude":2.3}]}';;
+ *) echo '"""+json.dumps(forecast_fixture)+"""';;
+esac
+""")
+curl.chmod(0o755)
+weather_app=ROOT/'build/apps/host/lumen.weather/app'
+event=dict(event='service_call',language=1,operation='refresh_forecast',data='Paris')
+result=subprocess.run([str(weather_app)],input=json.dumps(event)+'\n',capture_output=True,text=True,
+    env=dict(os.environ,LUMEN_APP_DATA=str(folder),PATH=str(fake_weather)+':'+os.environ['PATH']),
+    timeout=10,check=True)
+assert json.loads(result.stdout)['ok']
+assert (folder/'forecast-v1.bin').is_file()
+frames,_=app_session('lumen.weather',[],legacy)
+assert any(c.get('text')=='Paris' for f in frames for c in f.get('ui',[]))
+assert not any(f.get('request')=='app_service' for f in frames)
+print('PASS Weather owns geocoding, forecast parsing, caching, refresh and semantic controls.')
 
 catalog=dict(event='service',action=1,ok=1,data='\n'.join(['lumen.library']*10))
 frames,folder=app_session('lumen.home',[catalog,dict(event='page',page=1)])
@@ -365,9 +386,9 @@ print('PASS packaged News editions, article selection, search and Back.')
 
 frames,folder=app_session('lumen.calculator',[
     dict(event='text',action=80,text='5/4*sin(3/4)*sqrt(4)'),
-    tap(504,710),tap(504,710),tap(488,94),dict(event='back'),
-    tap(432,94),dict(event='back'),
-    tap(550,94),tap(410,225),dict(event='select',action=1,value=1)])
+    component('equals'),component('equals'),component('history'),dict(event='back'),
+    component('graph'),dict(event='back'),
+    component('settings'),component('angle'),dict(event='select',action=1,value=1)])
 assert any(c.get('type')=='formula' and 'sqrt' in c.get('text','') for f in frames for c in f.get('ui',[]))
 assert (folder/'calculator-history.txt').read_text().splitlines()==['5/4*sin(3/4)*sqrt(4)']
 assert any(c.get('type')=='line' for f in frames for c in f.get('ui',[]))
@@ -377,11 +398,11 @@ print('PASS packaged Calculator expression, evaluation, deduplicated history, pl
 
 frames,folder=app_session('lumen.clock',[
     *[dict(event='select',action=2,value=i) for i in range(14)],
-    tap(550,159),tap(300,400),
+    component("fullscreen"),tap(300,400),
     component('mode','selected','1'),
     dict(event='service',action=1,ok=1,minutes=20,total=1200,hour=7,minute=15,armed=0),
-    tap(130,595),tap(450,595),
-    component('mode','selected','2'),tap(490,555)])
+    component("start-pause"),component("reset"),
+    component('mode','selected','2'),component('arm')])
 assert any(f.get('fullscreen') for f in frames)
 assert any(c.get('type')=='display_text' for f in frames for c in f.get('ui',[]))
 assert any(f.get('operation')=='timer' and f.get('text')=='0' for f in frames)
@@ -465,10 +486,10 @@ print('PASS packaged Photos gallery, fullscreen slideshow, rotation and album as
 
 frames,_=app_session('lumen.reader',[
     dict(event='service',action=1,ok=1,title='Sample document',page=0,total=7,setting7=1),
-    tap(400,380),tap(300,55),tap(487,93),
+    tap(400,380),tap(300,70),component("contents"),
     dict(event='service',action=2,ok=1,title='Sample document',page=1,total=7,count=1,
          position0=2,label0='Chapter 1'),
-    tap(135,240),tap(300,55),tap(550,95),dict(event='page',page=1),
+    component("entry-0"),tap(300,70),component("settings"),dict(event='page',page=1),
     dict(event='select',action=19,value=2)])
 assert any(c.get('type')=='document_page' for f in frames for c in f.get('ui',[]))
 assert any(f.get('operation')=='turn' and f.get('text')=='1' for f in frames)

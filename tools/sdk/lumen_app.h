@@ -36,7 +36,7 @@ static int lumen_next(void) {
      }
      if(wire_read(lumen_event))return 1;
  }
- wire_count=0;return 0;
+ wire_event.count=0;return 0;
 }
 static int lumen_is(const char *event) {
  char name[48];return lumen_string("event",name,sizeof(name)) && !strcmp(name,event);
@@ -51,6 +51,12 @@ static void lumen_formula(int x,int y,int w,int h,const char *expression) {
 }
 static void lumen_editor_line(int x,int y,int w,int h,const char *value,int cursor) {
  lumen_cmd("editor_line",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(value);
+ printf(",\"cursor\":%d}",cursor);
+}
+static inline void lumen_editor_action(const char *id,int x,int y,int w,int h,const char *value,int cursor) {
+ lumen_cmd("editor_line",x,y,w,h);
+ fputs(",\"id\":",stdout);lumen_json(id);
+ fputs(",\"text\":",stdout);lumen_json(value);
  printf(",\"cursor\":%d}",cursor);
 }
 static void ui_paint_text(int x,int y,int w,int h,const char*s,PaintText role){lumen_cmd("text",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(s);printf(",\"role\":%d}",role);}
@@ -229,6 +235,16 @@ static inline void lumen_button_action(const char *id,int x,int y,int w,int h,co
  fputs(",\"id\":",stdout);lumen_json(id);
  fputs(",\"text\":",stdout);lumen_json(label);
  printf(",\"primary\":%d}",primary);
+}
+static inline void lumen_custom_action(const char *id,int x,int y,int w,int h) {
+ lumen_cmd("custom_action",x,y,w,h);
+ fputs(",\"id\":",stdout);lumen_json(id);putchar('}');
+}
+static inline void lumen_select_action(const char *id,int y,const char *label,const char *value) {
+ lumen_cmd("select_action",28,y,544,48);
+ fputs(",\"id\":",stdout);lumen_json(id);
+ fputs(",\"text\":",stdout);lumen_json(label);
+ fputs(",\"value\":",stdout);lumen_json(value);putchar('}');
 }
 static void lumen_component_choice(const char *id,const char *label,int checked,int checkbox) {
  lumen_cmd(checkbox ? "component_checkbox" : "component_toggle",28,0,544,50);

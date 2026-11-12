@@ -157,7 +157,7 @@ int main(int argc, char **argv) {
             device_present_async(ui_pixels);
             continue;
         }
-        if (!redraw_pending)
+        if (!redraw_pending || ui_defer_app_frame())
             continue;
         redraw_pending = 0;
         ui_draw();

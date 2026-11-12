@@ -5,6 +5,7 @@ extern unsigned char ui_pixels[WIDTH * HEIGHT];
 void ui_init(void);
 int ui_prepare_home(void);
 void ui_loading(const char *message);
+int ui_defer_app_frame(void);
 void ui_draw(void);
 void ui_feedback_draw(void);
 int ui_poll_interval(void);

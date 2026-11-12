@@ -31,6 +31,8 @@ void app_process_flush(void);
 int app_process_send(const char *event);
 int app_process_frame_back(void);
 int app_process_frame_ready(void);
+int app_process_frame_tick(void);
+int app_process_frame_loading(void);
 const char *app_process_frame(void);
 uint64_t app_process_frame_serial(void);
 const char *app_process_request(void);

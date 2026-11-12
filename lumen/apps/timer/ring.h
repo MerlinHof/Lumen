@@ -25,11 +25,11 @@ static void v1_timer_ring(int fullscreen) {
     centered(28, cy - 45, 544, 90, b, fullscreen ? ui_font(UI_DISPLAY) : ui_font(UI_TITLE));
     if (fullscreen) {
         centered(28, cy + 66, 544, 36, "Verbleibende Zeit", ui_font(UI_SECONDARY));
-        button_h(28, 665, 260, 60,
-                 timer_due      ? "Pause"
+        lumen_button_action("start-pause",28,665,260,60,
+                 tr(timer_due      ? "Pause"
                  : timer_paused ? "Fortsetzen"
-                                : "Timer starten",
+                                : "Timer starten"),
                  0);
-        button_h(312, 665, 260, 60, "Zurücksetzen", 0);
+        lumen_button_action("reset",312,665,260,60,tr("Zurücksetzen"),0);
     }
 }

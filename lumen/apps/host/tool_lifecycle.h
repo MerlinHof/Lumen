@@ -129,7 +129,7 @@ static void extra_timer_label(char *out, int cap) {
     }
 }
 static int extra_poll(void) {
-    if (editor_ui.keyboard || ui_route() == 27)
+    if (editor_ui.keyboard || package_caret_visible)
         return 500;
     if (ui_route() == 36 && *discover_lookup_image() && !wiki_image_available() &&
         wiki_image_attempts < 3)
@@ -164,11 +164,7 @@ static int extra_poll(void) {
 static int extra_tick(void) {
     int changed = new_apps_tick() | v1_tick(), done = service_poll();
     if (release_poll() && ui_route()==40) changed=1;
-    if ((done == SERVICE_WEATHER || done == -SERVICE_WEATHER) &&
-        app_for_route(ui_route())==APP_WEATHER && app_package_installed(APP_WEATHER))
-        app_process_send("{\"event\":\"refresh\"}");
-
-    if ((editor_ui.keyboard || ui_route() == 27) && extra_millis() - editor_ui.cursor_epoch >= 600) {
+    if ((editor_ui.keyboard || package_caret_visible) && extra_millis() - editor_ui.cursor_epoch >= 600) {
         editor_ui.cursor_epoch = extra_millis();
         editor_ui.cursor_visible ^= 1;
         changed = 1;
