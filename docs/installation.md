@@ -55,7 +55,7 @@ the device from deep sleep.
 ## Updating, rollback and storage
 
 Run the same installer. It verifies the entire payload before modifying the device,
-backs up the existing runtime and verifies the copied files. Your books under
+backs up existing files that it will replace or remove and verifies the copied files. Your books under
 `documents` and app data under `lumen/data` are not replaced.
 
 The two newest **recognized runtime-only backups** are retained. Older recognized
@@ -103,7 +103,7 @@ those directories. That is fixed and regression-tested.
 
 - Releases contain only the explicit runtime allowlist: no `data`, `backups`,
   local compiler or project-folder archive can enter the package.
-- Backups are created **on the Kindle**, from its previous installed runtime.
+- USB backups are created **on the Kindle** and include only the files changed or removed by that update.
 - A successful update retains the two newest recognized copies, ordered by
   their recorded timestamp, independently of directory modification times.
 - Reinstalling identical runtime files creates no new copy and does not rewrite them.

@@ -15,6 +15,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include "../../tools/sdk/lumen_wire.h"
 #ifdef LUMEN_HOST
 #include "host_icons.h"
 #endif
@@ -24,7 +25,7 @@ static const char *keys[APP_COUNT]={
 static struct {AppDefinition def;char key[64],name[96],version[32];int installed,removed,has_icon;} entries[APP_LIMIT];
 typedef struct {
     pid_t child;
-    int read_fd,write_fd,active,paused;
+    int read_fd,write_fd,active,paused,frame_back,frame_ready;
     size_t incoming_n,pending_n;
     uint64_t frame_serial;
     char process_hash[65],pending[65536],incoming[APP_FRAME_MAX],frame[APP_FRAME_MAX];
@@ -175,7 +176,7 @@ static void json_text(FILE*f,const char*s){fputc('"',f);for(;*s;s++){unsigned ch
 static void process_close(AppProcess *p) {
  if(p->child>0){kill(-p->child,SIGTERM);kill(p->child,SIGTERM);waitpid(p->child,NULL,WNOHANG);}
  if(p->child>0 && waitpid(p->child,NULL,WNOHANG)==0)for(int i=0;i<64;i++)if(!retired[i]){retired[i]=p->child;break;}
- p->child=0;if(p->read_fd>=0)close(p->read_fd);if(p->write_fd>=0)close(p->write_fd);p->read_fd=p->write_fd=-1;p->active=-1;p->frame[0]=p->request[0]=p->failure[0]=0;p->incoming_n=p->pending_n=0;
+ p->child=0;if(p->read_fd>=0)close(p->read_fd);if(p->write_fd>=0)close(p->write_fd);p->read_fd=p->write_fd=-1;p->active=-1;p->frame[0]=p->request[0]=p->failure[0]=0;p->incoming_n=p->pending_n=0;p->frame_back=p->frame_ready=0;
 }
 static void flush_events(AppProcess *p) {
  while(p->write_fd>=0 && p->pending_n){ssize_t n=write(p->write_fd,p->pending,p->pending_n);if(n<=0)break;memmove(p->pending,p->pending+n,p->pending_n-n);p->pending_n-=n;}
@@ -219,6 +220,10 @@ static int process_open(AppProcess *p,AppId id,const char *role) {
  close(in[0]);close(out[1]);p->write_fd=in[1];p->read_fd=out[0];fcntl(p->write_fd,F_SETFL,O_NONBLOCK);fcntl(p->read_fd,F_SETFL,O_NONBLOCK);fcntl(p->write_fd,F_SETFD,FD_CLOEXEC);fcntl(p->read_fd,F_SETFD,FD_CLOEXEC);
  p->active=id;p->paused=0;char*event=NULL;size_t n=0;FILE*f=open_memstream(&event,&n);fprintf(f,"{\"event\":\"open\",\"api\":1,\"width\":600,\"height\":800,\"content_y\":56,\"language\":%d,\"data_dir\":",options[OPT_LANGUAGE]);json_text(f,state);fputs(",\"role\":",f);json_text(f,role);fputc('}',f);fclose(f);int ok=process_send(p,event);free(event);return ok;
 }
+static int wire_true(const char *key) {
+    const WireField *field=wire_get(key);
+    return field && field->end-field->value==4 && !memcmp(field->value,"true",4);
+}
 static int process_poll(AppProcess *p) {
  reap_apps();if(p->child<=0)return 0;flush_events(p);
  int changed=0;char buf[16384];size_t received=0;ssize_t n=-1;
@@ -227,14 +232,30 @@ static int process_poll(AppProcess *p) {
    for(ssize_t i=0;i<n;i++) {
      if(buf[i]=='\n') {
        p->incoming[p->incoming_n]=0;
-       if(strstr(p->incoming,"\"request\"")){snprintf(p->request,sizeof(p->request),"%s",p->incoming);changed=1;}
-       else {
-           p->frame_serial=++frame_serial;
-           if(strcmp(p->frame,p->incoming)){snprintf(p->frame,sizeof(p->frame),"%s",p->incoming);changed=1;}
+       if(strlen(p->incoming)==p->incoming_n && wire_read(p->incoming)) {
+           const WireField *request=wire_get("request");
+           if(request) {
+               if(*request->value=='"' && p->incoming_n<sizeof(p->request)) {
+                   memcpy(p->request,p->incoming,p->incoming_n+1);
+                   changed=1;
+               }
+           } else {
+               p->frame_back=wire_true("back");
+               p->frame_ready=wire_true("ready");
+               p->frame_serial=++frame_serial;
+               if(strcmp(p->frame,p->incoming)) {
+                   memcpy(p->frame,p->incoming,p->incoming_n+1);
+                   changed=1;
+               }
+           }
        }
        p->incoming_n=0;
      } else if(p->incoming_n+1<sizeof(p->incoming))p->incoming[p->incoming_n++]=buf[i];
-     else {snprintf(p->failure,sizeof(p->failure),"App-Ausgabe zu groß.");kill(p->child,SIGTERM);p->incoming_n=0;break;}
+     else {
+       process_close(p);
+       snprintf(p->failure,sizeof(p->failure),"App-Ausgabe zu groß.");
+       return 1;
+     }
    }
  }
  int status;pid_t done=waitpid(p->child,&status,WNOHANG);
@@ -261,6 +282,8 @@ int app_process_pending(void){
 void app_process_flush(void){flush_events(&foreground);for(int i=0;i<APP_OVERLAY_COUNT;i++)flush_events(&overlays[i]);}
 int app_process_send(const char *event){return process_send(&foreground,event);}
 int app_process_poll(void){return process_poll(&foreground);}
+int app_process_frame_back(void){return foreground.frame_back;}
+int app_process_frame_ready(void){return foreground.frame_ready;}
 const char *app_process_frame(void){return foreground.frame;}
 uint64_t app_process_frame_serial(void){return foreground.frame_serial;}
 const char *app_process_request(void){

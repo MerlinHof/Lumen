@@ -105,6 +105,25 @@ same documents. Settings uses the same saved preferences and device services.
 The foreground fallback displays a missing-package message. The installer
 requires all 52 active app identities.
 
+## Decoupling after 6.0
+
+Independent executables complete the packaging migration. The host still
+implements app-specific service handlers and owns data that multiple features
+access through those handlers. The following boundaries need to move before the
+core can run without knowledge of individual app behavior.
+
+| Boundary | Current ownership | Extraction needed |
+| --- | --- | --- |
+| Notes, Study recall and web export | Host note records and folder/ink storage | A Notes-owned document service with migration of existing IDs and scoped access for callers. |
+| Reader, Library and Store | Host book records, imports and reading sessions | App-owned library/catalog services and generic document rendering behind scoped references. |
+| Settings and Home management | Host preference and app-catalog handlers | Generic device and catalog operations with the app owning presentation and workflows. |
+| Content providers and archives | Host service dispatch for app-specific provider requests | Package-owned jobs and archives using the shared network and document APIs. |
+| Clock and activity | Host timer, alarm and reading checkpoints | Generic scheduling and event delivery with app-owned records and policy. |
+
+The remaining release checks cover semantic controls in all 52 apps, persistence
+and rollback, device-level input and overlay behavior, and a performance
+comparison on the same Kindle against 6.0.
+
 ## Completion checks
 
 A migration counts when the app owns its behavior in an independently built

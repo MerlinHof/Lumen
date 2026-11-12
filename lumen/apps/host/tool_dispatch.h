@@ -1,32 +1,3 @@
-/* App-owned module; assembled by apps/host/compose.h. */
-static void extra_draw(void) {
-    switch (ui_route()) {
-    case 51:
-        heading("Bildquelle");
-        wrapped_raw(30, 150, discover_lookup_image_name(), ui_font(UI_PRIMARY), 540, 5);
-        wrapped(30, 330,
-                "Freies Artikelbild von Wikimedia. Die genaue Lizenz und der Urheber stehen auf "
-                "der Dateiseite:",
-                ui_font(UI_BODY), 540, 4);
-        char source[1024];
-        snprintf(source, sizeof(source), "https://commons.wikimedia.org/wiki/File:%s",
-                 discover_lookup_image_name());
-        wrapped_raw(30, 470, source, ui_font(UI_SECONDARY), 540, 10);
-        break;
-    case 43:
-    case 44:
-    case 45:
-        heading("Löschen?");
-        wrapped(30, 180,
-                ui_route() == 43   ? "Diese Notiz endgültig löschen?"
-                : ui_route() == 45 ? "Diese Tagesnotiz löschen?"
-                               : "Dieses Zeichenblatt leeren?",
-                ui_font(UI_TITLE), 540, 4);
-        button(28, 455, 544, "Löschen", 0);
-        button(28, 530, 544, "Abbrechen", 0);
-        break;
-    }
-}
 static void extra_return(int target) {
     navigation_rewinds++;
     for (int i = history_count - 1; i >= 0; i--)
@@ -40,7 +11,7 @@ static void extra_commit(int target, const char *text) {
     if(package_ui_commit(target,text))return;
     if (u15_commit(target, text))
         return;
-    if (new_apps_commit(target, text))
+    if (target >= 100 && v1_commit(target, text))
         return;
 
     if (target == 30) {
@@ -89,24 +60,4 @@ static void extra_commit(int target, const char *text) {
             ui_message("Uhrzeit als HH:MM eingeben.");
         extra_save();
     }
-}
-
-static int extra_input(const Input *in) {
-    int x = in->x, y = in->y;
-
-    if (in->kind != INPUT_TAP)
-        return 2;
-
-
-    if (ui_route() == 51) {
-        return 1;
-    }
-
-    if(ui_route()==43){
-        if(y>=455 && y<503){note_delete16(note_selected);notes_scan();extra_return(29);}
-        else if(y>=530 && y<578)extra_return(29);
-        return 1;
-    }
-
-    return 1;
 }

@@ -20,7 +20,6 @@
 #include "../news/schedule.h"
 #include "game_lifecycle.h"
 #include "../news/preferences.h"
-#include "game_dispatch.h"
 #include "personal_state.h"
 #include "../notes/folders.h"
 #include "../launcher/order.h"

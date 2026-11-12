@@ -25,6 +25,8 @@ int app_process_fd(void);
 int app_process_pending(void);
 void app_process_flush(void);
 int app_process_send(const char *event);
+int app_process_frame_back(void);
+int app_process_frame_ready(void);
 const char *app_process_frame(void);
 uint64_t app_process_frame_serial(void);
 const char *app_process_request(void);

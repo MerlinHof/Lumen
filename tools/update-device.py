@@ -78,11 +78,12 @@ def update(bundle,kindle,keep_backups=2):
     for rel in legacy:
         destination(kindle,rel)
         if not rel.startswith('documents/') or not rel.endswith(('.sh','.txt','.epub')):raise RuntimeError('Invalid legacy path')
-    needed=sum((payload/r).stat().st_size for r in manifest)+sum((kindle/r).stat().st_size for r in manifest if (kindle/r).is_file())
-    if shutil.disk_usage(kindle).free<needed+8*1048576:raise RuntimeError('Not enough space for the runtime and a rollback backup.')
     removals=[r for r,hashes in legacy.items() if (kindle/r).is_file() and digest(kindle/r) in hashes]
     changed=[r for r,expected in manifest.items() if not (kindle/r).is_file() or digest(kindle/r)!=expected]
-    existing=([r for r in manifest if (kindle/r).is_file()]+removals) if changed or removals else []
+    existing=[r for r in changed if (kindle/r).is_file()]+removals
+    needed=sum((payload/r).stat().st_size for r in changed)+sum((kindle/r).stat().st_size for r in existing)
+    if needed and shutil.disk_usage(kindle).free<needed+8*1048576:
+        raise RuntimeError('Not enough space for the changed runtime files and a rollback backup.')
     backup=None
     if existing:
         stamp=time.strftime('%Y%m%d-%H%M%S')+'-'+str((time.time_ns()//1000)%1000000).zfill(6)
@@ -105,7 +106,7 @@ def update(bundle,kindle,keep_backups=2):
     print(f'LUMEN {version}: {len(changed)} files copied; {len(manifest)} files verified.')
     print('Personal books, settings, notes and photos preserved.')
     if backup:print('Rollback backup:',backup)
-    if reclaimed:print(f'Old managed runtime backups removed: {reclaimed/1048576:.1f} MiB reclaimed. Two newest retained.')
+    if reclaimed:print(f'Old managed runtime backups removed: {reclaimed/1048576:.1f} MiB reclaimed. {keep_backups} newest retained.')
     print('Safely eject the Kindle, disconnect USB, then open LUMEN once to complete on-device setup.')
     return backup
 

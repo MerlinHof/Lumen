@@ -36,6 +36,10 @@ assert u.update(bundle,root) is None
 for i in range(12):
     (root/'lumen/bin/lumen').write_text('old runtime '+str(i));assert u.update(bundle,root)
 backups=[p for p in (root/'lumen/backups').iterdir() if p.is_dir()];assert len(backups)==2
+for backup in backups:
+    metadata=json.loads((backup/'.lumen-backup.json').read_text())
+    assert metadata['files']==['lumen/bin/lumen']
+    assert not (backup/'documents/LUMEN.sh').exists()
 before=set(p.name for p in backups);u.update(bundle,root)
 assert before==set(p.name for p in (root/'lumen/backups').iterdir() if p.is_dir()),'Reinstall must not create another backup'
 from package import validate_runtime_mapping

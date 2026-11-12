@@ -4,7 +4,7 @@ import os
 base=Path(__file__).resolve().parents[1]
 root=Path(os.environ['LIBERATION_FONTS'])
 extra=list(map(ord,'π√×÷−∞↵←→θΣ≠'))
-extra+=sorted({ord(c) for f in ['system/i18n_catalog.h','system/ui/ui.c','apps/host/tool_dispatch.h','apps/host/game_dispatch.h'] for c in (base/'lumen'/f).read_text() if ord(c)>=256}-set(extra))
+extra+=sorted({ord(c) for f in ['system/i18n_catalog.h','system/ui/ui.c'] for c in (base/'lumen'/f).read_text() if ord(c)>=256}-set(extra))
 out=['static const unsigned ui_codepoints[]={'+','.join(map(str,extra))+'};','/* Rasterized from Liberation fonts (SIL Open Font License). */','typedef struct {int w,h; const unsigned char *pixels; const unsigned char *advance,*top,*bottom;} Font;']
 for name,size,file in [('small',18,'LiberationSans-Regular.ttf'),('body',25,'LiberationSans-Regular.ttf'),('title',42,'LiberationSerif-Regular.ttf'),('editorial',32,'LiberationSerif-Regular.ttf'),('caption',15,'LiberationSans-Regular.ttf')]:
  f=ImageFont.truetype(str(root/file),size);cjk=ImageFont.truetype(str(Path(os.environ['MUPDF'])/'resources/fonts/droid/DroidSansFallbackFull.ttf'),size);w=size+8;h=size+12;data=bytearray();adv=[];tops=[];bottoms=[]

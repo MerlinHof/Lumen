@@ -136,7 +136,7 @@ static const WireField *wire_get(const char *key) {
     for(unsigned i=0;i<wire_count;i++)if(!strcmp(wire_fields[i].key,key))return &wire_fields[i];
     return NULL;
 }
-static int lumen_number(const char *key) {
+static inline int lumen_number(const char *key) {
     const WireField *field=wire_get(key);
     if(!field)return 0;
     if(!strncmp(field->value,"true",4))return 1;
@@ -144,7 +144,7 @@ static int lumen_number(const char *key) {
     errno=0;char *end;long value=strtol(field->value,&end,10);
     return errno || end!=field->end || value<INT_MIN || value>INT_MAX ? 0 : (int)value;
 }
-static int lumen_string(const char *key,char *out,size_t cap) {
+static inline int lumen_string(const char *key,char *out,size_t cap) {
     if(!cap)return 0;
     out[0]=0;const WireField *field=wire_get(key);
     return field && *field->value=='"' && wire_string(field->value,out,cap)==field->end;

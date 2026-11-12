@@ -178,8 +178,6 @@ static int wiki_refresh_failed(void);
 static void wiki_history_scan(void);
 static void wiki_article_opened(void);
 static void extra_init(void);
-static void extra_draw(void);
-static int extra_input(const Input *in);
 static int extra_poll(void);
 static int extra_tick(void);
 static void extra_save(void);
@@ -210,9 +208,6 @@ static void keyboard_backspace(void);
 static void new_apps_init(void);
 static void new_apps_open(int route);
 static void new_apps_save(void);
-static void new_apps_draw(void);
-static int new_apps_input(const Input *);
-static int new_apps_commit(int, const char *);
 static int new_apps_poll(void);
 static int new_apps_tick(void);
 
@@ -663,7 +658,7 @@ static void key_outline(int x, int y, int w, int h) {
     outline_surface(x, y, w, h, RADIUS_MEDIUM, 48);
 }
 static int can_back(void) {
-    return (app_package_installed(app_for_route(ui_route())) && strstr(app_process_frame(),"\"back\":true")) || editor_ui.keyboard || dropdown || confirm_delete || battery_popup ||
+    return (app_package_installed(app_for_route(ui_route())) && app_process_frame_back()) || editor_ui.keyboard || dropdown || confirm_delete || battery_popup ||
            history_count || ui_route() != 131;
 }
 static void progress(int x, int y, int w, int n, int total) {
@@ -1721,7 +1716,7 @@ static int ui_dispatch_input(const Input *in) {
     if (in->kind == INPUT_TAP && y < STATUS_HEIGHT && (ui_route() != 2 || reader_ui.reader_chrome || app_package_installed(APP_READER))) {
         if (x < 62 && ui_route() == 3 && !editor_ui.keyboard && !dropdown && !confirm_delete)
             apply_reading_settings();
-        if(x<62 && app_package_installed(app_for_route(ui_route())) && strstr(app_process_frame(),"\"back\":true") && !editor_ui.keyboard && !dropdown){app_process_send("{\"event\":\"back\"}");return 2;}
+        if(x<62 && app_package_installed(app_for_route(ui_route())) && app_process_frame_back() && !editor_ui.keyboard && !dropdown){app_process_send("{\"event\":\"back\"}");return 2;}
         if (x < 62 && can_back()) {
             apps_pause();
             if (editor_ui.keyboard || dropdown || confirm_delete) {
@@ -2081,7 +2076,7 @@ int ui_prepare_home(void) {
     int64_t until=extra_millis()+1800;
     do {
         package_ui_poll();
-        if(strstr(app_process_frame(),"\"ready\":true"))return 1;
+        if(app_process_frame_ready())return 1;
         if(*app_process_error())return 0;
         struct pollfd fd={.fd=app_process_fd(),.events=POLLIN};
         poll(&fd,1,20);

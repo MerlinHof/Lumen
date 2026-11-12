@@ -46,6 +46,23 @@ run('install',app)
 assert state.read_text()=='keep' and hashlib.sha256((base/'lumen/bin/lumen').read_bytes()).hexdigest()==core
 print('PASS full runtime assets, trial rollback, interrupted activation recovery, keep, private-path rejection and independent app replacement.')
 
+# A real process sends nested request-looking data, malformed lines and a real request.
+wire_app=base/'wire.lumen-app'
+script=b"""#!/bin/sh
+IFS= read -r line
+echo '{"back" : true, "ui": [{"text":"request","nested":{"request":"input","back":false}}]}'
+IFS= read -r line
+echo '{"back":true garbage}'
+echo '{"request":1}'
+echo '{"back":"true","ui":[{"text":"still valid"}]}'
+IFS= read -r line
+echo '{"request" : "notify", "text":"hello"}'
+IFS= read -r line
+"""
+archive(wire_app,{'app':script},format='lumen-app-1',api=1,id='test.wire',name='Wire fixture',version='1.0.0')
+run('install',wire_app)
+run('wire')
+
 # The ports exercise the same system input and paint protocol as user packages.
 def app_session(key,events,legacy=None):
  folder=base/'lumen/data/app-state'/key;folder.mkdir(parents=True,exist_ok=True)
@@ -56,6 +73,14 @@ def app_session(key,events,legacy=None):
  result=subprocess.run([str(app)],input=wire,env=env,
                        capture_output=True,text=True,check=True,timeout=12)
  return [json.loads(line) for line in result.stdout.splitlines()],folder
+
+# Launch every package from its own executable with fresh private storage.
+manifests=sorted((ROOT/'lumen/apps').glob('*/package.json'))
+for manifest in manifests:
+ key=json.loads(manifest.read_text())['id']
+ frames,_=app_session(key,[])
+ assert any(isinstance(frame.get('ui'),list) for frame in frames),key
+print(f'PASS startup frames from all {len(manifests)} standalone apps.')
 
 def tap(x,y):
  return dict(event='input',kind=1,x=x,y=y)
