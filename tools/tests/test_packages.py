@@ -253,3 +253,15 @@ assert any(f.get('service')=='clock' and f.get('operation')=='start_timer' and f
 assert any(f.get('service')=='notes' and f.get('text')=='Lesson.txt\nRecall\nSecond paragraph' for f in frames)
 assert (folder/'material.txt').read_text()=='Lesson.txt'
 print('PASS packaged Study routes material, focus timer and multiline recall through shared services.')
+
+frames,_=app_session('lumen.recipes',[
+    dict(event='service',action=1,ok=1,page=0,count=1,id0='wiki-de-5',title0='Offline meal'),
+    tap(110,215),tap(550,95),dict(event='text',action=2,text='soup'),
+    dict(event='service',action=1,ok=1,page=0,count=1,id0='wiki-en-2',title0='Soup',source0='Wikibooks'),
+    tap(110,215),dict(event='back')])
+assert any(f.get('operation')=='open' and f.get('text')=='wiki-de-5' for f in frames)
+assert any(f.get('operation')=='search' and f.get('text')=='soup' for f in frames)
+assert any(f.get('operation')=='fetch' and f.get('text')=='wiki-en-2' for f in frames)
+assert any(f.get('back') for f in frames) and not frames[-1].get('back')
+assert any(f.get('operation')=='archive' for f in frames)
+print('PASS packaged Recipes archive, search, document selection and Back behavior.')

@@ -35,6 +35,7 @@ static AppProcess foreground={.read_fd=-1,.write_fd=-1,.active=-1};
 static AppProcess overlays[APP_OVERLAY_COUNT]={
     {.read_fd=-1,.write_fd=-1,.active=-1},
     {.read_fd=-1,.write_fd=-1,.active=-1},
+    {.read_fd=-1,.write_fd=-1,.active=-1},
     {.read_fd=-1,.write_fd=-1,.active=-1}
 };
 static pid_t retired[64];

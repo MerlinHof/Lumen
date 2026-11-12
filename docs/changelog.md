@@ -1,5 +1,7 @@
 # Changelog
 
+- [5.7](releases/5.7.md) · Independent Lock Screen overlay and Recipes package.
+
 - [5.6](releases/5.6.md) · Shared E-Ink waveform planner and independent Study.
 
 - [5.5](releases/5.5.md) · E-Ink loading refresh, Home page restoration and independent ToDo.

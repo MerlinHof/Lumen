@@ -104,7 +104,7 @@ the app process. Package-owned grayscale PGM files can use `lumen_asset`.
 
 ## Existing app implementations
 
-Thirty-seven independent apps ship with LUMEN 5.6. Their build manifests are the
+Thirty-nine independent apps ship with LUMEN 5.7. Their build manifests are the
 `lumen/apps/*/package.json` files. Legacy views without manifests still run from
 the host and may be replaced by packages using the same stable identity.
 
@@ -156,3 +156,9 @@ LUMEN 5.6 adds scoped `study_material` operations for paged material lists
 and opening an uploaded document by name in Reader. Packages can also call
 `clock/start_timer` with minutes or `notes/create_learning` with a title
 followed by a newline and the recall text.
+
+LUMEN 5.7 runs Lock Screen through a separate sleep overlay slot. The package
+receives a `sleep_state` snapshot and returns image and typography choices. The
+runtime handles power events and bounds how long it waits for a frame. The
+`recipes` service exposes paged archive and results queries plus search and
+Reader opening by recipe ID.

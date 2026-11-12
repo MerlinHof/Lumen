@@ -75,6 +75,12 @@ Study runs independently, bringing the total to **37 packaged / 15 linked**.
 Its migration adds scoped Reader requests for uploaded material and shared
 services for focus timers and recall notes.
 
+## Progress in 5.7
+
+Lock Screen and Recipes now have independent packages, bringing the total to
+**39 packaged / 13 linked**. The runtime gained a sleep overlay slot and a
+bounded recipe provider and archive service.
+
 ## Completion checks
 
 A migration counts when the app owns its behavior in an independently built

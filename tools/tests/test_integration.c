@@ -520,6 +520,17 @@ int main(int argc, char **argv) {
     ui_draw();
     tap17(310,150);
     assert(strstr(app_process_frame(),"selected\":1"));
+    int old_lock=options[OPT_LOCK],old_date=options[OPT_LOCK_DATE];
+    options[OPT_LOCK]=2;options[OPT_LOCK_DATE]=1;
+    sleeping=1;ui_draw();
+    for(int i=0;i<200 && !*app_overlay_frame(APP_OVERLAY_SLEEP);i++) {
+        usleep(5000);
+        app_overlay_poll(APP_OVERLAY_SLEEP);
+    }
+    assert(app_package_installed(APP_LOCK_SCREEN));
+    assert(strstr(app_overlay_frame(APP_OVERLAY_SLEEP),"clock_y\":285"));
+    assert(strstr(app_overlay_frame(APP_OVERLAY_SLEEP),"date_y\":418"));
+    sleeping=0;options[OPT_LOCK]=old_lock;options[OPT_LOCK_DATE]=old_date;
     char restart_dir[2048], restart_path[2048];
     snprintf(restart_dir,sizeof(restart_dir),"%s/../.update",data_root);
     mkdir(restart_dir,0700);

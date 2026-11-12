@@ -10,7 +10,6 @@ static int game_board16[144], game_turn16 = 1, game_won16, game_moves16, game_mo
 static int game_undo16[8], game_undo_valid16;
 static int game_previous16[144], game_px16, game_py16, game_hp16 = 12, game_gold16;
 static unsigned game_seed16;
-static int recipe_search16;
 typedef struct {
     char id[40], title[160];
     time_t opened;
@@ -264,13 +263,13 @@ static int u16_jobs_tick(void) {
                      ? "OpenAI-Anfrage fehlgeschlagen. Schlüssel, Modell und Verbindung prüfen."
                      : "Anfrage fehlgeschlagen. Verbindung und Einrichtung prüfen.");
         ui_message(job_error16);
+        if ((job_kind16==1 || job_kind16==4) && app_for_route(ui_route())==APP_RECIPES)
+            app_process_send("{\"event\":\"refresh\"}");
         return 1;
     }
-    if (job_kind16 == 1) {
-        recipe_search16 = 1;
-        recipes_parse17();
-        companion_page16 = 0;
-    }
+    if (job_kind16 == 1)recipes_parse17();
+    if (job_kind16==1 && app_for_route(ui_route())==APP_RECIPES)
+        app_process_send("{\"event\":\"refresh\"}");
     if (job_kind16 == 3) {
         char *s = service_read("online16.json", 4194304);
         if (s) {
@@ -601,10 +600,6 @@ static void game_draw16(void) {
     direction_keys16();
 }
 static int u16_apps_commit(int target, const char *text) {
-    if (target == 172) {
-        job_start16(1, text);
-        return 1;
-    }
     if (target == 174) {
         snprintf(llm_prompt16, sizeof(llm_prompt16), "%s", text);
         extra_write_text("llm-prompt16.txt", text);
@@ -638,11 +633,6 @@ static void companion_enter16(void) {
         companion_page16 = explorer_page16;
         if (companion_page16 * 8 >= files_count16)
             companion_page16 = 0;
-    }
-    if (ui_route() == 114) {
-        recipe_search16 = 0;
-        recipe_archive16();
-        recipes_parse17();
     }
     if (ui_route() == 122) {
         config16("llm-model.txt", llm_model16, sizeof(llm_model16));

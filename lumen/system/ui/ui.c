@@ -85,10 +85,8 @@ static void chat_complete(const char *);
 static void chat_clear(void);
 static void chat_draw(void), chats_draw(void);
 static int chat_input(const Input *), chats_input(const Input *);
-static int recipes_back(void);
-static int recipes_draw17(void), recipes_input17(const Input *);
 static void u17_game_manual(int, const char *, const char *);
-static int u17_games_draw(void), u17_games_input(const Input *), recipes_fetch17(const char *);
+static int recipes_fetch17(const char *);
 static void recipes_search17(const char *), recipes_parse17(void), recipes_open_ready17(void);
 static void u17_more_choice(int, int);
 static int u17_more_input(const Input *), u17_more_draw(void), u17_more_commit(int, const char *);
@@ -1243,7 +1241,7 @@ static int centered_lines(int x, int y, int width, const char *text, const Font 
     }
     return row;
 }
-#include "../../apps/lock_screen/view.h"
+#include "sleep_surface.h"
 static int updating;
 static const char *update_error;
 void ui_update_progress(int step,int percent,const char *version,const char *error) {
@@ -1287,7 +1285,7 @@ void ui_draw(void) {
     }
     memset(ui_pixels, 255, sizeof(ui_pixels));
     if (sleeping) {
-        app_view_draw(APP_LOCK_SCREEN);
+        sleep_surface_draw();
         return;
     }
     if(app_package_installed(app_for_route(ui_route()))) {
@@ -1393,6 +1391,7 @@ static int ui_dispatch_input(const Input *in) {
     if(in->kind==INPUT_STATUS && app_process_pending())app_process_flush();
     if(in->kind==INPUT_APP && updating){app_process_poll();return 2;}
     if(in->kind==INPUT_OVERLAY) {
+        if(in->x==APP_OVERLAY_SLEEP)return app_overlay_poll(APP_OVERLAY_SLEEP) && sleeping ? 1 : 2;
         if(in->x==APP_OVERLAY_KEYBOARD)
             return keyboard_package_poll() && editor_ui.keyboard && !updating && !sleeping ? 1 : 2;
         int changed=in->x==APP_OVERLAY_STATUS ? status_overlay_poll() : notification_poll();
@@ -1856,7 +1855,7 @@ static int ui_dispatch_input(const Input *in) {
             u17_notes_up();
             return 1;
         }
-        if (x < 62 && !editor_ui.keyboard && !dropdown && !confirm_delete && !app_package_installed(app_for_route(ui_route())) && (photo_back() || recipes_back() || ha_back()))
+        if (x < 62 && !editor_ui.keyboard && !dropdown && !confirm_delete && !app_package_installed(app_for_route(ui_route())) && (photo_back() || ha_back()))
             return 1;
         if(x<62 && app_package_installed(app_for_route(ui_route())) && strstr(app_process_frame(),"\"back\":true") && !editor_ui.keyboard && !dropdown){app_process_send("{\"event\":\"back\"}");return 2;}
         if (x < 62 && can_back()) {
@@ -2273,7 +2272,6 @@ void ui_paint_image(int x, int y, int w, int h, const unsigned char *gray) {
 int64_t ui_clock_millis(void) { return extra_millis(); }
 static void register_builtin_views(void) {
     app_view_register(APP_STATUS_BAR, header, NULL);
-    app_view_register(APP_LOCK_SCREEN, lock_screen_draw, NULL);
     app_view_register(APP_KEYBOARD, keyboard_draw18, NULL);
 
 
@@ -2412,10 +2410,6 @@ static int app_send(const AppIntent *intent) {
             storage_scan();
         if (ui_route() == 39)
             extra_prepare(39);
-    } else if (intent->app == APP_RECIPES) {
-        recipe_search16 = 0;
-        companion_page16 = 0;
-        recipe_archive16();
     } else if (app_definition(intent->app)->entry >= 27)
         extra_prepare(ui_route());
     if (intent->app == APP_NOTES && intent->object_id) {

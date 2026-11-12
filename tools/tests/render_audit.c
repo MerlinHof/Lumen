@@ -141,7 +141,6 @@ int main(int argc, char **argv) {
     }
     capture("filled-store");
     route_to(114);
-    recipe_search16 = 0;
     recipe_recent_count16 = 5;
     companion_page16 = 0;
     for (int i = 0; i < 5; i++)

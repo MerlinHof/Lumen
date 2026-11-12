@@ -62,10 +62,8 @@
 #include "../openai/models.h"
 #include "../reader/markdown.h"
 #include "journal_dispatch.h"
-static int u17_games_draw(void) {return recipes_draw17();}
-static int u17_games_input(const Input *in) {return recipes_input17(in);}
 #include "../games/manuals.h"
-#include "../recipes/app.h"
+#include "../../system/ui/recipe_provider.h"
 #include "../openai/conversation.h"
 // clang-format on
 

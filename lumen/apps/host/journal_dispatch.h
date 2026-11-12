@@ -43,11 +43,11 @@ static int u17_more_draw(void) {
             centered(28, 705, 544, 40, "Modelle werden geladen …", ui_font(UI_SECONDARY));
         return 1;
     }
-    return u17_games_draw();
+    return 0;
 }
 static int u17_more_input(const Input *in) {
     if (in->kind != INPUT_TAP)
-        return u17_games_input(in);
+        return -1;
     int x = in->x, y = in->y;
     if (ui_route() == 128)
         return chats_input(in);
@@ -77,5 +77,5 @@ static int u17_more_input(const Input *in) {
         }
         return y < 48 ? -1 : 1;
     }
-    return u17_games_input(in);
+    return -1;
 }

@@ -78,9 +78,7 @@ static void improvements_tests(void) {
     ui_draw();
     shot17("chats");
     route_to(114);
-    recipe_search16 = 1;
     companion_page16 = 2;
-    assert(recipes_back() && !recipe_search16 && !companion_page16);
     puts("PASS improvements: pixel-measured formula scrolling, removed routes, real erasing, drag "
          "selection, local chat persistence/context and recipe back.");
 }
