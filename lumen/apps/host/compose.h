@@ -34,7 +34,6 @@
 #include "../news/archive_view.h"
 #include "../notes/navigation.h"
 #include "../../system/ui/markdown_lines.h"
-#include "../planetarium/app.h"
 #include "../timer/ring.h"
 #include "../launcher/manage.h"
 #include "personal_dispatch.h"

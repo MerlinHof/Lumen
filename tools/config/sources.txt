@@ -16,7 +16,6 @@ apps/calculator/evaluate.c
 apps/games/puzzles.c
 apps/news/archive.c
 apps/news/provider.c
-vendor/astronomy.c
 system/services.c
 system/i18n.c
 system/app_runtime.c

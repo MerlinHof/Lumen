@@ -265,3 +265,33 @@ assert any(f.get('operation')=='fetch' and f.get('text')=='wiki-en-2' for f in f
 assert any(f.get('back') for f in frames) and not frames[-1].get('back')
 assert any(f.get('operation')=='archive' for f in frames)
 print('PASS packaged Recipes archive, search, document selection and Back behavior.')
+
+frames,folder=app_session('lumen.planetarium',[
+    component('map','selected','1'),
+    tap(462,737),
+    tap(550,95),
+    dict(event='text',action=1,text='48.13, 11.58'),
+    dict(event='back'),
+    component('map','selected','0'),
+    dict(event='text',action=2,text='12026-06-21 12:00')])
+point_sets=[c['points'] for f in frames for c in f.get('ui',[]) if c['type']=='points']
+assert point_sets and all(0<len(points)<=9000 and len(points)%3==0 for points in point_sets)
+assert any(c.get('text')=='Neptune' for f in frames for c in f.get('ui',[]))
+assert any(f.get('back') for f in frames) and not frames[-1].get('back')
+assert any('12026' in c.get('text','') for c in frames[-1]['ui'])
+assert struct.unpack('=dd',(folder/'sky-location-1.bin').read_bytes())==(48.13,11.58)
+print('PASS packaged Planetarium sky/solar views, time travel, Back and private location.')
+
+frames,_=app_session('lumen.wikipedia',[
+    dict(event='service',action=1,ok=1,count=2,page=0,id0='1234567890abcdef',
+         title0='Cached article',date0='12.11.2026',id1='1234567890abcdea',title1='Other'),
+    tap(550,95),tap(546,176),tap(445,429),
+    dict(event='service',action=4,ok=1),
+    tap(240,176),dict(event='service',action=3,ok=0),
+    dict(event='intent',operation='search',text='Maple')])
+assert any(f.get('request')=='input' for f in frames)
+assert any(f.get('operation')=='remove' and f.get('text')=='1234567890abcdef' for f in frames)
+assert any(f.get('operation')=='open' and f.get('text')=='1234567890abcdef' for f in frames)
+assert any(f.get('operation')=='search' and f.get('text')=='Maple' for f in frames)
+assert any(c.get('text')=='Cached article' for f in frames for c in f.get('ui',[]))
+print('PASS packaged Wikipedia offline list, deletion, cached open and search intent.')

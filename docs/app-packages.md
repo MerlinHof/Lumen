@@ -75,7 +75,10 @@ content is below the 56px status bar. Touch feedback, rounding, icons, typograph
 keyboard and E-Ink presentation remain owned by LUMEN. Use `lumen_text` for
 left-aligned labels or when text needs contrasting ink on a game tile. Use
 `lumen_mono` for fixed-column output and `lumen_hex_cell` for an outlined hex-grid cell.
-Those two drawing commands require LUMEN 4.6 or later.
+Those two drawing commands require LUMEN 4.6 or later. LUMEN 5.8 adds
+`lumen_points_begin`, `lumen_point` and `lumen_points_end` for grayscale
+scatter plots and dense maps. Each batch accepts at most 3,000 visible points
+with radii from one to four pixels.
 
 A frame is bounded to 256 KiB and 2,048 commands. Input events are queued without
 blocking the system's touch loop. An idle app blocks on stdin, rather than
@@ -104,7 +107,7 @@ the app process. Package-owned grayscale PGM files can use `lumen_asset`.
 
 ## Existing app implementations
 
-Thirty-nine independent apps ship with LUMEN 5.7. Their build manifests are the
+Forty-one independent apps ship with LUMEN 5.8. Their build manifests are the
 `lumen/apps/*/package.json` files. Legacy views without manifests still run from
 the host and may be replaced by packages using the same stable identity.
 

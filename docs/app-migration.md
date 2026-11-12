@@ -81,6 +81,14 @@ Lock Screen and Recipes now have independent packages, bringing the total to
 **39 packaged / 13 linked**. The runtime gained a sleep overlay slot and a
 bounded recipe provider and archive service.
 
+## Progress in 5.8
+
+Planetarium owns the sky map, solar system, time controls and location in an
+independent process. Batched point rendering keeps the dense sky chart within
+the frame budget. Wikipedia owns search, pagination and offline history
+interaction through a shared document provider. This brings the total to
+**41 packaged / 11 linked**.
+
 ## Completion checks
 
 A migration counts when the app owns its behavior in an independently built

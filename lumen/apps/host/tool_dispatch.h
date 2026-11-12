@@ -31,9 +31,6 @@ static void extra_draw(void) {
     case 34:
         app_ha_setup();
         break;
-    case 36:
-        app_wiki();
-        break;
     case 39:
         app_time_settings();
         break;
@@ -144,12 +141,6 @@ static void extra_commit(int target, const char *text) {
         }
         snprintf(ha_token, sizeof(ha_token), "%s", text);
         extra_write_text("ha-token.txt", ha_token);
-    } else if (target == 34) {
-        wiki_ui.wiki_article_language = options[OPT_LANGUAGE];
-        snprintf(wiki_query, sizeof(wiki_query), "%s", text);
-        wiki_page = 0;
-        extra_write_text("wiki-query.txt", wiki_query);
-        discover_lookup(wiki_query, options[OPT_LANGUAGE]);
     } else if (target == 35) {
         int y, m, d, h, minute;
         char tail;
@@ -393,8 +384,6 @@ static int extra_input(const Input *in) {
     if (ui_route() == 51) {
         return 1;
     }
-    if (ui_route() == 36)
-        return wiki_history_input(in);
     if (ui_route() == 39) {
         if (y >= 286 && y < 348) {
             options[OPT_AUTO_TIME] ^= 1;

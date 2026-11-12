@@ -6,8 +6,8 @@
 
 An illustrated Home, a shared Reader, and useful tools for a paper screen.
 
-[**Download 5.7**](https://github.com/MerlinHof/Lumen/releases/tag/v5.7) ·
-[Release notes](docs/releases/5.7.md) ·
+[**Download 5.8**](https://github.com/MerlinHof/Lumen/releases/tag/v5.8) ·
+[Release notes](docs/releases/5.8.md) ·
 [Installation](docs/installation.md) ·
 [Build](docs/building.md) ·
 [Agent guide](AGENTS.md)
@@ -67,13 +67,13 @@ Online features depend on their providers. Home Assistant and OpenAI use your
 own server or account configuration. The calendar is local. Timers provide a
 visual interruption while LUMEN is awake and cannot wake the Kindle from deep sleep.
 
-## What's new in 5.7
+## What's new in 5.8
 
-Lock Screen and Recipes now run as independent packages. Recipe search and offline archives continue to use the shared Reader.
+Planetarium and Wikipedia now run as independent packages. Planetarium keeps its local sky chart and time controls. Wikipedia keeps offline articles and opens them in Reader.
 
 [App SDK and package guide](docs/app-packages.md) · [GitHub updates](docs/wireless-updates.md)
 
-[Full 5.7 release notes](docs/releases/5.7.md) · [Version history](docs/changelog.md)
+[Full 5.8 release notes](docs/releases/5.8.md) · [Version history](docs/changelog.md)
 
 <table>
 <tr>
@@ -93,7 +93,7 @@ Lock Screen and Recipes now run as independent packages. Recipe search and offli
 Each individual screen is 600 × 800 pixels. They are software previews;
 physical E-Ink appearance and response time depend on the Kindle.*
 
-## Install LUMEN 5.7
+## Install LUMEN 5.8
 
 Already on 4.7? Use **Settings → System → Update** on the Kindle. The steps below cover first installation and USB recovery.
 
@@ -102,7 +102,7 @@ Already on 4.7? Use **Settings → System → Update** on the Kindle. The steps 
 A compatible jailbreak, the Kindle .sh launcher and FBInk must already be
 installed. LUMEN's installer checks these prerequisites.
 
-1. [Download LUMEN-5.7.zip](https://github.com/MerlinHof/Lumen/releases/download/v5.7/LUMEN-5.7.zip)
+1. [Download LUMEN-5.8.zip](https://github.com/MerlinHof/Lumen/releases/download/v5.8/LUMEN-5.8.zip)
    and extract the complete folder.
 2. Connect the prepared Kindle over USB.
 3. Open **Install-LUMEN.command** on macOS, or run the Python installer with

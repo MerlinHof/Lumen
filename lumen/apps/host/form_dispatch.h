@@ -31,13 +31,6 @@ static void u17_choice(int target, int choice) {
             extra_open(43);
         }
     }
-    if (target == 933) {
-        AppIntent i = {.app = APP_PLANETARIUM, .kind = INTENT_OPEN};
-        if (!choice)
-            app_send(&i);
-        else
-            extra_open(125);
-    }
     u17_more_choice(target, choice);
 }
 static int u17_commit(int target, const char *text) {
@@ -46,12 +39,6 @@ static int u17_commit(int target, const char *text) {
 static int u17_input(const Input *in) {
     if (sleeping || editor_ui.keyboard || dropdown)
         return -1;
-    if (in->kind == INPUT_TAP && (ui_route() == 79 || ui_route() == 125) && in->y >= 74 && in->y < 118 &&
-        in->x >= 300 && in->x < 516) {
-        static const char *t[] = {"Sternhimmel", "Sonnensystem"};
-        open_dropdown(933, t, 2, ui_route() == 125, 300, 123, 216);
-        return 1;
-    }
     return u17_more_input(in);
 }
 static int u17_draw(void) {

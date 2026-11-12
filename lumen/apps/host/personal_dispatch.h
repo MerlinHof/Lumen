@@ -5,13 +5,6 @@ static void v1_open(int target) {
     v1_page = 0;
     if (target == 71)
         v1_photos_scan();
-    if (target == 79) {
-        static int ready;
-        if (!ready) {
-            sky_init();
-            ready = 1;
-        }
-    }
     if (target == 85)
         markdown_page = 0;
     if (target == 87 && !timer_due && !timer_paused)
@@ -34,12 +27,6 @@ static void v1_draw(void) {
         break;
     case 72:
         v1_photo_draw();
-        break;
-    case 79:
-        sky_draw();
-        break;
-    case 80:
-        sky_settings_draw();
         break;
     case 83:
         v1_launcher_settings();
@@ -94,36 +81,6 @@ static int v1_commit(int target, const char *text) {
             snprintf(f->name, 96, "%s", text);
             v1_dirty = 1;
         }
-        return 1;
-    }
-    if (target == 121) {
-        double lat, lon;
-        char extra;
-        if (sscanf(text, "%lf , %lf %c", &lat, &lon, &extra) == 2 && isfinite(lat) &&
-            isfinite(lon) && fabs(lat) <= 90 && fabs(lon) <= 180) {
-            sky_config.lat = lat;
-            sky_config.lon = lon;
-            double p[2] = {lat, lon};
-            app_state_save("sky-location-1.bin", p, sizeof(p));
-            sky_key[0] = 0;
-        } else
-            ui_message("Breitengrad, Längengrad prüfen.");
-        return 1;
-    }
-    if (target == 122) {
-        int Y, M, D, h, m;
-        char extra;
-        if (sscanf(text, "%d-%d-%d %d:%d %c", &Y, &M, &D, &h, &m, &extra) == 5 && Y >= 1 &&
-            Y <= 12026 && M >= 1 && M <= 12 && D >= 1 && D <= calendar_days(Y, M) && h >= 0 &&
-            h < 24 && m >= 0 && m < 60) {
-            sky_config.year = Y;
-            sky_config.month = M;
-            sky_config.day = D;
-            sky_config.hour = h;
-            sky_config.minute = m;
-            sky_key[0] = 0;
-        } else
-            ui_message("Datum: YYYY-MM-DD HH:MM UTC");
         return 1;
     }
     if (target == 130)
@@ -220,73 +177,6 @@ static int v1_input(const Input *in) {
     case 71:
         photo_grid_input(x, y);
         return 1;
-    case 79:
-        if (y >= 74 && y < 118 && x >= 516) {
-            extra_open(80);
-            break;
-        }
-        if (y >= 696 && y < 734) {
-            if (x < 80)
-                sky_shift(-1);
-            else if (x >= 520)
-                sky_shift(1);
-            else {
-                sky_step = (x - 83) / (434 / 4);
-                if (sky_step > 3)
-                    sky_step = 3;
-                sky_shift(1);
-            }
-            if (sky_step < 0)
-                sky_step = 0;
-            if (sky_step > 3)
-                sky_step = 3;
-        } else if (y >= 747) {
-            if (x < 200)
-                sky_now();
-            else if (x < 390) {
-                sky_panel = 1;
-                extra_open(80);
-            } else {
-                char b[80];
-                snprintf(b, 80, "%04d-%02d-%02d %02d:%02d", sky_config.year, sky_config.month,
-                         sky_config.day, sky_config.hour, sky_config.minute);
-                open_keyboard(122, "Datum · UTC", b);
-            }
-        } else if (y >= 158 && y < 693) {
-            int best = 625;
-            sky_selected = -1;
-            for (unsigned i = 0; i < sizeof(sky_stars) / sizeof(*sky_stars); i++) {
-                int dx = x - sky_px[i], dy = y - sky_py[i], d = dx * dx + dy * dy;
-                if (d < best) {
-                    best = d;
-                    sky_selected = i;
-                }
-            }
-        }
-        break;
-    case 80:
-        if (y >= 136 && y < 180) {
-            sky_panel = (x - 28) / (544 / 3);
-            if (sky_panel < 0)
-                sky_panel = 0;
-            if (sky_panel > 2)
-                sky_panel = 2;
-        } else if (!sky_panel) {
-            if (y >= 228 && y < 284) {
-                char b[100];
-                snprintf(b, 100, "%.4f, %.4f", sky_config.lat, sky_config.lon);
-                open_keyboard(121, "Breitengrad, Längengrad", b);
-            } else if (y >= 325 && y < 375 && x >= 460) {
-                sky_show_lines ^= 1;
-                sky_key[0] = 0;
-            }
-        } else if (sky_panel == 2 && y >= 708 && y < 752) {
-            if (x < 300 && v1_page)
-                v1_page--;
-            else if (x >= 300 && v1_page < 4)
-                v1_page++;
-        }
-        break;
     case 83: {
         int indices[APP_LIMIT], count = launcher_manage_indices(indices);
         if (y >= 174 && y < 650) {

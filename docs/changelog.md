@@ -1,5 +1,7 @@
 # Changelog
 
+- [5.8](releases/5.8.md) · Independent Planetarium and Wikipedia, with batched point rendering.
+
 - [5.7](releases/5.7.md) · Independent Lock Screen overlay and Recipes package.
 
 - [5.6](releases/5.6.md) · Shared E-Ink waveform planner and independent Study.

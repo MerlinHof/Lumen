@@ -124,7 +124,6 @@ static int annotations_write(void);
 static void annotations_load(void);
 static void annotations_draw(void);
 static void annotations_screen(void);
-static void wikipedia_screen(void);
 static void selection_overlay(void);
 
 
@@ -195,11 +194,8 @@ static void open_store(void);
 static void store_search(void);
 static void turn(int);
 static void system_loading(int);
-static void polish_wiki_history(void);
-static int wiki_history_input(const Input *);
 static int wiki_refresh_failed(void);
 static void wiki_history_scan(void);
-static void wiki_history_current(void);
 static void wiki_article_opened(void);
 static void extra_init(void);
 static void extra_draw(void);
@@ -261,7 +257,6 @@ static void polish_wiki_refetched(void);
 static int article_wiki_open(void);
 static void article_wiki_request(void);
 static int wiki_reader_pending;
-static void polish_wiki_history(void);
 static void polish_view(void);
 static void polish_draw(void), polish_open(int), polish_close(void);
 static int polish_input(const Input *), polish_tick(void), polish_poll(void),
@@ -1688,8 +1683,10 @@ static int ui_dispatch_input(const Input *in) {
             snprintf(message, sizeof(message), "%s", discover_error());
             if (ui_route() == 36 && wiki_refresh_failed())
                 return 1;
-            if (ui_route() == 36)
+            if (ui_route() == 36) {
                 extra_wiki_restore();
+                app_process_send("{\"event\":\"refresh\"}");
+            }
             ui_message(message);
         } else if (done == 2) {
             if (ui_route() == 2)
@@ -2221,17 +2218,6 @@ int ui_poll_interval(void) {
 }
 
 #include "../../apps/reader/annotations_view.h"
-static void wikipedia_screen(void) {
-    heading("Wikipedia");
-    if (discover_busy())
-        wrapped(28, 180, "Wikipedia wird geladen …", &editorial, 544, 3);
-    else if (*discover_lookup_text()) {
-        wrapped_raw(28, 139, discover_lookup_title(), &body, 544, 2);
-        wrapped_raw(28, 230, discover_lookup_text(), &small, 544, 16);
-        drawtext(28, 704, "Wikipedia · CC BY-SA", &caption, 544);
-    } else
-        wrapped(28, 180, "Kein Wikipedia-Eintrag gefunden.", &editorial, 544, 3);
-}
 
 #include "../../apps/reader/annotations_store.h"
 #include "../../apps/host/compose.h"
@@ -2381,20 +2367,12 @@ static int app_send(const AppIntent *intent) {
         history[history_count++] = old;
     if(app_package_installed(intent->app)){
         int ok=app_process_open(intent->app);char*event=NULL;size_t n=0;FILE*f=open_memstream(&event,&n);
-        fprintf(f,"{\"event\":\"intent\",\"kind\":%d,\"object\":%llu,\"text\":",intent->kind,(unsigned long long)intent->object_id);json_escape16(f,intent->text);fputc('}',f);fclose(f);if(ok)app_process_send(event);free(event);return ok;
+        fprintf(f,"{\"event\":\"intent\",\"kind\":%d,\"object\":%llu,\"text\":",intent->kind,(unsigned long long)intent->object_id);json_escape16(f,intent->text);if(intent->kind==INTENT_SEARCH)fputs(",\"operation\":\"search\"",f);fputc('}',f);fclose(f);if(ok)app_process_send(event);free(event);return ok;
     }
     app_process_pause();
     if (intent->app == APP_STORE) {
         snprintf(store_ui.store_query, sizeof(store_ui.store_query), "%s", runtime.intent.text);
         open_store();
-    } else if (intent->app == APP_WIKIPEDIA) {
-        snprintf(wiki_query, sizeof(wiki_query), "%s", runtime.intent.text);
-        wiki_page = 0;
-        wiki_history_scan();
-        if (*wiki_query) {
-            wiki_ui.wiki_article_language = options[OPT_LANGUAGE];
-            discover_lookup(wiki_query, options[OPT_LANGUAGE]);
-        }
     } else if (intent->app == APP_LIBRARY) {
         if (library_ui.library_dirty) refresh_library();
         snprintf(library_ui.query, sizeof(library_ui.query), "%s",

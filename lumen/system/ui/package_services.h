@@ -9,6 +9,13 @@ static void package_reply_end(FILE *stream,char **message) {
     if(!fclose(stream))app_process_send(*message);
     free(*message);
 }
+static int package_acknowledge(int action,int ok) {
+    char *message=NULL;size_t length=0;
+    FILE *out=package_reply(&message,&length,action,ok);
+    if(!out)return 0;
+    package_reply_end(out,&message);
+    return ok;
+}
 static void package_field(FILE *stream,const char *key,const char *value) {
     fprintf(stream,",\"%s\":",key);
     json_escape16(stream,value);
@@ -88,6 +95,7 @@ static int package_equivalent(const char *data,int action) {
 #include "weather_service.h"
 #include "study_services.h"
 #include "recipe_service.h"
+#include "wikipedia_service.h"
 static int package_service_request(const char *name,const char *operation,const char *data,int action) {
     if(!strcmp(name,"text") && !strcmp(operation,"equivalent"))return package_equivalent(data,action);
     if(!strcmp(name,"reading"))return package_reading_activity(operation,data,action);
@@ -95,6 +103,7 @@ static int package_service_request(const char *name,const char *operation,const 
     if(!strcmp(name,"study_material"))return package_study_material(operation,data,action);
     if(!strcmp(name,"notes") && !strcmp(operation,"create_learning"))return package_learning_note(data,action);
     if(!strcmp(name,"clock") && !strcmp(operation,"start_timer"))return package_start_timer(data,action);
+    if(!strcmp(name,"wikipedia"))return package_wikipedia(operation,data,action);
     if(!strcmp(name,"recipes"))return package_recipes(operation,data,action);
     if(!strcmp(name,"transfer"))return transfer_service(operation,data,action);
     if(!strcmp(name,"dictionary") && !strcmp(operation,"game_word")) {

@@ -19,9 +19,6 @@ static void polish_open(int route) {
 }
 static void polish_view(void) {
     switch (ui_route()) {
-    case 94:
-        polish_wiki_history();
-        break;
     case 95:
     case 96:
     case 97:
@@ -30,8 +27,6 @@ static void polish_view(void) {
     }
 }
 static int polish_input(const Input *in) {
-    if (ui_route() == 94)
-        return wiki_history_input(in);
     if (ui_route() == 95 || ui_route() == 96 || ui_route() == 97)
         return polish_news_input(in);
     return 2;

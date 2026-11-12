@@ -174,6 +174,12 @@ static void package_paint_frame(const char *text) {
         /* Content coordinates may never paint or intercept the status bar. */
         if((y<STATUS_HEIGHT && strcmp(type,"asset")) || y<0 || y>800 || x < -600 || x>600 || w<0 || w>1200 || h<0 || h>800)continue;
         size_t estimate=(size_t)w*h;
+        if(!strcmp(type,"points")) {
+            int points=json_get(&j,item,"points");
+            int count=points>=0 && j.tokens[points].type=='[' ? j.tokens[points].count : 0;
+            if(count<3 || count>9000 || count%3)continue;
+            estimate=(size_t)(count/3)*121;
+        }
         if(!strcmp(type,"ellipse"))estimate=4u*(unsigned)abs(package_value(&j,item,"rx"))*(unsigned)abs(package_value(&j,item,"ry"));
         if(!strcmp(type,"hex_cell"))estimate=65*37;
         if(!strcmp(type,"ring")){int r=package_value(&j,item,"radius");estimate=4u*(unsigned)abs(r)*(unsigned)abs(r);}
@@ -280,6 +286,19 @@ static void package_paint_frame(const char *text) {
         }
         else if(!strcmp(type,"hit"))region(x,y,w,h);
         else if(!strcmp(type,"surface"))ui_paint_surface(x,y,w,h,package_value(&j,item,"radius"),package_value(&j,item,"gray"),package_value(&j,item,"outline"));
+        else if(!strcmp(type,"points")) {
+            int points=json_get(&j,item,"points");
+            int tone=package_value(&j,item,"gray");
+            if(tone<0 || tone>255)continue;
+            for(int point=points+1;point<j.tokens[points].next;) {
+                double px=json_number(&j,point);point=j.tokens[point].next;
+                double py=json_number(&j,point);point=j.tokens[point].next;
+                double radius=json_number(&j,point);point=j.tokens[point].next;
+                if(px>=4 && px<WIDTH-4 && py>=STATUS_HEIGHT+4 && py<HEIGHT-4 &&
+                   radius>=1 && radius<=4)
+                    aa_disc((int)px,(int)py,(int)radius,tone);
+            }
+        }
         else if(!strcmp(type,"ellipse")){int rx=package_value(&j,item,"rx"),ry=package_value(&j,item,"ry");if(rx>=0&&rx<=300&&ry>=0&&ry<=400)ui_paint_ellipse(x,y,rx,ry,package_value(&j,item,"gray"));}
         else if(!strcmp(type,"hex_cell")) {
             int fill=package_value(&j,item,"gray");

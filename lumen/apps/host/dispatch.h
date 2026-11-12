@@ -49,9 +49,6 @@ static void app_render(void) {
     case 14:
         annotations_screen();
         break;
-    case 15:
-        wikipedia_screen();
-        break;
     default:
         if (ui_route() >= 27)
             extra_draw();

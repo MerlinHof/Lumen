@@ -1,21 +1,14 @@
 /* Provider/cache operations for independently packaged content clients. */
-static int recipe_reply(int action,int ok) {
-    char *message=NULL;size_t length=0;
-    FILE *out=package_reply(&message,&length,action,ok);
-    if(!out)return 0;
-    package_reply_end(out,&message);
-    return ok;
-}
 static int package_recipes(const char *operation,const char *data,int action) {
     if(!strcmp(operation,"search"))
-        return recipe_reply(action,*data && strlen(data)<256 && job_start16(1,data));
+        return package_acknowledge(action,*data && strlen(data)<256 && job_start16(1,data));
     if(!strcmp(operation,"fetch")) {
         for(int i=0;i<recipes_count17;i++)if(!strcmp(recipes17[i].id,data)) {
-            if(job_pid16>0)return recipe_reply(action,0);
+            if(job_pid16>0)return package_acknowledge(action,0);
             selected_recipe17=recipes17[i];
-            return recipe_reply(action,job_start16(4,""));
+            return package_acknowledge(action,job_start16(4,""));
         }
-        return recipe_reply(action,0);
+        return package_acknowledge(action,0);
     }
     if(!strcmp(operation,"open")) {
         recipe_archive16();
@@ -37,7 +30,7 @@ static int package_recipes(const char *operation,const char *data,int action) {
                 return 1;
             }
         }
-        return recipe_reply(action,0);
+        return package_acknowledge(action,0);
     }
     int search=!strcmp(operation,"results");
     if(!search && strcmp(operation,"archive"))return 0;

@@ -200,13 +200,12 @@ int main(int argc, char **argv) {
     assert(strstr(app_process_frame(),"selected\":0"));
     shot17("calendar-day");
     route_to(79);
-    extra_prepare(79);
+    settle_app();
     ui_draw();
-    tap17(400, 90);
-    assert(dropdown && drop_target == 933);
-    tap17(drop_x + 90, drop_y + 5 + 48 + 20);
-    assert(ui_route() == 125);
-    ui_draw();
+    assert(strstr(app_process_frame(),"Sonnensystem"));
+    tap17(450, 90);
+    assert(strstr(app_process_frame(),"selected\":1"));
+    assert(strstr(app_process_frame(),"Neptun"));
     shot17("solar");
     for (int lang = 0; lang < 3; lang++) {
         options[OPT_LANGUAGE] = lang;

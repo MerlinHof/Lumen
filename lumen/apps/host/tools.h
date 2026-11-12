@@ -325,7 +325,6 @@ static int u16_jobs_tick(void) {
     return 1;
 }
 
-#include "../planetarium/solar_view.h"
 
 static void game_new16(int route) {
     memset(game_board16, 0, sizeof(game_board16));
@@ -698,10 +697,6 @@ static int u16_apps_draw(void) {
         pager(715, &companion_page16, (files_count16 + 7) / 8);
         return 1;
     }
-    if (ui_route() == 125) {
-        solar16();
-        return 1;
-    }
     return 0;
 }
 
@@ -720,10 +715,6 @@ static int u16_apps_input(const Input *in) {
             game_help16(ui_route());
             return 1;
         }
-    }
-    if (ui_route() == 79 && y >= 74 && y < 118 && x >= 460 && x < 516) {
-        extra_open(125);
-        return 1;
     }
     if (ui_route() < 110 || ui_route() > 127)
         return -1;
@@ -757,25 +748,6 @@ static int u16_apps_input(const Input *in) {
         return -1;
     }
 
-    if (ui_route() == 125) {
-        if (y >= 74 && y < 118 && x >= 516) {
-            extra_open(80);
-            return 1;
-        }
-        if (y >= 714 && y < 762) {
-            double d = x < 160 ? -1 : x < 297 ? 1 : x < 434 ? -365.25 : 365.25;
-            astro_time_t t = Astronomy_AddDays(sky_time(), d);
-            astro_utc_t u = Astronomy_UtcFromTime(t);
-            sky_config.year = u.year;
-            sky_config.month = u.month;
-            sky_config.day = u.day;
-            sky_config.hour = u.hour;
-            sky_config.minute = u.minute;
-            sky_key[0] = 0;
-            return 1;
-        }
-        return 1;
-    }
     if (ui_route() == 118 || ui_route() == 119 ||
         ui_route() == 121) {
         if (y >= 74 && y < 118 && x >= 460 && x < 516 &&

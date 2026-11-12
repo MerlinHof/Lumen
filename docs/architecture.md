@@ -35,11 +35,11 @@ package interface. Do not describe every old implementation as migrated.
 
 [App-by-app migration inventory and SDK dependencies](app-migration.md)
 
-### Remaining linked apps in 5.7
+### Remaining linked apps in 5.8
 
-- Reading and content · Library, Reader, Store, Wikipedia and News.
+- Reading and content · Library, Reader, Store and News.
 - Personal tools · Clock, Notes, Photos, Home Assistant, OpenAI.
-- Learning and reference · Calculator and Planetarium.
+- Learning and reference · Calculator.
 - Device surfaces · Settings.
 
 Pending SDK work includes semantic lists, grids, menus and dialogs,
