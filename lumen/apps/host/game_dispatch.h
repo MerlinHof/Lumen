@@ -5,49 +5,16 @@ static void new_apps_draw(void) {
         return;
     }
     switch (ui_route()) {
-    case 60:
-        sensor_graph_screen();
-        break;
-    case 61:
-        calculator_graph();
-        break;
-    case 62:
-        graph_range_screen();
-        break;
     }
 }
 static int new_apps_commit(int target, const char *text) {
     if (target >= 100)
         return v1_commit(target, text);
-    if (target == 80) {
-        snprintf(calc_expr, sizeof(calc_expr), "%s", text);
-        calc_cursor = strlen(calc_expr);
-        calc_preview();
-        return 1;
-    }
-    if (target >= 81 && target <= 84) {
-        char *end;
-        double v = strtod(text, &end);
-        int i = target - 81;
-        if (end == text || *end || !isfinite(v) || fabs(v) > 1e12) {
-            ui_message("Ausdruck oder Wertebereich prüfen.");
-            return 1;
-        }
-        double copy[4];
-        memcpy(copy, plot_bounds, sizeof(copy));
-        copy[i] = v;
-        if (copy[0] >= copy[1] || copy[2] >= copy[3])
-            ui_message("Minimum muss kleiner als Maximum sein.");
-        else
-            memcpy(plot_bounds, copy, sizeof(copy));
-        return 1;
-    }
     return 0;
 }
 static int new_apps_input(const Input *in) {
     if (ui_route() >= 70)
         return v1_input(in);
-    int x = in->x, y = in->y;
     if (ui_route() == 67 && in->kind == INPUT_SWIPE) {
         int total = newspaper.count + 2;
         if (in->dx < 0 && news_page + 1 < total)
@@ -58,44 +25,6 @@ static int new_apps_input(const Input *in) {
     }
     if (in->kind != INPUT_TAP)
         return 2;
-    if (ui_route() == 60) return sensor_graph_input(in);
 
-    if (ui_route() == 61) {
-        if (y >= 128 && y < 178)
-            open_keyboard(80, "y = f(x)", calc_expr);
-        else if (y >= 220 && y < 647 && x >= 66 && x < 558)
-            plot_trace = x - 66 + 1;
-        else if (y >= 712) {
-            if (x < 178)
-                extra_open(62);
-            else if (x >= 416)
-                graph_auto_y();
-            else {
-                double f = x < 300 ? 2 : .5, cx = (plot_bounds[0] + plot_bounds[1]) / 2,
-                       cy = (plot_bounds[2] + plot_bounds[3]) / 2,
-                       dx = (plot_bounds[1] - plot_bounds[0]) * f / 2,
-                       dy = (plot_bounds[3] - plot_bounds[2]) * f / 2;
-                if (dx > 1e-9 && dx < 1e12 && dy > 1e-9 && dy < 1e12) {
-                    plot_bounds[0] = cx - dx;
-                    plot_bounds[1] = cx + dx;
-                    plot_bounds[2] = cy - dy;
-                    plot_bounds[3] = cy + dy;
-                }
-            }
-        }
-        return 1;
-    }
-    if (ui_route() == 62) {
-        if (y >= 165 && y < 549) {
-            int i = (y - 165) / 108;
-            if (i < 4) {
-                char b[80];
-                snprintf(b, sizeof(b), "%.10g", plot_bounds[i]);
-                open_keyboard(81 + i, "Graph-Bereich", b);
-            }
-        } else if (y >= 650 && y < 706)
-            extra_return(61);
-        return 1;
-    }
     return 1;
 }

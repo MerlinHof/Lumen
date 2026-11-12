@@ -32,7 +32,7 @@ static void calc_run(void) {
             strcat(all, calc_history[i]);
             strcat(all, "\n");
         }
-        extra_write_text("calculator-history.txt", all);
+        lumen_storage_write("calculator-history.txt",all,strlen(all));
     } else {
         calc_result[0] = 0;
         snprintf(calc_error, sizeof(calc_error), "%s", tr("Ausdruck oder Wertebereich prüfen."));
@@ -73,38 +73,6 @@ static const char *calc_label(const char *key) {
         return "−";
     return key;
 }
-static void calc_math(char *out, int cap) {
-    const char *p = calc_expr;
-    int n = 0;
-    while (*p && n < cap - 8) {
-        const char *replacement = NULL;
-        int count = 1;
-        if (!strncmp(p, "sqrt", 4)) {
-            replacement = "√";
-            count = 4;
-        } else if (!strncmp(p, "pi", 2)) {
-            replacement = "π";
-            count = 2;
-        } else if (!strncmp(p, "^2", 2) && !isdigit((unsigned char)p[2]) && p[2] != '.') {
-            replacement = "²";
-            count = 2;
-        } else if (*p == '*')
-            replacement = "·";
-        else if (*p == '/')
-            replacement = "÷";
-        else if (*p == '-')
-            replacement = "−";
-        if (replacement) {
-            int len = strlen(replacement);
-            memcpy(out + n, replacement, len);
-            n += len;
-            p += count;
-        } else
-            out[n++] = *p++;
-    }
-    out[n] = 0;
-}
-#include "formula.h"
 static void calc_key(int x, int y, int w, int h, const char *label) {
     region(x, y, w, h);
     key_outline(x, y, w, h);
@@ -143,17 +111,13 @@ static void calc_function_key(int x, int y, const char *key) {
         power = "y";
     }
     if (base) {
-        int bw = textwidth_raw(base, ui_font(UI_BODY)), pw = textwidth_raw(power, ui_font(UI_SECONDARY)),
+        int bw = (int)strlen(base)*12, pw = 12,
             left = x + (57 - bw - pw - 2) / 2;
         label_at(left, y + 14, bw + 2, 24, base, ui_font(UI_BODY));
         label_at(left + bw + 2, y + 4, pw + 2, 20, power, ui_font(UI_SECONDARY));
         return;
     }
     centered(x, y, 57, 44, calc_label(key), ui_font(UI_BODY));
-}
-static int calc_input_start(void) {
-    calc_cursor = text_boundary(calc_expr, calc_cursor < 0 ? 0 : (size_t)calc_cursor);
-    return text_visible_start(calc_expr, calc_cursor, ui_font(UI_BODY), 468, 0);
 }
 static void app_calculator(void) {
     calc_alt = !!calc_alt;
@@ -166,27 +130,15 @@ static void app_calculator(void) {
     key_outline(28, 361, 498, 52);
     region(536, 365, 36, 44);
     icon(532, 365, IC_DELETE);
-    int start = calc_input_start();
-    char shown[1024];
-    snprintf(shown, sizeof(shown), "%s", calc_expr + start);
-    int ih, it = ink_top(*shown ? shown : "Ag", ui_font(UI_BODY), &ih);
-    int input_y = 361 + (52 - ih) / 2 - it;
-    drawtext_raw(43, input_y, shown, ui_font(UI_BODY), 468);
-    char prefix[1024];
-    snprintf(prefix, sizeof(prefix), "%.*s", calc_cursor - start, calc_expr + start);
-    int cx = 43 + textwidth(prefix, ui_font(UI_BODY));
-    if (cx < 516 && editor_ui.cursor_visible) {
-        text_caret(cx, input_y, ui_font(UI_BODY));
-    }
+    lumen_editor_line(43,361,468,52,calc_expr,calc_cursor);
     if (calc_memory != 0)
         drawtext(525, 145, "M", ui_font(UI_SECONDARY), 30);
-    math_formula(43, 140, 514, 150);
+    lumen_formula(43,140,514,150,calc_expr);
     if (*calc_error)
         wrapped(43, 285, calc_error, ui_font(UI_BODY), 510, 2);
     else {
         const char *value = *calc_result ? calc_result : "0";
-        int w = textwidth(value, ui_font(UI_DISPLAY));
-        drawtext_raw(w < 510 ? 557 - w : 43, 288, value, ui_font(UI_DISPLAY), 514);
+        lumen_text(43,288,514,54,value,PAINT_DISPLAY,0,0);
     }
     const char **top = calc_alt ? calc_all1 : calc_all0;
     icon_button(calc_alt ? 20 : 536, 454, calc_alt ? IC_PREV : IC_NEXT);
@@ -206,7 +158,9 @@ static void app_calc_history(void) {
         if (i < 0)
             break;
         int y = 145 + r * 64;
-        list_row(28, y, 544, 64, -1, 0, calc_history[i], NULL, ui_font(UI_BODY), 2);
+        lumen_wrapped(31,y+7,540,54,calc_history[i],PAINT_BODY,2);
+        ui_paint_hitbox(28,y,544,64);
+        ui_paint_line(28,y+63,572,y+63,1,185);
     }
-    pager(679, &extra_page, (calc_history_count + 7) / 8);
+    lumen_pager(679,extra_page, (calc_history_count + 7) / 8);
 }

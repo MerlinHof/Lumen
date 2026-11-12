@@ -40,28 +40,43 @@ int main(void) {
     app_process_send("{\"event\":\"page\",\"page\":1}");
     picture("apps");
     route_to(27);
-    snprintf(calc_expr, sizeof(calc_expr), "sin(pi/3)^2+sqrt(5^2+3^2)");
-    calc_cursor = strlen(calc_expr);
-    calc_degrees = 0;
-    calc_run();
+    app_process_open(APP_CALCULATOR);
+    app_process_send("{\"event\":\"input\",\"kind\":1,\"x\":550,\"y\":95}");
+    app_process_send("{\"event\":\"select\",\"action\":1,\"value\":1}");
+    app_process_send("{\"event\":\"back\"}");
+    app_process_send("{\"event\":\"text\",\"action\":80,\"text\":\"sin(pi/3)^2+sqrt(5^2+3^2)\"}");
+    app_process_send("{\"event\":\"input\",\"kind\":1,\"x\":500,\"y\":730}");
+    for(int i=0;i<30;i++){usleep(5000);package_ui_poll();}
     picture("calculator");
     route_to(13);
     picture("settings");
     route_to(28);
-    timer_panel=0;
-    clock_ui.clock_style=4;
+    app_process_open(APP_TIMER);
+    app_process_send("{\"event\":\"component\",\"id\":\"mode\",\"text\":\"0\"}");
+    for(int i=0;i<30;i++){usleep(5000);package_ui_poll();}
+    app_process_open(APP_TIMER);
+    app_process_send("{\"event\":\"select\",\"action\":2,\"value\":0}");
+    for(int i=0;i<30;i++){usleep(5000);package_ui_poll();}
     picture("clock");
-    timer_panel=2;
+    app_process_open(APP_TIMER);
+    app_process_send("{\"event\":\"component\",\"id\":\"mode\",\"text\":\"2\"}");
+    for(int i=0;i<30;i++){usleep(5000);package_ui_poll();}
     picture("alarm");
-    timer_panel=0;
+    app_process_open(APP_TIMER);
+    app_process_send("{\"event\":\"component\",\"id\":\"mode\",\"text\":\"0\"}");
+    for(int i=0;i<30;i++){usleep(5000);package_ui_poll();}
     for(int face=0;face<14;face++) {
         char name[40];snprintf(name,sizeof(name),"face-%02d",face);
-        clock_ui.clock_style=face;
+        char selection[80];snprintf(selection,sizeof(selection),"{\"event\":\"select\",\"action\":2,\"value\":%d}",face);
+        app_process_send(selection);
+        for(int i=0;i<20;i++){usleep(5000);package_ui_poll();}
         notification_dismiss();ui_draw();
         char path[256];snprintf(path,sizeof(path),"build/gallery/%s.pgm",name);
         FILE*f=fopen(path,"wb");assert(f);fprintf(f,"P5\n600 800\n255\n");fwrite(ui_pixels,1,sizeof(ui_pixels),f);fclose(f);
     }
-    clock_ui.clock_style=4;
+    app_process_open(APP_TIMER);
+    app_process_send("{\"event\":\"select\",\"action\":2,\"value\":0}");
+    for(int i=0;i<30;i++){usleep(5000);package_ui_poll();}
     route_to(40);
     extra_page=0;picture("system-update");
     route_to(129);
@@ -96,15 +111,7 @@ int main(void) {
     picture("notes-list");
     route_to(74);
     picture("todo");
-    chat_clear();
-    chat_append(0, "How can I make more room for reading?");
-    chat_append(1,
-                "Start small. Choose a quiet moment that already belongs to you: the first cup of "
-                "tea, a train journey, or the last few minutes before sleep.\n\nOne chapter is "
-                "enough. Leave your book somewhere visible and let the next page be an invitation, "
-                "not another task.\n\nA little consistency matters more than a perfect routine.");
     route_to(122);
-    chat_page = 0;
     picture("chat");
     route_to(12);
     wifi_ui.wifi_enabled = 1;

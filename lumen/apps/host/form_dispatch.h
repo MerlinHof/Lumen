@@ -17,10 +17,6 @@ static void u17_choice(int target, int choice) {
         return;
     }
 
-    if (target == 931) {
-        calc_degrees = choice == 0;
-        extra_save();
-    }
     if (target == 932) {
         if (!choice)
             folder_menu17();
@@ -31,16 +27,15 @@ static void u17_choice(int target, int choice) {
             extra_open(43);
         }
     }
-    u17_more_choice(target, choice);
 }
 static int u17_commit(int target, const char *text) {
-    return u17_more_commit(target, text);
+    (void)target; (void)text; return 0;
 }
 static int u17_input(const Input *in) {
     if (sleeping || editor_ui.keyboard || dropdown)
         return -1;
-    return u17_more_input(in);
+    return -1;
 }
 static int u17_draw(void) {
-    return u17_more_draw();
+    return 0;
 }

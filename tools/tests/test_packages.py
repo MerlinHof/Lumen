@@ -309,3 +309,116 @@ assert any(f.get('operation')=='search' and f.get('text')=='Energy' for f in fra
 assert any(c.get('text')=='Science today' for f in frames for c in f.get('ui',[]))
 assert frames[-1]['back']
 print('PASS packaged News editions, article selection, search and Back.')
+
+frames,folder=app_session('lumen.calculator',[
+    dict(event='text',action=80,text='5/4*sin(3/4)*sqrt(4)'),
+    tap(504,710),tap(504,710),tap(488,94),dict(event='back'),
+    tap(432,94),dict(event='back'),
+    tap(550,94),tap(410,225),dict(event='select',action=1,value=1)])
+assert any(c.get('type')=='formula' and 'sqrt' in c.get('text','') for f in frames for c in f.get('ui',[]))
+assert (folder/'calculator-history.txt').read_text().splitlines()==['5/4*sin(3/4)*sqrt(4)']
+assert any(c.get('type')=='line' for f in frames for c in f.get('ui',[]))
+assert any(f.get('request')=='select' for f in frames)
+assert (folder/'calculator-state.txt').read_text().split()[-1]=='0'
+print('PASS packaged Calculator expression, evaluation, deduplicated history, plot and settings.')
+
+frames,folder=app_session('lumen.clock',[
+    *[dict(event='select',action=2,value=i) for i in range(14)],
+    tap(550,159),tap(300,400),
+    component('mode','selected','1'),
+    dict(event='service',action=1,ok=1,minutes=20,total=1200,hour=7,minute=15,armed=0),
+    tap(130,595),tap(450,595),
+    component('mode','selected','2'),tap(490,555)])
+assert any(f.get('fullscreen') for f in frames)
+assert any(c.get('type')=='display_text' for f in frames for c in f.get('ui',[]))
+assert any(f.get('operation')=='timer' and f.get('text')=='0' for f in frames)
+assert any(f.get('operation')=='timer' and f.get('text')=='1' for f in frames)
+assert any(f.get('operation')=='armed' and f.get('text')=='1' for f in frames)
+assert struct.unpack('=i',(folder/'face.bin').read_bytes())==(3,)
+print('PASS packaged Clock faces, fullscreen, timer controls and alarm service.')
+
+frames,_=app_session('lumen.store',[
+    dict(event='service',action=10,ok=1,count=1,page=0,id0='1234567890abcdef',
+         title0='Featured book',flag0=1),
+    tap(128,260),
+    dict(event='service',action=12,ok=1,count=1,page=0,id0='1234567890abcdef',
+         title0='Featured book',summary='A story'),
+    tap(210,680),dict(event='back'),
+    tap(485,94),
+    dict(event='service',action=13,ok=1,count=1,page=0,id0='0',title0='Gutenberg',flag0=1),
+    tap(515,174),dict(event='back'),tap(550,94),
+    dict(event='text',action=1,text='Poems')])
+assert any(c.get('type')=='catalog_cover' for f in frames for c in f.get('ui',[]))
+assert any(f.get('operation')=='detail' and f.get('text')=='1234567890abcdef' for f in frames)
+assert any(f.get('operation')=='download' and f.get('text')=='1234567890abcdef' for f in frames)
+assert any(f.get('operation')=='toggle_source' and f.get('text')=='0' for f in frames)
+assert any(f.get('operation')=='search' and f.get('text')=='Poems' for f in frames)
+print('PASS packaged Store featured books, details, download, source toggles and search.')
+
+frames,_=app_session('lumen.library',[
+    dict(event='service',action=1,ok=1,page=0,pages=2,sort=2,id6='1234567890abcdee',
+         title6='Continue book',author6='An Author',progress6=45,id0='1234567890abcdef',
+         title0='Shelf book',author0='Another Author'),
+    dict(event='input',kind=12,x=100,y=480),dict(event='select',action=3,value=1),
+    dict(event='service',action=2,ok=1,id0='1234567890abcdef',title0='Shelf book',supported=1),
+    tap(230,408),dict(event='back'),dict(event='page',page=1)])
+assert any(c.get('type')=='book_cover' for f in frames for c in f.get('ui',[]))
+assert any(f.get('operation')=='detail' and f.get('text')=='1234567890abcdef' for f in frames)
+assert any(f.get('operation')=='read' and f.get('text')=='1234567890abcdef' for f in frames)
+assert any(f.get('operation')=='shelf' and f.get('text')=='1\n' for f in frames)
+print('PASS packaged Library cover grid, book details, Reader intent and pagination.')
+
+frames,_=app_session('lumen.home-assistant',[
+    dict(event='service',action=5,ok=1),
+    dict(event='service',action=1,ok=1,configured=1,count=1,id0='sensor.room',name0='Room',
+         sensor0=1,value0='21.5',unit0='°C',points0='1700000000 21\n1700000050 22\n'),
+    tap(130,178),dict(event='back'),tap(550,94),
+    dict(event='service',action=1,ok=1,configured=1,count=1,id0='sensor.room',name0='Room',sensor0=1),
+    tap(510,275),tap(165,208),dict(event='text',action=1,text='Küche'),dict(event='back')])
+assert any(f.get('operation')=='graph' and f.get('text')=='sensor.room' for f in frames)
+assert any(f.get('operation')=='favorite' and f.get('text')=='sensor.room' for f in frames)
+assert any(f.get('operation')=='devices' and f.get('text')=='0\nKüche' for f in frames)
+assert any(c.get('type')=='line' for f in frames for c in f.get('ui',[]))
+assert not frames[-1]['back']
+print('PASS packaged Home Assistant sensor cards, graph, UTF-8 search, device selection and Back.')
+
+frames,folder=app_session('lumen.openai',[
+    dict(event='service',action=1,ok=1,key_set=1),
+    dict(event='text',action=1,text='First question'),tap(549,765),
+    dict(event='service',action=3,ok=0),
+    dict(event='text',action=1,text='Follow-up'),tap(549,765),
+    dict(event='service',action=3,ok=0),
+    tap(488,95),tap(220,173),tap(550,95),tap(470,170),
+    dict(event='service',action=2,ok=1,count=1,model0='test-model'),tap(120,160)])
+assert any(f.get('operation')=='send' for f in frames)
+request=json.loads((folder/'request.json').read_text())
+assert [turn['content'] for turn in request['input']]==['First question','Follow-up']
+assert len(list(folder.glob('*.chat')))==1
+assert (folder/'model.txt').read_text()=='test-model'
+print('PASS packaged OpenAI private chat archive, follow-up context and model selection.')
+
+frames,_=app_session('lumen.photos',[
+    dict(event='service',action=1,ok=1,count=2,folder=0,page=0,duration=10,
+         id0='1234567890abcdef',id1='1234567890abcdea',folder1='Travel'),
+    tap(410,156),dict(event='tick'),tap(240,410),
+    tap(80,235),tap(166,769),tap(236,769),
+    dict(event='select',action=2,value=0),dict(event='back')])
+assert any(f.get('fullscreen') for f in frames)
+assert any(c.get('type')=='photo' and c.get('text')=='1234567890abcdea' and c.get('full')
+           for f in frames for c in f.get('ui',[]))
+assert any(f.get('operation')=='rotate' and f.get('text')=='1234567890abcdef' for f in frames)
+assert any(f.get('operation')=='assign' and f.get('text')=='1234567890abcdef 1' for f in frames)
+print('PASS packaged Photos gallery, fullscreen slideshow, rotation and album assignment.')
+
+frames,_=app_session('lumen.reader',[
+    dict(event='service',action=1,ok=1,title='Sample document',page=0,total=7,setting7=1),
+    tap(400,380),tap(300,55),tap(487,93),
+    dict(event='service',action=2,ok=1,title='Sample document',page=1,total=7,count=1,
+         position0=2,label0='Chapter 1'),
+    tap(135,240),tap(300,55),tap(550,95),dict(event='page',page=1),
+    dict(event='select',action=19,value=2)])
+assert any(c.get('type')=='document_page' for f in frames for c in f.get('ui',[]))
+assert any(f.get('operation')=='turn' and f.get('text')=='1' for f in frames)
+assert any(f.get('operation')=='goto' and f.get('text')=='2' for f in frames)
+assert any(f.get('operation')=='setting' and f.get('text')=='9 2' for f in frames)
+print('PASS packaged Reader document surface, page navigation, contents and preferences.')

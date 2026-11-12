@@ -11,7 +11,11 @@ static void pick_scene(int scene) {
                                     "Frosch-Solitär", "Slide 3D"};
     dropdown = 0;
     route_to(scene == 0 ? 27 : 28);
-    timer_panel = scene == 1 ? 1 : 0;
+    if(scene==1) {
+    app_process_open(APP_TIMER);
+    app_process_send("{\"event\":\"component\",\"id\":\"mode\",\"text\":\"1\"}");
+    for(int i=0;i<30;i++){usleep(5000);package_ui_poll();}
+    }
     if (scene == 3) open_dropdown(902, choices, 6, 0, 28, 185, 250);
 }
 int main(void) {

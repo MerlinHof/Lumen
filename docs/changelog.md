@@ -1,5 +1,7 @@
 # Changelog
 
+- [5.9](releases/5.9.md) · Nine more standalone apps, including Reader, Library and Calculator.
+
 - [5.8](releases/5.8.md) · Independent Planetarium and Wikipedia, with batched point rendering.
 
 - [5.7](releases/5.7.md) · Independent Lock Screen overlay and Recipes package.

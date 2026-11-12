@@ -2,18 +2,6 @@
 static int u15_commit(int target, const char *text) {
     if (u16_commit(target, text))
         return 1;
-    if (target == 160) {
-        if ((!strncmp(text, "https://", 8) || !strncmp(text, "http://", 7)) &&
-            strlen(text) < 2048 && !strpbrk(text, "\r\n\"\\<> ") && source15_count < 10) {
-            int i = source15_count++;
-            snprintf(source15[i].name, 80, tr("Katalog %d"), i - 4);
-            snprintf(source15[i].url, 2048, "%s", text);
-            source15[i].enabled = 1;
-            sources15_save();
-        } else
-            ui_message("Gültige Katalog-URL eingeben.");
-        return 1;
-    }
     if (target == 162) {
         int f = folder15_index(note_tree.current);
         if (f >= 0 && *text) {
@@ -25,54 +13,7 @@ static int u15_commit(int target, const char *text) {
     }
     return 0;
 }
-static void u15_reader_progress(void) {
-    if (!options[OPT_PROGRESS] || reader_ui.reader_progress_mode == 5)
-        return;
-    int total = engine_count();
-    char b[80];
-    if (reader_ui.reader_progress_mode == 1) {
-        pager(746, &page, total);
-        pagination_bind(&page, total, 746, 1, turn);
-        return;
-    }
-    if (reader_ui.reader_progress_mode == 2)
-        snprintf(b, 80, "%d%%", total > 1 ? page * 100 / (total - 1) : 100);
-    else if (reader_ui.reader_progress_mode == 4)
-        snprintf(b, 80, "~ %d min", (total - page - 1) * 2);
-    else
-        snprintf(b, 80, "%d / %d", page + 1, total);
-    ink_color = reader_ui.reader_progress_mode == 3 ? 130 : 0;
-    if (reader_ui.reader_progress_mode != 6)
-        centered(reader_ui.reader_progress_mode == 3 ? 392 : 180, 746, reader_ui.reader_progress_mode == 3 ? 180 : 240,
-                 35, b, ui_font(UI_SECONDARY));
-    ink_color = 0;
-    if (reader_ui.reader_progress_mode == 0 || reader_ui.reader_progress_mode == 6)
-        progress(28, 787, 544, page + 1, total);
-}
 static int u15_draw(void) {
-    if (ui_route() == 100) {
-        heading("Rechner · Einstellungen");
-        select_row17(203, "Winkelmaß", calc_degrees ? "DEG" : "RAD");
-        select_row17(271, "Ergebnisstellen",
-                     calc_precision16 == 6    ? "6"
-                     : calc_precision16 == 15 ? "15"
-                                              : "10");
-        button_h(28, 367, 544, 48, "Verlauf löschen", 0);
-        return 1;
-    }
-    if (ui_route() == 101) {
-        heading_actions("Store · Quellen", 1);
-        icon_button(528, 74, IC_PLUS);
-        for (int r = 0; r < 6 && source15_page * 6 + r < source15_count; r++) {
-            int i = source15_page * 6 + r, y = 145 + r * 82;
-            drawtext_raw(30, y + 8, source15[i].name, ui_font(UI_BODY), 420);
-            drawtext_raw(30, y + 39, source15[i].url, ui_font(UI_SECONDARY), 420);
-            toggle(492, y + 10, source15[i].enabled);
-            divider(28, y + 75, 544);
-        }
-        pager(745, &source15_page, (source15_count + 5) / 6);
-        return 1;
-    }
     if (ui_route() == 102) {
         heading("Ordner löschen?");
         wrapped(28, 170, "Alle enthaltenen Notizen und Unterordner werden ebenfalls gelöscht.",
@@ -161,55 +102,6 @@ static int u15_input(const Input *in) {
         return 1;
     if (in->kind != INPUT_TAP)
         return -1;
-    if (ui_route() == 27 && search_action_hit(x, y)) {
-        extra_open(100);
-        return 1;
-    }
-    if (ui_route() == 100) {
-        if (y >= 203 && y < 251 && x >= 360) {
-            static const char *t[] = {"DEG", "RAD"};
-            open_dropdown(931, t, 2, !calc_degrees, 300, 208, 272);
-        } else if (y >= 271 && y < 319 && x >= 360) {
-            static const char *p[] = {"6", "10", "15"};
-            open_dropdown(919, p, 3,
-                          calc_precision16 == 6    ? 0
-                          : calc_precision16 == 15 ? 2
-                                                   : 1,
-                          300, 298, 272);
-        } else if (y >= 367 && y < 415) {
-            calc_history_count = 0;
-            extra_write_text("calculator-history.txt", "");
-        }
-        return y >= 120 ? 1 : -1;
-    }
-    if (ui_route() == 101 && !editor_ui.keyboard && !dropdown && y < 48 && x < 62) {
-        extra_return(10);
-#ifndef LUMEN_HOST
-        if (sources15_dirty)
-            store_search();
-#endif
-        sources15_dirty = 0;
-        return 1;
-    }
-    if (ui_route() == 101) {
-        if (y >= 74 && y < 118 && x >= 516) {
-            open_keyboard(160, "Katalog-URL ({q} = Suche)", "");
-            return 1;
-        }
-        if (y >= 145 && y < 637 && x >= 460) {
-            int i = source15_page * 6 + (y - 145) / 82;
-            if (i < source15_count) {
-                source15[i].enabled ^= 1;
-                sources15_save();
-            }
-            return 1;
-        }
-        return -1;
-    }
-    if (ui_route() == 10 && y >= 74 && y < 118 && x >= 460 && x < 516) {
-        extra_open(101);
-        return 1;
-    }
     if (ui_route() == 102 && y >= 420 && y < 474) {
         if (x >= 300 && notes_delete_folder >= 0) {
             int id = notes_delete_folder;

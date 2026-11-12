@@ -45,8 +45,10 @@ static void input_tests18(void) {
     editor_ui.keyboard=0;options[OPT_LANGUAGE]=0;
     char utf[32]="éöX";int cur=4;text_backspace(utf,&cur);assert(!strcmp(utf,"éX")&&cur==2);
     assert(!text_insert(utf,5,&cur,"too long"));assert(!strcmp(utf,"éX"));
-    route_to(27);snprintf(calc_expr,sizeof(calc_expr),"1+2");calc_cursor=1;ui_draw();
-    Input calc_hold={.kind=INPUT_HOLD,.x=70,.y=380};ui_input(&calc_hold);assert(editor_ui.clip_active==1);Input cr={.kind=INPUT_TAP,.x=70,.y=380};ui_input(&cr);assert(editor_ui.clip_active==2);
-    snprintf(clipboard_text,sizeof(clipboard_text),"9");Input cp={.kind=INPUT_TAP,.x=400,.y=450};ui_input(&cp);assert(!strcmp(calc_expr,"9"));
+    route_to(27);settle_app();ui_draw();
+    Input calc_hold={.kind=INPUT_HOLD,.x=70,.y=380};
+    ui_input(&calc_hold);settle_app();
+    assert(editor_ui.keyboard && editor_ui.keyboard_target==2000);
+    editor_ui.keyboard=0;
     puts("PASS input: independent layouts, number row, accents/one-shot shift, UTF-8 caret insertion/deletion, editable-only copy/paste, multiline tasks, 100 queued key pairs and cached keyboard rendering.");
 }

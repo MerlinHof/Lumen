@@ -107,7 +107,7 @@ the app process. Package-owned grayscale PGM files can use `lumen_asset`.
 
 ## Existing app implementations
 
-Forty-one independent apps ship with LUMEN 5.8. Their build manifests are the
+Fifty independent apps ship with LUMEN 5.9. Their build manifests are the
 `lumen/apps/*/package.json` files. Legacy views without manifests still run from
 the host and may be replaced by packages using the same stable identity.
 

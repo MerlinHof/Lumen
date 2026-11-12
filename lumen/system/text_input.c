@@ -89,6 +89,6 @@ TextInputSpec text_input_spec(int target) {
         break;
     }
     s.gutter = target == 30 ? 20 : 0;
-    s.secret = target == 5 || target == 32;
+    s.secret = target == 5 || target == 32 || target == 2003;
     return s;
 }

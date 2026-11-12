@@ -94,16 +94,56 @@ static int package_equivalent(const char *data,int action) {
 #include "reading_service.h"
 #include "weather_service.h"
 #include "study_services.h"
+#include "clock_service.h"
 #include "recipe_service.h"
 #include "wikipedia_service.h"
 #include "news_service.h"
+#include "catalog_service.h"
+#include "library_service.h"
+#include "home_assistant_service.h"
+#include "openai_service.h"
+#include "photo_service.h"
+#include "document_service.h"
+static int editor_caret_service(const char *data,int action) {
+    int x,cursor,offset=0;
+    if(sscanf(data,"%d %d %n",&x,&cursor,&offset)!=2 || !offset || strlen(data+offset)>1023)
+        return package_acknowledge(action,0);
+    const char *value=data+offset;
+    const Font *font=ui_font(UI_BODY);
+    const char *at=value+text_visible_start(value,
+        text_boundary(value,cursor<0 ? 0 : (size_t)cursor),font,468,0);
+    int width=0;
+    while(*at) {
+        const char *next=at;
+        int advance=glyph_advance(font,glyph(&next));
+        if(x<width+advance/2)break;
+        width+=advance;
+        at=next;
+    }
+    char *message=NULL;size_t length=0;
+    FILE *out=package_reply(&message,&length,action,1);
+    if(!out)return 0;
+    fprintf(out,",\"offset\":%d",(int)(at-value));
+    package_reply_end(out,&message);
+    return 1;
+}
 static int package_service_request(const char *name,const char *operation,const char *data,int action) {
+    if(!strcmp(name,"editor") && !strcmp(operation,"caret"))return editor_caret_service(data,action);
     if(!strcmp(name,"text") && !strcmp(operation,"equivalent"))return package_equivalent(data,action);
     if(!strcmp(name,"reading"))return package_reading_activity(operation,data,action);
     if(!strcmp(name,"weather"))return package_weather(operation,data,action);
     if(!strcmp(name,"study_material"))return package_study_material(operation,data,action);
     if(!strcmp(name,"notes") && !strcmp(operation,"create_learning"))return package_learning_note(data,action);
-    if(!strcmp(name,"clock") && !strcmp(operation,"start_timer"))return package_start_timer(data,action);
+    if(!strcmp(name,"clock")) {
+        if(!strcmp(operation,"start_timer"))return package_start_timer(data,action);
+        return package_clock_service(operation,data,action);
+    }
+    if(!strcmp(name,"document"))return package_document(operation,data,action);
+    if(!strcmp(name,"photos"))return package_photos(operation,data,action);
+    if(!strcmp(name,"openai"))return package_openai(operation,data,action);
+    if(!strcmp(name,"home_assistant"))return package_home_assistant(operation,data,action);
+    if(!strcmp(name,"library"))return package_library(operation,data,action);
+    if(!strcmp(name,"store"))return package_store(operation,data,action);
     if(!strcmp(name,"news"))return package_news(operation,data,action);
     if(!strcmp(name,"wikipedia"))return package_wikipedia(operation,data,action);
     if(!strcmp(name,"recipes"))return package_recipes(operation,data,action);

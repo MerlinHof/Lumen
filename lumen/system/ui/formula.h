@@ -1,3 +1,34 @@
+static void math_plain(const char *expression, char *out, int cap) {
+    const char *p = expression;
+    int n = 0;
+    while (*p && n < cap - 8) {
+        const char *replacement = NULL;
+        int count = 1;
+        if (!strncmp(p, "sqrt", 4)) {
+            replacement = "√";
+            count = 4;
+        } else if (!strncmp(p, "pi", 2)) {
+            replacement = "π";
+            count = 2;
+        } else if (!strncmp(p, "^2", 2) && !isdigit((unsigned char)p[2]) && p[2] != '.') {
+            replacement = "²";
+            count = 2;
+        } else if (*p == '*')
+            replacement = "·";
+        else if (*p == '/')
+            replacement = "÷";
+        else if (*p == '-')
+            replacement = "−";
+        if (replacement) {
+            int len = strlen(replacement);
+            memcpy(out + n, replacement, len);
+            n += len;
+            p += count;
+        } else
+            out[n++] = *p++;
+    }
+    out[n] = 0;
+}
 /* Bounded two-dimensional formula layout; evaluation remains in calc.c. */
 typedef struct {
     int kind, a, b, w, up, down;
@@ -242,9 +273,9 @@ static void math_paint(int i, int x, int baseline, int smalltext) {
         math_paint(n->b, x + a->w + op + 2 * gap, baseline, smalltext);
     }
 }
-static void math_formula_content(int x, int y, int w, int h) {
+static void math_formula_content(const char *expression, int x, int y, int w, int h) {
     mn = math_bad = 0;
-    mp = calc_expr;
+    mp = expression;
     if (!*mp)
         return;
     int root = math_expression(0, 0);
@@ -266,13 +297,13 @@ static void math_formula_content(int x, int y, int w, int h) {
         }
     }
     char text[2048];
-    calc_math(text, sizeof(text));
+    math_plain(expression, text, sizeof(text));
     drawtext_raw(x, y + (h - body.h) / 2, text, ui_font(UI_PRIMARY), w);
 }
 
-static void math_formula(int x, int y, int w, int h) {
+static void math_formula(const char *expression, int x, int y, int w, int h) {
     int old = ink_color;
     ink_color = -1;
-    math_formula_content(x, y, w, h);
+    math_formula_content(expression, x, y, w, h);
     ink_color = old;
 }

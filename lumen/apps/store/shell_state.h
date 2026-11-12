@@ -5,19 +5,13 @@ typedef struct {
     int store_federated;
     OPDSItem store_results[OPDS_LIMIT];
     char store_urls[12][2048];
-    int store_home;
-    int store15_grid[4];
     int store_provider_count;
     char store_query[256];
-    int opds_page;
-    int opds_selected;
     int opds_depth;
     char opds_history[16][2048];
     char opds_source[2048];
 } StoreUi;
 static StoreUi store_ui = {
-    .store_home = 1,
-    .store15_grid = {-1, -1, -1, -1},
     .store_provider_count = 2,
     .opds_source = "https://www.gutenberg.org/ebooks/search.opds/?query=l.de&sort_order=downloads",
 };

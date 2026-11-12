@@ -14,17 +14,9 @@ static void u16_dropdown(int target, int choice) {
         snprintf(b, 16, "%d", auto_sleep_minutes);
         extra_write_text("auto-sleep16.txt", b);
     }
-    if (target == 919) {
-        calc_precision16 = choice == 0 ? 6 : choice == 1 ? 10 : 15;
-        char b[20];
-        snprintf(b, 20, "%d", calc_precision16);
-        extra_write_text("calc-precision16.txt", b);
-    }
 }
 static int u16_commit(int target, const char *text) {
     if (u17_commit(target, text))
-        return 1;
-    if (u16_apps_commit(target, text))
         return 1;
     return 0;
 }

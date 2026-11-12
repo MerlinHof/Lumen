@@ -17,11 +17,4 @@ static void u16_load(void) {
                 auto_sleep_minutes = n;
         free(s);
     }
-    s = service_read("calc-precision16.txt", 20);
-    if (s) {
-        int n = atoi(s);
-        if (n >= 3 && n <= 15)
-            calc_precision16 = n;
-        free(s);
-    }
 }

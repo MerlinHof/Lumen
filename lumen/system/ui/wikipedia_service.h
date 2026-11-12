@@ -55,7 +55,6 @@ static int wiki_open_archive(int index) {
         local_path(target, sizeof(target), "wiki-image.pgm");
         if (copy_file(p, target))
             extra_write_text("wiki-image-url.txt", a->image);
-        wiki_hash = 0;
         char state[128];
         network_status(state, sizeof(state));
         if (device_wifi_enabled() && *state && strcmp(state, "Offline")) {

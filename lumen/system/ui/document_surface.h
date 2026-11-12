@@ -1,8 +1,7 @@
 /* App-owned module; assembled by apps/host/compose.h. */
-static void reader(void) {
+static void document_surface(void) {
     if (selected < 0)
         return;
-    pagination_bind(&page, engine_count(), 0, 0, turn);
     if (!engine_render(page, ui_pixels + 12 * WIDTH + 28, WIDTH, 544, 728, zoom, panx, pany))
         ui_message("Dieses Buch konnte nicht geöffnet oder dargestellt werden.");
     annotations_draw();
@@ -17,14 +16,4 @@ static void reader(void) {
         }
     }
     rect(0, 744, 600, 56, 255);
-    if (!reader_ui.reader_chrome)
-        u15_reader_progress();
-    if (reader_ui.reader_chrome) {
-        rect(0, STATUS_HEIGHT, 600, READER_TOOLBAR_END - STATUS_HEIGHT, 255);
-        label_ellipsis(28, 74, 422, 44, library[selected].title, ui_font(UI_HEADING), 0);
-        label_ellipsis(29, 74, 421, 44, library[selected].title, ui_font(UI_HEADING), 0);
-        divider(0, READER_TOOLBAR_END - 2, 600);
-        icon_button(READER_CONTENTS_X, 74, IC_CONTENTS);
-        icon_button(READER_SETTINGS_X, 74, IC_SETTINGS);
-    }
 }

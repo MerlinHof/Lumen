@@ -17,7 +17,7 @@ typedef struct {
 static RecipeRecent16 recipe_recent16[128];
 static int recipe_recent_count16;
 static void recipe_archive16(void);
-static char llm_model16[100] = "gpt-4.1-mini", llm_prompt16[8192], job_error16[200];
+static char job_error16[200],llm_pending_id[17];
 static int job_kind16;
 
 static unsigned random16(void) {
@@ -193,6 +193,31 @@ static void json_escape16(FILE *f, const char *p) {
     fputc('"', f);
 }
 
+static void llm_private_path(char *out,size_t size,const char *leaf) {
+    snprintf(out,size,"%s/../appdata/lumen.openai/%s",data_root,leaf);
+}
+static char *llm_private_read(const char *leaf,size_t capacity) {
+    char path[2048];llm_private_path(path,sizeof(path),leaf);
+    int fd=open(path,O_RDONLY|O_NOFOLLOW);
+    if(fd<0)return NULL;
+    FILE *file=fdopen(fd,"rb");
+    if(!file){close(fd);return NULL;}
+    char *text=malloc(capacity+1);
+    if(text){
+        size_t n=fread(text,1,capacity,file);text[n]=0;
+        if(fgetc(file)!=EOF || ferror(file)){free(text);text=NULL;}
+    }
+    fclose(file);return text;
+}
+static void llm_result(const char *text) {
+    if(!*llm_pending_id)return;
+    char name[64],path[2048];
+    snprintf(name,sizeof(name),"reply-%s.txt",llm_pending_id);
+    llm_private_path(path,sizeof(path),name);
+    atomic_write(path,text,strlen(text));
+    llm_pending_id[0]=0;
+    if(app_for_route(ui_route())==APP_LLM)app_process_send("{\"event\":\"refresh\"}");
+}
 static int job_start16(int kind, const char *arg) {
     if (job_pid16 > 0) {
         ui_message("Eine Anfrage läuft bereits.");
@@ -227,19 +252,11 @@ static int job_start16(int kind, const char *arg) {
         if (kind == 4)
             ok = recipes_fetch17(arg);
         if (kind == 2) {
-            char key[2049] = "", model[100] = "gpt-4.1-mini";
-            config16("llm-key.txt", key, sizeof(key));
-            config16("llm-model.txt", model, sizeof(model));
-            char *body = NULL;
-            size_t z = 0;
-            FILE *f = open_memstream(&body, &z);
-            if (f) {
-                chat_write_request(f, model, arg);
-                fclose(f);
-                if (*key)
-                    ok = curl16("https://api.openai.com/v1/responses", out, key, body);
-                free(body);
-            }
+            char key[2049]="";
+            config16("llm-key.txt",key,sizeof(key));
+            char *body=llm_private_read("request.json",1024*1024);
+            if(*key && body)ok=curl16("https://api.openai.com/v1/responses",out,key,body);
+            free(body);
             memset(key, 0, sizeof(key));
         }
 
@@ -263,6 +280,8 @@ static int u16_jobs_tick(void) {
                      ? "OpenAI-Anfrage fehlgeschlagen. Schlüssel, Modell und Verbindung prüfen."
                      : "Anfrage fehlgeschlagen. Verbindung und Einrichtung prüfen.");
         ui_message(job_error16);
+        if(job_kind16==2)llm_result("");
+        if(job_kind16==3 && app_for_route(ui_route())==APP_LLM)app_process_send("{\"event\":\"refresh\"}");
         if ((job_kind16==1 || job_kind16==4) && app_for_route(ui_route())==APP_RECIPES)
             app_process_send("{\"event\":\"refresh\"}");
         return 1;
@@ -276,6 +295,7 @@ static int u16_jobs_tick(void) {
             extra_write_text("llm-models17.json", s);
             free(s);
             models_parse17();
+            if(app_for_route(ui_route())==APP_LLM)app_process_send("{\"event\":\"refresh\"}");
         }
     }
     if (job_kind16 == 4)
@@ -313,13 +333,14 @@ static int u16_jobs_tick(void) {
             if (f) {
                 fclose(f);
                 if (n) {
-                    chat_complete(text);
+                    if(n<=131072)llm_result(text);
                 }
                 free(text);
             }
         }
         free(t);
         free(s);
+        if(*llm_pending_id)llm_result("");
     }
 
     return 1;
@@ -598,26 +619,6 @@ static void game_draw16(void) {
     centered(28, 680, 544, 42, b, ui_font(UI_BODY));
     direction_keys16();
 }
-static int u16_apps_commit(int target, const char *text) {
-    if (target == 174) {
-        snprintf(llm_prompt16, sizeof(llm_prompt16), "%s", text);
-        extra_write_text("llm-prompt16.txt", text);
-        return 1;
-    }
-    if (target == 175) {
-        if (*text && !strpbrk(text, "\r\n\"\\ ")) {
-            extra_write_text("llm-model.txt", text);
-            snprintf(llm_model16, sizeof(llm_model16), "%s", text);
-        }
-        return 1;
-    }
-    if (target == 176) {
-        if (*text && !strpbrk(text, "\r\n\"\\ "))
-            extra_write_text("llm-key.txt", text);
-        return 1;
-    }
-    return 0;
-}
 static void companion_enter16(void) {
     if (companion_route16 == ui_route())
         return;
@@ -632,10 +633,6 @@ static void companion_enter16(void) {
         companion_page16 = explorer_page16;
         if (companion_page16 * 8 >= files_count16)
             companion_page16 = 0;
-    }
-    if (ui_route() == 122) {
-        config16("llm-model.txt", llm_model16, sizeof(llm_model16));
-        config16("llm-prompt16.txt", llm_prompt16, sizeof(llm_prompt16));
     }
     if (ui_route() == 118 || ui_route() == 119 ||
         ui_route() == 121) {

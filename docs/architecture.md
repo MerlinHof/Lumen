@@ -25,27 +25,18 @@ linking is required. App replacement is a directory transaction and does not
 restart LUMEN. Crashes are confined to the app process; this is not a filesystem
 security sandbox. Native packages must be trusted.
 
-Thirty-nine standalone packages ship from their individual app folders,
-including Home, File Transfer, Terminal, Periodic Table, Keyboard, Notifications, Status Bar, Quotes, Flashcards, Languages, BrainTrain, Reading Statistics, Journal, Calendar, Weather, ToDo, Study, Lock Screen, Recipes and twenty games.
-Keyboard, Notifications, Status Bar and Lock Screen run in separate overlay processes while the foreground app remains active. Other existing views retain linked
-compatibility adapters in `apps/host/compose.h`. Their IDs use the same catalog
-and accept independent replacement packages, but those older implementations
-have not all been extracted into executable artifacts. New apps must use the
-package interface. Do not describe every old implementation as migrated.
+Fifty standalone packages ship from their individual app folders. Keyboard,
+Notifications, Status Bar and Lock Screen run in separate overlay processes.
+Reader owns its controls and navigation, while the document engine provides
+page rendering, position and selection.
 
 [App-by-app migration inventory and SDK dependencies](app-migration.md)
 
-### Remaining linked apps in 5.8
+### Remaining linked apps in 5.9
 
-- Reading and content · Library, Reader, Store and News.
-- Personal tools · Clock, Notes, Photos, Home Assistant, OpenAI.
-- Learning and reference · Calculator.
-- Device surfaces · Settings.
-
-Pending SDK work includes semantic lists, grids, menus and dialogs,
-shared document/file handles, and migration of data still owned by these
-linked apps. Standard text input, pagination, and E-Ink refresh are already
-shared. Raw drawing remains available for specialized content.
+Notes and Settings still use linked compatibility views. Their stable
+identities are retained. The 6.0 installer gate requires a standalone package
+for every active identity.
 
 ## Shared system services
 

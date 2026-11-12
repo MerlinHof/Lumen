@@ -2,16 +2,12 @@ static void improvements_tests(void) {
     editor_ui.clip_active = 0;
     editor_ui.keyboard = 0;
     route_to(27);
-    memset(calc_expr, 'i', 70);
-    calc_expr[70] = 0;
-    calc_cursor = 70;
-    assert(calc_input_start() == 0);
-    memset(calc_expr, 'W', 100);
-    calc_expr[100] = 0;
-    calc_cursor = 100;
-    assert(calc_input_start() > 0);
-    calc_cursor = 1;
-    assert(calc_input_start() == 0);
+    char expression[1024];
+    memset(expression,'i',70);expression[70]=0;
+    assert(package_line_start(expression,70,468)==0);
+    memset(expression,'W',100);expression[100]=0;
+    assert(package_line_start(expression,100,468)>0);
+    assert(package_line_start(expression,1,468)==0);
     assert(!app_route_valid(116) && !app_route_valid(121));
     int ids[APP_COUNT], n = v1_visible(ids);
     for (int i = 0; i < n; i++)
@@ -51,34 +47,8 @@ static void improvements_tests(void) {
     ui_input(&copy);
     assert(!strcmp(clipboard_text, "these"));
     editor_ui.keyboard = 0;
-    chat_clear();
-    assert(chat_append(0, "Why read?") && chat_append(1, "A quiet place to think.") &&
-           chat_append(0, "How do I start?"));
-    unsigned long long id = chat_id;
-    char *body = NULL;
-    size_t size = 0;
-    FILE *f = open_memstream(&body, &size);
-    chat_write_request(f, "test-model", "");
-    fclose(f);
-    Json j;
-    JsonToken t[128];
-    assert(json_parse(&j, body, t, 128));
-    assert(json_at(&j, json_get(&j, 0, "input"), 2) >= 0);
-    free(body);
-    chat_clear();
-    assert(chat_load(id) && chat_count == 3 && !strcmp(chat_messages[2].text, "How do I start?"));
-    chat_complete("Start with **one chapter**.\n\nMake a small habit.");
-    assert(chat_count == 4);
-    route_to(122);
-    ui_draw();
-    shot17("chat");
-    chat_scan();
-    assert(chat_archive_count == 1);
-    route_to(128);
-    ui_draw();
-    shot17("chats");
     route_to(114);
     companion_page16 = 2;
     puts("PASS improvements: pixel-measured formula scrolling, removed routes, real erasing, drag "
-         "selection, local chat persistence/context and recipe back.");
+         "selection, recipe back.");
 }

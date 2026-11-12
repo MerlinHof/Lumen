@@ -90,9 +90,27 @@ static void package_component_event(const char *id,const char *gesture,const cha
     app_process_send(message);free(message);
 }
 #include "package_flow_list.h"
+#include "formula.h"
+static int package_line_start(const char *text,int cursor,int width) {
+    return text_visible_start(text,text_boundary(text,cursor<0 ? 0 : (size_t)cursor),
+                              ui_font(UI_BODY),width,0);
+}
+static void package_editor_line(int x,int y,int w,int h,const char *text,int cursor) {
+    cursor=text_boundary(text,cursor<0 ? 0 : (size_t)cursor);
+    int start=package_line_start(text,cursor,w),height;
+    int top=ink_top(text[start] ? text+start : "Ag",ui_font(UI_BODY),&height);
+    int baseline=y+(h-height)/2-top;
+    drawtext_raw(x,baseline,text+start,ui_font(UI_BODY),w);
+    char prefix[2048];
+    snprintf(prefix,sizeof(prefix),"%.*s",cursor-start,text+start);
+    int caret=x+textwidth(prefix,ui_font(UI_BODY));
+    if(caret<x+w)text_caret(caret,baseline,ui_font(UI_BODY));
+}
 static void package_paint_frame(const char *text) {
     Json j;if(!json_parse(&j,text,package_tokens,32768))return;
     int commands=json_get(&j,0,"ui");if(commands<0 || j.tokens[commands].type!='[' || j.tokens[commands].count>2048)return;
+    package_fullscreen=!!package_value(&j,0,"fullscreen");
+    if(package_fullscreen)memset(ui_pixels,255,WIDTH*STATUS_HEIGHT);
     size_t cost=0;
     for(int item=commands+1;item<j.tokens[commands].next;item=j.tokens[item].next) {
         char type[32],label[2048];
@@ -172,7 +190,7 @@ static void package_paint_frame(const char *text) {
             package_component_top+=height+12;package_component_count++;continue;
         }
         /* Content coordinates may never paint or intercept the status bar. */
-        if((y<STATUS_HEIGHT && strcmp(type,"asset")) || y<0 || y>800 || x < -600 || x>600 || w<0 || w>1200 || h<0 || h>800)continue;
+        if((!package_fullscreen && y<STATUS_HEIGHT && strcmp(type,"asset")) || y<0 || y>800 || x < -600 || x>600 || w<0 || w>1200 || h<0 || h>800)continue;
         size_t estimate=(size_t)w*h;
         if(!strcmp(type,"points")) {
             int points=json_get(&j,item,"points");
@@ -182,7 +200,7 @@ static void package_paint_frame(const char *text) {
         }
         if(!strcmp(type,"ellipse"))estimate=4u*(unsigned)abs(package_value(&j,item,"rx"))*(unsigned)abs(package_value(&j,item,"ry"));
         if(!strcmp(type,"hex_cell"))estimate=65*37;
-        if(!strcmp(type,"ring")){int r=package_value(&j,item,"radius");estimate=4u*(unsigned)abs(r)*(unsigned)abs(r);}
+        if(!strcmp(type,"ring") || !strcmp(type,"arc")){int r=package_value(&j,item,"radius");estimate=4u*(unsigned)abs(r)*(unsigned)abs(r);}
         if(!strcmp(type,"line"))estimate=(size_t)(abs(x-package_value(&j,item,"x2"))+32)*(abs(y-package_value(&j,item,"y2"))+32);
         if(estimate>4000000 || cost+estimate>4000000)break;cost+=estimate;
         if(!strcmp(type,"asset"))package_asset_paint(label,x,y,w,h);
@@ -197,6 +215,37 @@ static void package_paint_frame(const char *text) {
                     if(qrcodegen_getModule(qr,col,row))
                         rect(x+offset+col*step,y+offset+row*step,step,step,0);
             }
+        }
+        else if(!strcmp(type,"document_page") && app_for_route(ui_route())==APP_READER) {
+            package_document_visible=1;
+            reader_ui.reader_chrome=!!package_value(&j,item,"chrome");
+            document_surface();
+        }
+        else if(!strcmp(type,"photo")) {
+            int photo=package_photo_index(label);
+            if(photo>=0 && w==136 && h==136 && x>=0 && x+w<=WIDTH && y+h<=HEIGHT)
+                photo_thumbnail(photo,x,y);
+            else if(photo>=0 && w==WIDTH) {
+                int full=package_fullscreen && package_value(&j,item,"full");
+                photo_surface(photo,!!package_value(&j,item,"fill"),
+                    package_value(&j,item,"rotation")==1,full);
+            }
+        }
+        else if(!strcmp(type,"book_cover")) {
+            int book=package_book_index(label);
+            if(book>=0 && x>=0 && x+w<=WIDTH && y+h<=HEIGHT && w>=25 && h>=30)
+                cover_size(&library[book],x,y,w,h);
+        } else if(!strcmp(type,"book_label") && x>=0 && x+w<=WIDTH && y+h<=HEIGHT) {
+            char author[256];
+            json_string(&j,json_get(&j,item,"author"),author,sizeof(author));
+            const Font *font=ui_font(UI_TITLE);
+            int lines=wrapped_raw(x,y,label,font,w,2);
+            drawtext_raw(x,y+lines*(font->h-4)+4,author,ui_font(UI_BODY),w);
+        }
+        else if(!strcmp(type,"catalog_cover")) {
+            int item=store_item(label);
+            if(item>=0 && x>=0 && x+w<=WIDTH && y+h<=HEIGHT && w>=25 && h>=30)
+                store_cover(&opds_items[item],x,y,w,h);
         }
         else if(!strcmp(type,"app_tile")) {
             int id=app_package_find(label);
@@ -218,6 +267,9 @@ static void package_paint_frame(const char *text) {
             if(lines>0 && lines<=12)wrapped_raw(x,y,label,font,w,lines);
         }
         else if(!strcmp(type,"heading"))heading_actions(label,package_value(&j,item,"actions"));
+        else if(!strcmp(type,"formula") && strlen(label)<1024)math_formula(label,x,y,w,h);
+        else if(!strcmp(type,"editor_line") && strlen(label)<1024)
+            package_editor_line(x,y,w,h,label,package_value(&j,item,"cursor"));
         else if(!strcmp(type,"text")) {
             int role=package_value(&j,item,"role");
             static const TextRole roles[]={UI_BODY,UI_HEADING,UI_DISPLAY,UI_SECONDARY,UI_TITLE};
@@ -314,11 +366,24 @@ static void package_paint_frame(const char *text) {
             }
         }
         else if(!strcmp(type,"line")){int x2=package_value(&j,item,"x2"),y2=package_value(&j,item,"y2"),weight=package_value(&j,item,"weight");if(y2>=56&&y2<=800&&x2>=-600&&x2<=1200&&weight>0&&weight<=32)ui_paint_line(x,y,x2,y2,weight,package_value(&j,item,"gray"));}
+        else if(!strcmp(type,"arc")) {
+            int r=package_value(&j,item,"radius"),a=package_value(&j,item,"start"),
+                b=package_value(&j,item,"end"),weight=package_value(&j,item,"weight"),
+                gray=package_value(&j,item,"gray");
+            if(r>=1 && r<=300 && a>=0 && b<=360 && a<b && weight>=1 && weight<=24 && gray>=0 && gray<=255)
+                aa_arc_color(x,y,r,a,b,weight,gray);
+        } else if(!strcmp(type,"display_text")) {
+            int family=package_value(&j,item,"family"),size=package_value(&j,item,"size"),gray=package_value(&j,item,"gray");
+            if(family>=0 && family<=1 && size>=16 && size<=160 && gray>=0 && gray<=255 && strlen(label)<80)
+                type_display(x,y,w,h,label,family,size,gray);
+        }
         else if(!strcmp(type,"ring")){int r=package_value(&j,item,"radius"),weight=package_value(&j,item,"weight");if(r>0&&r<=300&&weight>0&&weight<=24)ui_paint_ring(x,y,r,weight);}
     }
 
 }
 static void package_ui_draw(void) {
+    package_fullscreen=package_document_visible=0;
+    package_fullscreen_owner=app_for_route(ui_route());
     package_pager.count=0;
     package_component_count=package_component_layout=0;
     if(!*app_process_error())app_process_open(app_for_route(ui_route()));
@@ -327,7 +392,8 @@ static void package_ui_draw(void) {
     const char*text=app_process_frame();
     if(!*text) {heading(app_definition(app_for_route(ui_route()))->name);centered(28,340,544,60,*app_process_error()?tr(app_process_error()):tr("App wird geöffnet …"),ui_font(UI_BODY));return;}
     package_paint_frame(text);
-    memcpy(ui_pixels,status_bar,sizeof(status_bar));
+    if(!package_fullscreen)memcpy(ui_pixels,status_bar,sizeof(status_bar));
+    if(!package_document_visible && app_for_route(ui_route())==APP_READER)reader_ui.reader_chrome=0;
 }
 static int package_ui_input(const Input*in) {
     if(in->kind!=INPUT_TAP && in->kind!=INPUT_SWIPE && in->kind!=INPUT_HOLD)return 2;
@@ -376,7 +442,7 @@ static int package_ui_input(const Input*in) {
     app_process_open(app_for_route(ui_route()));app_process_send(event);return 2;
 }
 static int package_ui_commit(int target,const char*text) {
-    if(target!=2000 && target!=2002)return 0;
+    if(target!=2000 && target!=2002 && target!=2003)return 0;
     if(*package_focused_component) {
         package_component_event(package_focused_component,"submitted",text);
         package_focused_component[0]=0;
@@ -453,7 +519,7 @@ static int package_ui_poll(void) {
     const char*message=app_process_request();if(!*message)return changed;
     Json j;JsonToken t[512];if(!json_parse(&j,message,t,512))return changed;
     char kind[32],text[8192],title[128];json_string(&j,json_get(&j,0,"request"),kind,sizeof(kind));json_string(&j,json_get(&j,0,"text"),text,sizeof(text));json_string(&j,json_get(&j,0,"title"),title,sizeof(title));
-    if(!strcmp(kind,"input") || !strcmp(kind,"multiline")){package_focused_component[0]=0;package_input_action=package_value(&j,0,"action");open_keyboard(!strcmp(kind,"multiline") ? 2002 : 2000,title,text);}
+    if(!strcmp(kind,"input") || !strcmp(kind,"multiline") || !strcmp(kind,"secret")){package_focused_component[0]=0;package_input_action=package_value(&j,0,"action");open_keyboard(!strcmp(kind,"multiline") ? 2002 : !strcmp(kind,"secret") ? 2003 : 2000,title,text);}
     else if(!strcmp(kind,"select")) {
         int array=json_get(&j,0,"options");if(array>=0 && j.tokens[array].type=='[' && j.tokens[array].count>0 && j.tokens[array].count<=48) {
             int count=j.tokens[array].count;for(int i=0;i<count;i++){json_string(&j,json_at(&j,array,i),package_options[i],128);package_labels[i]=package_options[i];}

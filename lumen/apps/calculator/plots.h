@@ -1,8 +1,5 @@
-/* Shared plot frame for sensor history and scientific functions. */
 static double plot_bounds[4] = {-10, 10, -10, 10};
-static int ha_trace_x=-1;
-static int plot_trace, plot_last_error, ha_plot_hours = 24;
-
+static int plot_trace;
 static double nice_step(double span) {
     double raw = span / 4, base = pow(10, floor(log10(raw))), q = raw / base;
     return (q <= 1 ? 1 : q <= 2 ? 2 : q <= 5 ? 5 : 10) * base;
@@ -165,85 +162,4 @@ static void graph_range_screen(void) {
         button_h(220, 165 + i * 108, 352, 60, b, 0);
     }
     button_h(28, 650, 544, 56, "Fertig", 0);
-}
-static void sensor_graph_screen(void) {
-    HAEntity *e = NULL;
-    for (int i = 0; i < ha_count; i++)
-        if (!strcmp(ha_entities[i].id, ha_plot_id))
-            e = &ha_entities[i];
-    heading("Sensorverlauf");
-    if (!e) {
-        wrapped(30, 170, "Gerät nicht verfügbar.", ui_font(UI_TITLE), 540, 3);
-        return;
-    }
-    drawtext_raw(30, 128, e->name, ui_font(UI_PRIMARY), 540);
-    char b[120];
-    snprintf(b, sizeof(b), "%s %s", e->state, e->unit);
-    drawtext_raw(30, 171, b, ui_font(UI_TITLE), 540);
-    HAHistory *h = NULL;
-    for (int i = 0; i < 8; i++)
-        if (!strcmp(ha_history[i].id, e->id))
-            h = &ha_history[i];
-    if (!h || !h->count) {
-        centered(28, 310, 544, 80,
-                 service_history_busy() ? "Verlauf wird geladen …" : "Kein Verlauf", ui_font(UI_BODY));
-        return;
-    }
-    double end = time(NULL), start = end - ha_plot_hours * 3600, lo = INFINITY, hi = -INFINITY;
-    for (int i = 0; i < h->count; i++)
-        if (h->time[i] >= start) {
-            if (h->value[i] < lo)
-                lo = h->value[i];
-            if (h->value[i] > hi)
-                hi = h->value[i];
-        }
-    if (!isfinite(lo)) {
-        lo = h->value[h->count - 1] - .5;
-        hi = lo + 1;
-    }
-    double pad = (hi - lo) * .08;
-    if (pad < .01)
-        pad = .01;
-    lo -= pad;
-    hi += pad;
-    graph_frame(start, end, lo, hi, 1);
-    drawtext(454, 681, "Uhrzeit", ui_font(UI_SECONDARY), 100);
-    drawtext_raw(3, 195, e->unit, ui_font(UI_SECONDARY), 58);
-    for (int i = 1; i < h->count; i++)
-        graph_segment(h->time[i - 1], h->value[i - 1], h->time[i], h->value[i], start, end, lo, hi);
-    if (ha_trace_x>=66 && ha_trace_x<558) {
-        time_t target=start+(end-start)*(ha_trace_x-66)/492.;
-        int nearest=0;
-        for (int i=1;i<h->count;i++)
-            if (llabs((long long)h->time[i]-target)<llabs((long long)h->time[nearest]-target))
-                nearest=i;
-        int px=66+(h->time[nearest]-start)*491/(end-start);
-        if (px<66) px=66;
-        if (px>557) px=557;
-        rect(px,221,2,424,0);
-        char stamp[48];
-        struct tm t;
-        localtime_r(&h->time[nearest],&t);
-        strftime(stamp,sizeof(stamp),"%d.%m. %H:%M",&t);
-        snprintf(b,sizeof(b),"%s   %.6g %s",stamp,h->value[nearest],e->unit);
-        control_surface(86,238,450,52,RADIUS_MEDIUM,255);
-        centered(86,238,450,52,b,ui_font(UI_BODY));
-    }
-    const char *labels[] = {"1 h", "6 h", "24 h"};
-    segments(28, 716, 544, 48, labels, 3, ha_plot_hours == 1 ? 0 : ha_plot_hours == 6 ? 1 : 2);
-}
-
-static int sensor_graph_input(const Input *in) {
-    if (in->kind!=INPUT_TAP) return 2;
-    if (in->y>=220 && in->y<646 && in->x>=66 && in->x<558) {
-        ha_trace_x=in->x;
-        return 1;
-    }
-    if (in->y>=716 && in->y<764 && in->x>=28 && in->x<572) {
-        const int hours[]={1,6,24};
-        ha_plot_hours=hours[(in->x-28)*3/544];
-        ha_trace_x=-1;
-        return 1;
-    }
-    return 2;
 }

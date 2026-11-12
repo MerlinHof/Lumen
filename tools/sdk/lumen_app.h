@@ -13,7 +13,7 @@
 #include "../../lumen/system/device.h"
 #include "../../lumen/system/ui/icon_ids.h"
 typedef enum{PAINT_BODY,PAINT_HEADING,PAINT_DISPLAY,PAINT_SECONDARY,PAINT_TITLE}PaintText;
-static char lumen_event[65536];static int lumen_first,lumen_language,lumen_back,lumen_frame_tick,lumen_ready=1;
+static char lumen_event[65536];static int lumen_first,lumen_language,lumen_back,lumen_frame_tick,lumen_fullscreen,lumen_ready=1;
 static void lumen_json(const char *s) {
  putchar('"');
  for(;*s;s++) {
@@ -32,10 +32,17 @@ static int lumen_string(const char*key,char*out,size_t cap){char needle[80];snpr
 static int lumen_next(void){if(!fgets(lumen_event,sizeof(lumen_event),stdin))return 0;return 1;}
 static int lumen_is(const char*event){char b[80];snprintf(b,sizeof(b),"\"event\":\"%s\"",event);return strstr(lumen_event,b)!=NULL;}
 static void lumen_begin(void){lumen_first=1;lumen_frame_tick=0;printf("{\"back\":%s,\"ui\":[",lumen_back?"true":"false");}
-static void lumen_end(void){printf("],\"tick\":%d,\"ready\":%s}\n",lumen_frame_tick,lumen_ready ? "true" : "false");fflush(stdout);}
+static void lumen_end(void){printf("],\"tick\":%d,\"fullscreen\":%d,\"ready\":%s}\n",lumen_frame_tick,lumen_fullscreen,lumen_ready ? "true" : "false");fflush(stdout);}
 static void lumen_schedule(int milliseconds){lumen_frame_tick=milliseconds;}
 static void lumen_cmd(const char*type,int x,int y,int w,int h){if(!lumen_first)putchar(',');lumen_first=0;fputs("{\"type\":",stdout);lumen_json(type);printf(",\"x\":%d,\"y\":%d,\"w\":%d,\"h\":%d",x,y,w,h);}
 static void ui_paint_heading(const char*s,int actions){lumen_cmd("heading",28,74,544,44);fputs(",\"text\":",stdout);lumen_json(s);printf(",\"actions\":%d}",actions);}
+static void lumen_formula(int x,int y,int w,int h,const char *expression) {
+ lumen_cmd("formula",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(expression);putchar('}');
+}
+static void lumen_editor_line(int x,int y,int w,int h,const char *value,int cursor) {
+ lumen_cmd("editor_line",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(value);
+ printf(",\"cursor\":%d}",cursor);
+}
 static void ui_paint_text(int x,int y,int w,int h,const char*s,PaintText role){lumen_cmd("text",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(s);printf(",\"role\":%d}",role);}
 static void lumen_text(int x,int y,int w,int h,const char*s,PaintText role,int gray,int left) {
  lumen_cmd("text",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(s);
@@ -61,6 +68,13 @@ static void lumen_point(int index,int x,int y,int radius) {
  printf("%s%d,%d,%d",index?",":"",x,y,radius);
 }
 static void lumen_points_end(void){fputs("]}",stdout);}
+static void lumen_arc(int x,int y,int radius,int start,int end,int weight,int gray) {
+ lumen_cmd("arc",x,y,0,0);printf(",\"radius\":%d,\"start\":%d,\"end\":%d,\"weight\":%d,\"gray\":%d}",radius,start,end,weight,gray);
+}
+static void lumen_display_text(int x,int y,int w,int h,const char *value,int family,int size,int gray) {
+ lumen_cmd("display_text",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(value);
+ printf(",\"family\":%d,\"size\":%d,\"gray\":%d}",family,size,gray);
+}
 static void ui_paint_line(int x,int y,int x2,int y2,int weight,int gray){lumen_cmd("line",x,y,0,0);printf(",\"x2\":%d,\"y2\":%d,\"weight\":%d,\"gray\":%d}",x2,y2,weight,gray);}
 static void lumen_weather_symbol(int x,int y,int size,int code) {
  lumen_cmd("weather_symbol",x,y,size,size);
@@ -151,6 +165,23 @@ static void lumen_service(const char *name,const char *operation,const char *dat
 }
 static void lumen_app_tile(int x,int y,int width,const char *id) {
  lumen_cmd("app_tile",x,y,width,110);fputs(",\"text\":",stdout);lumen_json(id);putchar('}');
+}
+static void lumen_document_page(int chrome) {
+ lumen_cmd("document_page",0,56,600,680);printf(",\"chrome\":%d}",chrome);
+}
+static void lumen_photo(int x,int y,int w,int h,const char *key,int fill,int rotation,int full) {
+ lumen_cmd("photo",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(key);
+ printf(",\"fill\":%d,\"rotation\":%d,\"full\":%d}",fill,rotation,full);
+}
+static void lumen_book_cover(int x,int y,int w,int h,const char *key) {
+ lumen_cmd("book_cover",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(key);putchar('}');
+}
+static void lumen_book_label(int x,int y,int w,const char *title,const char *author) {
+ lumen_cmd("book_label",x,y,w,135);fputs(",\"text\":",stdout);lumen_json(title);
+ fputs(",\"author\":",stdout);lumen_json(author);putchar('}');
+}
+static void lumen_catalog_cover(int x,int y,int w,int h,const char *key) {
+ lumen_cmd("catalog_cover",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(key);putchar('}');
 }
 static void lumen_asset(int x,int y,int w,int h,const char *name) {
  lumen_cmd("asset",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(name);putchar('}');

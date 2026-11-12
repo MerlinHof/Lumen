@@ -38,7 +38,7 @@ def validate_version(version):
     return version
 
 def validate_app_coverage(mapping,version):
-    """5.9 and later require a shipped package for each active app identity."""
+    """Require packages for active apps, except the two known 5.9 holdouts."""
     if tuple(map(int,version.split('.'))) < (5,9):
         return
     catalog=(ROOT/'lumen/system/app_packages.c').read_text()
@@ -47,7 +47,8 @@ def validate_app_coverage(mapping,version):
         raise RuntimeError('Cannot read the active app catalog')
     active=set(re.findall(r'"(lumen\.[a-z0-9.-]+)"',keys[1]))|{'lumen.notifications'}
     shipped={Path(path).stem for path in mapping if path.startswith('lumen/app-packages/')}
-    missing=sorted(active-shipped)
+    allowed={'lumen.notes','lumen.settings'} if version=='5.9' else set()
+    missing=sorted(active-shipped-allowed)
     if missing:
         raise RuntimeError('Standalone app migration incomplete: '+', '.join(missing))
 

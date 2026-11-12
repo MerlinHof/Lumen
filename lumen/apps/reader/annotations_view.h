@@ -72,19 +72,3 @@ static void selection_overlay(void) {
     const char *actions[] = {"Kopieren", "Wikipedia", "Wörterbuch", "Markieren", "Schließen"};
     selection_menu_draw(READER_SELECTION_Y, reader_ui.selection.text, actions);
 }
-static void annotations_screen(void) {
-    heading("Markierungen");
-    if (!reader_ui.annotation_count)
-        wrapped(28, 180,
-                "Text im Buch lange berühren und ziehen. Danach markieren oder in Wikipedia "
-                "nachschlagen.",
-                &editorial, 544, 5);
-    for (int r = 0; r < 5 && reader_ui.annotation_page * 5 + r < reader_ui.annotation_count; r++) {
-        int y = 155 + r * 100;
-        region(28, y, 544, 98);
-        wrapped_raw(30, y + 2, reader_ui.annotations[reader_ui.annotation_page * 5 + r].text, &small, 470, 3);
-        icon_button(522, y + 25, IC_TRASH);
-        rect(28, y + 98, 544, 2, 190);
-    }
-    pager(745, &reader_ui.annotation_page, (reader_ui.annotation_count + 4) / 5);
-}

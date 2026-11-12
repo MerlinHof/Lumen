@@ -3,8 +3,6 @@ static void v1_open(int target) {
     polish_open(target);
     v1_init();
     v1_page = 0;
-    if (target == 71)
-        v1_photos_scan();
     if (target == 85)
         markdown_page = 0;
     if (target == 87 && !timer_due && !timer_paused)
@@ -18,12 +16,6 @@ static void v1_open(int target) {
 }
 static void v1_draw(void) {
     switch (ui_route()) {
-    case 71:
-        v1_photos_draw();
-        break;
-    case 72:
-        v1_photo_draw();
-        break;
     case 83:
         v1_launcher_settings();
         break;
@@ -32,10 +24,7 @@ static void v1_draw(void) {
         break;
     case 85:
         reader_markdown17("Notizen",note_text,30);
-        reader();
-        break;
-    case 87:
-        v1_timer_ring(1);
+        document_surface();
         break;
     case 90:
         more_settings();
@@ -79,12 +68,6 @@ static int v1_commit(int target, const char *text) {
     return 0;
 }
 static int v1_tick(void) {
-    if (!sleeping && ui_route() == 72 && photo_slideshow && photo_count &&
-        extra_millis() >= photo_next_frame) {
-        photo_selected = (photo_selected + 1) % photo_count;
-        photo_next_frame = extra_millis() + photo_catalog.seconds * 1000;
-        return 1;
-    }
     if (polish_tick())
         return 1;
     if (alarm_ring) {
@@ -108,10 +91,6 @@ static int v1_tick(void) {
     return 0;
 }
 static int v1_poll(void) {
-    if (ui_route() == 72 && photo_slideshow) {
-        int64_t remaining = photo_next_frame - extra_millis();
-        return remaining > 0 ? (int)remaining : 1;
-    }
     if (alarm_ring && timer_flash_started && extra_millis() - timer_flash_started < 60000)
         return 500;
     if (ui_route() == 87)
@@ -125,45 +104,10 @@ static void v1_effect(void) {
             ui_pixels[i] = 255 - ui_pixels[i];
 }
 static int v1_input(const Input *in) {
-    if (ui_route() == 72 && !v1_delete)
-        return polish_photo_input(in);
     if (in->kind != INPUT_TAP)
         return 2;
     int x = in->x, y = in->y;
-    if (v1_delete) {
-        if (y >= 400 && y < 458) {
-            if (x >= 300) {
-                if (v1_delete == 1 && photo_selected >= 0 && photo_selected < photo_count) {
-                    char p[2048], n[300];
-                    snprintf(n, sizeof(n), "photos/%s", photo_names[photo_selected]);
-                    local_path(p, sizeof(p), n);
-                    if (unlink(p)) {
-                        ui_message("Löschen fehlgeschlagen.");
-                        v1_delete = 0;
-                        return 1;
-                    }
-                    PhotoMembership *member = photo_membership(photo_id(photo_names[photo_selected]), 0);
-                    if (member) {
-                        *member = (PhotoMembership){0};
-                        photo_catalog_save();
-                    }
-                    char cache[2048], thumb[300];
-                    snprintf(thumb, sizeof(thumb), "photos/.thumbs/%s",
-                             photo_names[photo_selected]);
-                    local_path(cache, sizeof(cache), thumb);
-                    unlink(cache);
-                    v1_photos_scan();
-                    extra_return(71);
-                }
-            }
-            v1_delete = 0;
-        }
-        return 1;
-    }
     switch (ui_route()) {
-    case 71:
-        photo_grid_input(x, y);
-        return 1;
     case 83: {
         int indices[APP_LIMIT], count = launcher_manage_indices(indices);
         if (y >= 174 && y < 650) {
@@ -217,12 +161,6 @@ static int v1_input(const Input *in) {
                 markdown_page--;
             else if (x >= 300 && markdown_page + 1 < markdown_pages)
                 markdown_page++;
-        }
-        break;
-    case 87:
-        if (y >= 665 && y < 725) {
-            timer_action(x >= 300);
-            extra_save();
         }
         break;
     case 90:

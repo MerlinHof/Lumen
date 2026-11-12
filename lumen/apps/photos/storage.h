@@ -1,6 +1,5 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 #include "catalog.h"
-static unsigned photo_scan_generation;
 static void photo_seed_default(void) {
     char marker[2048],source[2048],destination[2048];
     local_path(marker,sizeof(marker),"photo-default-seeded");
@@ -24,8 +23,6 @@ static void photo_seed_default(void) {
 }
 static void v1_photos_scan(void) {
     photo_catalog_load();
-    photo_scan_generation++;
-    photo_cache_page = -1;
     photo_loaded[0] = 0;
     photo_count = 0;
     char path[2048];
@@ -99,12 +96,3 @@ static int v1_sleep_photo(void) {
     image_contrast_pixels(ui_pixels, sizeof(ui_pixels));
     return 1;
 }
-
-static void v1_photos_draw(void) {
-    polish_photos_grid();
-}
-static void v1_photo_draw(void) {
-    polish_photo();
-}
-
-#include "albums.h"

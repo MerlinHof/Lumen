@@ -1,6 +1,6 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 static void v1_timer_ring(int fullscreen) {
-    int64_t remain = timer_due      ? timer_due - extra_millis()
+    int64_t remain = timer_due      ? timer_due - milliseconds()
                      : timer_paused ? timer_paused
                                     : (int64_t)timer_minutes * 60000;
     if (remain < 0)

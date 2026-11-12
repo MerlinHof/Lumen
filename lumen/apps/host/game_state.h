@@ -1,7 +1,6 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 #include "../news/archive_api.h"
 #include "../games/puzzles.h"
-#include "../calculator/plots.h"
 static unsigned new_dirty;
 static unsigned news_topics = 63;
 static int news_enabled, news_page, news_done, news_settings_loaded, news_source_page,

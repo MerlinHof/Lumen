@@ -19,21 +19,12 @@ static void extra_init(void) {
     insights.magic = 0x494e5331;
     extra_load_text("ha-url.txt", ha_url, sizeof(ha_url));
     extra_load_text("ha-token.txt", ha_token, sizeof(ha_token));
-    char calc_state[160] = "";
-    extra_load_text("calculator-state.txt", calc_state, sizeof(calc_state));
-    double a = 0, m = 0;
-    int deg = 1;
-    if (sscanf(calc_state, "%lf %lf %d", &a, &m, &deg) == 3 && isfinite(a) && isfinite(m)) {
-        calc_answer = a;
-        calc_memory = m;
-        calc_degrees = !!deg;
-    }
     char b[1024] = "";
     extra_load_text("tools-settings.txt", b, sizeof(b));
     long long due = 0;
     sscanf(b, "%d %d %d %d %lld %d %d", &alarm_hour, &alarm_minute, &alarm_enabled, &timer_minutes,
-           &due, &reading_goal, &clock_ui.clock_style);
-    if (clock_ui.clock_style < 0 || clock_ui.clock_style > 13) clock_ui.clock_style = 0;
+           &due, &reading_goal, &legacy_clock_style);
+    if (legacy_clock_style < 0 || legacy_clock_style > 13) legacy_clock_style = 0;
     if (alarm_hour < 0 || alarm_hour > 23)
         alarm_hour = 7;
     if (alarm_minute < 0 || alarm_minute > 59)
@@ -61,15 +52,6 @@ static void extra_init(void) {
         }
         free(favorites);
     }
-    char *history = service_read("calculator-history.txt", 17000);
-    if (history) {
-        char *save, *p = strtok_r(history, "\n", &save);
-        while (p && calc_history_count < 16) {
-            snprintf(calc_history[calc_history_count++], 1024, "%s", p);
-            p = strtok_r(NULL, "\n", &save);
-        }
-        free(history);
-    }
     char wiki_path[2048];
     local_path(wiki_path, sizeof(wiki_path), "wiki-last.xml");
     if (!access(wiki_path, R_OK))
@@ -80,10 +62,6 @@ static void extra_init(void) {
 
 }
 static void extra_save(void) {
-    char calc_state[160];
-    snprintf(calc_state, sizeof(calc_state), "%.17g %.17g %d\n", calc_answer, calc_memory,
-             calc_degrees);
-    extra_write_text("calculator-state.txt", calc_state);
     if (insights_dirty) {
         char p[2048];
         local_path(p, sizeof(p), "reading-insights-v1.bin");
@@ -94,7 +72,7 @@ static void extra_save(void) {
     long long due =
         timer_due ? (long long)time(NULL) + (timer_due - extra_millis() + 999) / 1000 : 0;
     snprintf(b, sizeof(b), "%d %d %d %d %lld %d %d\n", alarm_hour, alarm_minute, alarm_enabled,
-             timer_minutes, due, reading_goal, clock_ui.clock_style);
+             timer_minutes, due, reading_goal, legacy_clock_style);
     extra_write_text("tools-settings.txt", b);
     snprintf(b, sizeof(b), "%lld", (long long)timer_paused);
     extra_write_text("timer-paused.txt", b);
@@ -110,16 +88,6 @@ static void extra_prepare(int target) {
     if (target >= 60)
         new_apps_open(target);
 
-    if (target == 33 || target == 34) {
-        extra_load_text("ha-url.txt", ha_url, sizeof(ha_url));
-        extra_load_text("ha-token.txt", ha_token, sizeof(ha_token));
-        if (target == 33) {
-            ha_parse();
-            ha_history_parse();
-            ha_history_key[0] = 0;
-            ha_refresh_at = time(NULL) + 5;
-        }
-    }
     extra_page = 0;
     if (target == 40)
         storage_scan();
@@ -130,10 +98,6 @@ static void extra_prepare(int target) {
     if (target == 36 && !discover_busy() && !*discover_lookup_text())
         extra_wiki_restore();
 
-#ifndef LUMEN_HOST
-    if (target == 33 && *ha_url && *ha_token && !service_busy())
-        service_start(SERVICE_HA, ha_url, ha_token, "");
-#endif
 
 
     if (target == 39) {
@@ -174,8 +138,6 @@ static int extra_poll(void) {
     if (release_state()==1) return 750;
     if (service_busy() || service_history_busy() || discover_busy())
         return 250;
-    if (ui_route() == 33 || ui_route() == 60)
-        return 500;
     if (timer_due || alarm_enabled)
         return 1000;
     if (ui_route() == 28)
@@ -258,15 +220,10 @@ static int extra_tick(void) {
             /* Routine successful sync is deliberately silent. */
         }
     }
-    if ((ui_route() == 33 || ui_route() == 60) && !ha_select && !service_busy()) {
-        if (ha_refresh_at > time(NULL) + 5)
-            ha_refresh_at = time(NULL);
-        if (time(NULL) >= ha_refresh_at && *ha_url && *ha_token) {
-            ha_refresh_at = time(NULL) + 5;
-            service_start(SERVICE_HA, ha_url, ha_token, "");
-        } else
-            ha_request_history();
-    }
+    if((done==SERVICE_HA || done==SERVICE_HA_HISTORY || done==SERVICE_TOGGLE ||
+        done==-SERVICE_HA || done==-SERVICE_HA_HISTORY || done==-SERVICE_TOGGLE) &&
+        app_for_route(ui_route())==APP_HOME_ASSISTANT)
+        app_process_send("{\"event\":\"refresh\"}");
     if (timer_due && extra_millis() >= timer_due) {
         timer_due = 0;
         alarm_ring = 1;

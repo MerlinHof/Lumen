@@ -1,8 +1,6 @@
 static int text_editable_hit(const Input *in) {
     if (editor_ui.keyboard)
         return keyboard_multiline() ? (in->y >= 54 && in->y < 458) : (in->y >= 452 && in->y < 501);
-    if (ui_route() == 27)
-        return in->x >= 28 && in->x < 514 && in->y >= 361 && in->y < 413;
     return ui_route() == 30 && !note_ink_mode && in->y >= 54 && in->y < 742;
 }
 /* Shared editable-text clipboard and word selection. UI buttons never become selection targets. */
@@ -43,9 +41,6 @@ static void clipboard_draw(void) {
         }
     } else if (editor_ui.keyboard)
         selection_span(28, 459, &body, editor_ui.edit, editor_ui.keyboard_view18, strlen(editor_ui.edit), clip_s, clip_e, 535);
-    else if (ui_route() == 27)
-        selection_span(43, 372, &small, calc_expr, calc_input_start(), strlen(calc_expr), clip_s,
-                       clip_e, 468);
     if (editor_ui.clip_active == 1)
         return;
     char b[1024];
@@ -60,17 +55,17 @@ static void clipboard_draw(void) {
     selection_menu_draw(EDIT_SELECTION_Y, b, actions);
 }
 static char *clipboard_edit_buffer18(void) {
-    return editor_ui.keyboard ? editor_ui.edit : ui_route() == 27 ? calc_expr : NULL;
+    return editor_ui.keyboard ? editor_ui.edit : NULL;
 }
 static int *clipboard_edit_cursor18(void) {
-    return editor_ui.keyboard ? &editor_ui.note_cursor : &calc_cursor;
+    return &editor_ui.note_cursor;
 }
 static void clipboard_paste(void) {
     if (!clipboard_edit_buffer18() || !*clipboard_text) {
         ui_message("Zum Einfügen zuerst ein Textfeld öffnen.");
         return;
     }
-    if (!text_insert(clipboard_edit_buffer18(), editor_ui.keyboard ? keyboard_capacity() : sizeof(calc_expr),
+    if (!text_insert(clipboard_edit_buffer18(), keyboard_capacity(),
                      clipboard_edit_cursor18(), clipboard_text))
         ui_message("Text passt nicht in dieses Feld.");
 }
@@ -85,18 +80,7 @@ static int clipboard_position(int x, int y) {
             keyboard_place18(x);
         return editor_ui.note_cursor;
     }
-    const char *p = calc_expr + calc_input_start();
-    int xx = 43;
-    while (*p) {
-        const char *q = p;
-        int a = glyph_advance(&small, glyph(&q));
-        if (x < xx + a / 2)
-            break;
-        xx += a;
-        p = q;
-    }
-    calc_cursor = p - calc_expr;
-    return calc_cursor;
+    return 0;
 }
 static int clipboard_input(const Input *in) {
     if (ui_route() == 2 && reader_ui.selecting == 2 && in->kind == INPUT_TAP && selection_menu_action(READER_SELECTION_Y, in->x, in->y) == 0) {
@@ -152,14 +136,12 @@ static int clipboard_input(const Input *in) {
                     clipboard_text[n] = 0;
                     text_erase(buffer, cursor, clip_s, clip_e);
                 } else if (buffer) {
-                    size_t capacity = editor_ui.keyboard ? keyboard_capacity() : sizeof(calc_expr);
+                    size_t capacity = keyboard_capacity();
                     if (strlen(buffer) - (clip_e - clip_s) + strlen(clipboard_text) < capacity) {
                         text_erase(buffer, cursor, clip_s, clip_e);
                         clipboard_paste();
                     }
                 }
-                if (!editor_ui.keyboard && ui_route() == 27)
-                    calc_preview();
                 editor_ui.clip_active = 0;
             } else
                 editor_ui.clip_active = 0;
@@ -171,7 +153,7 @@ static int clipboard_input(const Input *in) {
     if (!editor_ui.keyboard && ui_route() == 30) {
         open_keyboard(30, "Notiz", note_text);
     }
-    if (editor_ui.keyboard && (editor_ui.keyboard_target == 5 || editor_ui.keyboard_target == 32 || editor_ui.keyboard_target == 176))
+    if (editor_ui.keyboard && (text_input_spec(editor_ui.keyboard_target).secret || editor_ui.keyboard_target == 176))
         return 0;
     char *buffer = clipboard_edit_buffer18();
     if (!buffer)

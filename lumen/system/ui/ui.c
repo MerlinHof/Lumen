@@ -5,7 +5,6 @@
 #include "../../apps/notifications/api.h"
 #include "../amazon.h"
 #include "../../apps/games/api.h"
-#include "../../apps/calculator/api.h"
 #include "../connect.h"
 #include "../photo_image.h"
 #include "../version.h"
@@ -60,8 +59,11 @@ static void app_leave(AppId app, void *ctx);
 static void route_to(int route);
 static int app_send(const AppIntent *intent);
 static int package_ui_poll(void);
+static int package_exit_requested;
 static void package_ui_draw(void),package_clock_tick(void);
 static int package_clock_wait(void);
+static int package_fullscreen,package_document_visible;
+static AppId package_fullscreen_owner=APP_COUNT;
 static int package_ui_input(const Input *);
 static int package_ui_commit(int target,const char *text);
 static void package_ui_choice(int choice);
@@ -80,21 +82,13 @@ static int u17_notes_depth(void), text_editable_hit(const Input *);
 static void small_number17(int, int, const char *, int);
 static void u17_gray_icon(int, int);
 static void models_parse17(void), reader_markdown17(const char *, const char *, int);
-static void chat_write_request(FILE *, const char *, const char *);
-static void chat_complete(const char *);
-static void chat_clear(void);
-static void chat_draw(void), chats_draw(void);
-static int chat_input(const Input *), chats_input(const Input *);
 static void u17_game_manual(int, const char *, const char *);
 static int recipes_fetch17(const char *);
 static void recipes_search17(const char *), recipes_parse17(void), recipes_open_ready17(void);
-static void u17_more_choice(int, int);
-static int u17_more_input(const Input *), u17_more_draw(void), u17_more_commit(int, const char *);
 static void u17_notes_up(void), u17_sleep_row(int), u17_sleep_select(int);
 static void u17_choice(int, int), u17_notes_menu(int, int, int), checkbox(int, int, int),
     select_row17(int, const char *, const char *);
 static int u17_commit(int, const char *), u17_input(const Input *), u17_draw(void);
-static int u16_apps_commit(int, const char *);
 static int keyboard_multiline(void);
 static void u15_note_editor_touch(int,int);
 static void u15_note_scroll(int);
@@ -102,7 +96,6 @@ static void editor_reset18(void);
 static int keyboard_intercept18(const Input *in);
 static int u16_apps_draw(void), u16_apps_input(const Input *), u16_jobs_tick(void);
 static void note_delete16(int);
-static int calc_precision16 = 10;
 static int u16_input(const Input *), u16_draw(void), u16_commit(int, const char *), u16_tick(void);
 static void u16_dropdown(int, int), u16_notes_defaults(void);
 static int u15_input(const Input *), u15_draw(void);
@@ -112,7 +105,7 @@ static void u15_flush(void);
 static void u15_note_editor_draw(void), u15_note_editor_touch(int, int), u15_notes_action(int, int),
     u16_notes_defaults(void);
 static void u15_sources_prepare(const char *);
-static void u15_init(void), u15_note_overlay(void), u15_note_tools(void), u15_reader_progress(void);
+static void u15_init(void), u15_note_overlay(void), u15_note_tools(void);
 static int store_complete(int done);
 static void store_restore(void);
 
@@ -123,7 +116,6 @@ static int64_t activity16;
 static int annotations_write(void);
 static void annotations_load(void);
 static void annotations_draw(void);
-static void annotations_screen(void);
 static void selection_overlay(void);
 
 
@@ -176,21 +168,15 @@ static void modal_input(const Input *in);
 static void refresh_library(void);
 static void settings_input(const Input *in);
 static const int lock_mode_ids[5];
-static const int clock_style_ids[14];
-static void discover_screen(void);
-static void discover_detail(void);
-static void discover_input(const Input *in);
 static void wifi_open(void);
 static void wifi_screen(void);
 static void wifi_input(const Input *in);
 static void settings_home(void);
-static void reading_input(const Input *in);
 static void apps_init(void);
 static void apps_pause(void);
 static void apps_checkpoint(void);
 static void apps_save(void);
 static void apps_page_turned(void);
-static void open_store(void);
 static void store_search(void);
 static void turn(int);
 static void system_loading(int);
@@ -232,7 +218,6 @@ static int system_input(const Input *in);
 static void new_apps_init(void);
 static void new_apps_open(int route);
 static void new_apps_save(void);
-static void clock_face(int fullscreen);
 static void new_apps_draw(void);
 static int new_apps_input(const Input *);
 static int new_apps_commit(int, const char *);
@@ -245,14 +230,13 @@ static int v1_notes_input(const Input *), clipboard_input(const Input *);
 static void v1_notes_draw(void), v1_note_tools(void);
 static void clipboard_draw(void), v1_effect(void), v1_close(void);
 static int v1_sleep_photo(void);
-static void v1_note_created(int), v1_timer_ring(int), v1_timer_started(void);
+static void v1_note_created(int), v1_timer_started(void);
 static int v1_sleep_poll(void), v1_sleep_tick(void);
 static void header(void);
 static int status_overlay_poll(void);
 static int keyboard_package_poll(void);
 static void package_back_results(void);
 static void launcher_delete_confirm(int);
-static void polish_photos_grid(void);
 static void polish_wiki_refetched(void);
 static int article_wiki_open(void);
 static void article_wiki_request(void);
@@ -262,23 +246,7 @@ static int polish_tick(void), polish_poll(void),
     polish_power(const Input *);
 static void polish_wiki_archive(void), polish_wiki_saved(void);
 static void polish_notes(void);
-static int photo_grid_hit(int x, int y);
-static void photo_grid_input(int x, int y);
-static void photo_open_folder_menu(int assign, int index);
-static void photo_folder_choice(int target, int choice);
-static int sensor_graph_input(const Input *in);
-static void photo_actions_open(int index);
-static void photo_actions_choice(int choice);
-static void photo_setting_choice(int target,int choice);
-static void photo_create_folder(const char *name);
-static void photo_duration_choice(int choice);
-static int photo_gallery_active(void), photo_back(void), ha_back(void);
-static void clock_show_face(void);
-static void photo_app_leave(void);
-static int polish_photo_full(void);
 static int polish_notes_input(const Input *);
-static void polish_photo(void);
-static int polish_photo_input(const Input *);
 static void register_builtin_views(void);
 #include "keyboard_request.h"
 static void open_keyboard(int target, const char *title, const char *value) {
@@ -705,7 +673,7 @@ static void key_outline(int x, int y, int w, int h) {
 }
 static int can_back(void) {
     return (app_package_installed(app_for_route(ui_route())) && strstr(app_process_frame(),"\"back\":true")) || editor_ui.keyboard || dropdown || confirm_delete || battery_popup ||
-           (ui_route() == 29 && u17_notes_depth()) || (ui_route() == 10 && store_ui.opds_depth) ||
+           (ui_route() == 29 && u17_notes_depth()) ||
            history_count || ui_route() != 131;
 }
 static void progress(int x, int y, int w, int n, int total) {
@@ -1169,6 +1137,8 @@ int ui_open(int index) {
     library_progress(b, page, engine_count());
     annotations_load();
     reader_ui.selecting = 0;
+    if(app_process_open(APP_READER))
+        app_process_send("{\"event\":\"intent\",\"operation\":\"document-opened\"}");
     return 1;
 }
 static int refresh_status(int force) {
@@ -1192,11 +1162,8 @@ static int refresh_status(int force) {
     return 0;
 }
 static void more_settings(void);
-#include "../../apps/library/view.h"
-#include "../../apps/reader/view.h"
-#include "../../apps/reader/settings.h"
-#include "../../apps/reader/menus.h"
-#include "../../apps/library/details.h"
+#include "author_label.h"
+#include "document_surface.h"
 static int centered_lines(int x, int y, int width, const char *text, const Font *font, int limit) {
     int row = 0;
     while (*text && row < limit) {
@@ -1285,6 +1252,7 @@ void ui_draw(void) {
     if(app_package_installed(app_for_route(ui_route()))) {
         app_view_draw(APP_STATUS_BAR);
         package_ui_draw();
+        if(ui_route()==2 && package_document_visible && reader_ui.selecting==2)selection_overlay();
         if(editor_ui.keyboard){memcpy(editor_ui.keyboard_background18,ui_pixels,sizeof(ui_pixels));editor_ui.keyboard_background_valid18=1;}
         goto input_overlays18;
     }
@@ -1293,14 +1261,6 @@ void ui_draw(void) {
         wrapped(28,175,"Startseiten-App fehlt.",ui_font(UI_BODY),544,2);
         button_h(28,280,544,48,"Einstellungen",0);
         button_h(28,345,544,48,"Dateiübertragung",0);
-        return;
-    }
-    if (ui_route() == 28 && clock_ui.clock_fullscreen) {
-        clock_face(1);
-        return;
-    }
-    if (polish_photo_full()) {
-        polish_photo();
         return;
     }
     if (ui_route() != 2)
@@ -1428,15 +1388,6 @@ static int ui_dispatch_input(const Input *in) {
     int pm = polish_power(in);
     if (pm)
         return pm == 2 ? 0 : pm == 3 ? 3 : 1;
-    if (!sleeping && !app_package_installed(APP_PHOTOS) && in->kind == INPUT_HOLD && photo_gallery_active() &&
-        !dropdown && !editor_ui.keyboard) {
-        int index = photo_grid_hit(in->x, in->y);
-        if (index >= 0) {
-            photo_actions_open(index);
-            selection_release = 1;
-            return 1;
-        }
-    }
     if (battery_popup) {
         if (in->kind == INPUT_TAP || in->kind == INPUT_SWIPE) {
             battery_popup = 0;
@@ -1445,8 +1396,6 @@ static int ui_dispatch_input(const Input *in) {
         if (in->kind == INPUT_DOWN || in->kind == INPUT_MOVE || in->kind == INPUT_HOLD)
             return 2;
     }
-    if (!app_package_installed(APP_PHOTOS) && polish_photo_full() && in->kind == INPUT_TAP)
-        return polish_photo_input(in);
     int input18 = keyboard_intercept18(in);
     if (input18 >= 0)
         return input18;
@@ -1475,7 +1424,7 @@ static int ui_dispatch_input(const Input *in) {
         return 1;
     if (in->kind == INPUT_APP) {
         if (sleeping) { app_process_poll(); return 2; }
-        return package_ui_poll() ? 1 : 2;
+        {int changed=package_ui_poll();return package_exit_requested ? 0 : changed ? 1 : 2;}
     }
     if (in->kind == INPUT_DOWN || in->kind == INPUT_TAP || in->kind == INPUT_SWIPE)
         activity16 = extra_millis();
@@ -1509,38 +1458,11 @@ static int ui_dispatch_input(const Input *in) {
                 return 2;
         }
     }
-    if (!sleeping && ui_route() == 28 && clock_ui.clock_fullscreen && in->kind == INPUT_TAP) {
-        clock_ui.clock_fullscreen = 0;
-        return 1;
-    }
     int intercepted = extra_intercept(in);
     if (intercepted >= 0)
         return intercepted;
 
-    if (!sleeping && !app_package_installed(APP_LIBRARY) && !dropdown && (ui_route() == 0 || ui_route() == 1) && in->kind == INPUT_HOLD) {
-        int index = -1, top = library_top(), begin = library_begin();
-        if (featured() >= 0 && library_ui.listpage == 0 && in->x >= 28 && in->x < 572 &&
-            in->y >= 80 && in->y < 312)
-            index = featured();
-        else if (in->x >= 28 && in->y >= top) {
-            int col = (in->x - 28) / 188;
-            int row = (in->y - top) / library_row_height();
-            int cell = row * 3 + col;
-            if (col < 3 && (in->x - 28) % 188 < 168 && (in->y - top) % library_row_height() < library_row_height()-4 &&
-                cell < library_per() && begin + cell < library_ui.view_count)
-                index = library_ui.view[begin + cell];
-        }
-        if (index >= 0) {
-            static const char *pin[] = {"Anheften", "Löschen"};
-            static const char *unpin[] = {"Loslösen", "Löschen"};
-            selected = index;
-            open_dropdown(901, library[index].favorite ? unpin : pin, 2, -1,
-                          in->x - 40 < 12 ? 12 : in->x - 40, in->y + 14, 236);
-            selection_release = 1;
-            return 1;
-        }
-    }
-    if (!sleeping && !app_package_installed(APP_READER) && ui_route() == 2 && in->kind == INPUT_HOLD && !reader_ui.reader_chrome && in->y > 60 &&
+    if (!sleeping && ui_route() == 2 && package_document_visible && in->kind == INPUT_HOLD && !reader_ui.reader_chrome && in->y > 60 &&
         in->y < 735) {
         reader_ui.selection_last_x = reader_ui.selection_x = in->x;
         reader_ui.selection_last_y = reader_ui.selection_y = in->y;
@@ -1652,7 +1574,10 @@ static int ui_dispatch_input(const Input *in) {
         char books[2048];
         snprintf(books,sizeof(books),"%s/books-changed",data_root);
         if (!unlink(books)) {
-            if (ui_route()==0 || ui_route()==1) refresh_library();
+            if (app_for_route(ui_route())==APP_LIBRARY) {
+                refresh_library();
+                app_process_send("{\"event\":\"refresh\"}");
+            }
             else library_ui.library_dirty=1;
         }
         app_packages_scan();
@@ -1668,8 +1593,11 @@ static int ui_dispatch_input(const Input *in) {
         int done = discover_complete();
         if (network_poll && !done)
             return 2;
-        if (ui_route() == 10 && store_ui.store_stage && done && store_complete(done))
+        if (app_for_route(ui_route())==APP_STORE && store_ui.store_stage && done && done!=3 && done!=2) {
+            store_complete(done);
+            app_process_send("{\"event\":\"refresh\"}");
             return 1;
+        }
         if (done == 3) {
             polish_wiki_refetched();
             extra_wiki_cache();
@@ -1693,18 +1621,9 @@ static int ui_dispatch_input(const Input *in) {
             else
                 refresh_library();
             ui_message("Buch zur Bibliothek hinzugefügt.");
-        } else if (done == 1) {
-            store_ui.opds_page = 0;
-            if (ui_route() == 10 && opds_count == 1 && opds_items[0].acquisition) {
-                store_ui.opds_selected = 0;
-                route_to(11);
-                return 1;
-            }
-            if (ui_route() == 10 || ui_route() == 11)
-                route_to(10);
-            else
-                ui_message("Katalog geladen. Unter Bücher entdecken öffnen.");
         }
+        if(done && app_for_route(ui_route())==APP_STORE)
+            app_process_send("{\"event\":\"refresh\"}");
         return 1;
     }
     if (in->kind == INPUT_EXIT || in->kind == INPUT_USB) {
@@ -1794,45 +1713,16 @@ static int ui_dispatch_input(const Input *in) {
         pressed = -1;
         return 1;
     }
-    if (ui_route() == 14 && !confirm_delete && in->kind == INPUT_TAP && y >= 155 && y < 655) {
-        int i = reader_ui.annotation_page * 5 + (y - 155) / 100;
-        if (i < reader_ui.annotation_count) {
-            if (x >= 510) {
-                confirm_delete = 2;
-                reader_ui.annotation_delete = i;
-            } else {
-                page = engine_restore(&reader_ui.annotations[i].position);
-                route_to(2);
-                reader_ui.reader_chrome = 0;
-            }
-        }
-        return 1;
-    }
-    if (ui_route() == 14 && !confirm_delete && in->kind == INPUT_TAP && y >= 745 && y < 789) {
-        if (x < 300 && reader_ui.annotation_page)
-            reader_ui.annotation_page--;
-        else if (x >= 300 && (reader_ui.annotation_page + 1) * 5 < reader_ui.annotation_count)
-            reader_ui.annotation_page++;
-        return 1;
-    }
-
     if(app_package_installed(app_for_route(ui_route())) && !editor_ui.keyboard && !dropdown && !confirm_delete &&
-       ((in->kind==INPUT_TAP && y>=STATUS_HEIGHT) || in->kind==INPUT_SWIPE || in->kind==INPUT_HOLD))return package_ui_input(in);
-    if (in->kind == INPUT_TAP && ui_route() == 2 && reader_ui.reader_chrome && y >= READER_TOOLBAR_END) {
-        reader_ui.reader_chrome = 0;
-        return 1;
-    }
-    if (in->kind == INPUT_TAP && ui_route() == 2 && !reader_ui.reader_chrome && (y < 78 || y >= 722)) {
-        reader_ui.reader_chrome = 1;
-        return 1;
-    }
+       ((in->kind==INPUT_TAP && (y>=STATUS_HEIGHT ||
+          (package_fullscreen && package_fullscreen_owner==app_for_route(ui_route())))) || in->kind==INPUT_SWIPE || in->kind==INPUT_HOLD))return package_ui_input(in);
     if (in->kind == INPUT_TAP && y < STATUS_HEIGHT && (ui_route() != 2 || reader_ui.reader_chrome || app_package_installed(APP_READER)) &&
         !editor_ui.keyboard && !dropdown && !confirm_delete && !battery_popup) {
         int date = x >= status_ui.status_date_x && x < status_ui.status_date_x + status_ui.status_date_w;
         int clock = x >= status_ui.status_clock_x && x < status_ui.status_clock_x + status_ui.status_clock_w;
         if (date || clock) {
-            if (clock) clock_show_face();
             AppIntent request = {.app = date ? APP_CALENDAR : APP_TIMER, .kind = INTENT_OPEN};
+            if(clock)snprintf(request.text,sizeof(request.text),"clock-face");
             app_send(&request);
             return 1;
         }
@@ -1840,7 +1730,7 @@ static int ui_dispatch_input(const Input *in) {
     if (in->kind == INPUT_TAP && y < STATUS_HEIGHT && (ui_route() != 2 || reader_ui.reader_chrome || app_package_installed(APP_READER)) &&
         !editor_ui.keyboard && !dropdown && !confirm_delete && !battery_popup && status_ui.status_timer_x >= 0 &&
         x >= status_ui.status_timer_x && x < status_ui.status_timer_x + status_ui.status_timer_width) {
-        AppIntent request = {.app = APP_TIMER, .kind = INTENT_OPEN};
+        AppIntent request = {.app = APP_TIMER, .kind = INTENT_OPEN, .text="clock-timer"};
         app_send(&request);
         return 1;
     }
@@ -1851,8 +1741,6 @@ static int ui_dispatch_input(const Input *in) {
             u17_notes_up();
             return 1;
         }
-        if (x < 62 && !editor_ui.keyboard && !dropdown && !confirm_delete && !app_package_installed(app_for_route(ui_route())) && (photo_back() || ha_back()))
-            return 1;
         if(x<62 && app_package_installed(app_for_route(ui_route())) && strstr(app_process_frame(),"\"back\":true") && !editor_ui.keyboard && !dropdown){app_process_send("{\"event\":\"back\"}");return 2;}
         if (x < 62 && can_back()) {
             apps_pause();
@@ -1860,14 +1748,6 @@ static int ui_dispatch_input(const Input *in) {
                 if (editor_ui.keyboard && keyboard_multiline())
                     commit_keyboard();
                 editor_ui.keyboard = dropdown = confirm_delete = 0;
-                return 1;
-            }
-            if (ui_route() == 10 && store_ui.opds_depth) {
-                discover_cancel();
-                if (!strcmp(store_ui.opds_history[--store_ui.opds_depth], "lumen:search"))
-                    store_restore();
-                else
-                    discover_start(store_ui.opds_history[store_ui.opds_depth], NULL);
                 return 1;
             }
             int target = 131;
@@ -2005,12 +1885,6 @@ static void refresh_library(void) {
     update_view();
 }
 static void commit_keyboard(void) {
-    if (editor_ui.keyboard_target == TEXT_INPUT_PHOTO_FOLDER) {
-        photo_create_folder(editor_ui.edit);
-        editor_ui.keyboard = 0;
-        pressed = -1;
-        return;
-    }
     if (editor_ui.keyboard_target >= 30) {
         int previous_target = editor_ui.keyboard_target;
         extra_commit(editor_ui.keyboard_target, editor_ui.edit);
@@ -2021,10 +1895,7 @@ static void commit_keyboard(void) {
         pressed = -1;
         return;
     }
-    if (editor_ui.keyboard_target == 6) {
-        snprintf(store_ui.store_query, sizeof(store_ui.store_query), "%s", editor_ui.edit);
-        store_search();
-    } else if (editor_ui.keyboard_target == 5 || editor_ui.keyboard_target == 32) {
+    if (editor_ui.keyboard_target == 5 || editor_ui.keyboard_target == 32) {
         if (network_connect(wifi_ui.wifi_selected, editor_ui.edit))
             ui_message("Verbindung wird hergestellt …");
         else
@@ -2093,24 +1964,6 @@ static void modal_input(const Input *in) {
         }
         return;
     }
-    if (confirm_delete) {
-        if (y >= 446 && y < 494) {
-            if (x >= 309) {
-                ui_save();
-                engine_close();
-                current = -1;
-                if (!library_delete(selected))
-                    ui_message("Löschen fehlgeschlagen.");
-                else {
-                    selected = -1;
-                    route_to(1);
-                    update_view();
-                }
-            }
-            confirm_delete = 0;
-        }
-        return;
-    }
     if (dropdown) {
         unsigned generation = drop_generation;
         if (drop_count > drop_visible && x >= drop_x && x < drop_x + drop_w &&
@@ -2129,28 +1982,10 @@ static void modal_input(const Input *in) {
             }
             if(drop_target==2001){package_ui_choice(choice);}
             else if(drop_target==2004){launcher_delete_confirm(choice);}
-            else if (drop_target == 941 || drop_target == 942) {
-                photo_setting_choice(drop_target,choice);
-            } else if (drop_target == 940) {
-                photo_actions_choice(choice);
-            } else if (drop_target >= 931 && drop_target <= 950) {
+            if(0) {            } else if (drop_target >= 931 && drop_target <= 950) {
                 u17_choice(drop_target, choice);
             } else if (drop_target >= 910 && drop_target <= 930) {
                 u16_dropdown(drop_target, choice);
-            } else if (drop_target == 903 || drop_target == 904) {
-                photo_folder_choice(drop_target, choice);
-            } else if (drop_target == 905) {
-                photo_duration_choice(choice);
-            } else if (drop_target == 902) {
-                clock_ui.clock_style = clock_style_ids[choice];
-                extra_save();
-            } else if (drop_target == 901 && selected >= 0 && selected < library_count) {
-                if (choice == 0) {
-                    library[selected].favorite ^= 1;
-                    library_save_book(&library[selected]);
-                } else {
-                    confirm_delete = 1;
-                }
             } else if (drop_target == 900) {
                 settings.sort = choice;
                 library_settings_save();
@@ -2185,7 +2020,6 @@ static void modal_input(const Input *in) {
     }
 }
 #include "../../apps/settings/preferences.h"
-#include "../../apps/store/entry.h"
 #include "../../apps/settings/options.h"
 #include "../../apps/store/view.h"
 #include "../../apps/wifi/app.h"
@@ -2280,7 +2114,6 @@ int ui_prepare_home(void) {
 static void app_leave(AppId app, void *ctx) {
     app_process_pause();
     app_page_checkpoint(app);
-    if (app == APP_PHOTOS) photo_app_leave();
     (void)ctx;
     companion_checkpoint16();
     if (app >= APP_2048)
@@ -2296,10 +2129,6 @@ static void app_leave(AppId app, void *ctx) {
     if (app == APP_READER) {
         apps_checkpoint();
         ui_save();
-    }
-    if (app == APP_STORE && store_ui.store_stage) {
-        discover_cancel();
-        store_ui.store_stage = 0;
     }
     if (app == APP_READER && ui_route() == 3)
         apply_reading_settings();
@@ -2319,6 +2148,12 @@ static void route_to(int route) {
         system_loading(route);
     /* Legacy route IDs remain stable for persisted navigation and native tests. */
     app_runtime_route(&runtime, route);
+    if(route==7 && selected>=0 && selected<library_count && app_process_open(APP_LIBRARY)) {
+        char event[128];
+        snprintf(event,sizeof(event),"{\"event\":\"intent\",\"operation\":\"book-detail\",\"text\":\"%016llx\"}",
+                 (unsigned long long)library[selected].id);
+        app_process_send(event);
+    }
 }
 static int app_send(const AppIntent *intent) {
     if (!intent || !app_definition(intent->app) || intent->kind < INTENT_OPEN ||
@@ -2366,13 +2201,10 @@ static int app_send(const AppIntent *intent) {
         history[history_count++] = old;
     if(app_package_installed(intent->app)){
         int ok=app_process_open(intent->app);char*event=NULL;size_t n=0;FILE*f=open_memstream(&event,&n);
-        fprintf(f,"{\"event\":\"intent\",\"kind\":%d,\"object\":%llu,\"text\":",intent->kind,(unsigned long long)intent->object_id);json_escape16(f,intent->text);if(intent->kind==INTENT_SEARCH)fputs(",\"operation\":\"search\"",f);fputc('}',f);fclose(f);if(ok)app_process_send(event);free(event);return ok;
+        fprintf(f,"{\"event\":\"intent\",\"kind\":%d,\"object\":%llu,\"text\":",intent->kind,(unsigned long long)intent->object_id);json_escape16(f,intent->text);if(intent->kind==INTENT_SEARCH)fputs(",\"operation\":\"search\"",f);else if(intent->app==APP_TIMER && *intent->text){fputs(",\"operation\":",f);json_escape16(f,intent->text);}fputc('}',f);fclose(f);if(ok)app_process_send(event);free(event);return ok;
     }
     app_process_pause();
-    if (intent->app == APP_STORE) {
-        snprintf(store_ui.store_query, sizeof(store_ui.store_query), "%s", runtime.intent.text);
-        open_store();
-    } else if (intent->app == APP_LIBRARY) {
+    if (intent->app == APP_LIBRARY) {
         if (library_ui.library_dirty) refresh_library();
         snprintf(library_ui.query, sizeof(library_ui.query), "%s",
                  intent->kind == INTENT_SEARCH ? runtime.intent.text : "");
@@ -2436,7 +2268,6 @@ void ui_close(void) {
     app_process_close();
     release_cancel();
     cover_tiles_clear();
-    chat_clear();
     companion_close16();
     u15_flush();
     polish_close();

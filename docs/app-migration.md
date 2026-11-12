@@ -89,12 +89,16 @@ the frame budget. Wikipedia owns search, pagination and offline history
 interaction through a shared document provider. This brings the total to
 **41 packaged / 11 linked**.
 
-## In progress for 5.9
+## Progress in 5.9
 
-News has a standalone executable for the edition index, search results,
-pagination and Back navigation. Shared provider jobs retain saved editions and
-open articles in Reader. The release build requires coverage of every active
-identity before producing the 5.9 installers.
+News, Calculator, Clock, Store, Library, Home Assistant, OpenAI, Photos and
+Reader now run as standalone packages. This brings the total to **50 packaged /
+2 linked**. The SDK gained document pages, book and catalog covers, photo
+surfaces, measured text cursors, mathematical formula layout, fullscreen
+presentation, arc drawing, display typography and masked input.
+
+The 6.0 release gate requires coverage of the remaining linked identities,
+Notes and Settings, before it produces either installer.
 
 ## Completion checks
 

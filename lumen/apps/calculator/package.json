@@ -1,0 +1,14 @@
+{
+  "format": "lumen-app-1",
+  "api": 1,
+  "id": "lumen.calculator",
+  "name": "Rechner",
+  "version": "1.0.0",
+  "sources": [
+    "app.c",
+    "evaluate.c"
+  ],
+  "assets": [
+    "assets/icon.pgm"
+  ]
+}

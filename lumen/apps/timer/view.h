@@ -5,7 +5,7 @@ static const char *clock_styles[] = {
     "Bauhaus", "Sonnenuhr · 24 h", "Kompass", "Blütenzeit", "Typografie", "Editorial", "Stunde für Stunde", "Nacht"};
 static const int clock_style_ids[] = {4,0,7,8,1,5,9,12,13,6,2,10,11,3};
 static int clock_style_row(void) {
-    for(int i=0;i<CLOCK_FACE_COUNT;i++)if(clock_style_ids[i]==clock_ui.clock_style)return i;
+    for(int i=0;i<CLOCK_FACE_COUNT;i++)if(clock_style_ids[i]==clock_style)return i;
     return 0;
 }
 static void clock_hand(int cy,double angle,int length,int tail,int width,int color) {
@@ -19,7 +19,7 @@ static void clock_marker(int cy,int r,double a,int length,int weight,int gray) {
 static void clock_face(int fullscreen) {
     time_t now=time(NULL);struct tm t;localtime_r(&now,&t);
     int cy=fullscreen ? 382 : 435, r=fullscreen ? 220 : 168;
-    int style=clock_ui.clock_style,dark=style==3;
+    int style=clock_style,dark=style==3;
     char value[32];
     if(style==2 || style==3 || style==10 || style==11) {
         if(dark) {
@@ -109,24 +109,19 @@ static void clock_face(int fullscreen) {
         if(style!=1)aa_disc(300,cy,3,255);
     }
     strftime(value,sizeof(value),"%d.%m.%Y",&t);
-    int old_ink=ink_color;ink_color=dark && fullscreen ? 255 : UI_SECONDARY_INK;
-    centered(60,cy+r+14,480,48,value,ui_font(UI_SECONDARY));ink_color=old_ink;
+    lumen_text(60,cy+r+14,480,48,value,PAINT_SECONDARY,dark && fullscreen ? 255 : 95,0);
 }
-static void clock_show_face(void) { timer_panel = 0; }
 static void app_timer(void) {
-    const char *tabs[] = {"Uhr", "Timer", "Wecker"};
-    segments(28, 74, 544, 44, tabs, 3, timer_panel);
+    const char *tabs[] = {tr("Uhr"), "Timer", tr("Wecker")};
+    lumen_segments("mode",28,74,544,44,tabs,3,timer_panel);
     char b[80];
     if (!timer_panel) {
-        dropdown_button(28, 137, 310, 44, clock_styles[clock_style_row()]);
+        dropdown_button(28,137,310,44,face_label(clock_style_row()));
         icon_button(528, 137, IC_FULLSCREEN);
         clock_face(0);
         return;
     }
     if (timer_panel == 1) {
-        extra_timer_label(b, sizeof(b));
-        if (!*b)
-            snprintf(b, sizeof(b), "%02d:00", timer_minutes);
         v1_timer_ring(0);
         icon_button(528, 185, IC_FULLSCREEN);
         const int presets[] = {5, 10, 20, 30};

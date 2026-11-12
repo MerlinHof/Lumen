@@ -1,9 +1,5 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 static void polish_open(int route) {
-    if (route == 72) {
-        photo_fill = photo_rotation = 0;
-        photo_controls = 1;
-    }
     if (route == 94 || route == 36) {
         polish_wiki_archive();
         wiki_history_scan();

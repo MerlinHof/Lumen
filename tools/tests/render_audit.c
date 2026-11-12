@@ -85,16 +85,23 @@ int main(int argc, char **argv) {
         }
     }
     options[OPT_LANGUAGE] = 1;
-    route_to(3);
+    route_to(2);
+    app_process_open(APP_READER);
+    app_process_send("{\"event\":\"input\",\"kind\":1,\"x\":300,\"y\":55}");
+    app_process_send("{\"event\":\"input\",\"kind\":1,\"x\":550,\"y\":95}");
+    for(int i=0;i<30;i++){usleep(5000);package_ui_poll();}
     for (int p = 0; p < 2; p++) {
-        reader_ui.reading_page = p;
+        char event[64];snprintf(event,sizeof(event),"{\"event\":\"page\",\"page\":%d}",p);
+        app_process_send(event);
+        for(int i=0;i<20;i++){usleep(5000);package_ui_poll();}
         char name[40];
         snprintf(name, 40, "reading-%d", p);
         capture(name);
     }
     route_to(27);
-    snprintf(calc_expr, sizeof(calc_expr), "e^(0.2*sin(pi))+1/3");
-    calc_cursor = strlen(calc_expr);
+    app_process_open(APP_CALCULATOR);
+    app_process_send("{\"event\":\"text\",\"action\":80,\"text\":\"e^(0.2*sin(pi))+1/3\"}");
+    for(int i=0;i<30;i++){usleep(5000);package_ui_poll();}
     capture("calculator");
     for (int p = 0; p < 4; p++) {
         route_to(21);
@@ -130,9 +137,7 @@ int main(int argc, char **argv) {
     }
     capture("filled-news");
     route_to(10);
-    store_ui.store_home = 0;
     opds_count = 5;
-    store_ui.opds_page = 0;
     for (int i = 0; i < 5; i++) {
         snprintf(opds_items[i].title, 256, "%s",
                  i % 2 ? "The Quiet Hours"
@@ -152,8 +157,6 @@ int main(int argc, char **argv) {
     snprintf(ha_url, sizeof(ha_url), "http://example.invalid");
     snprintf(ha_token, sizeof(ha_token), "demo-only");
     ha_count = ha_favorite_count = 3;
-    ha_page = 0;
-    ha_select = 1;
     for (int i = 0; i < 3; i++) {
         snprintf(ha_entities[i].id, 160, "sensor.demo_%d", i);
         snprintf(ha_entities[i].name, 192, "%s",
@@ -163,8 +166,14 @@ int main(int argc, char **argv) {
         ha_entities[i].sensor = 1;
         snprintf(ha_favorites[i], 160, "%s", ha_entities[i].id);
     }
+    app_process_open(APP_HOME_ASSISTANT);
+    for(int i=0;i<20;i++){usleep(5000);app_process_poll();}
+    const Input choose_devices={.kind=INPUT_TAP,.x=549,.y=94};
+    package_ui_input(&choose_devices);
+    for(int i=0;i<20;i++){usleep(5000);package_ui_poll();}
     capture("filled-devices");
-    ha_select = 0;
+    app_process_send("{\"event\":\"back\"}");
+    for(int i=0;i<20;i++){usleep(5000);package_ui_poll();}
     capture("filled-home-assistant");
     route_to(83);
     capture("launcher-management");
@@ -178,7 +187,9 @@ int main(int argc, char **argv) {
     route_to(100);
     capture("calculator-settings");
     route_to(28);
-    timer_panel = 1;
+    app_process_open(APP_TIMER);
+    app_process_send("{\"event\":\"component\",\"id\":\"mode\",\"text\":\"1\"}");
+    for(int i=0;i<30;i++){usleep(5000);package_ui_poll();}
     capture("alarm");
     route_to(29);
     note_tree.current = note_tree.folder[0].id;
