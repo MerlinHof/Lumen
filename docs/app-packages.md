@@ -175,3 +175,37 @@ receives a `sleep_state` snapshot and returns image and typography choices. The
 runtime handles power events and bounds how long it waits for a frame. The
 `recipes` service exposes paged archive and results queries plus search and
 Reader opening by recipe ID.
+
+
+## Background operations declared by a package
+
+Add an optional `operations` array to the app manifest. It accepts up to 16
+unique names with at most 47 lowercase ASCII letters, digits, underscores or
+hyphens each. Publish the input and result contract with the app. A name is a
+public API, so use a new name when an incompatible operation replaces it.
+
+A caller uses `lumen_app_service(package_id, operation, data, action)`. The
+recipient registers `lumen_service_handler` before calling `lumen_run` and
+answers with `lumen_app_service_result(ok, data)`. Data is a UTF-8 string
+of up to 4,096 bytes in either direction. The recipient can read the caller's
+package ID with `lumen_string("caller", ...)`. Both sides can use an empty
+string for operations with no payload. Study declares `material_count`, which
+accepts an empty string and returns the count of locally available documents.
+
+The app starts in a separate process with its own data and assets, and receives
+`service_call` without foreground initialization. The runtime closes the worker
+after its reply, on failure, when the caller leaves, or after ten seconds.
+There is one in-flight worker at a time. Handlers should perform bounded work
+and coordinate any shared writes with their foreground or overlay instance.
+
+The caller receives the existing `INPUT_SERVICE` event with its action and
+success flag, plus `data` and `status` fields for completed calls. Workers
+cannot open overlays, route the UI, or send further service calls through this
+channel. A missing package, undeclared operation or busy worker reports failure.
+Leaving the app cancels the request and discards its result. These packages run
+as trusted native code and process separation does not sandbox files or network.
+
+Use `lumen_button_action` for a button that needs explicit placement and
+`lumen_app_tile_action` for an interactive app tile. Both report stable
+component IDs. The app tile also reports long presses. Standard app controls
+should handle those events instead of repeating hit geometry in input handlers.

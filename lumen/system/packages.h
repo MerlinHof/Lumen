@@ -2,12 +2,16 @@
 #define LUMEN_PACKAGES_H
 #include <stddef.h>
 #define PACKAGE_FILES 192
+#define PACKAGE_OPERATIONS 16
 /* All paths are relative, regular files; extraction never follows symlinks. */
 typedef struct { char path[256],sha256[65];size_t size; } PackageFile;
 typedef struct {
  char format[32],version[32],id[64],name[96];int api,count;
+ int operation_count;
+ char operations[PACKAGE_OPERATIONS][48];
  PackageFile files[PACKAGE_FILES];
 } Package;
+int package_operation_valid(const char *operation);
 int package_manifest(const char *text,Package *p);
 int package_path_valid(const char *path);
 int package_extract(const char *archive,const char *destination,Package *p);

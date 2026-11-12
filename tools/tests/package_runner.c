@@ -40,7 +40,57 @@ static int test_wire(void) {
     assert(!"App request did not arrive");
     return 2;
 }
+static int test_service(void) {
+    app_packages_scan();
+    int caller=app_package_find("test.caller");
+    assert(caller>=0 && app_process_open(caller));
+    wait_for_frame(0);
+    assert(!app_service_start("lumen.study","undeclared","",4));
+    assert(!app_service_start("test.missing","material_count","",4));
+    assert(app_service_start("lumen.study","material_count","",6));
+    assert(!app_service_start("lumen.study","material_count","",7));
+    uint64_t serial=app_process_frame_serial();
+    for(int i=0;i<100 && serial==app_process_frame_serial();i++) {
+        usleep(10000);
+        app_service_poll();
+        app_process_poll();
+    }
+    assert(strstr(app_process_frame(),"success"));
+    assert(strstr(app_process_frame(),"\"data\""));
+    assert(app_process_owner()==caller && app_service_fd()<0);
+    assert(app_service_start("lumen.study","material_count","invalid",8));
+    serial=app_process_frame_serial();
+    for(int i=0;i<100 && serial==app_process_frame_serial();i++) {
+        usleep(10000);
+        app_service_poll();
+        app_process_poll();
+    }
+    assert(strstr(app_process_frame(),"error"));
+    assert(app_service_start("test.worker","exit","",9));
+    serial=app_process_frame_serial();
+    for(int i=0;i<100 && serial==app_process_frame_serial();i++) {
+        usleep(10000);
+        app_service_poll();
+        app_process_poll();
+    }
+    assert(strstr(app_process_frame(),"crashed"));
+    assert(app_service_start("test.worker","reply_and_exit","",10));
+    serial=app_process_frame_serial();
+    for(int i=0;i<100 && serial==app_process_frame_serial();i++) {
+        usleep(10000);
+        app_service_poll();
+        app_process_poll();
+    }
+    assert(strstr(app_process_frame(),"finished"));
+    assert(app_service_start("lumen.study","material_count","",9));
+    app_process_pause();
+    assert(app_service_fd()<0 && app_process_owner()==caller);
+    app_process_close();
+    puts("PASS manifest-declared app service, result, invalid input, process exit, cancellation and worker shutdown.");
+    return 0;
+}
 int main(int argc,char**argv){assert(argc>=3);data_root=argv[1];const char*op=argv[2];
+ if(!strcmp(op,"service"))return test_service();
  if(!strcmp(op,"wire"))return test_wire();
  if(!strcmp(op,"stage"))return system_update_stage(argv[3],argc>4 ? argv[4] : "9.1")?0:2;
  if(!strcmp(op,"apply"))return system_update_maintenance()?0:2;

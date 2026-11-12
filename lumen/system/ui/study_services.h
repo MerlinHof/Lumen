@@ -6,34 +6,11 @@ static int study_document_path(char path[4096],const char *name) {
     struct stat info;
     return n>0 && n<4096 && !lstat(path,&info) && S_ISREG(info.st_mode);
 }
-static int study_compare(const void *a,const void *b){return strcasecmp(a,b);}
 static int package_study_material(const char *operation,const char *data,int action) {
-    if(!strcmp(operation,"open")) {
-        char path[4096];
-        return study_document_path(path,data) && file_open16(path,ui_route());
-    }
-    if(strcmp(operation,"list"))return 0;
-    char *end;long requested=strtol(data,&end,10);
-    if(!*data || *end || requested<0 || requested>=512)requested=0;
-    char path[4096];snprintf(path,sizeof(path),"%s/study",data_root);
-    DIR *folder=opendir(path);
-    static char names[512][256];
-    int count=0;struct dirent *item;
-    while(folder && count<512 && (item=readdir(folder)))
-        if(study_document_path(path,item->d_name))snprintf(names[count++],256,"%s",item->d_name);
-    if(folder)closedir(folder);
-    qsort(names,count,sizeof(*names),study_compare);
-    if(requested*5>=count)requested=0;
-    char *message=NULL;size_t length=0;
-    FILE *out=package_reply(&message,&length,action,1);
-    if(!out)return 0;
-    fprintf(out,",\"page\":%ld,\"count\":%d",requested,count);
-    for(int i=0;i<5 && requested*5+i<count;i++) {
-        char key[20];snprintf(key,sizeof(key),"name%d",i);
-        package_field(out,key,names[requested*5+i]);
-    }
-    package_reply_end(out,&message);
-    return 1;
+    if(strcmp(operation,"open") || app_process_owner()!=APP_STUDY)return package_acknowledge(action,0);
+    char path[4096];
+    if(study_document_path(path,data) && file_open16(path,ui_route()))return 1;
+    return package_acknowledge(action,0);
 }
 static int package_learning_note(const char *data,int action) {
     const char *split=strchr(data,'\n');

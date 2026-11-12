@@ -124,6 +124,15 @@ The remaining release checks cover semantic controls in all 52 apps, persistence
 and rollback, device-level input and overlay behavior, and a performance
 comparison on the same Kindle against 6.0.
 
+### Work on the 6.1 contracts
+
+The runtime supports manifest-declared operations in temporary package workers.
+Study's material enumeration and Languages' written grading run in their own
+packages. Home, Study and Languages handle ordinary actions through semantic
+components. Study's uploads are still stored in the existing transfer directory,
+and opening an uploaded document still uses a host bridge. Notes, Reader,
+Settings and the other host handlers in the table still need extraction.
+
 ## Completion checks
 
 A migration counts when the app owns its behavior in an independently built

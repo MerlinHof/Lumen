@@ -46,7 +46,8 @@ static int lumen_storage_write(const char *name,const void *bytes,size_t size) {
         if(fclose(file))ok=0;
     } else close(fd);
     if(ok)ok=!renameat(parent,temporary,parent,leaf);
-    if(!ok)unlinkat(parent,temporary,0);
+    if(ok)ok=!fsync(parent);
+    else unlinkat(parent,temporary,0);
     close(parent);return ok;
 }
 static int lumen_storage_read_at(const char *root,const char *name,void *bytes,size_t capacity,size_t *actual) {
@@ -73,7 +74,7 @@ static int lumen_storage_delete(const char *name) {
     char leaf[256];
     int parent=lumen_storage_parent(name,0,leaf);
     if(parent<0)return 0;
-    int ok=!unlinkat(parent,leaf,0);
+    int ok=!unlinkat(parent,leaf,0) && !fsync(parent);
     close(parent);return ok;
 }
 #endif

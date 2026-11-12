@@ -17,7 +17,7 @@ static int wire_hex(const char **at,unsigned *value) {
     }
     *at=p;return 1;
 }
-static const char *wire_string(const char *p,char *out,size_t cap) {
+static const char *wire_decode_string(const char *p,char *out,size_t cap,int *truncated) {
     if(*p++!='"')return NULL;
     size_t used=0;int clipped=0;
     while(*p && *p!='"') {
@@ -60,7 +60,11 @@ static const char *wire_string(const char *p,char *out,size_t cap) {
         else clipped=1;
     }
     if(out && cap)out[used]=0;
+    if(truncated)*truncated=clipped;
     return *p=='"' ? p+1 : NULL;
+}
+static const char *wire_string(const char *p,char *out,size_t cap) {
+    return wire_decode_string(p,out,cap,NULL);
 }
 static const char *wire_number(const char *p) {
     if(*p=='-')p++;
@@ -135,6 +139,12 @@ static int wire_read(const char *p) {
 static const WireField *wire_get(const char *key) {
     for(unsigned i=0;i<wire_count;i++)if(!strcmp(wire_fields[i].key,key))return &wire_fields[i];
     return NULL;
+}
+static inline int wire_bounded_string(const char *key,char *out,size_t cap) {
+    const WireField *field=wire_get(key);
+    int truncated=0;
+    return field && *field->value=='"' &&
+        wire_decode_string(field->value,out,cap,&truncated)==field->end && !truncated;
 }
 static inline int lumen_number(const char *key) {
     const WireField *field=wire_get(key);

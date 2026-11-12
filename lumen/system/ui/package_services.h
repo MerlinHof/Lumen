@@ -40,8 +40,6 @@ static int catalog_service(const char *operation,const char *data,int action) {
     FILE *stream=package_reply(&message,&length,action,1);
     if(!stream)return 0;
     package_field(stream,"data",list);
-    fprintf(stream,",\"settings_shortcut\":%d",
-        !launcher_visible[APP_SETTINGS] || app_package_deleted(APP_SETTINGS));
     package_reply_end(stream,&message);
     return 1;
 }
@@ -71,26 +69,6 @@ static int transfer_service(const char *operation,const char *data,int action) {
     return 1;
 }
 #include "annotation_service.h"
-static void package_fold_answer(const char *input,char *out,size_t capacity) {
-    utf8_fold(input,out,capacity);
-    char *write=out;
-    for(const unsigned char *read=(const unsigned char *)out;*read;read++)
-        if(isalnum(*read) || *read>=128)*write++=(char)*read;
-    *write=0;
-}
-static int package_equivalent(const char *data,int action) {
-    const char *split=strchr(data,'\n');
-    if(!split || split-data>=512 || strlen(split+1)>=512)return 0;
-    char left[512],a[512],b[512],*message=NULL;size_t length=0;
-    snprintf(left,sizeof(left),"%.*s",(int)(split-data),data);
-    package_fold_answer(left,a,sizeof(a));
-    package_fold_answer(split+1,b,sizeof(b));
-    FILE *out=package_reply(&message,&length,action,1);
-    if(!out)return 0;
-    fprintf(out,",\"match\":%d",!strcmp(a,b));
-    package_reply_end(out,&message);
-    return 1;
-}
 #include "reading_service.h"
 #include "weather_service.h"
 #include "study_services.h"
@@ -131,7 +109,6 @@ static int editor_caret_service(const char *data,int action) {
 }
 static int package_service_request(const char *name,const char *operation,const char *data,int action) {
     if(!strcmp(name,"editor") && !strcmp(operation,"caret"))return editor_caret_service(data,action);
-    if(!strcmp(name,"text") && !strcmp(operation,"equivalent"))return package_equivalent(data,action);
     if(!strcmp(name,"reading"))return package_reading_activity(operation,data,action);
     if(!strcmp(name,"weather"))return package_weather(operation,data,action);
     if(!strcmp(name,"study_material"))return package_study_material(operation,data,action);

@@ -137,16 +137,20 @@ static void package_paint_frame(const char *text) {
             package_component_count++;
             continue;
         }
-        if(!strcmp(type,"icon_action")) {
+        if(!strcmp(type,"icon_action") || !strcmp(type,"button_action")) {
+            int is_icon=!strcmp(type,"icon_action");
             int id=package_value(&j,item,"icon");
-            if(x<0 || x+44>WIDTH || y<STATUS_HEIGHT || y+44>HEIGHT ||
-               id<0 || id>IC_LAST || package_component_count>=PACKAGE_COMPONENT_LIMIT)continue;
+            if(x<0 || y<STATUS_HEIGHT || w<44 || h<44 || x+w>WIDTH || y+h>HEIGHT ||
+               (is_icon && (w!=44 || h!=44 || id<0 || id>IC_LAST)) ||
+               package_component_count>=PACKAGE_COMPONENT_LIMIT)continue;
             PackageComponent *component=&package_components[package_component_count];
             json_string(&j,json_get(&j,item,"id"),component->id,sizeof(component->id));
             if(!*component->id)continue;
-            component->left=x;component->top=y;component->width=component->height=44;
+            component->left=x;component->top=y;component->width=w;component->height=h;
             component->kind=COMPONENT_BUTTON;
-            icon_button(x,y,id);package_component_count++;
+            if(is_icon)icon_button(x,y,id);
+            else button_h(x,y,w,h,label,package_value(&j,item,"primary"));
+            package_component_count++;
             continue;
         }
         if(!strcmp(type,"component_segments")) {
@@ -285,8 +289,17 @@ static void package_paint_frame(const char *text) {
         }
         else if(!strcmp(type,"app_tile")) {
             int id=app_package_find(label);
-            if(id>=0 && app_definition(id)->entry>=0 && w>=90 && w<=WIDTH)
+            if(id>=0 && app_definition(id)->entry>=0 && x>=0 && w>=90 && x+w<=WIDTH && y+h<=HEIGHT) {
                 app_tile(x,y,w,id);
+                if(package_component_count<PACKAGE_COMPONENT_LIMIT) {
+                    PackageComponent *component=&package_components[package_component_count];
+                    json_string(&j,json_get(&j,item,"id"),component->id,sizeof(component->id));
+                    if(*component->id && h>=44) {
+                        component->left=x;component->top=y;component->width=w;component->height=h;
+                        component->kind=COMPONENT_BUTTON;package_component_count++;
+                    }
+                }
+            }
         }
         else if(!strcmp(type,"pager")) {
             int page=package_value(&j,item,"page"), count=package_value(&j,item,"count");
@@ -579,6 +592,20 @@ static int package_ui_poll(void) {
         int array=json_get(&j,0,"options");if(array>=0 && j.tokens[array].type=='[' && j.tokens[array].count>0 && j.tokens[array].count<=48) {
             int count=j.tokens[array].count;for(int i=0;i<count;i++){json_string(&j,json_at(&j,array,i),package_options[i],128);package_labels[i]=package_options[i];}
             package_select_action=package_value(&j,0,"action");open_dropdown(2001,package_labels,count,package_value(&j,0,"selected"),220,180,350);
+        }
+    }
+    else if(!strcmp(kind,"app_service")) {
+        char target[64],operation[48];
+        int app=json_get(&j,0,"app"),op=json_get(&j,0,"operation"),payload=json_get(&j,0,"text");
+        int action=package_value(&j,0,"action");
+        if(app<0 || j.tokens[app].type!='"' || j.tokens[app].end-j.tokens[app].start>65 ||
+           op<0 || j.tokens[op].type!='"' || j.tokens[op].end-j.tokens[op].start>49 ||
+           payload<0 || j.tokens[payload].type!='"') {
+            package_acknowledge(action,0);
+        } else {
+            json_string(&j,app,target,sizeof(target));
+            json_string(&j,op,operation,sizeof(operation));
+            if(!app_service_start(target,operation,text,action))package_acknowledge(action,0);
         }
     }
     else if(!strcmp(kind,"service")) {

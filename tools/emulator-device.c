@@ -96,9 +96,12 @@ int device_wait(Input *input) {
         if (touching && !held && touch_started + 550 < deadline) deadline = touch_started + 550;
         if (power_pressed && !power_held && power_started + 900 < deadline)
             deadline = power_started + 900;
-        struct pollfd fds[2+APP_OVERLAY_COUNT]={{STDIN_FILENO,POLLIN,0},{app_process_fd(),POLLIN,0}};
+        struct pollfd fds[3+APP_OVERLAY_COUNT]={{STDIN_FILENO,POLLIN,0},{app_process_fd(),POLLIN,0}};
         for(int i=0;i<APP_OVERLAY_COUNT;i++)fds[2+i]=(struct pollfd){app_overlay_fd(i),POLLIN,0};
-        int ready = poll(fds, 2+APP_OVERLAY_COUNT, deadline == INT64_MAX ? -1 :
+        fds[2+APP_OVERLAY_COUNT]=(struct pollfd){app_service_fd(),POLLIN,0};
+        int service_wait=app_service_wait_ms();
+        if(service_wait>=0 && now+service_wait<deadline)deadline=now+service_wait;
+        int ready = poll(fds, 3+APP_OVERLAY_COUNT, deadline == INT64_MAX ? -1 :
                         deadline > now ? (int)(deadline - now) : 0);
         if (ready < 0 && errno == EINTR) continue;
         if (ready < 0) break;
@@ -114,6 +117,7 @@ int device_wait(Input *input) {
                 *input = (Input){.kind = INPUT_HOLD, .x = touch_x, .y = touch_y};
                 return 1;
             }
+            if (!app_service_wait_ms()) {input->kind=INPUT_APP_SERVICE;return 1;}
             if (now >= status_due) {
                 input->kind = INPUT_STATUS;
                 return 1;
@@ -123,6 +127,9 @@ int device_wait(Input *input) {
         if(!(fds[0].revents&(POLLIN|POLLHUP))) {
             for(int i=0;i<APP_OVERLAY_COUNT;i++)if(fds[2+i].revents&(POLLIN|POLLHUP|POLLERR)) {
                 input->kind=INPUT_OVERLAY;input->x=i;return 1;
+            }
+            if(fds[2+APP_OVERLAY_COUNT].revents&(POLLIN|POLLHUP|POLLERR)) {
+                input->kind=INPUT_APP_SERVICE;return 1;
             }
             if(fds[1].revents&(POLLIN|POLLHUP|POLLERR)) {input->kind=INPUT_APP;return 1;}
             continue;

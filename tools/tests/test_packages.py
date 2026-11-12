@@ -63,6 +63,32 @@ archive(wire_app,{'app':script},format='lumen-app-1',api=1,id='test.wire',name='
 run('install',wire_app)
 run('wire')
 
+caller_app=base/'caller.lumen-app'
+script=b"""#!/bin/sh
+IFS= read -r open_event
+echo '{"ui":[]}'
+while IFS= read -r event; do
+ printf '{"ui":[%s]}\n' "$event"
+done
+"""
+archive(caller_app,{'app':script},format='lumen-app-1',api=1,id='test.caller',name='Caller fixture',version='1.0.0')
+run('install',caller_app)
+run('install',ROOT/'build/apps/host/lumen.study/lumen.study.lumen-app')
+worker=base/'worker.lumen-app'
+script=b"""#!/bin/sh
+IFS= read -r event
+case "$event" in
+ *reply_and_exit*) echo '{"request":"service_result","ok":true,"data":"finished"}';;
+esac
+exit 0
+"""
+meta=dict(format='lumen-app-1',api=1,id='test.worker',name='Worker fixture',version='1.0.0')
+archive(worker,{'app':script},**meta,operations=['exit','exit'])
+run('install',worker,ok=False)
+archive(worker,{'app':script},**meta,operations=['exit','reply_and_exit'])
+run('install',worker)
+run('service')
+
 # The ports exercise the same system input and paint protocol as user packages.
 def app_session(key,events,legacy=None):
  folder=base/'lumen/data/app-state'/key;folder.mkdir(parents=True,exist_ok=True)
@@ -185,11 +211,12 @@ frames,folder=app_session('lumen.braintrain',[component('exercise0'),tap(100,735
 assert len([c for c in frames[0]['ui'] if c['type']=='component_card'])==6
 assert (folder/'training.bin').is_file()
 frames,folder=app_session('lumen.languages',[
-    component('pair','selected','1'),component('practice','selected','2'),tap(100,425),
-    dict(event='text',action=1,text='Translation'),dict(event='service',action=1,ok=1,match=1),
-    tap(545,92),dict(event='page',page=2),dict(event='back')])
+    component('pair','selected','1'),component('practice','selected','2'),component('write'),
+    dict(event='text',action=1,text='Translation'),
+    component('glossary'),dict(event='page',page=2),dict(event='back')])
 assert any(c.get('type')=='component_segments' for f in frames for c in f.get('ui',[]))
-assert any(f.get('service')=='text' and f.get('operation')=='equivalent' for f in frames)
+assert any(f.get('request')=='input' for f in frames)
+assert not any(f.get('service')=='text' for f in frames)
 assert any(f.get('back') for f in frames) and not frames[-1].get('back')
 assert (folder/'progress.bin').is_file() and (folder/'pair.bin').is_file()
 print('PASS packaged BrainTrain practice cards and Languages segments, grading, glossary and saves.')
@@ -269,15 +296,16 @@ assert lists[-1]['columns']==2 and lists[-1]['rows'][0]['title']=='Edited task'
 assert (folder/'tasks.bin').is_file()
 print('PASS packaged ToDo preserves multiline rows, flags, completion, editing and board grouping.')
 
+(data/'study').mkdir(exist_ok=True)
+(data/'study'/'Lesson.txt').write_text('Test lesson')
 frames,folder=app_session('lumen.study',[
-    dict(event='service',action=1,ok=1,page=0,count=1,name0='Lesson.txt'),
-    tap(100,350),tap(100,275),tap(425,275),
-    dict(event='text',action=4,text='Recall\nSecond paragraph')])
+    component('material-0'),component('focus'),component('recall'),
+    dict(event='text',action=4,text='Recall\nSecond paragraph')],legacy=data)
 assert any(f.get('service')=='study_material' and f.get('operation')=='open' and f.get('text')=='Lesson.txt' for f in frames)
 assert any(f.get('service')=='clock' and f.get('operation')=='start_timer' and f.get('text')=='25' for f in frames)
 assert any(f.get('service')=='notes' and f.get('text')=='Lesson.txt\nRecall\nSecond paragraph' for f in frames)
 assert (folder/'material.txt').read_text()=='Lesson.txt'
-print('PASS packaged Study routes material, focus timer and multiline recall through shared services.')
+print('PASS packaged Study enumerates material locally and handles semantic actions for reading, focus and recall.')
 
 frames,_=app_session('lumen.recipes',[
     dict(event='service',action=1,ok=1,page=0,count=1,id0='wiki-de-5',title0='Offline meal'),

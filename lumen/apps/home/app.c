@@ -47,14 +47,14 @@ static void draw(void) {
     if(!page){date_draw();lumen_schedule(60000);}
     int begin=start(),n=page ? PAGE_COUNT : FIRST_COUNT;
     for(int i=0;i<n && begin+i<count;i++)
-        lumen_app_tile(20+i%4*140,top()+i/4*TILE_H,140,apps[begin+i]);
-    if(settings_shortcut)ui_paint_icon_button(528,56,IC_SETTINGS);
+        lumen_app_tile_action(20+i%4*140,top()+i/4*TILE_H,140,TILE_H,apps[begin+i]);
+    if(settings_shortcut)lumen_icon_action("settings-shortcut",528,56,IC_SETTINGS);
     lumen_pager(PAGE_Y,page,pages());
 }
 static void read_catalog(void) {
     char data[MAX_APPS*65];
     lumen_string("data",data,sizeof(data));
-    settings_shortcut=lumen_number("settings_shortcut");
+    settings_shortcut=1;
     char *cursor=data;count=0;
     while(*cursor && count<MAX_APPS) {
         char *end=strchr(cursor,'\n');
@@ -62,7 +62,8 @@ static void read_catalog(void) {
         size_t length=end-cursor;
         if(length && length<sizeof(apps[0])) {
             memcpy(apps[count],cursor,length);
-            apps[count++][length]=0;
+            apps[count][length]=0;
+            if(!strcmp(apps[count++],"lumen.settings"))settings_shortcut=0;
         }
         cursor=*end ? end+1 : end;
     }
@@ -85,21 +86,25 @@ static int input(const Input *in) {
         if(in->x==3 && in->y==1)lumen_service("catalog","remove",selected,1);
         return 1;
     }
-    if(in->kind!=INPUT_TAP && in->kind!=INPUT_HOLD)return 1;
-    if(settings_shortcut && in->kind==INPUT_TAP && in->x>=528 && in->y>=56 && in->y<100) {
+    if(in->kind!=INPUT_COMPONENT)return 0;
+    char id[64],gesture[24];
+    if(!lumen_string("id",id,sizeof(id)) || !lumen_string("gesture",gesture,sizeof(gesture)))return 0;
+    if(settings_shortcut && !strcmp(id,"settings-shortcut") && !strcmp(gesture,"clicked")) {
         lumen_open("lumen.settings");return 1;
     }
-    if(in->x<20 || in->x>=580 || in->y<top() ||
-       in->y>=top()+(page ? 5 : 2)*TILE_H)return 1;
-    int index=start()+(in->y-top())/TILE_H*4+(in->x-20)/140;
-    if(index>=count)return 1;
-    if(in->kind==INPUT_HOLD) {
-        snprintf(selected,sizeof(selected),"%s",apps[index]);
+    int first=start(),last=first+(page ? PAGE_COUNT : FIRST_COUNT);
+    int index=first;
+    for(;index<count && index<last;index++)if(!strcmp(apps[index],id))break;
+    if(index>=count || index>=last)return 0;
+    if(!strcmp(gesture,"long_pressed")) {
+        snprintf(selected,sizeof(selected),"%s",id);
         const char *choices[]={localized("App ausblenden","Hide app","Masquer l’application"),
                                localized("App löschen","Delete app","Supprimer l’application")};
         lumen_select(choices,2,-1,2);
-    } else if(!strcmp(apps[index],"lumen.home"))set_page(0);
-    else lumen_open(apps[index]);
+    } else if(!strcmp(gesture,"clicked")) {
+        if(!strcmp(id,"lumen.home"))set_page(0);
+        else lumen_open(id);
+    }
     return 1;
 }
 int main(void) {

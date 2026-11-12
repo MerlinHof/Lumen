@@ -1,9 +1,10 @@
 #include "lumen_app.h"
 #include "lumen_fsrs.h"
+#include "lumen_text.h"
 #include "lessons.h"
 #include "strings.h"
 
-static int lang_pair,lang_index,lang_reveal,glossary,checking;
+static int lang_pair,lang_index,lang_reveal,glossary;
 static const char *tr(const char *key) {
     int language=lumen_language>=0 && lumen_language<3 ? lumen_language : 0;
     for(size_t i=0;i<sizeof(strings)/sizeof(*strings);i++)
@@ -25,7 +26,6 @@ static int today_key(void) {
 #define ui_font(r) (r)
 #define heading_actions ui_paint_heading
 #define icon_button ui_paint_icon_button
-#define button_h(x,y,w,h,s,p) lumen_button(x,y,w,h,tr(s),p)
 #define rect(x,y,w,h,c) ui_paint_surface(x,y,w,h,0,c,c)
 #define label_at(x,y,w,h,s,r) lumen_text(x,y,w,h,tr(s),r,-1,1)
 #define centered(x,y,w,h,s,r) ui_paint_text(x,y,w,h,tr(s),r)
@@ -69,7 +69,7 @@ static void language_init(void) {
 }
 static void language_new(void) {
     language_init();
-    language_answered = checking = 0;
+    language_answered = 0;
     language_choice = -1;
     lang_reveal = 0;
     language_written[0] = 0;
@@ -121,13 +121,20 @@ static void language_grade(int good) {
     app_state_save("progress.bin", &language_progress, sizeof(language_progress));
     language_answered = good ? 1 : 2;
 }
+static void fold_answer(const char *input,char *out,size_t capacity) {
+    lumen_utf8_fold(input,out,capacity);
+    char *write=out;
+    for(const unsigned char *read=(const unsigned char *)out;*read;read++)
+        if(isalnum(*read))*write++=(char)*read;
+    *write=0;
+}
 static void language_check_written(const char *text) {
     snprintf(language_written,sizeof(language_written),"%.*s",(int)sizeof(language_written)-1,text);
     if(!*language_written)return;
-    char pair[1024];
-    snprintf(pair,sizeof(pair),"%s\n%s",v1_lessons[lang_index][language_target()],language_written);
-    checking=1;
-    lumen_service("text","equivalent",pair,1);
+    char expected[512],actual[512];
+    fold_answer(v1_lessons[lang_index][language_target()],expected,sizeof(expected));
+    fold_answer(language_written,actual,sizeof(actual));
+    language_grade(!strcmp(expected,actual));
 }
 static void language_book(void);
 static void draw(void) {
@@ -139,7 +146,7 @@ static void draw(void) {
     }
     if(glossary){language_book();return;}
     heading_actions(tr("Sprachen"), 1);
-    icon_button(528, 74, IC_BOOK);
+    lumen_icon_action("glossary",528,74,IC_BOOK);
     const char *pair[] = {"DE → EN", "DE → FR", "EN → DE"};
     lumen_segments("pair",28,132,544,39,pair,3,lang_pair);
     const char *tabs[] = {tr("Karten"),tr("Quiz"),tr("Schreiben"),tr("Fortschritt")};
@@ -161,32 +168,33 @@ static void draw(void) {
         snprintf(b, 180, "%d / %d", language_progress.correct, language_progress.attempts);
         centered(28, 493, 544, 42, b, ui_font(UI_PRIMARY));
         centered(28, 538, 544, 32, "Richtige Antworten", ui_font(UI_SECONDARY));
-        button_h(28, 620, 544, 60, "Fällige Ausdrücke üben", 0);
+        lumen_button_action("due",28, 620, 544, 60, tr("Fällige Ausdrücke üben"), 0);
         return;
     }
     wrapped_raw(30, 258, v1_lessons[lang_index][language_source()], ui_font(UI_TITLE), 540, 3);
     if (language_tab == 0) {
         if (!lang_reveal) {
-            button_h(28, 470, 544, 60, "Antwort zeigen", 0);
+            lumen_button_action("reveal",28, 470, 544, 60, tr("Antwort zeigen"), 0);
         } else {
             wrapped_raw(30, 389, v1_lessons[lang_index][language_target()], ui_font(UI_PRIMARY), 540, 3);
-            button_h(28, 548, 260, 58, "Noch üben", 0);
-            button_h(312, 548, 260, 58, "Gewusst", 0);
+            lumen_button_action("again",28, 548, 260, 58, tr("Noch üben"), 0);
+            lumen_button_action("known",312, 548, 260, 58, tr("Gewusst"), 0);
         }
     } else if (language_tab == 1) {
         for (int i = 0; i < 4; i++) {
             int y = 352 + i * 72;
-            button_h(28, y, 544, 60, v1_lessons[language_options[i]][language_target()],
+            char id[12];snprintf(id,sizeof(id),"answer-%d",i);
+            lumen_button_action(id,28,y,544,60,v1_lessons[language_options[i]][language_target()],
                      language_answered && language_options[i] == lang_index);
         }
         if (language_answered) {
             label_at(30, 642, 540, 35,
                      tr(language_answered == 1 ? "Richtig!" : "Die richtige Antwort ist markiert."),
                      ui_font(UI_SECONDARY));
-            button_h(28, 681, 544, 46, "Weiter", 0);
+            lumen_button_action("next",28, 681, 544, 46, tr("Weiter"), 0);
         }
     } else {
-        button_h(28, 391, 544, 62,
+        lumen_button_action("write",28,391,544,62,
                  *language_written ? language_written : tr("Übersetzung schreiben"), 0);
         if (language_answered) {
             wrapped_raw(30, 492, v1_lessons[lang_index][language_target()], ui_font(UI_PRIMARY), 540, 3);
@@ -194,7 +202,7 @@ static void draw(void) {
                      tr(language_answered == 1 ? "Richtig!"
                                                : "Vergleiche deine Antwort mit der Lösung."),
                      ui_font(UI_SECONDARY));
-            button_h(28, 658, 544, 60, "Weiter", 0);
+            lumen_button_action("next",28, 658, 544, 60, tr("Weiter"), 0);
         }
     }
     if (language_tab == 0 || !language_answered) {
@@ -209,64 +217,35 @@ static void draw(void) {
 static int input(const Input *in) {
     if(in->kind==INPUT_BACK){glossary=lumen_back=0;return 1;}
     if(in->kind==INPUT_PAGE && glossary){language_book_page=in->x;return 1;}
-    if(in->kind==INPUT_TEXT && in->x==1 && !glossary && !checking) {
+    if(in->kind==INPUT_TEXT && in->x==1 && !glossary) {
         char text[512];
         if(lumen_string("text",text,sizeof(text)))language_check_written(text);
         return 1;
     }
-    if(in->kind==INPUT_SERVICE && in->x==1 && checking) {
-        checking=0;
-        if(in->y)language_grade(lumen_number("match"));
-        return 1;
-    }
-    if(in->kind==INPUT_COMPONENT && !glossary) {
-        char id[32],value[16],gesture[24];
-        lumen_string("id",id,sizeof(id));
+    if(in->kind!=INPUT_COMPONENT || glossary)return 0;
+    char id[32],gesture[24];
+    if(!lumen_string("id",id,sizeof(id)) || !lumen_string("gesture",gesture,sizeof(gesture)))return 0;
+    if(!strcmp(gesture,"selected")) {
+        char value[8];
         if(!lumen_string("text",value,sizeof(value)) || strlen(value)!=1 || value[0]<'0' || value[0]>'3')return 0;
-        lumen_string("gesture",gesture,sizeof(gesture));
-        if(strcmp(gesture,"selected"))return 0;
         int choice=value[0]-'0';
         if(!strcmp(id,"pair") && choice<3) {
             lang_pair=choice;app_state_save("pair.bin",&lang_pair,sizeof(lang_pair));language_new();
         } else if(!strcmp(id,"practice")){language_tab=choice;language_new();}
-        return 1;
-    }
-    if(glossary)return 0;
-    if (in->kind != INPUT_TAP)
-        return 2;
-    int x = in->x, y = in->y;
-    if (x >= 516 && y >= 74 && y < 118) {
-        glossary=lumen_back=1;language_book_page=0;
-        return 1;
-    }
-    if (language_tab == 3) {
-        if (y >= 620 && y < 680) {
-            language_tab = 0;
-            language_new();
+    } else if(!strcmp(gesture,"clicked")) {
+        if(!strcmp(id,"glossary")){glossary=lumen_back=1;language_book_page=0;}
+        else if(!strcmp(id,"due")){language_tab=0;language_new();}
+        else if(!strcmp(id,"reveal"))lang_reveal=1;
+        else if(!strcmp(id,"again") || !strcmp(id,"known")) {
+            language_grade(!strcmp(id,"known"));language_new();
+        } else if(!strcmp(id,"next"))language_new();
+        else if(!strcmp(id,"write") && !language_answered)
+            lumen_request("input",tr("Übersetzung"),language_written,1);
+        else if(!language_answered && strlen(id)==8 && !strncmp(id,"answer-",7) && id[7]>='0' && id[7]<='3') {
+            language_choice=id[7]-'0';
+            language_grade(language_options[language_choice]==lang_index);
         }
-        return 1;
     }
-    if (language_tab == 0) {
-        if (!lang_reveal && y >= 470 && y < 530)
-            lang_reveal = 1;
-        else if (lang_reveal && y >= 548 && y < 606) {
-            language_grade(x >= 300);
-            language_new();
-        }
-    } else if (language_tab == 1) {
-        if (language_answered && y >= 681 && y < 727)
-            language_new();
-        else if (!language_answered && y >= 352 && y < 640) {
-            int i = (y - 352) / 72;
-            if (i < 4 && (y - 352) % 72 < 60) {
-                language_choice = i;
-                language_grade(language_options[i] == lang_index);
-            }
-        }
-    } else if (y >= 391 && y < 453 && !language_answered && !checking)
-        lumen_request("input",tr("Übersetzung"),language_written,1);
-    else if (language_answered && y >= 658 && y < 718)
-        language_new();
     return 1;
 }
 static void language_book(void) {

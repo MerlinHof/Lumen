@@ -49,6 +49,10 @@ int package_sha256(const char *path,char out[65]) {
  fz_sha256 h;fz_sha256_init(&h);unsigned char b[32768];ssize_t n;
  while((n=read(fd,b,sizeof(b)))>0)fz_sha256_update(&h,b,n);close(fd);hex(&h,out);return n==0;
 }
+int package_operation_valid(const char *operation) {
+    size_t n=strlen(operation);
+    return n>0 && n<48 && strspn(operation,"abcdefghijklmnopqrstuvwxyz0123456789_-")==n;
+}
 int package_manifest(const char *text,Package *p) {
  Json j;JsonToken t[4096];memset(p,0,sizeof(*p));if(!json_parse(&j,text,t,4096))return 0;
  json_string(&j,json_get(&j,0,"format"),p->format,sizeof(p->format));
@@ -57,6 +61,18 @@ int package_manifest(const char *text,Package *p) {
  json_string(&j,json_get(&j,0,"name"),p->name,sizeof(p->name));
  p->api=json_number(&j,json_get(&j,0,"api"));int files=json_get(&j,0,"files");
  if(files<0 || t[files].type!='[' || t[files].count<1 || t[files].count>PACKAGE_FILES || !*p->version)return 0;
+ int operations=json_get(&j,0,"operations");
+ if(operations>=0) {
+   if(t[operations].type!='[' || t[operations].count>PACKAGE_OPERATIONS)return 0;
+   p->operation_count=t[operations].count;
+   for(int i=0;i<p->operation_count;i++) {
+     int item=json_at(&j,operations,i);
+     if(t[item].type!='"' || t[item].end-t[item].start>49)return 0;
+     json_string(&j,item,p->operations[i],sizeof(p->operations[i]));
+     if(!package_operation_valid(p->operations[i]))return 0;
+     for(int k=0;k<i;k++)if(!strcmp(p->operations[k],p->operations[i]))return 0;
+   }
+ }
  p->count=t[files].count;size_t total=0;
  for(int i=0;i<p->count;i++) {
    int f=json_at(&j,files,i);PackageFile*r=&p->files[i];

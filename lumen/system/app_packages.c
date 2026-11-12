@@ -15,6 +15,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <time.h>
 #include "../../tools/sdk/lumen_wire.h"
 #ifdef LUMEN_HOST
 #include "host_icons.h"
@@ -27,7 +28,7 @@ typedef struct {
     pid_t child;
     int read_fd,write_fd,active,paused,frame_back,frame_ready;
     size_t incoming_n,pending_n;
-    uint64_t frame_serial;
+    uint64_t frame_serial, generation;
     char process_hash[65],pending[65536],incoming[APP_FRAME_MAX],frame[APP_FRAME_MAX];
     char request[32768],failure[160];
 } AppProcess;
@@ -39,6 +40,10 @@ static AppProcess overlays[APP_OVERLAY_COUNT]={
     {.read_fd=-1,.write_fd=-1,.active=-1},
     {.read_fd=-1,.write_fd=-1,.active=-1}
 };
+static AppProcess *service;
+static uint64_t process_generation,service_caller;
+static int64_t service_deadline;
+static int service_action;
 static pid_t retired[64];
 static uint64_t frame_serial;
 
@@ -92,6 +97,7 @@ void app_packages_scan(void) {
  closedir(d);free(p);
  char slots[4096];size_t n=0;for(int i=APP_COUNT;i<APP_LIMIT;i++)if(*entries[i].key)n+=snprintf(slots+n,sizeof(slots)-n,"%d %s\n",i,entries[i].key);
  refresh_process(&foreground);
+ if(service)refresh_process(service);
  for(int i=0;i<APP_OVERLAY_COUNT;i++)refresh_process(&overlays[i]);
  root(file,"slots.txt");char old[4096];size_t old_n=0;FILE*before=fopen(file,"rb");if(before){old_n=fread(old,1,sizeof(old),before);fclose(before);}
  if(old_n!=n || memcmp(old,slots,n))atomic_write(file,slots,n);
@@ -218,7 +224,9 @@ static int process_open(AppProcess *p,AppId id,const char *role) {
  if(!p->child){setpgid(0,0);signal(SIGTERM,SIG_DFL);signal(SIGPIPE,SIG_DFL);dup2(in[0],0);dup2(out[1],1);close(in[0]);close(in[1]);close(out[0]);close(out[1]);
    int null=open("/dev/null",O_WRONLY);dup2(null,2);close(null);for(int fd=3;fd<1024;fd++)close(fd);chdir(dir);setenv("LUMEN_APP_DATA",state,1);setenv("LUMEN_APP_ASSETS",dir,1);setenv("LUMEN_LEGACY_DATA",old_state,1);execl(file,file,NULL);_exit(127);}
  close(in[0]);close(out[1]);p->write_fd=in[1];p->read_fd=out[0];fcntl(p->write_fd,F_SETFL,O_NONBLOCK);fcntl(p->read_fd,F_SETFL,O_NONBLOCK);fcntl(p->write_fd,F_SETFD,FD_CLOEXEC);fcntl(p->read_fd,F_SETFD,FD_CLOEXEC);
- p->active=id;p->paused=0;char*event=NULL;size_t n=0;FILE*f=open_memstream(&event,&n);fprintf(f,"{\"event\":\"open\",\"api\":1,\"width\":600,\"height\":800,\"content_y\":56,\"language\":%d,\"data_dir\":",options[OPT_LANGUAGE]);json_text(f,state);fputs(",\"role\":",f);json_text(f,role);fputc('}',f);fclose(f);int ok=process_send(p,event);free(event);return ok;
+ p->active=id;p->paused=0;p->generation=++process_generation;
+ if(p==service)return 1;
+ char*event=NULL;size_t n=0;FILE*f=open_memstream(&event,&n);fprintf(f,"{\"event\":\"open\",\"api\":1,\"width\":600,\"height\":800,\"content_y\":56,\"language\":%d,\"data_dir\":",options[OPT_LANGUAGE]);json_text(f,state);fputs(",\"role\":",f);json_text(f,role);fputc('}',f);fclose(f);int ok=process_send(p,event);free(event);return ok;
 }
 static int wire_true(const char *key) {
     const WireField *field=wire_get(key);
@@ -238,8 +246,9 @@ static int process_poll(AppProcess *p) {
                if(*request->value=='"' && p->incoming_n<sizeof(p->request)) {
                    memcpy(p->request,p->incoming,p->incoming_n+1);
                    changed=1;
+                   if(p==service){p->incoming_n=0;return changed;}
                }
-           } else {
+           } else if(p!=service) {
                p->frame_back=wire_true("back");
                p->frame_ready=wire_true("ready");
                p->frame_serial=++frame_serial;
@@ -268,18 +277,119 @@ static int process_poll(AppProcess *p) {
  return changed;
 }
 
-void app_process_close(void){process_close(&foreground);for(int i=0;i<APP_OVERLAY_COUNT;i++)process_close(&overlays[i]);}
-void app_process_pause(void){process_pause(&foreground);}
+enum { SERVICE_TIMEOUT_MS=10000, SERVICE_DATA_MAX=4096 };
+static int64_t service_now(void) {
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC,&now);
+    return (int64_t)now.tv_sec*1000+now.tv_nsec/1000000;
+}
+static void service_result(int ok,const char *status,const char *data) {
+    char *event=NULL;
+    size_t size=0;
+    FILE *stream=open_memstream(&event,&size);
+    if(!stream)return;
+    fprintf(stream,"{\"event\":\"service\",\"action\":%d,\"ok\":%d,\"status\":",service_action,ok);
+    json_text(stream,status);
+    fputs(",\"data\":",stream);
+    json_text(stream,data);
+    fputc('}',stream);
+    if(!fclose(stream))process_send(&foreground,event);
+    free(event);
+}
+static void service_close(void) {
+    if(!service)return;
+    process_close(service);
+    free(service);
+    service=NULL;
+}
+static void service_finish(int ok,const char *status,const char *data) {
+    service_close();
+    if(foreground.child>0 && foreground.generation==service_caller && !foreground.paused)
+        service_result(ok,status,data);
+    service_caller=0;
+}
+int app_service_start(const char *id,const char *operation,const char *data,int action) {
+    if(service_caller && (foreground.generation!=service_caller || foreground.paused))
+        service_finish(0,"cancelled","");
+    if(service_caller || foreground.child<=0 || foreground.paused ||
+       !package_operation_valid(operation) || strlen(data)>SERVICE_DATA_MAX)return 0;
+    int app=identify(id);
+    if(!app_package_installed(app))return 0;
+    char directory[2048];
+    root(directory,id);
+    Package *manifest=malloc(sizeof(*manifest));
+    if(!manifest)return 0;
+    int declared=0;
+    if(read_manifest(directory,manifest))
+        for(int i=0;i<manifest->operation_count;i++)
+            if(!strcmp(operation,manifest->operations[i]))declared=1;
+    free(manifest);
+    if(!declared)return 0;
+    service=calloc(1,sizeof(*service));
+    if(!service)return 0;
+    service->read_fd=service->write_fd=service->active=-1;
+    if(!process_open(service,app,"service")){service_close();return 0;}
+    char *event=NULL;
+    size_t size=0;
+    FILE *stream=open_memstream(&event,&size);
+    if(!stream){service_close();return 0;}
+    fprintf(stream,"{\"event\":\"service_call\",\"language\":%d,\"caller\":",options[OPT_LANGUAGE]);
+    json_text(stream,entries[foreground.active].key);
+    fputs(",\"operation\":",stream);
+    json_text(stream,operation);
+    fputs(",\"data\":",stream);
+    json_text(stream,data);
+    fputc('}',stream);
+    int ok=!fclose(stream) && process_send(service,event);
+    free(event);
+    if(!ok){service_close();return 0;}
+    service_action=action;
+    service_caller=foreground.generation;
+    service_deadline=service_now()+SERVICE_TIMEOUT_MS;
+    return 1;
+}
+int app_service_fd(void){return service ? service->read_fd : -1;}
+int app_service_wait_ms(void) {
+    if(!service_caller)return -1;
+    int64_t left=service_deadline-service_now();
+    return left>0 ? (int)left : 0;
+}
+void app_service_poll(void) {
+    if(!service_caller)return;
+    if(foreground.generation!=service_caller || foreground.paused || foreground.child<=0) {
+        service_finish(0,"cancelled","");
+        return;
+    }
+    process_poll(service);
+    if(service->request[0] && wire_read(service->request)) {
+        char kind[32],data[SERVICE_DATA_MAX+1];
+        const WireField *status=wire_get("ok");
+        int ok=wire_true("ok");
+        if(wire_bounded_string("request",kind,sizeof(kind)) && !strcmp(kind,"service_result") &&
+           (ok || (status && status->end-status->value==5 && !memcmp(status->value,"false",5))) &&
+           wire_bounded_string("data",data,sizeof(data))) {
+            service_finish(ok,ok ? "success" : "error",data);
+            return;
+        }
+        service_finish(0,"invalid_result","");
+        return;
+    }
+    if(service->child<=0)service_finish(0,"crashed","");
+    else if(!app_service_wait_ms())service_finish(0,"timeout","");
+}
+
+void app_process_close(void){service_close();service_caller=0;process_close(&foreground);for(int i=0;i<APP_OVERLAY_COUNT;i++)process_close(&overlays[i]);}
+void app_process_pause(void){process_pause(&foreground);if(service_caller)service_finish(0,"cancelled","");}
 int app_process_open(AppId id){return process_open(&foreground,id,"foreground");}
 int app_process_owner(void){return foreground.active;}
 int app_process_fd(void){return foreground.read_fd;}
 int app_overlay_fd(int slot){return slot>=0 && slot<APP_OVERLAY_COUNT ? overlays[slot].read_fd : -1;}
 int app_process_pending(void){
- if(foreground.pending_n)return 1;
+ if(foreground.pending_n || (service && service->pending_n))return 1;
  for(int i=0;i<APP_OVERLAY_COUNT;i++)if(overlays[i].pending_n)return 1;
  return 0;
 }
-void app_process_flush(void){flush_events(&foreground);for(int i=0;i<APP_OVERLAY_COUNT;i++)flush_events(&overlays[i]);}
+void app_process_flush(void){flush_events(&foreground);if(service)flush_events(service);for(int i=0;i<APP_OVERLAY_COUNT;i++)flush_events(&overlays[i]);}
 int app_process_send(const char *event){return process_send(&foreground,event);}
 int app_process_poll(void){return process_poll(&foreground);}
 int app_process_frame_back(void){return foreground.frame_back;}

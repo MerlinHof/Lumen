@@ -157,6 +157,11 @@ static void lumen_app_icon(int x,int y,int size,const char *key) {
 static void lumen_app_tile(int x,int y,int width,const char *id) {
  lumen_cmd("app_tile",x,y,width,110);fputs(",\"text\":",stdout);lumen_json(id);putchar('}');
 }
+static inline void lumen_app_tile_action(int x,int y,int width,int height,const char *id) {
+ lumen_cmd("app_tile",x,y,width,height);
+ fputs(",\"text\":",stdout);lumen_json(id);
+ fputs(",\"id\":",stdout);lumen_json(id);putchar('}');
+}
 static void lumen_note_surface(void) {
  lumen_cmd("note_surface",0,56,600,688);putchar('}');
 }
@@ -215,6 +220,12 @@ static void lumen_page(const char *title) {
 }
 static void lumen_component_button(const char *id,const char *label,int primary) {
  lumen_cmd("component_button",28,0,544,50);
+ fputs(",\"id\":",stdout);lumen_json(id);
+ fputs(",\"text\":",stdout);lumen_json(label);
+ printf(",\"primary\":%d}",primary);
+}
+static inline void lumen_button_action(const char *id,int x,int y,int w,int h,const char *label,int primary) {
+ lumen_cmd("button_action",x,y,w,h);
  fputs(",\"id\":",stdout);lumen_json(id);
  fputs(",\"text\":",stdout);lumen_json(label);
  printf(",\"primary\":%d}",primary);
@@ -279,9 +290,29 @@ static void lumen_reader_file(const char *title,const char *path) {
  puts("}}");fflush(stdout);
 }
 static void lumen_open(const char*id){fputs("{\"request\":\"open\",\"app\":",stdout);lumen_json(id);puts("}");fflush(stdout);}
+static void (*lumen_service_handler)(const char *operation,const char *data);
+static inline void lumen_app_service(const char *app,const char *operation,const char *data,int action) {
+ fputs("{\"request\":\"app_service\",\"app\":",stdout);lumen_json(app);
+ fputs(",\"operation\":",stdout);lumen_json(operation);
+ fputs(",\"text\":",stdout);lumen_json(data);
+ printf(",\"action\":%d}\n",action);fflush(stdout);
+}
+static inline void lumen_app_service_result(int ok,const char *data) {
+ fputs(ok ? "{\"request\":\"service_result\",\"ok\":true,\"data\":" :
+            "{\"request\":\"service_result\",\"ok\":false,\"data\":",stdout);
+ lumen_json(data);puts("}");fflush(stdout);
+}
 static void lumen_run(void(*draw)(void),int(*input)(const Input*),void(*save)(void)) {
  static char output[65536];setvbuf(stdout,output,_IOFBF,sizeof(output));
  while(lumen_next()) {
+   if(lumen_is("service_call")) {
+      char operation[48],data[4097];
+      lumen_language=lumen_number("language");
+      if(lumen_service_handler && wire_bounded_string("operation",operation,sizeof(operation)) &&
+         wire_bounded_string("data",data,sizeof(data)))lumen_service_handler(operation,data);
+      else lumen_app_service_result(0,"");
+      continue;
+   }
    if(lumen_is("pause")){Input in={.kind=INPUT_PAUSE};input(&in);if(save)save();continue;}
    if(lumen_is("open")) {
       lumen_language=lumen_number("language");

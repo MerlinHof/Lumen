@@ -1325,6 +1325,8 @@ static void toggle_bookmark(void) {
 }
 static unsigned navigation_rewinds;
 static int ui_dispatch_input(const Input *in) {
+    if(in->kind==INPUT_APP_SERVICE || in->kind==INPUT_STATUS)app_service_poll();
+    if(in->kind==INPUT_APP_SERVICE)return 2;
     if(in->kind==INPUT_STATUS && app_process_pending())app_process_flush();
     if(in->kind==INPUT_APP && updating){app_process_poll();return 2;}
     if(in->kind==INPUT_OVERLAY) {
