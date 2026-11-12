@@ -24,6 +24,3 @@ static void v1_archive_scan(void) {
                 news_dates[j] = t;
             }
 }
-static void v1_archive_draw(void) {
-    polish_news_draw();
-}

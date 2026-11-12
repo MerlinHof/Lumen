@@ -33,6 +33,7 @@ static const char *runtime_files[]={
 "lumen/app-packages/lumen.lock-screen.lumen-app",
 "lumen/app-packages/lumen.maze.lumen-app",
 "lumen/app-packages/lumen.minesweeper.lumen-app",
+"lumen/app-packages/lumen.news.lumen-app",
 "lumen/app-packages/lumen.nonograms.lumen-app",
 "lumen/app-packages/lumen.notifications.lumen-app",
 "lumen/app-packages/lumen.periodic-table.lumen-app",

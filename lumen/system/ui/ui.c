@@ -257,10 +257,9 @@ static void polish_wiki_refetched(void);
 static int article_wiki_open(void);
 static void article_wiki_request(void);
 static int wiki_reader_pending;
-static void polish_view(void);
 static void polish_draw(void), polish_open(int), polish_close(void);
-static int polish_input(const Input *), polish_tick(void), polish_poll(void),
-    polish_commit(int, const char *), polish_power(const Input *);
+static int polish_tick(void), polish_poll(void),
+    polish_power(const Input *);
 static void polish_wiki_archive(void), polish_wiki_saved(void);
 static void polish_notes(void);
 static int photo_grid_hit(int x, int y);
@@ -277,8 +276,8 @@ static int photo_gallery_active(void), photo_back(void), ha_back(void);
 static void clock_show_face(void);
 static void photo_app_leave(void);
 static int polish_photo_full(void);
-static int polish_notes_input(const Input *), polish_news_input(const Input *);
-static void polish_news_draw(void), polish_photo(void);
+static int polish_notes_input(const Input *);
+static void polish_photo(void);
 static int polish_photo_input(const Input *);
 static void register_builtin_views(void);
 #include "keyboard_request.h"

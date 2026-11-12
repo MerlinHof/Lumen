@@ -17,40 +17,19 @@ static void polish_open(int route) {
         news_cancel();
     }
 }
-static void polish_view(void) {
-    switch (ui_route()) {
-    case 95:
-    case 96:
-    case 97:
-        polish_news_draw();
-        break;
-    }
-}
-static int polish_input(const Input *in) {
-    if (ui_route() == 95 || ui_route() == 96 || ui_route() == 97)
-        return polish_news_input(in);
-    return 2;
-}
 static int polish_tick(void) {
     int changed = 0, done = press_poll();
     if (done) {
-        if (done > 0) {
-            press_reader_hash = 0;
-            if (ui_route() == 96 && press_loading_kind == 2) {
-                article_news_open();
-                changed = 1;
+        if(done<0)press_retry_at=time(NULL)+3600;
+        if(app_for_route(ui_route())==APP_NEWS) {
+            if(done==2 && press_open_pending)article_news_open();
+            else {
+                if(done<0)ui_message("Nicht geladen. Gespeicherte Inhalte bleiben verfügbar.");
+                app_process_send("{\"event\":\"refresh\"}");
             }
-            if (ui_route() == 86)
-                press_archive_scan();
-            if (ui_route() == 95 || ui_route() == 96 || ui_route() == 86)
-                changed = 1;
-        } else {
-            if (ui_route() == 95 || ui_route() == 96) {
-                ui_message("Nicht geladen. Gespeicherte Inhalte bleiben verfügbar.");
-                changed = 1;
-            }
-            press_retry_at = time(NULL) + 3600;
+            changed=1;
         }
+        press_open_pending=0;
     }
     if (news_enabled) {
         news_enabled = 0;
@@ -68,8 +47,7 @@ static int polish_tick(void) {
             free(s);
         }
     }
-    if (press_daily_enabled && !press_busy() && time(NULL) >= press_retry_at && ui_route() != 95 &&
-        ui_route() != 96) {
+    if (press_daily_enabled && !press_busy() && time(NULL) >= press_retry_at && app_for_route(ui_route())!=APP_NEWS) {
         press_retry_at = time(NULL) + 60;
         char n[100], p[2048];
         snprintf(n, sizeof(n), "press/edition-%08d.bin", news_date());
@@ -91,22 +69,6 @@ static int polish_poll(void) {
     if (press_daily_enabled)
         return 60000;
     return -1;
-}
-static int polish_commit(int target, const char *text) {
-    if (target == 150) {
-        if (!*text)
-            return 1;
-        snprintf(press_query, 256, "%s", text);
-        press_cancel();
-        memset(&press_list, 0, sizeof(press_list));
-        snprintf(press_list.query, 256, "%s", text);
-        press_list_page = 0;
-        press_loading_kind = 1;
-        press_search(text, options[OPT_LANGUAGE]);
-        extra_open(95);
-        return 1;
-    }
-    return 0;
 }
 static void polish_close(void) {
     press_cancel();

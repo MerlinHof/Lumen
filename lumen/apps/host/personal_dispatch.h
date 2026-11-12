@@ -17,10 +17,6 @@ static void v1_open(int target) {
         open_keyboard(130, "Tastatur", "");
 }
 static void v1_draw(void) {
-    if (ui_route() >= 94) {
-        polish_view();
-        return;
-    }
     switch (ui_route()) {
     case 71:
         v1_photos_draw();
@@ -37,9 +33,6 @@ static void v1_draw(void) {
     case 85:
         reader_markdown17("Notizen",note_text,30);
         reader();
-        break;
-    case 86:
-        v1_archive_draw();
         break;
     case 87:
         v1_timer_ring(1);
@@ -67,8 +60,6 @@ static void v1_draw(void) {
     }
 }
 static int v1_commit(int target, const char *text) {
-    if (target >= 150)
-        return polish_commit(target, text);
     if (target == 120) {
         if (*text && note_tree.nf < 512) {
             int id = 1;
@@ -134,10 +125,6 @@ static void v1_effect(void) {
             ui_pixels[i] = 255 - ui_pixels[i];
 }
 static int v1_input(const Input *in) {
-    if (ui_route() >= 94)
-        return polish_input(in);
-    if (ui_route() == 86 || ui_route() == 67)
-        return polish_news_input(in);
     if (ui_route() == 72 && !v1_delete)
         return polish_photo_input(in);
     if (in->kind != INPUT_TAP)
@@ -230,27 +217,6 @@ static int v1_input(const Input *in) {
                 markdown_page--;
             else if (x >= 300 && markdown_page + 1 < markdown_pages)
                 markdown_page++;
-        }
-        break;
-    case 86:
-        if (y >= 153 && y < 197 && x >= 516)
-            extra_open(68);
-        else if (y >= 223 && y < 679) {
-            int i = news_archive_page * 6 + (y - 223) / 76;
-            if (i < news_date_count) {
-                int date = news_dates[i];
-                if (news_load(date)) {
-                    extra_open(67);
-                } else {
-                    news_start(options[OPT_LANGUAGE], news_topics);
-                    extra_open(67);
-                }
-            }
-        } else if (y >= 710 && y < 754) {
-            if (x < 300 && news_archive_page)
-                news_archive_page--;
-            else if (x >= 300 && (news_archive_page + 1) * 6 < news_date_count)
-                news_archive_page++;
         }
         break;
     case 87:

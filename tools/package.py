@@ -37,11 +37,26 @@ def validate_version(version):
         raise RuntimeError('Use one minor digit: 2.9 is followed by 3.0, never 2.10.')
     return version
 
+def validate_app_coverage(mapping,version):
+    """5.9 and later require a shipped package for each active app identity."""
+    if tuple(map(int,version.split('.'))) < (5,9):
+        return
+    catalog=(ROOT/'lumen/system/app_packages.c').read_text()
+    keys=re.search(r'keys\[APP_COUNT\]\s*=\s*\{([^}]+)\}',catalog)
+    if not keys:
+        raise RuntimeError('Cannot read the active app catalog')
+    active=set(re.findall(r'"(lumen\.[a-z0-9.-]+)"',keys[1]))|{'lumen.notifications'}
+    shipped={Path(path).stem for path in mapping if path.startswith('lumen/app-packages/')}
+    missing=sorted(active-shipped)
+    if missing:
+        raise RuntimeError('Standalone app migration incomplete: '+', '.join(missing))
+
 def package():
     version=validate_version((ROOT/'VERSION').read_text().strip());dist=ROOT/'dist';dist.mkdir(exist_ok=True)
+    mapping=runtime_mapping();validate_runtime_mapping(mapping);validate_app_coverage(mapping,version)
     bundle=dist/('LUMEN-'+version);payload=bundle/'Kindle'
     if bundle.exists():shutil.rmtree(bundle)
-    mapping=runtime_mapping();validate_runtime_mapping(mapping);manifest={}
+    manifest={}
     for rel,local in mapping.items():
         source=ROOT/local
         if not source.is_file():raise RuntimeError('Missing runtime file: '+local+'; build Kindle first.')

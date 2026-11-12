@@ -143,7 +143,7 @@ static int article_news_open(void) {
     char image[2048];
     press_image_path(image, sizeof(image));
     return document_open(press_article.title, press_article.publisher, press_article.url,
-                         press_article.body, image, 95, 0);
+                         press_article.body, image, 86, 0);
 }
 
 static void article_wiki_request(void) {

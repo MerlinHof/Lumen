@@ -14,15 +14,6 @@ static void new_apps_draw(void) {
     case 62:
         graph_range_screen();
         break;
-    case 67:
-        app_newspaper();
-        break;
-    case 68:
-        app_news_settings();
-        break;
-    case 69:
-        app_news_source();
-        break;
     }
 }
 static int new_apps_commit(int target, const char *text) {
@@ -104,22 +95,6 @@ static int new_apps_input(const Input *in) {
             }
         } else if (y >= 650 && y < 706)
             extra_return(61);
-        return 1;
-    }
-    if (ui_route() == 67) {
-        return polish_news_input(in);
-    }
-    if (ui_route() == 68) {
-        if (y >= 142 && y < 142 + 6 * 74 && x >= 460) {
-            int i = (y - 142) / 74;
-            if (i < 6) {
-                news_topics ^= 1u << i;
-                if (!(news_topics & 31))
-                    news_topics |= 1;
-                news_save_settings();
-            }
-        } else if (y >= 706 && y < 758)
-            extra_return(67);
         return 1;
     }
     return 1;

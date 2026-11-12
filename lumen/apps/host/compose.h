@@ -43,7 +43,7 @@
 #include "../wikipedia/archive.h"
 #include "../photos/view.h"
 #include "../power_menu/app.h"
-#include "../news/view.h"
+#include "../../system/ui/news_provider.h"
 #include "content_lifecycle.h"
 #include "../notes/ink_state.h"
 #include "../store/sources.h"

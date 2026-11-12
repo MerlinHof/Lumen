@@ -295,3 +295,17 @@ assert any(f.get('operation')=='open' and f.get('text')=='1234567890abcdef' for 
 assert any(f.get('operation')=='search' and f.get('text')=='Maple' for f in frames)
 assert any(c.get('text')=='Cached article' for f in frames for c in f.get('ui',[]))
 print('PASS packaged Wikipedia offline list, deletion, cached open and search intent.')
+
+frames,_=app_session('lumen.news',[
+    dict(event='service',action=1,ok=1,count=1,page=0,today=20261112,id0='20261112'),
+    tap(150,215),dict(event='service',action=3,ok=1),
+    dict(event='service',action=2,ok=1,count=1,page=0,date=20261112,
+         id0='1234567890abcdef',title0='Science today',detail0='Science · Publisher'),
+    tap(150,215),dict(event='back'),tap(550,95),
+    dict(event='text',action=1,text='Energy')])
+assert any(f.get('operation')=='edition' and f.get('text')=='20261112' for f in frames)
+assert any(f.get('operation')=='open' and f.get('text')=='1234567890abcdef' for f in frames)
+assert any(f.get('operation')=='search' and f.get('text')=='Energy' for f in frames)
+assert any(c.get('text')=='Science today' for f in frames for c in f.get('ui',[]))
+assert frames[-1]['back']
+print('PASS packaged News editions, article selection, search and Back.')

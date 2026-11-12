@@ -89,6 +89,13 @@ the frame budget. Wikipedia owns search, pagination and offline history
 interaction through a shared document provider. This brings the total to
 **41 packaged / 11 linked**.
 
+## In progress for 5.9
+
+News has a standalone executable for the edition index, search results,
+pagination and Back navigation. Shared provider jobs retain saved editions and
+open articles in Reader. The release build requires coverage of every active
+identity before producing the 5.9 installers.
+
 ## Completion checks
 
 A migration counts when the app owns its behavior in an independently built
