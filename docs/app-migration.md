@@ -69,6 +69,12 @@ ToDo is independently packaged, bringing the total to **36 packaged / 16
 linked**. Its migration adds a reusable, measured multiline list with stable
 row actions and one- or two-column layouts.
 
+## Progress in 5.6
+
+Study runs independently, bringing the total to **37 packaged / 15 linked**.
+Its migration adds scoped Reader requests for uploaded material and shared
+services for focus timers and recall notes.
+
 ## Completion checks
 
 A migration counts when the app owns its behavior in an independently built

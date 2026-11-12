@@ -21,8 +21,6 @@ static void recipe_archive16(void);
 static char llm_model16[100] = "gpt-4.1-mini", llm_prompt16[8192], job_error16[200];
 static int job_kind16;
 
-static int study_minutes16 = 25;
-static char study_selected16[256];
 static unsigned random16(void) {
     if (!game_seed16)
         game_seed16 = (unsigned)time(NULL) ^ 0xa6b47d13;
@@ -624,28 +622,6 @@ static int u16_apps_commit(int target, const char *text) {
             extra_write_text("llm-key.txt", text);
         return 1;
     }
-    if (target == 177) {
-        u16_notes_defaults();
-        int folder = 0;
-        for (int i = 0; i < note_tree.nf; i++)
-            if (!strcmp(note_tree.folder[i].name, "Learning"))
-                folder = note_tree.folder[i].id;
-        char path[4096], b[16000];
-        int id = (int)time(NULL);
-        do {
-            snprintf(path, sizeof(path), "%s/notes/%d.txt", data_root, id++);
-        } while (!access(path, F_OK));
-        snprintf(b, sizeof(b), tr("# Abrufübung: %s\n\n%s"),
-                 *study_selected16 ? study_selected16 : "Lernen", text);
-        if (atomic_write(path, b, strlen(b))) {
-            v1_place(id - 1, folder);
-            v1_save();
-            notes_scan();
-            ui_message("In Notizen → Learning gespeichert. Jetzt mit dem Material vergleichen.");
-        }
-        return 1;
-    }
-
     return 0;
 }
 static void companion_enter16(void) {
@@ -662,12 +638,6 @@ static void companion_enter16(void) {
         companion_page16 = explorer_page16;
         if (companion_page16 * 8 >= files_count16)
             companion_page16 = 0;
-    }
-    if (ui_route() == 111) {
-        char p[4096];
-        local_path(p, sizeof(p), "study");
-        mkdir(p, 0700);
-        files_scan16(p);
     }
     if (ui_route() == 114) {
         recipe_search16 = 0;
@@ -716,28 +686,6 @@ static int u16_apps_draw(void) {
     }
     companion_enter16();
 
-    if (ui_route() == 111) {
-        heading_actions("Lernen", 1);
-        icon_button(528, 74, IC_CLOCK);
-        wrapped(30, 140,
-                "Lesen → Material schließen → aus dem Gedächtnis erklären → vergleichen. Lade dein "
-                "Material über Connect hoch.",
-                ui_font(UI_BODY), 540, 3);
-        button_h(28, 255, 260, 48, "25 min Fokus", 0);
-        button_h(312, 255, 260, 48, "Abrufübung", 0);
-        for (int r = 0; r < 5 && companion_page16 * 5 + r < files_count16; r++) {
-            int i = companion_page16 * 5 + r, y = 332 + r * 67;
-            region(28, y, 544, 62);
-            icon(30, y + 8, IC_BOOK);
-            drawtext_raw(90, y + 14, file_names16[i], ui_font(UI_BODY), 470);
-            divider(28, y + 61, 544);
-        }
-        if (!files_count16)
-            wrapped(30, 375, "Noch kein Material. Connect → Lernen → Dateien hochladen.", ui_font(UI_PRIMARY),
-                    540, 4);
-        pager(745, &companion_page16, (files_count16 + 4) / 5);
-        return 1;
-    }
     if (ui_route() == 118 || ui_route() == 119 ||
         ui_route() == 121) {
         game_draw16();
@@ -791,42 +739,6 @@ static int u16_apps_input(const Input *in) {
         return -1;
     if (y < 48)
         return -1;
-
-    if (ui_route() == 111) {
-        if (y >= 74 && y < 118 && x >= 516) {
-            extra_open(28);
-            return 1;
-        }
-        if (y >= 255 && y < 303) {
-            if (x < 300) {
-                timer_minutes = study_minutes16;
-                timer_total_seconds = study_minutes16 * 60;
-                timer_due = extra_millis() + timer_total_seconds * 1000LL;
-                timer_paused = 0;
-                extra_save();
-                ui_message("Fokuszeit gestartet.");
-            } else {
-                open_keyboard(177, "Was weißt du noch?", "");
-                editor_ui.note_cursor = editor_ui.note_view_start = 0;
-            }
-            return 1;
-        }
-        if (y >= 332 && y < 667) {
-            int i = companion_page16 * 5 + (y - 332) / 67;
-            if (i < files_count16) {
-                char p[8192];
-                snprintf(p, sizeof(p), "%s/%s", files_dir16, file_names16[i]);
-                if (file_dirs16[i])
-                    files_scan16(p);
-                else {
-                    snprintf(study_selected16, sizeof(study_selected16), "%s", file_names16[i]);
-                    file_open16(p, 111);
-                }
-            }
-            return 1;
-        }
-        return -1;
-    }
 
     if (ui_route() == 116) {
         if (y >= 74 && y < 118 && x >= 516) {

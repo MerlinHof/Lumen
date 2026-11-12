@@ -104,7 +104,7 @@ the app process. Package-owned grayscale PGM files can use `lumen_asset`.
 
 ## Existing app implementations
 
-Thirty-six independent apps ship with LUMEN 5.5. Their build manifests are the
+Thirty-seven independent apps ship with LUMEN 5.6. Their build manifests are the
 `lumen/apps/*/package.json` files. Legacy views without manifests still run from
 the host and may be replaced by packages using the same stable identity.
 
@@ -151,3 +151,8 @@ LUMEN 5.5 adds measured lists via `lumen_flow_list`, `lumen_flow_row` and
 `lumen_flow_end`. Clients choose row order, stable IDs and one or two columns.
 The renderer wraps text, lays out and paginates the rows, and emits `clicked`,
 `toggled`, `pinned` and `deleted` events for row actions.
+
+LUMEN 5.6 adds scoped `study_material` operations for paged material lists
+and opening an uploaded document by name in Reader. Packages can also call
+`clock/start_timer` with minutes or `notes/create_learning` with a title
+followed by a newline and the recall text.

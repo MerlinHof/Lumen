@@ -18,7 +18,7 @@ The first launch creates a sample EPUB.
 
 ## Display timing
 
-The emulator reuses the device's coverage calculation and models DU, GL16
+The emulator uses the device’s refresh planner and models DU, GL16
 and GC16, including a flash for a clearing update. Default durations are
 260 ms for DU and 450 ms for GL16 and GC16. DU and GC16 are approximate
 [FBInk reference timings](https://github.com/NiLuJe/FBInk/blob/master/fbink.h).

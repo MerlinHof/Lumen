@@ -243,3 +243,13 @@ assert any(f.get('request')=='input' and f.get('text')=='Older task' for f in fr
 assert lists[-1]['columns']==2 and lists[-1]['rows'][0]['title']=='Edited task'
 assert (folder/'tasks.bin').is_file()
 print('PASS packaged ToDo preserves multiline rows, flags, completion, editing and board grouping.')
+
+frames,folder=app_session('lumen.study',[
+    dict(event='service',action=1,ok=1,page=0,count=1,name0='Lesson.txt'),
+    tap(100,350),tap(100,275),tap(425,275),
+    dict(event='text',action=4,text='Recall\nSecond paragraph')])
+assert any(f.get('service')=='study_material' and f.get('operation')=='open' and f.get('text')=='Lesson.txt' for f in frames)
+assert any(f.get('service')=='clock' and f.get('operation')=='start_timer' and f.get('text')=='25' for f in frames)
+assert any(f.get('service')=='notes' and f.get('text')=='Lesson.txt\nRecall\nSecond paragraph' for f in frames)
+assert (folder/'material.txt').read_text()=='Lesson.txt'
+print('PASS packaged Study routes material, focus timer and multiline recall through shared services.')

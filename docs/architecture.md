@@ -25,8 +25,8 @@ linking is required. App replacement is a directory transaction and does not
 restart LUMEN. Crashes are confined to the app process; this is not a filesystem
 security sandbox. Native packages must be trusted.
 
-Thirty-six standalone packages ship from their individual app folders,
-including Home, File Transfer, Terminal, Periodic Table, Keyboard, Notifications, Status Bar, Quotes, Flashcards, Languages, BrainTrain, Reading Statistics, Journal, Calendar, Weather, ToDo and twenty games.
+Thirty-seven standalone packages ship from their individual app folders,
+including Home, File Transfer, Terminal, Periodic Table, Keyboard, Notifications, Status Bar, Quotes, Flashcards, Languages, BrainTrain, Reading Statistics, Journal, Calendar, Weather, ToDo, Study and twenty games.
 Keyboard, Notifications and Status Bar run in separate overlay processes while the foreground app remains active. Other existing views retain linked
 compatibility adapters in `apps/host/compose.h`. Their IDs use the same catalog
 and accept independent replacement packages, but those older implementations
@@ -35,11 +35,11 @@ package interface. Do not describe every old implementation as migrated.
 
 [App-by-app migration inventory and SDK dependencies](app-migration.md)
 
-### Remaining linked apps in 5.5
+### Remaining linked apps in 5.6
 
 - Reading and content · Library, Reader, Store, Wikipedia, News, Recipes.
 - Personal tools · Clock, Notes, Photos, Home Assistant, OpenAI.
-- Learning and reference · Calculator, Study, Planetarium.
+- Learning and reference · Calculator and Planetarium.
 - Device surfaces · Settings and Lock Screen.
 
 Pending SDK work includes semantic lists, grids, menus and dialogs,
@@ -65,8 +65,8 @@ The Reader uses a preferences snapshot and reflows only on changes. CommonMark
 and GFM use the pinned cmark-gfm implementation. Image contrast and sampling are
 shared. Cover resampling has a bounded RAM cache and no new persistent copies.
 
-The established adaptive refresh engine is unchanged. No periodic clear per N
-taps, animation sleeps or private app refresh loops are introduced. Firmware
+Kindle and emulator use the same refresh planner. It selects DU, GL16 or GC16
+from screen coverage, change intensity and old ink removal. Firmware
 power, Wi-Fi, USB and app-manager services remain available.
 
 ## Complete system updates

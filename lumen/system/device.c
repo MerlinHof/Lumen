@@ -34,7 +34,7 @@ static int stride, xoff, yoff;
 static struct input_absinfo ax, ay;
 static int xcode = ABS_MT_POSITION_X, ycode = ABS_MT_POSITION_Y;
 static unsigned char previous[WIDTH * HEIGHT];
-static int initialized,clean_paper;
+static int initialized;
 static pid_t feedback_pid = -1;
 int device_refresh_busy(void) {
     if (feedback_pid <= 0) return 0;
@@ -294,68 +294,23 @@ void device_ip(char *out, int size) {
 }
 static void present_frame(const unsigned char *pixels, int full, int asynchronous) {
     feedback_join();
-    RefreshBounds dirty=initialized ? refresh_bounds(previous,pixels,WIDTH,HEIGHT) :
-                                      (RefreshBounds){0,0,WIDTH,HEIGHT};
-    if(dirty.top==HEIGHT && !full)return;
-    int top=dirty.top,bottom=dirty.bottom,left=dirty.left,right=dirty.right;
-    RefreshDelta change={0};
-    if(!initialized || (top<HEIGHT && (right-left)*(bottom-top)>=WIDTH*HEIGHT*60/100))
-        change=refresh_delta(previous,pixels,WIDTH,HEIGHT);
-    int clear=!initialized || refresh_clear(change,clean_paper,full);
-    if(!initialized || full) {
-        top=left=0;
-        bottom=HEIGHT;right=WIDTH;
-    }
-    /* Header widgets move when visibility/width changes. Refresh the whole strip
-       as one unit so the old positions cannot survive at a clipped boundary. */
-    if (top < STATUS_HEIGHT) {
-        left = 0;
-        right = WIDTH;
-        top = 0;
-        if (bottom < STATUS_HEIGHT)
-            bottom = STATUS_HEIGHT;
-    }
-    /* EPDC updates require aligned regions. Round out, never clip dirty pixels. */
-    left &= ~7;
-    right = (right + 7) & ~7;
-    if (right > WIDTH)
-        right = WIDTH;
-    top &= ~1;
-    bottom = (bottom + 1) & ~1;
-    if (bottom > HEIGHT)
-        bottom = HEIGHT;
-    if (clear) {
-        top = left = 0;
-        right = WIDTH;
-        bottom = HEIGHT;
-    }
-
+    RefreshPlan plan=refresh_plan(previous,pixels,WIDTH,HEIGHT,STATUS_HEIGHT,initialized,full);
+    if(plan.waveform==REFRESH_NONE)return;
+    int top=plan.area.top,bottom=plan.area.bottom,left=plan.area.left,right=plan.area.right;
+    int clear=plan.waveform==REFRESH_CLEAR;
     for (int y = top; y < bottom; y++)
         memcpy(fb + (y + yoff) * stride + xoff + left, pixels + y * WIDTH + left,
                (size_t)(right - left));
     char region[100];
     snprintf(region, sizeof(region), "top=%d,left=%d,width=%d,height=%d", top, left, right - left,
              bottom - top);
-    int binary = top >= STATUS_HEIGHT && (right - left) * (bottom - top) < WIDTH * HEIGHT / 4;
-    if (binary)
-        for (int y = top; y < bottom && binary; y++)
-            for (int x = left; x < right; x++) {
-                int v = pixels[y * WIDTH + x];
-                int old = previous[y * WIDTH + x];
-                if ((v != 0 && v != 255) || (old != 0 && old != 255)) {
-                    binary = 0;
-                    break;
-                }
-            }
     memcpy(previous, pixels, sizeof(previous));
     initialized = 1;
-    clean_paper = clear && change.next_light;
-    char *partial[] = {"fbink", "-q",   "-W", top == 0 ? "GC16" : binary ? "DU" : "GL16",
-                       "-s",    region, NULL};
+    const char *waveform=plan.waveform==REFRESH_DU ? "DU" :
+                         plan.waveform==REFRESH_GL16 ? "GL16" : "GC16";
+    char *partial[] = {"fbink","-q","-W",(char *)waveform,"-s",region,NULL};
     char *clean[] = {"fbink", "-q", "-W", "GC16", "-f", "-s", "top=0,left=0,width=600,height=800",
                      NULL};
-    if (clear)
-        fprintf(stderr, "display_clear_coverage=%d\n", change.coverage);
     char **args = clear ? clean : partial;
     const char *path = "/mnt/us/libkh/bin/fbink";
     if (!asynchronous) {

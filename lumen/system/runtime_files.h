@@ -41,6 +41,7 @@ static const char *runtime_files[]={
 "lumen/app-packages/lumen.sokoban.lumen-app",
 "lumen/app-packages/lumen.solitaire.lumen-app",
 "lumen/app-packages/lumen.status-bar.lumen-app",
+"lumen/app-packages/lumen.study.lumen-app",
 "lumen/app-packages/lumen.sudoku.lumen-app",
 "lumen/app-packages/lumen.terminal.lumen-app",
 "lumen/app-packages/lumen.tetris.lumen-app",

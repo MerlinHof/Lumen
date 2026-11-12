@@ -50,37 +50,9 @@ static int write_all(const unsigned char *data, size_t remaining) {
 static void present(const unsigned char *pixels, int full) {
     static unsigned char previous[WIDTH * HEIGHT];
     static int initialized;
-    int top = HEIGHT, bottom = 0, left = WIDTH, right = 0;
-    for (int y = 0; y < HEIGHT; y++) {
-        for (int x = 0; x < WIDTH; x++) {
-            int at = y*WIDTH+x;
-            if (initialized && previous[at] == pixels[at]) continue;
-            if (x < left) left = x;
-            if (x >= right) right = x+1;
-            if (y < top) top = y;
-            if (y >= bottom) bottom = y+1;
-        }
-    }
-    if (top == HEIGHT && !full) return;
-    /* Match the device's refresh classification, including its dirty bounds. */
-    int area = (right-left)*(bottom-top);
-    int clear = !initialized || (top < HEIGHT && area >= WIDTH*HEIGHT*60/100 &&
-                refresh_coverage(previous, pixels, WIDTH, HEIGHT) >= 70);
-    if (top < STATUS_HEIGHT || full) top = 0;
-    if (top > 0) {
-        left &= ~7;
-        right = (right+7) & ~7;
-        top &= ~1;
-        bottom = (bottom+1) & ~1;
-    }
-    int binary = top >= STATUS_HEIGHT && (right-left)*(bottom-top) < WIDTH*HEIGHT/4;
-    for (int y = top; y < bottom && binary; y++)
-        for (int x = left; x < right; x++) {
-            int value = pixels[y*WIDTH+x];
-            int old = previous[y*WIDTH+x];
-            if ((value != 0 && value != 255) || (old != 0 && old != 255)) { binary = 0; break; }
-        }
-    unsigned char mode = clear ? 3 : top == 0 ? 2 : binary ? 0 : 1;
+    RefreshPlan plan=refresh_plan(previous,pixels,WIDTH,HEIGHT,STATUS_HEIGHT,initialized,full);
+    if(plan.waveform==REFRESH_NONE)return;
+    unsigned char mode=(unsigned char)plan.waveform;
     if (write_all(&mode, 1) && write_all(pixels, sizeof(previous))) {
         memcpy(previous, pixels, sizeof(previous));
         initialized = 1;
