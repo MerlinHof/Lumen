@@ -422,3 +422,29 @@ assert any(f.get('operation')=='turn' and f.get('text')=='1' for f in frames)
 assert any(f.get('operation')=='goto' and f.get('text')=='2' for f in frames)
 assert any(f.get('operation')=='setting' and f.get('text')=='9 2' for f in frames)
 print('PASS packaged Reader document surface, page navigation, contents and preferences.')
+
+frames,_=app_session('lumen.notes',[
+    dict(event='service',action=1,ok=1,count=2,folder_id=0,id0=1,kind0=1,title0='Notes',
+         id1=123,kind1=0,title1='Legacy note'),
+    tap(170,255),dict(event='service',action=2,ok=1,page=0,pages=2),
+    tap(490,78),dict(event='service',action=2,ok=1,page=0,pages=2,ink=1),
+    tap(118,75),dict(event='back'),dict(event='service',action=2,ok=1,pages=2),
+    tap(550,75),dict(event='back')])
+assert any(f.get('operation')=='open' and f.get('text')=='123' for f in frames)
+assert any(c.get('type')=='note_surface' for f in frames for c in f.get('ui',[]))
+assert any(f.get('operation')=='eraser' for f in frames)
+assert any(f.get('operation')=='markdown' for f in frames)
+assert any(f.get('operation')=='close' for f in frames)
+print('PASS packaged Notes opens existing notes and controls drawing, Markdown and Back.')
+
+frames,_=app_session('lumen.settings',[
+    component('appearance'),component('tab','selected','2'),tap(480,225),dict(event='select',action=19,value=1),
+    dict(event='back'),component('wifi'),dict(event='service',action=5,ok=1),
+    dict(event='service',action=2,ok=1,enabled=1,count=1,name0='Wi-Fi fixture',locked0=1),
+    tap(260,245),dict(event='text',action=1,text='test-password'),
+    dict(event='back'),component('system'),tap(210,700)])
+assert any(f.get('operation')=='preference' and f.get('text')=='9 5' for f in frames)
+assert any(f.get('request')=='secret' for f in frames)
+assert any(f.get('operation')=='wifi_connect' and f.get('text')=='Wi-Fi fixture\ntest-password' for f in frames)
+assert any(f.get('operation')=='check' for f in frames)
+print('PASS packaged Settings appearance, masked Wi-Fi connection and GitHub updates.')

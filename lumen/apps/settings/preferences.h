@@ -41,17 +41,3 @@ static SettingRow setting_rows[] = {
     {"Connect-Port", 4, OPT_PORT, 1024, 65535, 1, NULL, 0},
     {"Inaktivität (Minuten)", 4, OPT_TIMEOUT, 1, 60, 1, NULL, 0},
 };
-static const char *settings_sections[] = {"WLAN", "Darstellung", "Datum & Uhrzeit", "Apps verwalten", "System"};
-static const char *settings_hints[] = {
-    "Netzwerke und Verbindung",
-    "Sprache, Sperrbild und Statusleiste", "Zeit, Zeitzone und WLAN-Abgleich",
-    "Sichtbarkeit & Reihenfolge", "Speicher, Version und Konfiguration"};
-static void settings_home(void) {
-    heading("Einstellungen");
-    for (int i = 0; i < 5; i++) {
-        int y = 134 + i * 72;
-        ListLayout l = list_row(28, y, 544, 72, -1, 62, tr(settings_sections[i]),
-                                tr(settings_hints[i]), ui_font(UI_PRIMARY), 1);
-        icon(526, l.action_y, IC_NEXT);
-    }
-}

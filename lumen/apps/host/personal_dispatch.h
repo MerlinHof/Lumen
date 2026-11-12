@@ -3,37 +3,13 @@ static void v1_open(int target) {
     polish_open(target);
     v1_init();
     v1_page = 0;
-    if (target == 85)
-        markdown_page = 0;
     if (target == 87 && !timer_due && !timer_paused)
         timer_total_seconds = timer_minutes * 60;
-    if (target == 90 || target == 91) { /* registered shell components open their configuration */
-        setting_category = 1;
-        settings_ui.setting_page = target == 90 ? 0 : 1;
-    }
     if (target == 93)
         open_keyboard(130, "Tastatur", "");
 }
 static void v1_draw(void) {
     switch (ui_route()) {
-    case 83:
-        v1_launcher_settings();
-        break;
-    case 84:
-        v1_folder_picker_draw();
-        break;
-    case 85:
-        reader_markdown17("Notizen",note_text,30);
-        document_surface();
-        break;
-    case 90:
-        more_settings();
-        break;
-    case 92:
-        heading("Sperrbild");
-        for (int i = 0; i < 5; i++)
-            button_h(28, 154 + i * 86, 544, 65, lockmodes[i], options[OPT_LOCK] == lock_mode_ids[i]);
-        break;
     case 93:
         heading("Tastatur");
         button_h(28, 180, 544, 60, "Text eingeben", 0);
@@ -49,20 +25,6 @@ static void v1_draw(void) {
     }
 }
 static int v1_commit(int target, const char *text) {
-    if (target == 120) {
-        if (*text && note_tree.nf < 512) {
-            int id = 1;
-            for (int i = 0; i < note_tree.nf; i++)
-                if (note_tree.folder[i].id >= id)
-                    id = note_tree.folder[i].id + 1;
-            NoteFolder *f = &note_tree.folder[note_tree.nf++];
-            f->id = id;
-            f->parent = note_tree.current;
-            snprintf(f->name, 96, "%s", text);
-            v1_dirty = 1;
-        }
-        return 1;
-    }
     if (target == 130)
         return 1;
     return 0;
@@ -103,82 +65,4 @@ static void v1_effect(void) {
         for (size_t i = 0; i < sizeof(ui_pixels); i++)
             ui_pixels[i] = 255 - ui_pixels[i];
 }
-static int v1_input(const Input *in) {
-    if (in->kind != INPUT_TAP)
-        return 2;
-    int x = in->x, y = in->y;
-    switch (ui_route()) {
-    case 83: {
-        int indices[APP_LIMIT], count = launcher_manage_indices(indices);
-        if (y >= 174 && y < 650) {
-            int pos = launcher_settings_page * 8 + (y - 174) / 68;
-            if (pos < count) {
-                int i = indices[pos], id = launcher_order[i];
-                if(x>=526 && x<570 && app_package_can_remove(id)) {
-                    static const char *actions[]={"Abbrechen","App endgültig entfernen"};
-                    manage_delete_id=id;
-                    open_dropdown(2004,actions,2,-1,315,y+20>675 ? 675 : y+20,258);
-                } else if(x>=427 && x<503)
-                    launcher_visible[id]^=1;
-                else if (x >= 329 && x < 373 && pos > 0) {
-                    int other = indices[pos - 1];
-                    launcher_order[i] = launcher_order[other];
-                    launcher_order[other] = id;
-                } else if (x >= 375 && x < 419 && pos + 1 < count) {
-                    int other = indices[pos + 1];
-                    launcher_order[i] = launcher_order[other];
-                    launcher_order[other] = id;
-                }
-                v1_dirty = 1;
-            }
-        } else if (y >= 745 && y < 789) {
-            if (x < 300 && launcher_settings_page)
-                launcher_settings_page--;
-            else if (x >= 300 && (launcher_settings_page + 1) * 8 < count)
-                launcher_settings_page++;
-        }
-        break;
-    }
-    case 84:
-        if (y >= 145 && y < 641) {
-            int i = folder_page * 8 + (y - 145) / 62;
-            if (i <= note_tree.nf) {
-                v1_place(note_selected, i ? note_tree.folder[i - 1].id : 0);
-                extra_return(30);
-            }
-        } else if (y >= 699 && y < 743) {
-            if (x < 300 && folder_page)
-                folder_page--;
-            else if (x >= 300 && (folder_page + 1) * 8 < note_tree.nf + 1)
-                folder_page++;
-        }
-        break;
-    case 85:
-        if (y >= 57 && y < 101 && x >= 516)
-            extra_return(30);
-        else if (y >= 746) {
-            if (x < 300 && markdown_page)
-                markdown_page--;
-            else if (x >= 300 && markdown_page + 1 < markdown_pages)
-                markdown_page++;
-        }
-        break;
-    case 90:
-        settings_input(in);
-        break;
-    case 92:
-        if (y >= 154 && y < 584) {
-            int i = (y - 154) / 86;
-            if (i < 5) {
-                options[OPT_LOCK] = lock_mode_ids[i];
-                ui_save();
-            }
-        }
-        break;
-    case 93:
-        if (y >= 180 && y < 240)
-            open_keyboard(130, "Tastatur", "");
-        break;
-    }
-    return 1;
-}
+static int v1_input(const Input *in){(void)in;return 2;}

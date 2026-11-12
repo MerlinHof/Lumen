@@ -121,13 +121,41 @@ static void package_paint_frame(const char *text) {
             heading_actions(label,0);continue;
         }
         if(!strcmp(type,"flow_list")){package_flow_list(&j,item);continue;}
+        if(!strcmp(type,"list_action")) {
+            int icon_id=package_value(&j,item,"icon");
+            if(y<STATUS_HEIGHT || h<54 || h>100 || y+h>HEIGHT ||
+               icon_id<0 || icon_id>IC_LAST || package_component_count>=PACKAGE_COMPONENT_LIMIT)continue;
+            PackageComponent *component=&package_components[package_component_count];
+            json_string(&j,json_get(&j,item,"id"),component->id,sizeof(component->id));
+            if(!*component->id)continue;
+            component->left=28;component->top=y;component->width=544;component->height=h;
+            component->kind=COMPONENT_BUTTON;
+            char detail[256];
+            json_string(&j,json_get(&j,item,"detail"),detail,sizeof(detail));
+            ListLayout row=list_row(28,y,544,h,-1,62,label,detail,ui_font(UI_PRIMARY),1);
+            icon(526,row.action_y,icon_id);
+            package_component_count++;
+            continue;
+        }
+        if(!strcmp(type,"icon_action")) {
+            int id=package_value(&j,item,"icon");
+            if(x<0 || x+44>WIDTH || y<STATUS_HEIGHT || y+44>HEIGHT ||
+               id<0 || id>IC_LAST || package_component_count>=PACKAGE_COMPONENT_LIMIT)continue;
+            PackageComponent *component=&package_components[package_component_count];
+            json_string(&j,json_get(&j,item,"id"),component->id,sizeof(component->id));
+            if(!*component->id)continue;
+            component->left=x;component->top=y;component->width=component->height=44;
+            component->kind=COMPONENT_BUTTON;
+            icon_button(x,y,id);package_component_count++;
+            continue;
+        }
         if(!strcmp(type,"component_segments")) {
             int labels=json_get(&j,item,"labels");
             int count=labels>=0 && j.tokens[labels].type=='[' ? j.tokens[labels].count : 0;
             int selected=package_value(&j,item,"selected");
             if(x<0 || y<STATUS_HEIGHT || w>WIDTH-x || h>HEIGHT-y || h<32 ||
                count<2 || count>8 || w<count*42 || selected<0 || selected>=count ||
-               package_component_count>=16)continue;
+               package_component_count>=PACKAGE_COMPONENT_LIMIT)continue;
             PackageComponent *component=&package_components[package_component_count];
             json_string(&j,json_get(&j,item,"id"),component->id,sizeof(component->id));
             if(!*component->id)continue;
@@ -144,7 +172,7 @@ static void package_paint_frame(const char *text) {
         }
         if(!strcmp(type,"component_card")) {
             if(x<0 || y<STATUS_HEIGHT || w<100 || h<68 || w>WIDTH-x ||
-               h>HEIGHT-y || package_component_count>=16)continue;
+               h>HEIGHT-y || package_component_count>=PACKAGE_COMPONENT_LIMIT)continue;
             PackageComponent *component=&package_components[package_component_count];
             json_string(&j,json_get(&j,item,"id"),component->id,sizeof(component->id));
             if(!*component->id)continue;
@@ -165,7 +193,7 @@ static void package_paint_frame(const char *text) {
         if(component_kind || !strcmp(type,"component_button")) {
             int field=component_kind==COMPONENT_FIELD;
             int height=field ? 70 : 50;
-            if(!package_component_layout || package_component_count>=16 ||
+            if(!package_component_layout || package_component_count>=PACKAGE_COMPONENT_LIMIT ||
                package_component_top+height>HEIGHT-8)continue;
             PackageComponent *component=&package_components[package_component_count];
             json_string(&j,json_get(&j,item,"id"),component->id,sizeof(component->id));
@@ -216,6 +244,10 @@ static void package_paint_frame(const char *text) {
                         rect(x+offset+col*step,y+offset+row*step,step,step,0);
             }
         }
+        else if(!strcmp(type,"note_surface") && ui_route()==30) {
+            u15_note_editor_draw();
+            u15_note_overlay();
+        }
         else if(!strcmp(type,"document_page") && app_for_route(ui_route())==APP_READER) {
             package_document_visible=1;
             reader_ui.reader_chrome=!!package_value(&j,item,"chrome");
@@ -246,6 +278,10 @@ static void package_paint_frame(const char *text) {
             int item=store_item(label);
             if(item>=0 && x>=0 && x+w<=WIDTH && y+h<=HEIGHT && w>=25 && h>=30)
                 store_cover(&opds_items[item],x,y,w,h);
+        }
+        else if(!strcmp(type,"app_icon") && w==h && w>=24 && w<=76 && x>=0 && x+w<=WIDTH && y+h<=HEIGHT) {
+            int id=app_package_find(label);
+            if(id>=0 && !engraved_app_icon(x,y,w,id))icon_sized(x,y,IC_BOOK,w);
         }
         else if(!strcmp(type,"app_tile")) {
             int id=app_package_find(label);
@@ -501,6 +537,25 @@ static void package_call_app(int id,const char *operation,const char *data,int r
     package_reply_end(out,&message);
     if(request_id>0)package_calls[package_call_count++]=(PackageCall){route,id,request_id,history_count};
 }
+#include "../../../tools/sdk/lumen_storage.h"
+static void package_reader_file(Json *json,const char *title) {
+    int owner=app_process_owner();
+    if(owner<0 || owner!=(int)app_for_route(ui_route()))return;
+    int reference=json_get(json,0,"document");
+    if(reference<0 || json->tokens[reference].type!='{')return;
+    char path[1026],format[20],root[2048];
+    json_string(json,json_get(json,reference,"type"),format,sizeof(format));
+    json_string(json,json_get(json,reference,"path"),path,sizeof(path));
+    if(strcmp(format,"markdown") || !*path || strlen(path)>1024)return;
+    int n=snprintf(root,sizeof(root),"%s/../appdata/%s",data_root,app_package_key(owner));
+    if(n<0 || (size_t)n>=sizeof(root))return;
+    char *bytes=malloc(131073);size_t size;
+    if(bytes && lumen_storage_read_at(root,path,bytes,131072,&size) && size && !memchr(bytes,0,size)) {
+        bytes[size]=0;
+        reader_markdown17(*title ? title : app_definition(owner)->name,bytes,ui_route());
+    } else ui_message("Dokument nicht verfügbar.");
+    free(bytes);
+}
 static int package_ui_poll(void) {
     int changed=app_process_poll();
     static uint64_t timer_frame;
@@ -552,7 +607,8 @@ static int package_ui_poll(void) {
         json_string(&j,json_get(&j,0,"object"),object,sizeof(object));
         int id=app_package_find(app);
         int request_id=package_value(&j,0,"request_id");
-        if(request_id>0 || (id!=APP_READER && (*text || strcmp(operation,"open"))))
+        if(id==APP_READER && !strcmp(operation,"open_file"))package_reader_file(&j,title);
+        else if(request_id>0 || (id!=APP_READER && (*text || strcmp(operation,"open"))))
             package_call_app(id,operation,text,request_id);
         else if(id>=0 && !strcmp(operation,"open")) {
             AppIntent intent={.app=id,.kind=INTENT_OPEN};

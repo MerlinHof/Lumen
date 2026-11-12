@@ -3,8 +3,8 @@ typedef struct{int cells[9],turn,result,score[3];}Game;
 static Game game={.turn=1};
 static void save(void){app_state_save("game.bin",&game,sizeof(game));}
 static void draw(void){
- ui_paint_heading("Tic Tac Toe",2);ui_paint_icon_button(528,74,IC_RESTART);
- lumen_button(468,74,44,44,"?",0);
+ ui_paint_heading("Tic Tac Toe",2);lumen_icon_action("restart",528,74,IC_RESTART);
+ lumen_icon_action("help",468,74,IC_CONTENTS);
  const char*de[]={"X am Zug","O am Zug","Gewonnen!","Unentschieden"};
  const char*en[]={"X to play","O to play","Won!","Draw"};
  const char*fr[]={"Au tour de X","Au tour de O","Gagné !","Match nul"};
@@ -18,15 +18,17 @@ static void draw(void){
  char b[80];snprintf(b,sizeof(b),"X  %d     ·     O  %d",game.score[1],game.score[2]);ui_paint_text(28,739,544,44,b,PAINT_BODY);
 }
 static int input(const Input*in){
- if(in->kind!=INPUT_TAP)return 1;
- if(in->y>=74&&in->y<118){
-  if(in->x>=528){memset(game.cells,0,sizeof(game.cells));game.turn=1;game.result=0;}
-  else if(in->x>=468)lumen_request("reader","Tic Tac Toe",lumen_language==1?
+ if(in->kind==INPUT_COMPONENT){
+  char id[24],gesture[24];
+  if(!lumen_string("id",id,sizeof(id)) || !lumen_string("gesture",gesture,sizeof(gesture)) || strcmp(gesture,"clicked"))return 0;
+  if(!strcmp(id,"restart")){memset(game.cells,0,sizeof(game.cells));game.turn=1;game.result=0;}
+  else if(!strcmp(id,"help"))lumen_request("reader","Tic Tac Toe",lumen_language==1?
    "# Tic Tac Toe\n\nTwo players take turns placing X and O. Tap an empty square. Make three in a row, column or diagonal to win. A full board without a winner is a draw. Restart begins another round and keeps the score.":lumen_language==2?
    "# Tic Tac Toe\n\nDeux joueurs placent X et O à tour de rôle. Touchez une case vide. Alignez trois symboles horizontalement, verticalement ou en diagonale. Sans gagnant, la partie est nulle. Recommencer conserve le score.":
    "# Tic Tac Toe\n\nZwei Spieler setzen abwechselnd X und O. Tippe auf ein freies Feld. Drei gleiche Zeichen in einer Reihe, Spalte oder Diagonale gewinnen. Ein volles Feld ohne Gewinner ist unentschieden. Neustart beginnt eine neue Runde und behält den Punktestand.",0);
   return 1;
  }
+ if(in->kind!=INPUT_TAP)return 0;
  if(game.result||in->x<63||in->x>=537||in->y<241||in->y>=715)return 1;
  int col=(in->x-63)/160,row=(in->y-241)/160,i=row*3+col;
  if(col>2||row>2||game.cells[i])return 1;game.cells[i]=game.turn;

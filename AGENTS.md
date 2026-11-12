@@ -146,7 +146,7 @@ lumen/
   vendor/       clearly credited embedded third-party source
 ```
 
-All app identities use one catalog and installation contract. New apps are independent executable packages using Protocol 1, never another linked view. Read docs/app-packages.md first. Preserve existing IDs, state, navigation and package API compatibility. The independently built apps are identified by their app-folder package manifests. Other existing views retain linked compatibility implementations; they can be replaced by packages under the same ID, but their source migration is not complete. Be precise about that boundary. Process isolation is not a security sandbox.
+All app identities use one catalog and installation contract. New apps are independent executable packages using Protocol 1, never another linked view. Read docs/app-packages.md first. Preserve existing IDs, state, navigation and package API compatibility. The independently built apps are identified by their app-folder package manifests. All 52 active apps ship as standalone packages as of 6.0. Keep app views and navigation inside the package. Shared device, document, image, ink and preference services belong in the core. Preserve existing Notes and Settings data schemas used by Study and File Transfer. Use semantic actions for ordinary buttons and rows, and reserve raw coordinates for drawing, board cells and similar spatial input. Process isolation is not a security sandbox.
 
 Use `AppIntent` for navigation/data delivery: copied text, stable book IDs and
 value-based reading positions. Do not retain pointers to another app's temporary

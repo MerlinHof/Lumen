@@ -107,7 +107,7 @@ the app process. Package-owned grayscale PGM files can use `lumen_asset`.
 
 ## Existing app implementations
 
-Fifty independent apps ship with LUMEN 5.9. Their build manifests are the
+All 52 active apps ship as independent packages in LUMEN 6.0. Their build manifests are the
 `lumen/apps/*/package.json` files. Legacy views without manifests still run from
 the host and may be replaced by packages using the same stable identity.
 
@@ -127,7 +127,17 @@ event. It can return with `lumen_return`. The caller receives
 foreground process is reopened. Document handles and generic typed file
 references are outside this protocol revision.
 
-Use the `lumen_storage_*` helpers for package-owned files. Keyboard,
+Use the `lumen_storage_*` helpers for package-owned files. Version 6.0
+accepts relative subdirectories such as `drafts/note.txt`. Writes create missing
+parents and atomically replace the final file. Hidden components, traversal and
+symlinked directories are rejected by descriptor-relative access.
+
+`lumen_reader_file(title, path)` opens a UTF-8 Markdown file up to 128 KiB in
+Reader using a typed document reference. The runtime resolves the path under
+the calling package's private data directory. Inline Markdown and book-ID
+intents remain supported. `lumen_list_action` and `lumen_icon_action` route
+ordinary taps by component ID. The frame registers up to 64 semantic controls.
+Incoming events are parsed as JSON and limited to 65,535 bytes. Keyboard,
 Notifications and Status Bar have independent overlay processes. Core handles
 compositing and routes keyboard output through the shared text editor.
 

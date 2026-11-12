@@ -78,17 +78,14 @@ static pid_t job_pid16 = -1;
 static int ink_pending16(void), job_pending16(void);
 static void help_overlay16(void), companion_checkpoint16(void),
     companion_close16(void);
-static int u17_notes_depth(void), text_editable_hit(const Input *);
+static int text_editable_hit(const Input *);
 static void small_number17(int, int, const char *, int);
-static void u17_gray_icon(int, int);
 static void models_parse17(void), reader_markdown17(const char *, const char *, int);
 static void u17_game_manual(int, const char *, const char *);
 static int recipes_fetch17(const char *);
 static void recipes_search17(const char *), recipes_parse17(void), recipes_open_ready17(void);
-static void u17_notes_up(void), u17_sleep_row(int), u17_sleep_select(int);
-static void u17_choice(int, int), u17_notes_menu(int, int, int), checkbox(int, int, int),
+static void checkbox(int, int, int),
     select_row17(int, const char *, const char *);
-static int u17_commit(int, const char *), u17_input(const Input *), u17_draw(void);
 static int keyboard_multiline(void);
 static void u15_note_editor_touch(int,int);
 static void u15_note_scroll(int);
@@ -98,14 +95,14 @@ static int u16_apps_draw(void), u16_apps_input(const Input *), u16_jobs_tick(voi
 static void note_delete16(int);
 static int u16_input(const Input *), u16_draw(void), u16_commit(int, const char *), u16_tick(void);
 static void u16_dropdown(int, int), u16_notes_defaults(void);
-static int u15_input(const Input *), u15_draw(void);
+static int u15_input(const Input *);
 static int u15_commit(int, const char *);
 static int u15_note_page_count(void);
 static void u15_flush(void);
-static void u15_note_editor_draw(void), u15_note_editor_touch(int, int), u15_notes_action(int, int),
+static void u15_note_editor_draw(void), u15_note_editor_touch(int, int),
     u16_notes_defaults(void);
 static void u15_sources_prepare(const char *);
-static void u15_init(void), u15_note_overlay(void), u15_note_tools(void);
+static void u15_init(void), u15_note_overlay(void);
 static int store_complete(int done);
 static void store_restore(void);
 
@@ -166,11 +163,8 @@ static void overlays(void);
 void ui_feedback_draw(void);
 static void modal_input(const Input *in);
 static void refresh_library(void);
-static void settings_input(const Input *in);
 static const int lock_mode_ids[5];
 static void wifi_open(void);
-static void wifi_screen(void);
-static void wifi_input(const Input *in);
 static void settings_home(void);
 static void apps_init(void);
 static void apps_pause(void);
@@ -213,8 +207,6 @@ static void note_editor_touch(int x, int y);
 
 static void keyboard_insert(const char *s);
 static void keyboard_backspace(void);
-static void system_screen(void);
-static int system_input(const Input *in);
 static void new_apps_init(void);
 static void new_apps_open(int route);
 static void new_apps_save(void);
@@ -226,8 +218,7 @@ static int new_apps_tick(void);
 
 static void v1_init(void), v1_save(void), v1_open(int), v1_draw(void);
 static int v1_input(const Input *), v1_commit(int, const char *), v1_tick(void), v1_poll(void);
-static int v1_notes_input(const Input *), clipboard_input(const Input *);
-static void v1_notes_draw(void), v1_note_tools(void);
+static int clipboard_input(const Input *);
 static void clipboard_draw(void), v1_effect(void), v1_close(void);
 static int v1_sleep_photo(void);
 static void v1_note_created(int), v1_timer_started(void);
@@ -673,7 +664,6 @@ static void key_outline(int x, int y, int w, int h) {
 }
 static int can_back(void) {
     return (app_package_installed(app_for_route(ui_route())) && strstr(app_process_frame(),"\"back\":true")) || editor_ui.keyboard || dropdown || confirm_delete || battery_popup ||
-           (ui_route() == 29 && u17_notes_depth()) ||
            history_count || ui_route() != 131;
 }
 static void progress(int x, int y, int w, int n, int total) {
@@ -1161,7 +1151,6 @@ static int refresh_status(int force) {
     }
     return 0;
 }
-static void more_settings(void);
 #include "author_label.h"
 #include "document_surface.h"
 static int centered_lines(int x, int y, int width, const char *text, const Font *font, int limit) {
@@ -1265,8 +1254,7 @@ void ui_draw(void) {
     }
     if (ui_route() != 2)
         app_view_draw(APP_STATUS_BAR);
-    if (!u17_draw() && !u16_draw() && !u15_draw())
-        app_render();
+    app_render();
     help_overlay16();
     if (ui_route() == 79 || ui_route() == 125) {
         rect(250, 72, 266, 48, 255);
@@ -1405,17 +1393,12 @@ static int ui_dispatch_input(const Input *in) {
                      (ui_route() != 2 || reader_ui.reader_chrome || app_package_installed(APP_READER));
     int system_pager = !sleeping && !editor_ui.keyboard && !dropdown && !confirm_delete &&
                        pagination_hit(in);
-    int update17 = (status_tap || system_pager || app_package_installed(app_for_route(ui_route()))) ? -1 : u17_input(in);
-    if (update17 >= 0) {
-        pressed = -1;
-        return update17;
-    }
     int update16 = (status_tap || system_pager || app_package_installed(app_for_route(ui_route()))) ? -1 : u16_input(in);
     if (update16 >= 0) {
         pressed = -1;
         return update16;
     }
-    int update15 = (status_tap || system_pager || app_package_installed(app_for_route(ui_route()))) ? -1 : u15_input(in);
+    int update15 = (status_tap || system_pager) ? -1 : u15_input(in);
     if (update15 >= 0) {
         pressed = -1;
         return update15;
@@ -1560,15 +1543,16 @@ static int ui_dispatch_input(const Input *in) {
         editor_ui.cursor_epoch = extra_millis();
     }
     if (in->kind == INPUT_STATUS) {
-        if (ui_route() == 12 && wifi_ui.wifi_enabled) {
+        if (app_for_route(ui_route())==APP_SETTINGS && wifi_ui.wifi_enabled) {
             char old[128];
             snprintf(old, sizeof(old), "%s", wifi_ui.wifi_ssid);
             network_status(wifi_ui.wifi_ssid, sizeof(wifi_ui.wifi_ssid));
             if (wifi_ui.wifi_scanning || strcmp(old, wifi_ui.wifi_ssid))
                 network_results();
             wifi_ui.wifi_scanning = 0;
+            app_process_send("{\"event\":\"refresh\"}");
         }
-        return ui_route() == 12 ? 1 : 2;
+        return app_for_route(ui_route())==APP_SETTINGS ? 1 : 2;
     }
     if (in->kind == INPUT_NETWORK) {
         char books[2048];
@@ -1737,10 +1721,6 @@ static int ui_dispatch_input(const Input *in) {
     if (in->kind == INPUT_TAP && y < STATUS_HEIGHT && (ui_route() != 2 || reader_ui.reader_chrome || app_package_installed(APP_READER))) {
         if (x < 62 && ui_route() == 3 && !editor_ui.keyboard && !dropdown && !confirm_delete)
             apply_reading_settings();
-        if (x < 62 && !app_package_installed(APP_NOTES) && ui_route() == 29 && u17_notes_depth() && !editor_ui.keyboard && !dropdown) {
-            u17_notes_up();
-            return 1;
-        }
         if(x<62 && app_package_installed(app_for_route(ui_route())) && strstr(app_process_frame(),"\"back\":true") && !editor_ui.keyboard && !dropdown){app_process_send("{\"event\":\"back\"}");return 2;}
         if (x < 62 && can_back()) {
             apps_pause();
@@ -1776,8 +1756,9 @@ static int ui_dispatch_input(const Input *in) {
             if (history_count < 64)
                 history[history_count++] = ui_route();
             apps_pause();
-            route_to(12);
-            wifi_open();
+            AppIntent wifi={.app=APP_SETTINGS,.kind=INTENT_SETTINGS,.section=12};
+            if(history_count)history_count--;
+            app_send(&wifi);
             return 1;
         }
     }
@@ -1982,9 +1963,7 @@ static void modal_input(const Input *in) {
             }
             if(drop_target==2001){package_ui_choice(choice);}
             else if(drop_target==2004){launcher_delete_confirm(choice);}
-            if(0) {            } else if (drop_target >= 931 && drop_target <= 950) {
-                u17_choice(drop_target, choice);
-            } else if (drop_target >= 910 && drop_target <= 930) {
+            else if (drop_target >= 910 && drop_target <= 930) {
                 u16_dropdown(drop_target, choice);
             } else if (drop_target == 900) {
                 settings.sort = choice;
@@ -2020,7 +1999,6 @@ static void modal_input(const Input *in) {
     }
 }
 #include "../../apps/settings/preferences.h"
-#include "../../apps/settings/options.h"
 #include "../../apps/store/view.h"
 #include "../../apps/wifi/app.h"
 int ui_poll_interval(void) {
@@ -2201,33 +2179,34 @@ static int app_send(const AppIntent *intent) {
         history[history_count++] = old;
     if(app_package_installed(intent->app)){
         int ok=app_process_open(intent->app);char*event=NULL;size_t n=0;FILE*f=open_memstream(&event,&n);
-        fprintf(f,"{\"event\":\"intent\",\"kind\":%d,\"object\":%llu,\"text\":",intent->kind,(unsigned long long)intent->object_id);json_escape16(f,intent->text);if(intent->kind==INTENT_SEARCH)fputs(",\"operation\":\"search\"",f);else if(intent->app==APP_TIMER && *intent->text){fputs(",\"operation\":",f);json_escape16(f,intent->text);}fputc('}',f);fclose(f);if(ok)app_process_send(event);free(event);return ok;
+        fprintf(f,"{\"event\":\"intent\",\"kind\":%d,\"object\":%llu,\"text\":",intent->kind,(unsigned long long)intent->object_id);json_escape16(f,intent->text);if(intent->kind==INTENT_SEARCH)fputs(",\"operation\":\"search\"",f);else if(intent->app==APP_SETTINGS && intent->kind==INTENT_SETTINGS) {
+            int section=intent->section==12 ? 1 : intent->section==9 ? 2 : intent->section==39 ? 3 :
+                intent->section==83 ? 4 : intent->section==40 ? 5 : 0;
+            fprintf(f,",\"operation\":\"settings-section\",\"section\":%d",section);
+        } else if(intent->app==APP_NOTES && intent->object_id && intent->object_id<=INT_MAX) {
+            fprintf(f,",\"operation\":\"note-open\",\"note_id\":%d",(int)intent->object_id);
+        } else if(intent->app==APP_TIMER && *intent->text){fputs(",\"operation\":",f);json_escape16(f,intent->text);}fputc('}',f);fclose(f);if(ok)app_process_send(event);free(event);return ok;
     }
     app_process_pause();
-    if (intent->app == APP_LIBRARY) {
-        if (library_ui.library_dirty) refresh_library();
-        snprintf(library_ui.query, sizeof(library_ui.query), "%s",
-                 intent->kind == INTENT_SEARCH ? runtime.intent.text : "");
-        library_ui.listpage = 0;
-        update_view();
-    } else if (intent->app == APP_SETTINGS && intent->kind == INTENT_SETTINGS) {
-        if (app_route_valid(intent->section) && app_for_route(intent->section) == APP_SETTINGS)
-            route_to(intent->section);
-        if (ui_route() == 12)
-            wifi_open();
-        if (ui_route() == 40)
-            storage_scan();
-        if (ui_route() == 39)
-            extra_prepare(39);
-    } else if (app_definition(intent->app)->entry >= 27)
-        extra_prepare(ui_route());
-    if (intent->app == APP_NOTES && intent->object_id) {
-        note_load((int)intent->object_id);
-        route_to(30);
+    return 0;
+}
+
+static void app_render(void) {
+    heading(app_definition(app_for_route(ui_route()))->name);
+    wrapped(28,175,"App-Paket fehlt.",ui_font(UI_BODY),544,2);
+}
+static int app_handle_input(const Input *in) {
+    if(ui_route()==131 && in->kind==INPUT_TAP && in->x>=28 && in->x<572) {
+        if(in->y>=280 && in->y<328) {
+            AppIntent intent={.app=APP_SETTINGS,.kind=INTENT_OPEN};
+            app_send(&intent);
+        } else if(in->y>=345 && in->y<393) {
+            AppIntent intent={.app=APP_FILE_TRANSFER,.kind=INTENT_OPEN};
+            app_send(&intent);
+        }
     }
     return 1;
 }
-#include "../../apps/host/dispatch.h"
 
 void ui_feedback_draw(void) {
     if (pressed < 0 || pressed >= widget_count)

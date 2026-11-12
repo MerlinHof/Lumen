@@ -25,7 +25,7 @@ static void progress_bar(int x,int y,int w,int n,int max) {
         ui_paint_surface(x,y,fill,5,2,0,0);
     }
 }
-static void stat(int x,int y,const char *label,const char *value) {
+static void metric(int x,int y,const char *label,const char *value) {
     ui_paint_surface(x,y,260,108,10,255,115);
     text(x+15,y+10,230,label,PAINT_SECONDARY);
     text(x+15,y+48,230,value,PAINT_TITLE);
@@ -40,13 +40,13 @@ static void overview(void) {
     for(int i=0;i<7;i++){week+=seconds[i]/60;goals+=seconds[i]>=(unsigned)goal*60;}
     char line[180];
     snprintf(line,sizeof(line),"%u / %d min",mins,goal);
-    stat(28,196,word("Heute","Today","Aujourd’hui"),line);
+    metric(28,196,word("Heute","Today","Aujourd’hui"),line);
     snprintf(line,sizeof(line),"%d %s",streak,word("Tage","days","jours"));
-    stat(312,196,word("Leseserie","Reading streak","Série de lecture"),line);
+    metric(312,196,word("Leseserie","Reading streak","Série de lecture"),line);
     snprintf(line,sizeof(line),"%u h %02u m",total/3600,total/60%60);
-    stat(28,326,word("Lesezeit","Time spent reading","Temps de lecture"),line);
+    metric(28,326,word("Lesezeit","Time spent reading","Temps de lecture"),line);
     snprintf(line,sizeof(line),"%u",sessions);
-    stat(312,326,word("Lesesitzungen","Reading sessions","Séances de lecture"),line);
+    metric(312,326,word("Lesesitzungen","Reading sessions","Séances de lecture"),line);
     progress_bar(28,456,544,(int)mins,goal);
     text(30,488,330,word("Mein Tagesziel","My daily goal","Mon objectif quotidien"),PAINT_BODY);
     lumen_button(390,484,182,44,word("Ändern","Change","Modifier"),0);

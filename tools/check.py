@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Run the focused current checks, or add --http for a local transfer test."""
-import argparse,os,subprocess,sys,shutil
+import argparse,os,subprocess,sys,shutil,tempfile
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 import build
@@ -22,6 +22,10 @@ def run(http=False,native_only=False):
     shutil.rmtree(OUT/'apps',ignore_errors=True)
     binary=compile_test('integration','tools/tests/test_integration.c',True);subprocess.run([str(binary)],check=True)
     binary=compile_test('fresh-settings','tools/tests/test_fresh_settings.c');subprocess.run([str(binary)],check=True)
+    sdk=OUT/'sdk'
+    subprocess.run(['clang','-O1','-g','-fsanitize=address,undefined','tools/tests/test_sdk.c','-o',str(sdk)],check=True)
+    with tempfile.TemporaryDirectory(dir=OUT) as data:
+        subprocess.run([str(sdk),data],check=True)
     refresh=OUT/'refresh'
     subprocess.run(['clang','-O1','-fsanitize=address,undefined','tools/tests/test_refresh.c','-o',str(refresh)],check=True)
     subprocess.run([str(refresh)],check=True)

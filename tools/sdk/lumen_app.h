@@ -27,10 +27,20 @@ static void lumen_json(const char *s) {
  }
  putchar('"');
 }
-static int lumen_number(const char*key){char needle[80];snprintf(needle,sizeof(needle),"\"%s\":",key);const char*p=strstr(lumen_event,needle);return p?atoi(p+strlen(needle)):0;}
-static int lumen_string(const char*key,char*out,size_t cap){char needle[80];snprintf(needle,sizeof(needle),"\"%s\":",key);const char*p=strstr(lumen_event,needle);size_t n=0;if(!cap)return 0;out[0]=0;if(!p)return 0;p+=strlen(needle);while(*p==' ')p++;if(*p++!='"')return 0;while(*p&&*p!='"'&&n+1<cap){unsigned char c=*p++;if(c=='\\'){c=*p++;if(c=='n')c='\n';else if(c=='r')c='\r';else if(c=='t')c='\t';else if(c=='u'){unsigned value=0;if(sscanf(p,"%4x",&value)!=1)return 0;p+=4;if(value<128)c=value;else if(value<2048){if(n+2>=cap)break;out[n++]=0xc0|(value>>6);c=0x80|(value&63);}else{if(n+3>=cap)break;out[n++]=0xe0|(value>>12);out[n++]=0x80|((value>>6)&63);c=0x80|(value&63);}}}out[n++]=c;}out[n]=0;return 1;}
-static int lumen_next(void){if(!fgets(lumen_event,sizeof(lumen_event),stdin))return 0;return 1;}
-static int lumen_is(const char*event){char b[80];snprintf(b,sizeof(b),"\"event\":\"%s\"",event);return strstr(lumen_event,b)!=NULL;}
+#include "lumen_wire.h"
+static int lumen_next(void) {
+ while(fgets(lumen_event,sizeof(lumen_event),stdin)) {
+     if(!strchr(lumen_event,'\n') && !feof(stdin)) {
+         int c;while((c=getchar())!=EOF && c!='\n'){}
+         continue;
+     }
+     if(wire_read(lumen_event))return 1;
+ }
+ wire_count=0;return 0;
+}
+static int lumen_is(const char *event) {
+ char name[48];return lumen_string("event",name,sizeof(name)) && !strcmp(name,event);
+}
 static void lumen_begin(void){lumen_first=1;lumen_frame_tick=0;printf("{\"back\":%s,\"ui\":[",lumen_back?"true":"false");}
 static void lumen_end(void){printf("],\"tick\":%d,\"fullscreen\":%d,\"ready\":%s}\n",lumen_frame_tick,lumen_fullscreen,lumen_ready ? "true" : "false");fflush(stdout);}
 static void lumen_schedule(int milliseconds){lumen_frame_tick=milliseconds;}
@@ -55,6 +65,17 @@ static void lumen_mono(int x,int y,int w,int h,const char*s,int gray) {
 static void lumen_mono_columns(int x,int y,int w,int h,const char*s,int gray,int advance) {
  lumen_cmd("mono",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(s);
  printf(",\"ink\":%d,\"advance\":%d}",gray,advance);
+}
+static void lumen_list_action(const char *id,int y,int height,const char *title,const char *detail,int icon) {
+ lumen_cmd("list_action",28,y,544,height);
+ fputs(",\"id\":",stdout);lumen_json(id);
+ fputs(",\"text\":",stdout);lumen_json(title);
+ fputs(",\"detail\":",stdout);lumen_json(detail);
+ printf(",\"icon\":%d}",icon);
+}
+static void lumen_icon_action(const char *id,int x,int y,int icon) {
+ lumen_cmd("icon_action",x,y,44,44);fputs(",\"id\":",stdout);lumen_json(id);
+ printf(",\"icon\":%d}",icon);
 }
 static void ui_paint_icon_button(int x,int y,int icon){lumen_cmd("icon",x,y,44,44);printf(",\"icon\":%d}",icon);}
 static void ui_paint_hitbox(int x,int y,int w,int h){lumen_cmd("hit",x,y,w,h);putchar('}');}
@@ -98,40 +119,7 @@ static int lumen_storage_path(const char *name,char *path,size_t capacity) {
  int written=snprintf(path,capacity,"%s/%s",root,name);
  return written>0 && (size_t)written<capacity;
 }
-static int lumen_storage_write(const char *name,const void *bytes,size_t size) {
- char path[2048],temporary[2080];
- if(!lumen_storage_path(name,path,sizeof(path)))return 0;
- snprintf(temporary,sizeof(temporary),"%s.new.XXXXXX",path);
- int fd=mkstemp(temporary);
- if(fd<0)return 0;
- FILE *file=fdopen(fd,"wb");
- int ok=0;
- if(file) {
-     ok=fwrite(bytes,1,size,file)==size && !fflush(file) && !fsync(fd);
-     if(fclose(file))ok=0;
- } else close(fd);
- if(ok)ok=!rename(temporary,path);
- if(!ok)unlink(temporary);
- return ok;
-}
-static int lumen_storage_read(const char *name,void *bytes,size_t capacity,size_t *actual) {
- char path[2048];
- if(actual)*actual=0;
- if(!lumen_storage_path(name,path,sizeof(path)))return 0;
- int fd=open(path,O_RDONLY|O_NOFOLLOW);
- if(fd<0)return 0;
- FILE *file=fdopen(fd,"rb");
- if(!file){close(fd);return 0;}
- size_t count=fread(bytes,1,capacity,file);
- int ok=fgetc(file)==EOF && !ferror(file);
- fclose(file);
- if(ok && actual)*actual=count;
- return ok;
-}
-static int lumen_storage_delete(const char *name) {
- char path[2048];
- return lumen_storage_path(name,path,sizeof(path)) && !unlink(path);
-}
+#include "lumen_storage.h"
 static int app_state_save(const char *name,const void *bytes,size_t size) {
  return lumen_storage_write(name,bytes,size);
 }
@@ -163,8 +151,14 @@ static void lumen_service(const char *name,const char *operation,const char *dat
  fputs(",\"operation\":",stdout);lumen_json(operation);
  fputs(",\"text\":",stdout);lumen_json(data);printf(",\"action\":%d}\n",action);fflush(stdout);
 }
+static void lumen_app_icon(int x,int y,int size,const char *key) {
+ lumen_cmd("app_icon",x,y,size,size);fputs(",\"text\":",stdout);lumen_json(key);putchar('}');
+}
 static void lumen_app_tile(int x,int y,int width,const char *id) {
  lumen_cmd("app_tile",x,y,width,110);fputs(",\"text\":",stdout);lumen_json(id);putchar('}');
+}
+static void lumen_note_surface(void) {
+ lumen_cmd("note_surface",0,56,600,688);putchar('}');
 }
 static void lumen_document_page(int chrome) {
  lumen_cmd("document_page",0,56,600,680);printf(",\"chrome\":%d}",chrome);
@@ -276,6 +270,13 @@ static void lumen_call(const char *app,const char *operation,const char *data,in
 static void lumen_return(int request_id,int success,const char *data) {
  printf("{\"request\":\"intent_return\",\"request_id\":%d,\"ok\":%d,\"text\":",request_id,!!success);
  lumen_json(data);puts("}");fflush(stdout);
+}
+/* Pass a Markdown document by reference, scoped to this app's private data. */
+static void lumen_reader_file(const char *title,const char *path) {
+ fputs("{\"request\":\"intent\",\"app\":\"lumen.reader\",\"operation\":\"open_file\",\"title\":",stdout);
+ lumen_json(title);
+ fputs(",\"document\":{\"type\":\"markdown\",\"path\":",stdout);lumen_json(path);
+ puts("}}");fflush(stdout);
 }
 static void lumen_open(const char*id){fputs("{\"request\":\"open\",\"app\":",stdout);lumen_json(id);puts("}");fflush(stdout);}
 static void lumen_run(void(*draw)(void),int(*input)(const Input*),void(*save)(void)) {

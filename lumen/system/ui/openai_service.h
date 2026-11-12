@@ -17,12 +17,6 @@ static int package_openai(const char *operation,const char *data,int action) {
         if(!ok)llm_pending_id[0]=0;
         return package_acknowledge(action,ok);
     }
-    if(!strcmp(operation,"reader")) {
-        char *body=llm_private_read("reader.md",131072);
-        if(!body)return package_acknowledge(action,0);
-        reader_markdown17(*data ? data : "OpenAI",body,ui_route());
-        free(body);return 1;
-    }
     if(strcmp(operation,"state") && strcmp(operation,"models"))return 0;
     char *message=NULL;size_t length=0;
     FILE *out=package_reply(&message,&length,action,1);

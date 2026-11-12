@@ -16,8 +16,6 @@ static void u16_dropdown(int target, int choice) {
     }
 }
 static int u16_commit(int target, const char *text) {
-    if (u17_commit(target, text))
-        return 1;
     return 0;
 }
 static int u16_draw(void) {

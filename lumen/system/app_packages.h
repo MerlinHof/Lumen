@@ -20,6 +20,7 @@ int app_process_open(AppId id);
 void app_process_pause(void);
 void app_process_close(void);
 int app_process_poll(void);
+int app_process_owner(void);
 int app_process_fd(void);
 int app_process_pending(void);
 void app_process_flush(void);

@@ -97,8 +97,13 @@ Reader now run as standalone packages. This brings the total to **50 packaged /
 surfaces, measured text cursors, mathematical formula layout, fullscreen
 presentation, arc drawing, display typography and masked input.
 
-The 6.0 release gate requires coverage of the remaining linked identities,
-Notes and Settings, before it produces either installer.
+## Complete in 6.0
+
+Notes and Settings now run in their own processes. Notes retains the existing
+shared notes, folder and ink files so the editor, Study and web export see the
+same documents. Settings uses the same saved preferences and device services.
+The foreground fallback displays a missing-package message. The installer
+requires all 52 active app identities.
 
 ## Completion checks
 

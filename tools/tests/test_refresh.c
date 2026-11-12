@@ -23,20 +23,21 @@ int main(void) {
     clear_frames();
     after[20*W+58]=0;
     RefreshPlan header=plan(0);
+    assert(header.waveform==REFRESH_GC16);
     assert(header.area.top==0 && header.area.left==0 && header.area.right==W && header.area.bottom==BAR);
     clear_frames();
     after[0]=0;after[W*H-1]=0;
-    assert(plan(0).waveform==REFRESH_GL16);
+    assert(plan(0).waveform==REFRESH_GC16);
     clear_frames();
     for(int y=0;y<780;y+=24)for(int x=0;x<588;x+=12)
         for(int j=0;j<10;j++)for(int i=0;i<3;i++) {
             before[(y+j)*W+x+i]=0;
             after[(y+j+2)*W+x+i+3]=0;
         }
-    assert(plan(0).waveform==REFRESH_GL16);
+    assert(plan(0).waveform==REFRESH_GC16);
     clear_frames();
     memset(after,40,sizeof(after));
-    assert(plan(0).waveform==REFRESH_GC16);
+    assert(plan(0).waveform==REFRESH_CLEAR);
     memset(before,40,sizeof(before));memset(after,255,sizeof(after));
     assert(plan(0).waveform==REFRESH_CLEAR);
     for(int y=0;y<H;y++)for(int x=0;x<W;x++) {

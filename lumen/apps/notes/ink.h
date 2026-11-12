@@ -1,3 +1,23 @@
+static const char *note_next_line(const char *p, int width) {
+    const char *q = p, *space = NULL;
+    int w = 0;
+    while (*q && *q != '\n') {
+        const char *old = q;
+        unsigned c = glyph(&q);
+        if (w + glyph_advance(ui_font(UI_BODY), c) > width) {
+            q = space && space > p ? space : old;
+            break;
+        }
+        w += glyph_advance(ui_font(UI_BODY), c);
+        if (c == ' ')
+            space = q;
+    }
+    if (q == p && *q && *q != '\n')
+        glyph(&q);
+    if (*q == '\n')
+        q++;
+    return q;
+}
 /* App-owned module; assembled by apps/host/compose.h. */
 static int folder15_index(int id) {
     for (int i = 0; i < note_tree.nf; i++)
@@ -116,10 +136,6 @@ static void u15_note_editor_touch(int x, int y) {
     }
     editor_ui.note_cursor = p - editor_ui.edit;
 }
-static void u15_note_tools(void) {
-    icon_button(470, 54, IC_EDIT);
-    icon_button(532, 54, IC_MARKDOWN);
-}
 static void u15_export_photo(void);
 static void u15_note_overlay(void) {
     ink_load();
@@ -148,16 +164,6 @@ static void u15_note_overlay(void) {
             if(v<ui_pixels[(y+54)*600+x])ui_pixels[(y+54)*600+x]=v;
         }
     }
-    if (note_ink_mode) {
-        rect(0, 54, 600, 54, 255);
-        icon_button(10, 58, IC_BACK);
-        button_h(70, 58, 100, 44, ink_eraser ? "Radierer" : "Stift", ink_eraser);
-        button_h(180, 58, 80, 44, ink_width == 3 ? "Fein" : "Breit", 0);
-        icon_button(280, 58, IC_UNDO);
-        region(518, 58, 64, 44);
-        engraved_app_icon(528,58,MANAGE_ICON_SIDE,APP_PHOTOS);
-    } else
-        u15_note_tools();
 }
 static void ink_stamp(float x, float y) {
     y -= 54;

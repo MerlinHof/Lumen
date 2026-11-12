@@ -104,6 +104,8 @@ static int package_equivalent(const char *data,int action) {
 #include "openai_service.h"
 #include "photo_service.h"
 #include "document_service.h"
+#include "notes_service.h"
+#include "settings_service.h"
 static int editor_caret_service(const char *data,int action) {
     int x,cursor,offset=0;
     if(sscanf(data,"%d %d %n",&x,&cursor,&offset)!=2 || !offset || strlen(data+offset)>1023)
@@ -138,6 +140,8 @@ static int package_service_request(const char *name,const char *operation,const 
         if(!strcmp(operation,"start_timer"))return package_start_timer(data,action);
         return package_clock_service(operation,data,action);
     }
+    if(!strcmp(name,"settings"))return package_settings(operation,data,action);
+    if(!strcmp(name,"notes") && strcmp(operation,"create_learning"))return package_notes(operation,data,action);
     if(!strcmp(name,"document"))return package_document(operation,data,action);
     if(!strcmp(name,"photos"))return package_photos(operation,data,action);
     if(!strcmp(name,"openai"))return package_openai(operation,data,action);

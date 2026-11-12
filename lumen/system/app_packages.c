@@ -250,6 +250,7 @@ static int process_poll(AppProcess *p) {
 void app_process_close(void){process_close(&foreground);for(int i=0;i<APP_OVERLAY_COUNT;i++)process_close(&overlays[i]);}
 void app_process_pause(void){process_pause(&foreground);}
 int app_process_open(AppId id){return process_open(&foreground,id,"foreground");}
+int app_process_owner(void){return foreground.active;}
 int app_process_fd(void){return foreground.read_fd;}
 int app_overlay_fd(int slot){return slot>=0 && slot<APP_OVERLAY_COUNT ? overlays[slot].read_fd : -1;}
 int app_process_pending(void){

@@ -226,7 +226,7 @@ static int input(const Input *in) {
             if((message_clipped[r] || strlen(chat_messages[i].text)>460) && x>=left && x<left+44 &&
                y>=message_y[r] && y<message_y[r]+44 &&
                lumen_storage_write("reader.md",chat_messages[i].text,strlen(chat_messages[i].text)))
-                request("reader",chat_title,6);
+                lumen_reader_file(chat_title,"reader.md");
         }
     }
     return 1;

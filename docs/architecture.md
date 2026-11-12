@@ -25,18 +25,13 @@ linking is required. App replacement is a directory transaction and does not
 restart LUMEN. Crashes are confined to the app process; this is not a filesystem
 security sandbox. Native packages must be trusted.
 
-Fifty standalone packages ship from their individual app folders. Keyboard,
+All 52 active apps ship from their individual package folders. Keyboard,
 Notifications, Status Bar and Lock Screen run in separate overlay processes.
-Reader owns its controls and navigation, while the document engine provides
-page rendering, position and selection.
+Reader and Notes own their controls and navigation. Shared document services
+supply rendering, editable text, ink and export. Settings owns its screens
+and accesses Wi-Fi, updates and preferences through device services.
 
 [App-by-app migration inventory and SDK dependencies](app-migration.md)
-
-### Remaining linked apps in 5.9
-
-Notes and Settings still use linked compatibility views. Their stable
-identities are retained. The 6.0 installer gate requires a standalone package
-for every active identity.
 
 ## Shared system services
 
@@ -56,8 +51,7 @@ The Reader uses a preferences snapshot and reflows only on changes. CommonMark
 and GFM use the pinned cmark-gfm implementation. Image contrast and sampling are
 shared. Cover resampling has a bounded RAM cache and no new persistent copies.
 
-Kindle and emulator use the same refresh planner. It selects DU, GL16 or GC16
-from screen coverage, change intensity and old ink removal. Firmware
+Kindle and emulator use the same refresh planner. It applies the 5.4 coverage and waveform rules to the shared dirty-region planner. The status strip uses GC16. Firmware
 power, Wi-Fi, USB and app-manager services remain available.
 
 ## Complete system updates

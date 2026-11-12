@@ -1,5 +1,7 @@
 # Changelog
 
+- [6.0](releases/6.0.md) · All 52 apps packaged, SDK hardening and restored 5.4 waveform policy.
+
 - [5.9](releases/5.9.md) · Nine more standalone apps, including Reader, Library and Calculator.
 
 - [5.8](releases/5.8.md) · Independent Planetarium and Wikipedia, with batched point rendering.
