@@ -2,15 +2,8 @@
 /* Offline experimental apps. All timers stop off-screen and during sleep. */
 #include <stdint.h>
 #include <sys/stat.h>
-typedef struct {
-    int date;
-    unsigned seconds, pages;
-} ReadingDay;
-typedef struct {
-    unsigned magic, version, seconds, pages, best_snake, best_blocks, mines_wins, word_wins;
-    ReadingDay days[31];
-} AppData;
-static AppData app_data;
+#include "../../../tools/sdk/lumen_reading_activity.h"
+static ReadingActivityV1 app_data;
 static int apps_dirty;
 static int64_t app_last_time;
 static int64_t app_millis(void) {

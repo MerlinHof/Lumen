@@ -18,13 +18,20 @@ static void search(void) {
 }
 static void draw(void) {
     ui_paint_heading("Wikipedia",1);
-    ui_paint_icon_button(528,74,IC_SEARCH);
+    lumen_icon_action("search",528,74,IC_SEARCH);
     for(int i=0;i<7 && page*7+i<count;i++) {
         int y=151+i*78;
-        ui_paint_hitbox(28,y,484,78);
+        char action[20];
+        if(!*deleting && !busy) {
+            snprintf(action,sizeof(action),"open-%d",i);
+            lumen_custom_action(action,28,y,484,78);
+        }
         lumen_text(36,y+10,465,34,rows[i].title,PAINT_BODY,-1,1);
         lumen_text(36,y+44,465,24,rows[i].date,PAINT_SECONDARY,-1,1);
-        ui_paint_icon_button(522,y+17,IC_TRASH);
+        if(!*deleting && !busy) {
+            snprintf(action,sizeof(action),"delete-%d",i);
+            lumen_icon_action(action,522,y+17,IC_TRASH);
+        }
         ui_paint_line(28,y+77,572,y+77,1,190);
     }
     if(!count)
@@ -37,8 +44,8 @@ static void draw(void) {
             word("Artikel wird geladen …","Loading article…","Chargement de l’article…") :
             word("Artikel löschen?","Delete article?","Supprimer l’article ?"),PAINT_HEADING);
         if(!busy) {
-            lumen_button(48,400,240,54,word("Abbrechen","Cancel","Annuler"),0);
-            lumen_button(312,400,240,54,word("Löschen","Delete","Supprimer"),1);
+            lumen_button_action("cancel",48,400,240,54,word("Abbrechen","Cancel","Annuler"),0);
+            lumen_button_action("confirm",312,400,240,54,word("Löschen","Delete","Supprimer"),1);
         }
     } else lumen_pager(746,page,(count+6)/7);
 }
@@ -70,19 +77,22 @@ static int input(const Input *in) {
         } else if(in->x==4)list();
         return 1;
     }
-    if(in->kind!=INPUT_TAP || busy)return 0;
-    int x=in->x,y=in->y;
+    char id[24],gesture[24];
+    if(in->kind!=INPUT_COMPONENT || busy || !lumen_string("id",id,sizeof(id)) ||
+       !lumen_string("gesture",gesture,sizeof(gesture)) || strcmp(gesture,"clicked"))return 0;
     if(*deleting) {
-        if(y>=400 && y<454) {
-            if(x>=312 && x<552)lumen_service("wikipedia","remove",deleting,4);
-            deleting[0]=0;lumen_back=0;
-        }
-    } else if(x>=528 && x<572 && y>=74 && y<118) {
+        if(!strcmp(id,"confirm"))lumen_service("wikipedia","remove",deleting,4);
+        if(!strcmp(id,"confirm") || !strcmp(id,"cancel")){deleting[0]=0;lumen_back=0;}
+    } else if(!strcmp(id,"search")) {
         lumen_request("input",word("Wikipedia durchsuchen","Search Wikipedia","Rechercher dans Wikipédia"),query,1);
-    } else if(x>=28 && x<572 && y>=151 && y<697) {
-        int row=(y-151)/78;
+    } else {
+        int remove=!strncmp(id,"delete-",7);
+        if(!remove && strncmp(id,"open-",5))return 0;
+        const char *number=id+(remove ? 7 : 5);
+        if(strlen(number)!=1 || *number<'0' || *number>'6')return 0;
+        int row=*number-'0';
         if(page*7+row<count && *rows[row].id) {
-            if(x>=522) {
+            if(remove) {
                 snprintf(deleting,sizeof(deleting),"%s",rows[row].id);
                 lumen_back=1;
             } else {

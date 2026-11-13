@@ -21,7 +21,8 @@ static void draw(void) {
     }
     for(int i=0;i<PER_PAGE && page*PER_PAGE+i<count;i++) {
         int y=FIRST+i*ROW_HEIGHT;
-        ui_paint_hitbox(28,y,544,ROW_HEIGHT-10);
+        char id[12];snprintf(id,sizeof(id),"quote-%d",i);
+        lumen_custom_action(id,28,y,544,ROW_HEIGHT-10);
         lumen_wrapped(34,y,532,95,quotes[i],PAINT_BODY,3);
         lumen_text(34,y+94,532,29,books[i],PAINT_SECONDARY,95,1);
         ui_paint_line(28,y+ROW_HEIGHT-6,572,y+ROW_HEIGHT-6,1,190);
@@ -39,8 +40,12 @@ static int input(const Input *in) {
             snprintf(key,sizeof(key),"book%d",i);lumen_string(key,books[i],sizeof(books[i]));
             snprintf(key,sizeof(key),"ref%d",i);lumen_string(key,references[i],sizeof(references[i]));
         }
-    } else if(in->kind==INPUT_TAP && in->x>=28 && in->x<572 && in->y>=FIRST && in->y<FIRST+PER_PAGE*ROW_HEIGHT) {
-        int row=(in->y-FIRST)/ROW_HEIGHT;
+    } else if(in->kind==INPUT_COMPONENT) {
+        char id[16],gesture[16];
+        if(!lumen_string("id",id,sizeof(id)) || !lumen_string("gesture",gesture,sizeof(gesture)) ||
+           strcmp(gesture,"clicked") || strlen(id)!=7 || strncmp(id,"quote-",6) ||
+           id[6]<'0' || id[6]>='0'+PER_PAGE)return 0;
+        int row=id[6]-'0';
         int index=page*PER_PAGE+row;
         if(loaded && index<count && *references[row])
             lumen_service("annotations","open",references[row],2);

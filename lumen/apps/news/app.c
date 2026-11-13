@@ -16,7 +16,7 @@ static void date_label(char *out,size_t size,int value,const char *suffix) {
 }
 static void draw(void) {
     ui_paint_heading("News",1);
-    ui_paint_icon_button(528,74,IC_SEARCH);
+    lumen_icon_action("search",528,74,IC_SEARCH);
     const char *headline=word("Kuratierte Ausgaben","Curated editions","Éditions sélectionnées");
     char edition[64];
     if(articles) {
@@ -28,7 +28,8 @@ static void draw(void) {
     int top=articles ? 169 : 181, height=articles ? 110 : 75, per_page=articles ? 5 : 7;
     for(int i=0;i<per_page && page*per_page+i<count;i++) {
         int y=top+i*height;
-        ui_paint_hitbox(28,y,544,height);
+        char id[16];snprintf(id,sizeof(id),"entry-%d",i);
+        if(!busy)lumen_custom_action(id,28,y,544,height);
         if(articles) {
             lumen_wrapped(36,y+9,522,66,rows[i].title,PAINT_BODY,2);
             lumen_text(36,y+75,522,25,rows[i].detail,PAINT_SECONDARY,-1,1);
@@ -75,14 +76,16 @@ static int input(const Input *in) {
         } else if(in->x==3 || in->x==4)list();
         return 1;
     }
-    if(in->kind!=INPUT_TAP)return 0;
-    if(in->x>=528 && in->x<572 && in->y>=74 && in->y<118) {
+    char id[24],gesture[24];
+    if(in->kind!=INPUT_COMPONENT || !lumen_string("id",id,sizeof(id)) ||
+       !lumen_string("gesture",gesture,sizeof(gesture)) || strcmp(gesture,"clicked"))return 0;
+    if(!strcmp(id,"search")) {
         lumen_request("input",word("News suchen","Search news","Rechercher des actualités"),query,1);
         return 1;
     }
-    int top=articles ? 169 : 181,height=articles ? 110 : 75,per_page=articles ? 5 : 7;
-    if(in->x>=28 && in->x<572 && in->y>=top && in->y<top+height*per_page) {
-        int row=(in->y-top)/height;
+    int per_page=articles ? 5 : 7;
+    if(!busy && strlen(id)==7 && !strncmp(id,"entry-",6) && id[6]>='0' && id[6]<'0'+per_page) {
+        int row=id[6]-'0';
         if(page*per_page+row<count && *rows[row].id) {
             if(!articles)show_articles("edition",rows[row].id);
             else if(!busy){busy=1;lumen_service("news","open",rows[row].id,4);}

@@ -1,4 +1,5 @@
 #include "lumen_app.h"
+#include "lumen_reading_activity.h"
 
 enum { DAY, WEEK, MONTH, YEAR, NOTE_ACTION=1, JUMP_ACTION, DELETE_ACTION };
 static struct tm date;
@@ -6,7 +7,7 @@ static int view=MONTH,today;
 static char note[512];
 static unsigned char marks[12][32];
 static int marked_year=-1,activity_month;
-static int activity[32];
+static unsigned activity[32];
 static const char *months[3][12]={
     {"Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"},
     {"January","February","March","April","May","June","July","August","September","October","November","December"},
@@ -46,8 +47,16 @@ static void load_marks(void) {
 static void fetch_activity(void) {
     int month=key(&date)/100;
     if(month==activity_month)return;
-    char value[16];snprintf(value,sizeof(value),"%d",month);
-    lumen_service("reading","month",value,4);
+    activity_month=month;
+    memset(activity,0,sizeof(activity));
+    ReadingActivityV1 snapshot;
+    if(!lumen_legacy_state(LUMEN_READING_ACTIVITY_FILE,&snapshot,sizeof(snapshot)) ||
+       snapshot.magic!=LUMEN_READING_ACTIVITY_MAGIC || snapshot.version!=1)return;
+    for(size_t i=0;i<sizeof(snapshot.days)/sizeof(snapshot.days[0]);i++) {
+        ReadingDay entry=snapshot.days[i];
+        int day=entry.date%100;
+        if(entry.date/100==month && day>=1 && day<=31)activity[day]=entry.seconds;
+    }
 }
 static void load(void){day_note(key(&date),note);}
 static void update_today(void) {
@@ -109,11 +118,11 @@ static void draw_month(void) {
     line(28,616,544);
     char label[40];strftime(label,sizeof(label),"%d.%m.%Y",&date);
     if(activity_month==key(&date)/100 && activity[date.tm_mday]>0) {
-        size_t n=strlen(label);snprintf(label+n,sizeof(label)-n," · %d min",activity[date.tm_mday]/60);
+        size_t n=strlen(label);snprintf(label+n,sizeof(label)-n," · %u min",activity[date.tm_mday]/60);
     }
     lumen_text(30,622,480,39,label,PAINT_HEADING,0,1);
     lumen_wrapped(30,671,490,80,*note ? note : word("Keine Tagesnotiz","No note for this day","Aucune note pour ce jour"),PAINT_SECONDARY,2);
-    if(*note)ui_paint_icon_button(528,700,IC_TRASH);
+    if(*note)lumen_icon_action("delete-note",528,700,IC_TRASH);
 }
 static void draw_week(void) {
     struct tm start=date;start.tm_mday-=(start.tm_wday+6)%7;
@@ -151,14 +160,14 @@ static void draw(void) {
     const char *tabs[]={word("Tag","Day","Jour"),word("Woche","Week","Semaine"),
                         word("Monat","Month","Mois"),word("Jahr","Year","Année")};
     lumen_segments("view",28,74,410,44,tabs,4,view);
-    ui_paint_icon_button(468,74,IC_TODAY);ui_paint_icon_button(528,74,IC_NOTE_PLUS);
+    lumen_icon_action("today",468,74,IC_TODAY);lumen_icon_action("add-note",528,74,IC_NOTE_PLUS);
     int top=view==MONTH ? 154 : 136;
-    ui_paint_icon_button(28,top,IC_PREV);ui_paint_icon_button(528,top,IC_NEXT);
+    lumen_icon_action("previous",28,top,IC_PREV);lumen_icon_action("next",528,top,IC_NEXT);
     char label[100];
     if(view==WEEK)strftime(label,sizeof(label),word("Woche %V · %G","Week %V · %G","Semaine %V · %G"),&date);
     else if(view==YEAR)strftime(label,sizeof(label),"%Y",&date);
     else snprintf(label,sizeof(label),"%s %d",months[language()][date.tm_mon],date.tm_year+1900);
-    if(view==MONTH)ui_paint_hitbox(92,top,416,44);
+    if(view==MONTH)lumen_custom_action("jump",92,top,416,44);
     ui_paint_text(92,top,416,44,label,PAINT_TITLE);
     if(view==MONTH)draw_month();
     else if(view==WEEK)draw_week();
@@ -170,8 +179,8 @@ static void draw(void) {
         lumen_text(30,315,490,42,word("Tagesnotiz","Day note","Note du jour"),PAINT_TITLE,0,1);
         lumen_wrapped(30,378,540,340,*note ? note : word("Noch keine Notiz für diesen Tag.",
             "There is no note for this day yet.","Il n’y a pas encore de note pour ce jour."),PAINT_BODY,12);
-        ui_paint_hitbox(28,360,544,365);
-        if(*note)ui_paint_icon_button(528,315,IC_TRASH);
+        lumen_custom_action("edit-note",28,360,544,365);
+        if(*note)lumen_icon_action("delete-note",528,315,IC_TRASH);
     }
 }
 static void delete_note(void) {
@@ -181,15 +190,22 @@ static void delete_note(void) {
 static int input(const Input *in) {
     if(in->kind==INPUT_OPEN){reset();fetch_activity();return 1;}
     if(in->kind==INPUT_REFRESH || in->kind==INPUT_RESUME){activity_month=0;update_today();load();fetch_activity();return 1;}
-    if(in->kind==INPUT_SERVICE && in->x==4 && in->y) {
-        activity_month=lumen_number("month");
-        for(int i=1;i<=31;i++){char name[16];snprintf(name,sizeof(name),"day%d",i);activity[i]=lumen_number(name);}
-        return 1;
-    }
     if(in->kind==INPUT_COMPONENT) {
         char id[16],gesture[16],value[8];lumen_string("id",id,sizeof(id));lumen_string("gesture",gesture,sizeof(gesture));
         if(!strcmp(id,"view") && !strcmp(gesture,"selected") && lumen_string("text",value,sizeof(value)) &&
            strlen(value)==1 && value[0]>='0' && value[0]<='3'){view=value[0]-'0';if(view==MONTH)fetch_activity();}
+        else if(!strcmp(gesture,"clicked")) {
+            if(!strcmp(id,"add-note") || !strcmp(id,"edit-note"))start_note();
+            else if(!strcmp(id,"delete-note") && *note)delete_note();
+            else if(!strcmp(id,"today")){reset();fetch_activity();}
+            else if(!strcmp(id,"previous") || !strcmp(id,"next")) {
+                shift(!strcmp(id,"previous") ? -1 : 1);
+                if(view==MONTH)fetch_activity();
+            } else if(!strcmp(id,"jump") && view==MONTH) {
+                char label[24];strftime(label,sizeof(label),"%Y-%m",&date);
+                lumen_request("input","YYYY-MM",label,JUMP_ACTION);
+            }
+        }
         return 1;
     }
     if(in->kind==INPUT_TEXT) {
@@ -208,16 +224,8 @@ static int input(const Input *in) {
     if(in->kind==INPUT_SELECT && in->x==DELETE_ACTION && in->y==1){write_note("");return 1;}
     if(in->kind==INPUT_SWIPE && abs(in->dx)>abs(in->dy)){shift(in->dx<0 ? 1 : -1);if(view==MONTH)fetch_activity();return 1;}
     if(in->kind!=INPUT_TAP)return 0;
-    int x=in->x,y=in->y,top=view==MONTH ? 154 : 136;
-    if(y>=74 && y<118){if(x>=528)start_note();else if(x>=468)reset();}
-    else if(y>=top && y<top+44) {
-        if(x>=28 && x<72)shift(-1);
-        else if(x>=528 && x<572)shift(1);
-        else if(view==MONTH && x>=92 && x<508) {
-            char label[24];strftime(label,sizeof(label),"%Y-%m",&date);
-            lumen_request("input","YYYY-MM",label,JUMP_ACTION);
-        }
-    } else if(view==MONTH && x>=27 && x<573 && y>=258 && y<606) {
+    int x=in->x,y=in->y;
+    if(view==MONTH && x>=27 && x<573 && y>=258 && y<606) {
         struct tm first=date;first.tm_mday=1;mktime(&first);
         int day=(y-258)/58*7+(x-27)/78-(first.tm_wday+6)%7+1;
         if(day>=1 && day<=days_in(date.tm_year+1900,date.tm_mon)){date.tm_mday=day;move_date(date);}
@@ -227,10 +235,7 @@ static int input(const Input *in) {
     } else if(view==YEAR && x>=28 && x<573 && y>=205 && y<697) {
         int month=(y-205)/123*3+(x-28)/185;
         if(month<12){struct tm next=date;next.tm_mon=month;next.tm_mday=1;move_date(next);view=MONTH;fetch_activity();}
-    } else if(view==DAY && *note && x>=528 && y>=315 && y<359)delete_note();
-    else if(view==MONTH && *note && x>=528 && y>=700 && y<744)delete_note();
-    else if(view==DAY && x>=28 && x<572 && y>=360 && y<725)start_note();
-    if(view==MONTH && ((y<118 && x>=468 && x<528) || (y>=top && y<top+44 && (x<72 || x>=528))))fetch_activity();
+    }
     return 1;
 }
 int main(void){reset();lumen_run(draw,input,NULL);return 0;}

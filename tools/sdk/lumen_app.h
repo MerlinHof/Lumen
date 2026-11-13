@@ -10,8 +10,8 @@
 #include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include "../../lumen/system/device.h"
-#include "../../lumen/system/ui/icon_ids.h"
+#include "lumen_input.h"
+#include "lumen_icons.h"
 typedef enum{PAINT_BODY,PAINT_HEADING,PAINT_DISPLAY,PAINT_SECONDARY,PAINT_TITLE}PaintText;
 static char lumen_event[65536];static int lumen_first,lumen_language,lumen_back,lumen_frame_tick,lumen_fullscreen,lumen_ready=1;
 static void lumen_json(const char *s) {

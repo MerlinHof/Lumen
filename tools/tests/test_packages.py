@@ -162,7 +162,7 @@ print('PASS packaged Knight’s Tour legal move, private save and Reader help.')
 frames,_=app_session('lumen.quotes',[
  dict(event='service',action=1,ok=1,count=1,page=0,quote0='A quoted passage',
       book0='Example book',ref0='1234567890abcdef:2'),
- tap(100,160)])
+ dict(event='component',id='quote-0',gesture='clicked')])
 assert any(f.get('operation')=='list' for f in frames)
 assert any(f.get('operation')=='open' and f.get('text')=='1234567890abcdef:2' for f in frames)
 assert any(c.get('text')=='A quoted passage' for f in frames for c in f.get('ui',[]))
@@ -239,16 +239,19 @@ legacy=base/'legacy-dates'
 (legacy/'calendar').mkdir(parents=True)
 (legacy/'journals17').mkdir()
 (legacy/'calendar'/f'{today}.txt').write_text('Old appointment')
+(legacy/'apps-v1.bin').write_bytes(struct.pack('=8I',0x4c415050,1,1260,0,0,0,0,0)
+    +struct.pack('=3I',int(today),1260,0)+bytes(30*12))
 record=struct.pack('=iii',1,int(today),4)+b'Legacy journal'.ljust(6*8192,b'\0')
 (legacy/'journals17'/f'{today}.bin').write_bytes(struct.pack('=II',0x4c554d16,len(record))+record)
 frames,folder=app_session('lumen.journal',[tap(100,170),tap(100,250),
     dict(event='text',action=10,text='Two lines\nSecond line'),dict(event='back')],legacy)
 assert any(f.get('request')=='multiline' and f.get('text')=='Legacy journal' for f in frames)
 assert b'Two lines\nSecond line' in (folder/f'{today}.bin').read_bytes()
-frames,folder=app_session('lumen.calendar',[tap(545,95),dict(event='text',action=1,text='Updated appointment'),
+frames,folder=app_session('lumen.calendar',[component('add-note'),dict(event='text',action=1,text='Updated appointment'),
     component('view','selected','1'),component('view','selected','0'),component('view','selected','3')],legacy)
 assert any(f.get('request')=='multiline' and f.get('text')=='Old appointment' for f in frames)
-assert any(f.get('operation')=='month' for f in frames)
+assert any('21 min' in c.get('text','') for f in frames for c in f.get('ui',[]))
+assert not any(f.get('operation')=='month' for f in frames)
 assert (folder/f'{today}.txt').read_text()=='Updated appointment'
 assert (legacy/'calendar'/f'{today}.txt').read_text()=='Old appointment'
 assert {c.get('selected') for f in frames for c in f.get('ui',[]) if c.get('type')=='component_segments'}=={0,1,2,3}
@@ -330,9 +333,9 @@ print('PASS packaged Study enumerates material locally and handles semantic acti
 
 frames,_=app_session('lumen.recipes',[
     dict(event='service',action=1,ok=1,page=0,count=1,id0='wiki-de-5',title0='Offline meal'),
-    tap(110,215),tap(550,95),dict(event='text',action=2,text='soup'),
+    component('recipe-0'),component('search'),dict(event='text',action=2,text='soup'),
     dict(event='service',action=1,ok=1,page=0,count=1,id0='wiki-en-2',title0='Soup',source0='Wikibooks'),
-    tap(110,215),dict(event='back')])
+    component('recipe-0'),dict(event='back')])
 assert any(f.get('operation')=='open' and f.get('text')=='wiki-de-5' for f in frames)
 assert any(f.get('operation')=='search' and f.get('text')=='soup' for f in frames)
 assert any(f.get('operation')=='fetch' and f.get('text')=='wiki-en-2' for f in frames)
@@ -359,9 +362,9 @@ print('PASS packaged Planetarium sky/solar views, time travel, Back and private 
 frames,_=app_session('lumen.wikipedia',[
     dict(event='service',action=1,ok=1,count=2,page=0,id0='1234567890abcdef',
          title0='Cached article',date0='12.11.2026',id1='1234567890abcdea',title1='Other'),
-    tap(550,95),tap(546,176),tap(445,429),
+    component('search'),component('delete-0'),component('confirm'),
     dict(event='service',action=4,ok=1),
-    tap(240,176),dict(event='service',action=3,ok=0),
+    component('open-0'),dict(event='service',action=3,ok=0),
     dict(event='intent',operation='search',text='Maple')])
 assert any(f.get('request')=='input' for f in frames)
 assert any(f.get('operation')=='remove' and f.get('text')=='1234567890abcdef' for f in frames)
@@ -372,10 +375,10 @@ print('PASS packaged Wikipedia offline list, deletion, cached open and search in
 
 frames,_=app_session('lumen.news',[
     dict(event='service',action=1,ok=1,count=1,page=0,today=20261112,id0='20261112'),
-    tap(150,215),dict(event='service',action=3,ok=1),
+    component('entry-0'),dict(event='service',action=3,ok=1),
     dict(event='service',action=2,ok=1,count=1,page=0,date=20261112,
          id0='1234567890abcdef',title0='Science today',detail0='Science · Publisher'),
-    tap(150,215),dict(event='back'),tap(550,95),
+    component('entry-0'),dict(event='back'),component('search'),
     dict(event='text',action=1,text='Energy')])
 assert any(f.get('operation')=='edition' and f.get('text')=='20261112' for f in frames)
 assert any(f.get('operation')=='open' and f.get('text')=='1234567890abcdef' for f in frames)

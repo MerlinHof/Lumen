@@ -1,17 +1,17 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 static void apps_init(void) {
     char path[2048];
-    snprintf(path, sizeof(path), "%s/apps-v1.bin", data_root);
+    snprintf(path, sizeof(path), "%s/%s", data_root, LUMEN_READING_ACTIVITY_FILE);
     memset(&app_data, 0, sizeof(app_data));
     FILE *f = fopen(path, "rb");
     if (f) {
-        AppData tmp;
-        if (fread(&tmp, sizeof(tmp), 1, f) == 1 && tmp.magic == 0x4c415050 && tmp.version == 1) {
+        ReadingActivityV1 tmp;
+        if (fread(&tmp, sizeof(tmp), 1, f) == 1 && tmp.magic == LUMEN_READING_ACTIVITY_MAGIC && tmp.version == 1) {
             app_data = tmp;
         }
         fclose(f);
     }
-    app_data.magic = 0x4c415050;
+    app_data.magic = LUMEN_READING_ACTIVITY_MAGIC;
     app_data.version = 1;
     app_last_time = app_millis();
 
@@ -43,7 +43,7 @@ static void apps_save(void) {
     if (!apps_dirty)
         return;
     char path[2048];
-    snprintf(path, sizeof(path), "%s/apps-v1.bin", data_root);
+    snprintf(path, sizeof(path), "%s/%s", data_root, LUMEN_READING_ACTIVITY_FILE);
     if (atomic_write(path, &app_data, sizeof(app_data)))
         apps_dirty = 0;
 }

@@ -3,7 +3,7 @@
   "api": 1,
   "id": "lumen.transfer",
   "name": "Dateiübertragung",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "sources": [
     "app.c"
   ],

@@ -1,0 +1,42 @@
+#ifndef LUMEN_INPUT_H
+#define LUMEN_INPUT_H
+#define WIDTH 600
+#define HEIGHT 800
+#define STATUS_HEIGHT 56
+typedef struct {
+    int kind, x, y, dx, dy;
+} Input;
+enum {
+    INPUT_NONE,
+    INPUT_TAP,
+    INPUT_SWIPE,
+    INPUT_SLEEP,
+    INPUT_WAKE,
+    INPUT_USB,
+    INPUT_EXIT,
+    INPUT_DOWN,
+    INPUT_MOVE,
+    INPUT_NETWORK,
+    INPUT_STATUS,
+    INPUT_POWER,
+    INPUT_HOLD,
+    INPUT_CANCEL,
+    INPUT_BACK,
+    INPUT_TEXT,
+    INPUT_SELECT,
+    INPUT_APP,
+    INPUT_VIEWPORT,
+    INPUT_OVERLAY,
+    INPUT_OPEN,
+    INPUT_RESUME,
+    INPUT_SERVICE,
+    INPUT_PAGE,
+    INPUT_TICK,
+    INPUT_REFRESH,
+    INPUT_COMPONENT,
+    INPUT_INTENT,
+    INPUT_INTENT_RESULT,
+    INPUT_PAUSE,
+    INPUT_APP_SERVICE
+};
+#endif

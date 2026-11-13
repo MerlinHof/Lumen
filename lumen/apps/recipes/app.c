@@ -12,13 +12,14 @@ static void list(void) {
 }
 static void draw(void) {
     ui_paint_heading(word("Rezepte","Recipes","Recettes"),1);
-    ui_paint_icon_button(528,74,IC_SEARCH);
+    lumen_icon_action("search",528,74,IC_SEARCH);
     lumen_text(30,135,540,36,searching ? word("Suchergebnisse","Search results","Résultats") :
         word("Zuletzt geöffnet · offline verfügbar","Recently opened · available offline","Ouvert récemment · disponible hors ligne"),
         PAINT_SECONDARY,-1,1);
     for(int i=0;i<6 && page*6+i<count;i++) {
         int y=189+i*80;
-        ui_paint_hitbox(28,y,544,80);
+        char id[16];snprintf(id,sizeof(id),"recipe-%d",i);
+        if(!busy)lumen_custom_action(id,28,y,544,80);
         ui_paint_icon_button(31,y+18,IC_DISH);
         lumen_text(88,y+6,472,35,rows[i].title,PAINT_BODY,-1,1);
         lumen_text(88,y+41,472,28,*rows[i].source ? rows[i].source :
@@ -60,11 +61,13 @@ static int input(const Input *in) {
         } else if((in->x==3 || in->x==4) && !in->y)busy=0;
         return 1;
     }
-    if(in->kind!=INPUT_TAP)return 0;
-    if(in->x>=528 && in->x<572 && in->y>=74 && in->y<118)
+    char id[24],gesture[24];
+    if(in->kind!=INPUT_COMPONENT || !lumen_string("id",id,sizeof(id)) ||
+       !lumen_string("gesture",gesture,sizeof(gesture)) || strcmp(gesture,"clicked"))return 0;
+    if(!strcmp(id,"search"))
         lumen_request("input",word("Rezepte suchen","Search recipes","Chercher des recettes"),"",2);
-    else if(!busy && in->x>=28 && in->x<572 && in->y>=189 && in->y<669) {
-        int row=(in->y-189)/80;
+    else if(!busy && strlen(id)==8 && !strncmp(id,"recipe-",7) && id[7]>='0' && id[7]<='5') {
+        int row=id[7]-'0';
         if(page*6+row<count && *rows[row].id) {
             busy=searching;
             lumen_service("recipes",searching ? "fetch" : "open",rows[row].id,4);
