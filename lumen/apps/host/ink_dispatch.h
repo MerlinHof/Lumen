@@ -1,9 +1,4 @@
 /* App-owned module; assembled by apps/host/compose.h. */
-static int u15_commit(int target, const char *text) {
-    if (u16_commit(target, text))
-        return 1;
-    return 0;
-}
 static int u15_input(const Input *in) {
     if (editor_ui.keyboard || dropdown)
         return -1;

@@ -54,7 +54,6 @@ int main(int argc, char **argv) {
         char name[80];
         snprintf(name, 80, "app-%02d", id);
         route_to(a->entry);
-        extra_prepare(a->entry);
         capture(name);
     }
     route_to(12);

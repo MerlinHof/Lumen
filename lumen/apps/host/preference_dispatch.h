@@ -15,9 +15,6 @@ static void u16_dropdown(int target, int choice) {
         extra_write_text("auto-sleep16.txt", b);
     }
 }
-static int u16_commit(int target, const char *text) {
-    return 0;
-}
 static int u16_draw(void) {
     u16_load();
 

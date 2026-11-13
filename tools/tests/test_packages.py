@@ -503,10 +503,10 @@ print('PASS packaged Reader document surface, page navigation, contents and pref
 frames,_=app_session('lumen.notes',[
     dict(event='service',action=1,ok=1,count=2,folder_id=0,id0=1,kind0=1,title0='Notes',
          id1=123,kind1=0,title1='Legacy note'),
-    tap(170,255),dict(event='service',action=2,ok=1,page=0,pages=2),
-    tap(490,78),dict(event='service',action=2,ok=1,page=0,pages=2,ink=1),
-    tap(118,75),dict(event='back'),dict(event='service',action=2,ok=1,pages=2),
-    tap(550,75),dict(event='back')])
+    component("entry-1"),dict(event='service',action=2,ok=1,page=0,pages=2),
+    component("ink"),dict(event='service',action=2,ok=1,page=0,pages=2,ink=1),
+    component("eraser"),dict(event='back'),dict(event='service',action=2,ok=1,pages=2),
+    component("markdown"),dict(event='back')])
 assert any(f.get('operation')=='open' and f.get('text')=='123' for f in frames)
 assert any(c.get('type')=='note_surface' for f in frames for c in f.get('ui',[]))
 assert any(f.get('operation')=='eraser' for f in frames)

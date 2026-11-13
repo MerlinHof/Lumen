@@ -1,18 +1,4 @@
 /* App-owned module; assembled by apps/host/compose.h. */
-static void polish_open(int route) {
-    if (route == 94 || route == 36) {
-        polish_wiki_archive();
-        wiki_history_scan();
-    }
-    if (route == 86 || route == 67) {
-        press_archive_scan();
-        press_daily_enabled = 1;
-        extra_write_text("press-daily-enabled.txt", "1");
-        news_enabled = 0;
-        news_save_settings();
-        news_cancel();
-    }
-}
 static int polish_tick(void) {
     int changed = 0, done = press_poll();
     if (done) {

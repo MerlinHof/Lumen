@@ -78,39 +78,6 @@ static void extra_save(void) {
     extra_write_text("timer-paused.txt", b);
 }
 static void storage_scan(void);
-static void extra_open(int target) {
-    if (history_count < 64 && (!history_count || history[history_count - 1] != ui_route()))
-        history[history_count++] = ui_route();
-    route_to(target);
-    extra_prepare(target);
-}
-static void extra_prepare(int target) {
-    if (target >= 60)
-        new_apps_open(target);
-
-    extra_page = 0;
-    if (target == 40)
-        storage_scan();
-    if (target == 29)
-        notes_scan();
-    if (target == 36)
-        wiki_image_requested[0] = 0;
-    if (target == 36 && !discover_busy() && !*discover_lookup_text())
-        extra_wiki_restore();
-
-
-
-    if (target == 39) {
-        time_t now = time(NULL);
-        struct tm t;
-        localtime_r(&now, &t);
-        time_year = t.tm_year + 1900;
-        time_month = t.tm_mon + 1;
-        time_day = t.tm_mday;
-        time_hour = t.tm_hour;
-        time_minute = t.tm_min;
-    }
-}
 static int extra_ringing(void) {
     return alarm_ring;
 }

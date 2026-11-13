@@ -23,14 +23,14 @@ static void draw(void) {
         lumen_note_surface();
         if(ink) {
             ui_paint_surface(0,56,600,53,0,255,-1);
-            ui_paint_icon_button(11,58,IC_BACK);
-            lumen_button(70,58,100,44,eraser ? word("Radierer","Eraser","Gomme") : word("Stift","Pen","Stylo"),eraser);
-            lumen_button(180,58,80,44,width==3 ? word("Fein","Fine","Fin") : word("Breit","Wide","Large"),0);
-            ui_paint_icon_button(280,58,IC_UNDO);
-            ui_paint_icon_button(528,58,IC_FULLSCREEN);
+            lumen_icon_action("ink",11,58,IC_BACK);
+            lumen_button_action("eraser",70,58,100,44,eraser ? word("Radierer","Eraser","Gomme") : word("Stift","Pen","Stylo"),eraser);
+            lumen_button_action("width",180,58,80,44,width==3 ? word("Fein","Fine","Fin") : word("Breit","Wide","Large"),0);
+            lumen_icon_action("undo",280,58,IC_UNDO);
+            lumen_icon_action("export",528,58,IC_FULLSCREEN);
         } else {
-            ui_paint_icon_button(470,56,IC_EDIT);
-            ui_paint_icon_button(532,56,IC_MARKDOWN);
+            lumen_icon_action("ink",470,56,IC_EDIT);
+            lumen_icon_action("markdown",532,56,IC_MARKDOWN);
         }
         lumen_pager(748,editor_page,pages);
         return;
@@ -38,10 +38,10 @@ static void draw(void) {
     int moving=view==MOVE,per=moving ? 8 : 7;
     ui_paint_heading(moving ? word("Verschieben","Move to folder","Déplacer vers") :
         folder ? folder_title : word("Notizen","Notes","Notes"),3);
-    if(!moving) {
-        if(folder)ui_paint_icon_button(408,74,IC_EDIT);
-        ui_paint_icon_button(468,74,IC_FOLDER_PLUS);
-        ui_paint_icon_button(528,74,IC_NOTE_PLUS);
+    if(!moving && !delete_pending) {
+        if(folder)lumen_icon_action("rename",408,74,IC_EDIT);
+        lumen_icon_action("new-folder",468,74,IC_FOLDER_PLUS);
+        lumen_icon_action("new-note",528,74,IC_NOTE_PLUS);
     }
     for(int i=0;i<per && page*per+i<count;i++) {
         int height=moving ? 66 : 78,y=151+i*height;
@@ -49,8 +49,14 @@ static void draw(void) {
         lumen_text(84,y+7,424,36,rows[i].title,PAINT_BODY,0,1);
         char subtitle[48];snprintf(subtitle,sizeof(subtitle),"%d %s",rows[i].children,word("Einträge","items","éléments"));
         lumen_text(84,y+41,424,25,rows[i].kind ? subtitle : rows[i].detail,PAINT_SECONDARY,-1,1);
-        if(!moving)ui_paint_icon_button(522,y+17,IC_MORE);
-        ui_paint_hitbox(28,y,544,height);
+        if(!delete_pending) {
+            char action[16];snprintf(action,sizeof(action),"entry-%d",i);
+            lumen_custom_action(action,28,y,moving ? 544 : 494,height);
+            if(!moving) {
+                snprintf(action,sizeof(action),"menu-%d",i);
+                lumen_icon_action(action,522,y+17,IC_MORE);
+            }
+        }
         ui_paint_line(28,y+height-1,572,y+height-1,1,190);
     }
     if(!count)lumen_text(30,161,540,49,word("Dieser Ordner ist leer.","This folder is empty.","Ce dossier est vide."),PAINT_SECONDARY,-1,1);
@@ -59,8 +65,8 @@ static void draw(void) {
         ui_paint_text(35,295,530,85,selected_kind ?
             word("Ordner und Inhalt löschen?","Delete folder and contents?","Supprimer le dossier et son contenu ?") :
             word("Notiz löschen?","Delete note?","Supprimer la note ?"),PAINT_HEADING);
-        lumen_button(38,412,250,52,word("Abbrechen","Cancel","Annuler"),0);
-        lumen_button(312,412,250,52,word("Löschen","Delete","Supprimer"),1);
+        lumen_button_action("cancel",38,412,250,52,word("Abbrechen","Cancel","Annuler"),0);
+        lumen_button_action("confirm",312,412,250,52,word("Löschen","Delete","Supprimer"),1);
     } else lumen_pager(746,page,(count+per-1)/per);
 }
 static int input(const Input *in) {
@@ -118,56 +124,49 @@ static int input(const Input *in) {
         } else if(in->x==3)list();
         back_state();return 1;
     }
-    if(in->kind!=INPUT_TAP)return 0;
-    int x=in->x,y=in->y;
+    if(in->kind==INPUT_TAP && view==EDITOR && !ink && in->y>=56 && in->y<742) {
+        /* The editor maps this point to a text caret. */
+        char value[32];snprintf(value,sizeof(value),"%d %d",in->x,in->y);
+        request("edit",value,2);
+        return 1;
+    }
+    char id[24],gesture[24];
+    if(in->kind!=INPUT_COMPONENT || !lumen_string("id",id,sizeof(id)) ||
+       !lumen_string("gesture",gesture,sizeof(gesture)) || strcmp(gesture,"clicked"))return 0;
     if(view==EDITOR) {
-        if(y>=56 && y<106) {
-            if(ink){
-                if(x<65)request("ink","",2);
-                else if(x<175)request("eraser","",2);
-                else if(x<270)request("width","",2);
-                else if(x<340)request("undo","",2);
-                else if(x>=500)request("export","",2);
-            } else if(x>=532)request("markdown","",2);
-            else if(x>=470)request("ink","",2);
-            else goto edit;
-        } else if(!ink && y>=56 && y<742) {
-edit:       ;
-            char value[32];snprintf(value,sizeof(value),"%d %d",x,y);request("edit",value,2);
-        }
+        if(!strcmp(id,"ink") || (!ink && !strcmp(id,"markdown")) ||
+           (ink && (!strcmp(id,"eraser") || !strcmp(id,"width") || !strcmp(id,"undo") || !strcmp(id,"export"))))
+            request(id,"",2);
         return 1;
     }
     if(delete_pending) {
-        if(y>=412 && y<464){
-            if(x>=312){
-                char value[48];snprintf(value,sizeof(value),"%d %d",selected_kind,selected_id);
-                request("delete",value,3);
-            }
-            delete_pending=0;back_state();
+        if(!strcmp(id,"confirm")) {
+            char value[48];snprintf(value,sizeof(value),"%d %d",selected_kind,selected_id);
+            request("delete",value,3);
         }
+        if(!strcmp(id,"confirm") || !strcmp(id,"cancel")){delete_pending=0;back_state();}
         return 1;
     }
-    if(view==LIST && y>=74 && y<118) {
-        if(x>=528)show_editor(0);
-        else if(x>=468)lumen_request("input",word("Neuer Ordner","New folder","Nouveau dossier"),"",1);
-        else if(x>=408 && folder)lumen_request("input",word("Ordner umbenennen","Rename folder","Renommer le dossier"),folder_title,2);
-        return 1;
+    if(view==LIST) {
+        if(!strcmp(id,"new-note")){show_editor(0);return 1;}
+        if(!strcmp(id,"new-folder")){lumen_request("input",word("Neuer Ordner","New folder","Nouveau dossier"),"",1);return 1;}
+        if(!strcmp(id,"rename") && folder){lumen_request("input",word("Ordner umbenennen","Rename folder","Renommer le dossier"),folder_title,2);return 1;}
     }
-    int per=view==MOVE ? 8 : 7,height=view==MOVE ? 66 : 78;
-    if(y>=151 && y<151+per*height) {
-        int r=(y-151)/height;
-        if(page*per+r<count) {
-            if(view==MOVE) {
-                char value[64];snprintf(value,sizeof(value),"%d %d %d",selected_kind,selected_id,rows[r].id);
-                view=LIST;page=previous_page;request("move",value,3);back_state();
-            } else if(x>=510) {
-                selected_kind=rows[r].kind;selected_id=rows[r].id;
-                const char *choices[]={word("Verschieben","Move","Déplacer"),word("Löschen","Delete","Supprimer")};
-                lumen_select(choices,2,-1,1);
-            } else if(rows[r].kind){folder=rows[r].id;page=0;list();back_state();}
-            else show_editor(rows[r].id);
-        }
-    }
+    int menu=!strncmp(id,"menu-",5),per=view==MOVE ? 8 : 7;
+    if(!menu && strncmp(id,"entry-",6))return 0;
+    const char *digit=id+(menu ? 5 : 6);
+    if(strlen(digit)!=1 || *digit<'0' || *digit>='0'+per)return 0;
+    int row=*digit-'0';
+    if(page*per+row>=count)return 0;
+    if(view==MOVE && !menu) {
+        char value[64];snprintf(value,sizeof(value),"%d %d %d",selected_kind,selected_id,rows[row].id);
+        view=LIST;page=previous_page;request("move",value,3);back_state();
+    } else if(menu) {
+        selected_kind=rows[row].kind;selected_id=rows[row].id;
+        const char *choices[]={word("Verschieben","Move","Déplacer"),word("Löschen","Delete","Supprimer")};
+        lumen_select(choices,2,-1,1);
+    } else if(rows[row].kind){folder=rows[row].id;page=0;list();back_state();}
+    else show_editor(rows[row].id);
     return 1;
 }
 int main(void){lumen_run(draw,input,NULL);return 0;}

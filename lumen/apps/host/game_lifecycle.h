@@ -28,29 +28,6 @@ static void news_save_settings(void) {
 static void new_apps_save(void) {
     v1_save();
 }
-static void new_apps_open(int route) {
-    if (route == 67) {
-        polish_open(86);
-        return;
-    }
-    if (route >= 70) {
-        v1_open(route);
-        return;
-    }
-    if (route == 67) {
-        news_enabled = 1;
-        news_save_settings();
-        news_page = 0;
-        news_done = 0;
-        news_puzzle_revealed = 0;
-        char readname[80], readpath[2048];
-        snprintf(readname, sizeof(readname), "news/%u-read.txt", newspaper.date);
-        local_path(readpath, sizeof(readpath), readname);
-        news_done = access(readpath, F_OK) == 0;
-        if (!news_today_cached())
-            news_retry = 0;
-    }
-}
 static int new_apps_poll(void) {
     if (news_busy())
         return 250;

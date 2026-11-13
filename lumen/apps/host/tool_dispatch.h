@@ -9,10 +9,6 @@ static void extra_return(int target) {
 }
 static void extra_commit(int target, const char *text) {
     if(package_ui_commit(target,text))return;
-    if (u15_commit(target, text))
-        return;
-    if (target >= 100 && v1_commit(target, text))
-        return;
 
     if (target == 30) {
         if (note_selected < 0) {
@@ -40,24 +36,5 @@ static void extra_commit(int target, const char *text) {
         extra_return(30);
         extra_page = 0;
         app_process_send("{\"event\":\"refresh\"}");
-    }  else if (target == 35) {
-        int y, m, d, h, minute;
-        char tail;
-        if (sscanf(text, "%d-%d-%d %d:%d%c", &y, &m, &d, &h, &minute, &tail) != 5 ||
-            !system_set_time(y, m, d, h, minute))
-            ui_message("Ungültiges Datum / Uhrzeit.");
-        else {
-            status_ui.status_time = 0;
-            ui_message("Datum und Uhrzeit gesetzt.");
-        }
-    } else if (target == 37) {
-        int h, m;
-        char c;
-        if (sscanf(text, "%d:%d%c", &h, &m, &c) == 2 && h >= 0 && h < 24 && m >= 0 && m < 60) {
-            alarm_hour = h;
-            alarm_minute = m;
-        } else
-            ui_message("Uhrzeit als HH:MM eingeben.");
-        extra_save();
     }
 }

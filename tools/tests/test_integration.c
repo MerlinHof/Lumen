@@ -237,7 +237,7 @@ int main(int argc, char **argv) {
         assert(fwrite(raster, 1, sizeof(raster), photo) == sizeof(raster));
         fclose(photo);
     }
-    extra_open(71);
+    assert(app_send(&(AppIntent){.app=app_for_route(71),.kind=INTENT_OPEN}));
     notification_dismiss();settle_app();ui_draw();
     assert(photo_count==2);
     tap17(549,96);assert(strstr(app_process_frame(),"Dauer pro Foto"));
@@ -277,7 +277,7 @@ int main(int argc, char **argv) {
     tap17(20, 20);
     assert(ui_route() == 71);
 
-    extra_open(33);
+    assert(app_send(&(AppIntent){.app=app_for_route(33),.kind=INTENT_OPEN}));
     settle_app();
     tap17(550,95);
     int ha_depth = history_count;
