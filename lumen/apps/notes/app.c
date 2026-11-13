@@ -8,12 +8,14 @@ static struct {int id,kind,children;char title[256],detail[48];} rows[8];
 static const char *word(const char *de,const char *en,const char *fr) {
     return lumen_language==1 ? en : lumen_language==2 ? fr : de;
 }
-static void request(const char *operation,const char *data,int action){lumen_service("notes",operation,data,action);}
-static void back_state(void){lumen_back=folder || view!=LIST || delete_pending;}
-static void list(void) {
-    char value[36];snprintf(value,sizeof(value),"%d %d",folder,page);
-    request(view==MOVE ? "folders" : "list",value,1);
+static void request(const char *operation,const char *data,int action) {
+    char context[256];
+    snprintf(context,sizeof(context),"%d\n%s",folder,data);
+    lumen_service("notes_editor",operation,context,action);
 }
+static void back_state(void){lumen_back=folder || view!=LIST || delete_pending;}
+#include "collection.h"
+static void list(void){collection_list();}
 static void note(const char *operation,int value) {
     char data[24];snprintf(data,sizeof(data),"%d",value);request(operation,data,2);
 }
@@ -106,19 +108,7 @@ static int input(const Input *in) {
         return 1;
     }
     if(in->kind==INPUT_SERVICE) {
-        if(in->x==1 && in->y) {
-            parent=lumen_number("parent");folder=lumen_number("folder_id");
-            page=lumen_number("page");count=lumen_number("count");
-            lumen_string("folder",folder_title,sizeof(folder_title));
-            for(int i=0;i<8;i++) {
-                char key[24];
-                snprintf(key,sizeof(key),"id%d",i);rows[i].id=lumen_number(key);
-                snprintf(key,sizeof(key),"kind%d",i);rows[i].kind=lumen_number(key);
-                snprintf(key,sizeof(key),"children%d",i);rows[i].children=lumen_number(key);
-                snprintf(key,sizeof(key),"title%d",i);lumen_string(key,rows[i].title,sizeof(rows[i].title));
-                snprintf(key,sizeof(key),"detail%d",i);lumen_string(key,rows[i].detail,sizeof(rows[i].detail));
-            }
-        } else if(in->x==2 && in->y) {
+        if(in->x==2 && in->y) {
             editor_page=lumen_number("page");pages=lumen_number("pages");
             ink=lumen_number("ink");eraser=lumen_number("eraser");width=lumen_number("width");
         } else if(in->x==3)list();

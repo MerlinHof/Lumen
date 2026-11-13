@@ -92,7 +92,7 @@ static int package_service_request(const char *name,const char *operation,const 
         return package_clock_service(operation,data,action);
     }
     if(!strcmp(name,"settings"))return package_settings(operation,data,action);
-    if(!strcmp(name,"notes") && strcmp(operation,"create_learning"))return package_notes(operation,data,action);
+    if(!strcmp(name,"notes_editor"))return package_notes(operation,data,action);
     if(!strcmp(name,"document"))return package_document(operation,data,action);
     if(!strcmp(name,"photos"))return package_photos(operation,data,action);
     if(!strcmp(name,"openai"))return package_openai(operation,data,action);

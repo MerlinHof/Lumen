@@ -500,14 +500,20 @@ assert any(f.get('operation')=='goto' and f.get('text')=='2' for f in frames)
 assert any(f.get('operation')=='setting' and f.get('text')=='9 2' for f in frames)
 print('PASS packaged Reader document surface, page navigation, contents and preferences.')
 
+notes_data=base/'legacy-notes'
+(notes_data/'notes').mkdir(parents=True)
+(notes_data/'notes'/'123.txt').write_text('Legacy note\nA second line')
+folder_record=struct.pack('=ii96s',1,0,b'Notes')
+tree=folder_record+bytes(511*104+1024*8)+struct.pack('=iii',1,0,0)
+(notes_data/'note-tree-1.bin').write_bytes(struct.pack('=II',0x4c554d16,len(tree))+tree)
 frames,_=app_session('lumen.notes',[
-    dict(event='service',action=1,ok=1,count=2,folder_id=0,id0=1,kind0=1,title0='Notes',
-         id1=123,kind1=0,title1='Legacy note'),
     component("entry-1"),dict(event='service',action=2,ok=1,page=0,pages=2),
     component("ink"),dict(event='service',action=2,ok=1,page=0,pages=2,ink=1),
     component("eraser"),dict(event='back'),dict(event='service',action=2,ok=1,pages=2),
-    component("markdown"),dict(event='back')])
-assert any(f.get('operation')=='open' and f.get('text')=='123' for f in frames)
+    component("markdown"),dict(event='back')],notes_data)
+assert any(f.get('operation')=='open' and f.get('text')=='0\n123' for f in frames)
+assert any(c.get('text')=='Legacy note' for f in frames for c in f.get('ui',[]))
+assert not any(f.get('operation') in ('list','folders') for f in frames)
 assert any(c.get('type')=='note_surface' for f in frames for c in f.get('ui',[]))
 assert any(f.get('operation')=='eraser' for f in frames)
 assert any(f.get('operation')=='markdown' for f in frames)

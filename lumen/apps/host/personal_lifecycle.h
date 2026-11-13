@@ -78,6 +78,7 @@ static void v1_init(void) {
         if (note_tree.folder[i].parent == note_tree.folder[i].id)
             note_tree.folder[i].parent = 0;
     }
+    u16_notes_defaults();
     v1_photos_scan();
 }
 static void v1_save(void) {

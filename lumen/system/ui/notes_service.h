@@ -3,60 +3,25 @@ static int notes_has_id(int id) {
     for(int i=0;i<note_count;i++)if(note_ids[i]==id)return 1;
     return 0;
 }
-static int notes_service_reply(int action,int collection,int page) {
+static int notes_service_reply(int action) {
     char *message=NULL;size_t length=0;
     FILE *out=package_reply(&message,&length,action,1);
     if(!out)return 0;
-    if(collection) {
-        int current_folder=folder15_index(note_tree.current);
-        int parent=current_folder>=0 ? note_tree.folder[current_folder].parent : 0;
-        package_field(out,"folder",v1_folder_name(note_tree.current));
-        fprintf(out,",\"parent\":%d,\"folder_id\":%d",parent,note_tree.current);
-        int count=0,per=collection==2 ? 8 : 7;
-        int ids[1537],kinds[1537];
-        if(collection==2){ids[count]=0;kinds[count++]=1;}
-        for(int i=0;i<note_tree.nf;i++)if(collection==2 || note_tree.folder[i].parent==note_tree.current) {
-            ids[count]=note_tree.folder[i].id;kinds[count++]=1;
-        }
-        if(collection==1)for(int i=0;i<note_count;i++)if(v1_folder_for(note_ids[i])==note_tree.current) {
-            ids[count]=note_ids[i];kinds[count++]=0;
-        }
-        if(page*per>=count)page=count ? (count-1)/per : 0;
-        fprintf(out,",\"page\":%d,\"count\":%d",page,count);
-        for(int r=0;r<per && page*per+r<count;r++) {
-            int index=page*per+r,id=ids[index],folder=kinds[index];
-            char field[24],detail[48]="";
-            fprintf(out,",\"id%d\":%d,\"kind%d\":%d",r,id,r,folder);
-            snprintf(field,sizeof(field),"title%d",r);
-            package_field(out,field,folder ? v1_folder_name(id) : note_list_title(id));
-            if(folder) {
-                int children=0;
-                for(int f=0;f<note_tree.nf;f++)children+=note_tree.folder[f].parent==id;
-                for(int n=0;n<note_count;n++)children+=v1_folder_for(note_ids[n])==id;
-                fprintf(out,",\"children%d\":%d",r,children);
-            } else {
-                time_t stamp=id;struct tm t;
-                if(localtime_r(&stamp,&t))strftime(detail,sizeof(detail),"%d.%m.%Y",&t);
-                snprintf(field,sizeof(field),"detail%d",r);package_field(out,field,detail);
-            }
-        }
-    } else {
-        fprintf(out,",\"page\":%d,\"pages\":%d,\"ink\":%d,\"eraser\":%d,\"width\":%d",
-            extra_page,u15_note_page_count(),note_ink_mode,ink_eraser,ink_width);
-    }
+    fprintf(out,",\"page\":%d,\"pages\":%d,\"ink\":%d,\"eraser\":%d,\"width\":%d",
+        extra_page,u15_note_page_count(),note_ink_mode,ink_eraser,ink_width);
     package_reply_end(out,&message);return 1;
 }
 static int package_notes(const char *operation,const char *data,int action) {
     if(app_for_route(ui_route())!=APP_NOTES)return 0;
     u16_notes_defaults();
-    if(!strcmp(operation,"list") || !strcmp(operation,"folders")) {
-        int folder,requested;char tail;
-        if(sscanf(data,"%d %d %c",&folder,&requested,&tail)!=2 || requested<0 || requested>1500 ||
-           (folder && folder15_index(folder)<0))return package_acknowledge(action,0);
-        note_tree.current=folder;
+    char *context_end;
+    long folder=strtol(data,&context_end,10);
+    if(context_end==data || *context_end!='\n' || folder<0 || folder>INT_MAX ||
+       (folder && folder15_index((int)folder)<0))return package_acknowledge(action,0);
+    note_tree.current=(int)folder;
+    data=context_end+1;
+    if(!strcmp(operation,"open") || !strcmp(operation,"delete") || !strcmp(operation,"move"))
         notes_scan();
-        return notes_service_reply(action,!strcmp(operation,"folders") ? 2 : 1,requested);
-    }
     if(!strcmp(operation,"new_folder") || !strcmp(operation,"rename_folder")) {
         if(!*data || strlen(data)>=96)return package_acknowledge(action,0);
         int index=folder15_index(note_tree.current);
@@ -102,7 +67,7 @@ static int package_notes(const char *operation,const char *data,int action) {
         editor_ui.note_view_start=0;
         app_runtime_route(&runtime,30);
         if(!id)open_keyboard(30,"Notiz","");
-        return notes_service_reply(action,0,0);
+        return notes_service_reply(action);
     }
     if(!strcmp(operation,"close")) {
         ink_save();note_ink_mode=0;
@@ -133,5 +98,5 @@ static int package_notes(const char *operation,const char *data,int action) {
         memcpy(ink_pixels,ink_undo,sizeof(ink_pixels));ink_dirty=1;
     } else if(!strcmp(operation,"export") && note_ink_mode)u15_export_photo();
     else if(strcmp(operation,"state"))return package_acknowledge(action,0);
-    return notes_service_reply(action,0,0);
+    return notes_service_reply(action);
 }

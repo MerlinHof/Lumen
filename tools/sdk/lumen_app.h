@@ -138,15 +138,7 @@ static int lumen_legacy_read(const char *name,void *bytes,size_t size,size_t *ac
  if(actual)*actual=0;
  const char *root=getenv("LUMEN_LEGACY_DATA");
  if(!root || !*root || !name || !*name || name[0]=='.' || strchr(name,'/'))return 0;
- char path[2048];
- if(snprintf(path,sizeof(path),"%s/%s",root,name)>=(int)sizeof(path))return 0;
- FILE *file=fopen(path,"rb");
- if(!file)return 0;
- size_t count=fread(bytes,1,size,file);
- int ok=fgetc(file)==EOF && !ferror(file);
- fclose(file);
- if(ok && actual)*actual=count;
- return ok;
+ return lumen_storage_read_at(root,name,bytes,size,actual);
 }
 static int lumen_legacy_state(const char *name,void *bytes,size_t size) {
  size_t actual;
