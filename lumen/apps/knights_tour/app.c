@@ -1,4 +1,4 @@
-#include "lumen_app.h"
+#include "../games/package_ui.h"
 
 enum { LEFT=28, TOP=190, CELL_WIDTH=68, CELL_HEIGHT=64 };
 static unsigned char tour[64]={1};
@@ -31,9 +31,9 @@ static void save(void) {
 }
 static void draw(void) {
     ui_paint_heading(word("Springertour","Knight’s Tour","Parcours du cavalier"),3);
-    lumen_button(408,74,44,44,"?",0);
-    ui_paint_icon_button(468,74,IC_UNDO);
-    ui_paint_icon_button(528,74,IC_RESTART);
+    lumen_button_action("help",408,74,44,44,"?",0);
+    lumen_icon_action("undo",468,74,IC_UNDO);
+    lumen_icon_action("restart",528,74,IC_RESTART);
     int available=0;
     for(int i=0;i<64;i++)available+=!tour[i] && reachable(square,i);
     char label[96];
@@ -56,22 +56,24 @@ static void draw(void) {
     }
 }
 static int input(const Input *in) {
-    if(in->kind!=INPUT_TAP)return 0;
-    if(in->y>=74 && in->y<118) {
-        if(in->x>=408 && in->x<452)
+    if(in->kind==INPUT_COMPONENT) {
+        char action[32];
+        if(!game_action(in,action,sizeof(action)))return 0;
+        if(!strcmp(action,"help"))
             lumen_app_open_with("lumen.reader","open_document","",
                 word("Springertour","Knight’s Tour","Parcours du cavalier"),
                 word("Besuche alle 64 Felder genau einmal. Der Springer zieht zwei Felder in eine Richtung und eines quer dazu. Punkte zeigen mögliche Züge.",
                      "Visit all 64 squares exactly once. A knight moves two squares in one direction and one across. Dots mark legal moves.",
                      "Visitez les 64 cases une seule fois. Le cavalier avance de deux cases dans une direction et d’une case de côté. Les points indiquent les coups autorisés."));
-        else if(in->x>=468 && in->x<512 && moves>1) {
+        else if(!strcmp(action,"undo") && moves>1) {
             tour[square]=0;moves--;dirty=1;
             for(int i=0;i<64;i++)if(tour[i]==moves){square=i;break;}
-        } else if(in->x>=528 && in->x<572) {
+        } else if(!strcmp(action,"restart")) {
             memset(tour,0,sizeof(tour));square=0;tour[0]=1;moves=1;dirty=1;
         }
         return 1;
     }
+    if(in->kind!=INPUT_TAP)return 0;
     if(in->x<LEFT || in->x>=LEFT+8*CELL_WIDTH || in->y<TOP || in->y>=TOP+8*CELL_HEIGHT)
         return 0;
     int to=(in->y-TOP)/CELL_HEIGHT*8+(in->x-LEFT)/CELL_WIDTH;

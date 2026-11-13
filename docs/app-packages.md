@@ -107,9 +107,9 @@ the app process. Package-owned grayscale PGM files can use `lumen_asset`.
 
 ## Existing app implementations
 
-All 52 active apps ship as independent packages in LUMEN 6.0. Their build manifests are the
-`lumen/apps/*/package.json` files. Legacy views without manifests still run from
-the host and may be replaced by packages using the same stable identity.
+All 52 active apps ship as independent packages since LUMEN 6.0. Their build
+manifests are the `lumen/apps/*/package.json` files. A missing package displays a
+missing-app screen. Home also offers access to Settings and File Transfer.
 
 Protocol 1 supports semantic layout through `lumen_page`, `lumen_component_button`,
 `lumen_textfield`, `lumen_component_toggle` and `lumen_component_checkbox`.
@@ -187,10 +187,14 @@ public API, so use a new name when an incompatible operation replaces it.
 A caller uses `lumen_app_service(package_id, operation, data, action)`. The
 recipient registers `lumen_service_handler` before calling `lumen_run` and
 answers with `lumen_app_service_result(ok, data)`. Data is a UTF-8 string
-of up to 4,096 bytes in either direction. The recipient can read the caller's
+of up to 8,191 decoded bytes in either direction in the 6.1 development build. The recipient can read the caller's
 package ID with `lumen_string("caller", ...)`. Both sides can use an empty
 string for operations with no payload. Study declares `material_count`, which
 accepts an empty string and returns the count of locally available documents.
+Notes declares `create_learning`. It accepts a title (up to 255 UTF-8 bytes)
+followed by a newline and the recall body. The formatted note must fit in
+8,191 bytes. A successful result returns the existing decimal note ID format.
+If the Learning folder has been removed, Notes places the note at the root.
 
 The app starts in a separate process with its own data and assets, and receives
 `service_call` without foreground initialization. The runtime closes the worker
@@ -207,7 +211,9 @@ as trusted native code and process separation does not sandbox files or network.
 
 Use `lumen_button_action` for a button that needs explicit placement and
 `lumen_app_tile_action` for an interactive app tile. Both report stable
-component IDs. The app tile also reports long presses. Standard app controls
+component IDs. The app tile also reports long presses. Use `lumen_toggle_action` for an
+explicitly placed switch that emits a `changed` event with `"0"` or `"1"`.
+Standard app controls
 should handle those events instead of repeating hit geometry in input handlers.
 
 `lumen_editor_action` emits a `caret` gesture with a UTF-8 byte offset.

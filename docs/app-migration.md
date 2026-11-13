@@ -137,9 +137,13 @@ own monthly view. Calendar’s ordinary commands, Quotes, Recipes, Wikipedia,
 News and File Transfer use named actions. The input and icon definitions are
 public SDK headers shared with the core.
 
-Notes builds its folder and note lists directly from existing on-disk records. Editing, mutation, ink, and export still use the host. Study's uploads are still stored in the existing transfer directory,
-and opening an uploaded document still uses a host bridge. Notes, Reader,
-Settings and the other host handlers in the table still need extraction.
+Notes builds its lists and owns folder creation, renaming, moving and deletion.
+Study creates recall notes through the Notes package worker. Note files and
+folder records keep their existing format. Text editing, ink, web export and
+opening Study uploads still use host bridges. Settings uses semantic controls
+for all screens and still accesses preferences and device operations through
+the host. Bingo, Connect Four, Hex, Knight’s Tour, Maze and Sokoban use semantic
+controls for their toolbars and direction buttons where applicable.
 
 ## Completion checks
 

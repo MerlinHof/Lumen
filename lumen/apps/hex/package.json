@@ -3,7 +3,7 @@
   "api": 1,
   "id": "lumen.hex",
   "name": "Hex",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "sources": [
     "app.c",
     "rules.c"

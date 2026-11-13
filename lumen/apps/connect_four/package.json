@@ -3,7 +3,7 @@
   "api": 1,
   "id": "lumen.connect-four",
   "name": "Vier gewinnt",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "sources": [
     "app.c"
   ],

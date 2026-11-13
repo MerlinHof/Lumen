@@ -82,6 +82,24 @@ static int test_service(void) {
         app_process_poll();
     }
     assert(strstr(app_process_frame(),"finished"));
+    char recall[8193]="Physics\n";
+    size_t used=strlen(recall);
+    for(int i=0;i<1600;i++) {
+        memcpy(recall+used,"A\n\t",3);
+        used+=3;
+    }
+    recall[used]=0;
+    assert(app_service_start("lumen.notes","create_learning",recall,11));
+    serial=app_process_frame_serial();
+    for(int i=0;i<100 && serial==app_process_frame_serial();i++) {
+        usleep(10000);
+        app_service_poll();
+        app_process_poll();
+    }
+    assert(strstr(app_process_frame(),"success") && strstr(app_process_frame(),"\"action\":11"));
+    memset(recall,'A',sizeof(recall)-1);
+    recall[sizeof(recall)-1]=0;
+    assert(!app_service_start("lumen.notes","create_learning",recall,12));
     assert(app_service_start("lumen.study","material_count","",9));
     app_process_pause();
     assert(app_service_fd()<0 && app_process_owner()==caller);

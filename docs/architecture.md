@@ -84,6 +84,8 @@ private content and device reports are ignored. Public screenshots use demo data
 
 A versioned push to main runs Native checks. After success, Publish Kindle update
 builds and creates the missing GitHub release with USB, full-runtime, metadata,
-SDK and app assets. Existing releases are never overwritten. Version digits roll
+SDK and app assets. A matching pending release document keeps the current
+version out of the stable update channel while device validation is open.
+Existing releases are never overwritten. Version digits roll
 from x.9 to (x+1).0. See [wireless updates](wireless-updates.md) and
 [app packages](app-packages.md) for the operational contracts.

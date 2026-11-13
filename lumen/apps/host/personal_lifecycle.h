@@ -69,23 +69,12 @@ static void v1_init(void) {
         }
     }
     launcher_visible[APP_NUMSCRATCH] = launcher_visible[APP_DRAWING] = 0;
-    app_state_load("note-tree-1.bin", &note_tree, sizeof(note_tree));
-    if (note_tree.nf < 0 || note_tree.nf > 512 || note_tree.np < 0 || note_tree.np > 1024)
-        memset(&note_tree, 0, sizeof(note_tree));
-    note_tree.current = 0;
-    for (int i = 0; i < note_tree.nf; i++) {
-        note_tree.folder[i].name[95] = 0;
-        if (note_tree.folder[i].parent == note_tree.folder[i].id)
-            note_tree.folder[i].parent = 0;
-    }
-    u16_notes_defaults();
     v1_photos_scan();
 }
 static void v1_save(void) {
     if (!v1_ready || !v1_dirty)
         return;
     launcher_save();
-    app_state_save("note-tree-1.bin", &note_tree, sizeof(note_tree));
     v1_dirty = 0;
 }
 #include "../../system/ui/chess_icons.h"

@@ -95,9 +95,9 @@ physical E-Ink appearance and response time depend on the Kindle.*
 
 ## Install LUMEN 6.0
 
-Already on 4.7? Use **Settings → System → Update** on the Kindle. The steps below cover first installation and USB recovery.
+Already running LUMEN? Use **Settings → System → Update** on the Kindle. The steps below cover first installation and USB recovery.
 
-**Current hardware target — Kindle Touch 2 (KT2), firmware 5.72.2.2, ARMv7.**
+**Current hardware target — Kindle Touch 2 (KT2), firmware 5.12.2.2, ARMv7.**
 
 A compatible jailbreak, the Kindle .sh launcher and FBInk must already be
 installed. LUMEN's installer checks these prerequisites.
@@ -131,9 +131,9 @@ That panel creates a prompt for an AI coding agent, including the live connectio
 details and instructions for the app runtime, shared controls, engraved icons,
 translations and deployment.
 
-Custom apps are compiled into LUMEN's shared executable. Compatible builds can
-be installed over Wi-Fi as a trial with a previous executable kept for rollback.
-Changes to bundled assets or the launcher still require USB.
+Custom apps compile independently and install over Wi-Fi without rebuilding
+LUMEN. Full wireless system updates can update runtime assets and the launcher.
+The previous runtime is kept until the trial starts successfully.
 
 [Custom app and wireless installation guide](docs/wireless-updates.md)
 
@@ -168,10 +168,10 @@ Lumen/
 [Architecture](docs/architecture.md) · [Build guide](docs/building.md) ·
 [Validation and limitations](docs/validation.md) · [Contributing principles](AGENTS.md)
 
-Apps share a native process, and some view fragments remain coupled through
-the shell. The custom-app flow is an integration and rebuild workflow.
-Hardware behavior, provider integrations and unsupported Kindle firmware need
-their own validation. Supported Amazon imports reuse locally prepared copies;
+All 52 bundled apps run as independent native processes. Some apps still use
+host-side services for data or background jobs. The current 6.1 source and its
+release checks are tracked in [6.1 development status](docs/releases/6.1.pending.md).
+Hardware behavior and provider integrations need their own validation. Supported Amazon imports reuse locally prepared copies;
 protection variants that the converter cannot handle retain the original-reader fallback.
 
 ## Credits & license

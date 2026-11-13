@@ -47,8 +47,6 @@ static void improvements_tests(void) {
     ui_input(&copy);
     assert(!strcmp(clipboard_text, "these"));
     editor_ui.keyboard = 0;
-    route_to(114);
-    companion_page16 = 2;
     puts("PASS improvements: pixel-measured formula scrolling, removed routes, real erasing, drag "
-         "selection, recipe back.");
+         "selection.");
 }

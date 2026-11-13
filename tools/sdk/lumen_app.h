@@ -232,6 +232,11 @@ static inline void lumen_custom_action(const char *id,int x,int y,int w,int h) {
  lumen_cmd("custom_action",x,y,w,h);
  fputs(",\"id\":",stdout);lumen_json(id);putchar('}');
 }
+static inline void lumen_toggle_action(const char *id,int x,int y,int checked) {
+ lumen_cmd("toggle_action",x,y,64,44);
+ fputs(",\"id\":",stdout);lumen_json(id);
+ printf(",\"checked\":%d}",!!checked);
+}
 static inline void lumen_select_action(const char *id,int y,const char *label,const char *value) {
  lumen_cmd("select_action",28,y,544,48);
  fputs(",\"id\":",stdout);lumen_json(id);
@@ -314,7 +319,7 @@ static void lumen_run(void(*draw)(void),int(*input)(const Input*),void(*save)(vo
  static char output[65536];setvbuf(stdout,output,_IOFBF,sizeof(output));
  while(lumen_next()) {
    if(lumen_is("service_call")) {
-      char operation[48],data[4097];
+      char operation[48],data[LUMEN_SERVICE_DATA_MAX+1];
       lumen_language=lumen_number("language");
       if(lumen_service_handler && wire_bounded_string("operation",operation,sizeof(operation)) &&
          wire_bounded_string("data",data,sizeof(data)))lumen_service_handler(operation,data);

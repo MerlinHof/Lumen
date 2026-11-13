@@ -77,6 +77,12 @@ int main(int argc, char **argv) {
     int id=note_selected;assert(id>0);tap17(20,20);
     assert(ui_route()==29 && strstr(app_process_frame(),"Title"));
     shot17("notes");
+    route_to(13);settle_app();ui_draw();
+    tap17(300,240); /* Appearance */
+    tap17(543,361); /* Inverted display */
+    assert(options[OPT_INVERT]==1);
+    tap17(543,361);
+    assert(options[OPT_INVERT]==0);
     route_to(74);
     settle_app();
     ui_draw();

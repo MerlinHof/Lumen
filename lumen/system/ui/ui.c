@@ -45,9 +45,7 @@ unsigned char ui_pixels[WIDTH * HEIGHT];
 static int ink_color, ui_y_offset;
 #include "../../apps/wifi/shell_state.h"
 #include "../../apps/store/shell_state.h"
-#include "../../apps/notes/shell_state.h"
 #include "../../apps/wikipedia/shell_state.h"
-#include "../../apps/settings/shell_state.h"
 #include "../../apps/timer/shell_state.h"
 #include "editor_state.h"
 #include "../../apps/status_bar/shell_state.h"
@@ -75,12 +73,10 @@ static int battery_popup;
 
 static pid_t job_pid16 = -1;
 static int ink_pending16(void), job_pending16(void);
-static void help_overlay16(void), companion_checkpoint16(void),
-    companion_close16(void);
+static void companion_close16(void);
 static int text_editable_hit(const Input *);
 static void small_number17(int, int, const char *, int);
 static void models_parse17(void), reader_markdown17(const char *, const char *, int);
-static void u17_game_manual(int, const char *, const char *);
 static int recipes_fetch17(const char *);
 static void recipes_search17(const char *), recipes_parse17(void), recipes_open_ready17(void);
 static void checkbox(int, int, int),
@@ -90,15 +86,12 @@ static void u15_note_editor_touch(int,int);
 static void u15_note_scroll(int);
 static void editor_reset18(void);
 static int keyboard_intercept18(const Input *in);
-static int u16_apps_draw(void), u16_apps_input(const Input *), u16_jobs_tick(void);
-static void note_delete16(int);
-static int u16_input(const Input *), u16_draw(void), u16_tick(void);
-static void u16_dropdown(int, int), u16_notes_defaults(void);
+static int u16_jobs_tick(void);
+static int u16_tick(void);
 static int u15_input(const Input *);
 static int u15_note_page_count(void);
 static void u15_flush(void);
-static void u15_note_editor_draw(void), u15_note_editor_touch(int, int),
-    u16_notes_defaults(void);
+static void u15_note_editor_draw(void);
 static void u15_sources_prepare(const char *);
 static void u15_init(void), u15_note_overlay(void);
 static int store_complete(int done);
@@ -122,7 +115,7 @@ static int widget_count, pressed = -1, press_canceled, down_y, history[64], hist
 static int dropdown, drop_target,
     drop_count, drop_selected, drop_first, drop_visible;
 static unsigned drop_generation;
-static int drop_x, drop_y, drop_w, setting_category, confirm_delete;
+static int drop_x, drop_y, drop_w, confirm_delete;
 static const char **drop_labels;
 static size_t keyboard_capacity(void);
 static int hit(int x, int y) {
@@ -161,9 +154,7 @@ static void overlays(void);
 void ui_feedback_draw(void);
 static void modal_input(const Input *in);
 static void refresh_library(void);
-static const int lock_mode_ids[5];
 static void wifi_open(void);
-static void settings_home(void);
 static void apps_init(void);
 static void apps_pause(void);
 static void apps_checkpoint(void);
@@ -197,8 +188,6 @@ static void outline_surface(int x, int y, int w, int h, int r, int color);
 static void segment_fill(int x, int y, int w, int h, int r, int color, int sides);
 static void stroke(int x0, int y0, int x1, int y1, int thickness);
 static void commit_keyboard(void);
-static void note_editor_draw(void);
-static void note_editor_touch(int x, int y);
 
 static void keyboard_insert(const char *s);
 static void keyboard_backspace(void);
@@ -212,7 +201,7 @@ static int v1_tick(void), v1_poll(void);
 static int clipboard_input(const Input *);
 static void clipboard_draw(void), v1_effect(void), v1_close(void);
 static int v1_sleep_photo(void);
-static void v1_note_created(int), v1_timer_started(void);
+static void v1_timer_started(void);
 static int v1_sleep_poll(void), v1_sleep_tick(void);
 static void header(void);
 static int status_overlay_poll(void);
@@ -227,8 +216,6 @@ static void polish_draw(void), polish_close(void);
 static int polish_tick(void), polish_poll(void),
     polish_power(const Input *);
 static void polish_wiki_archive(void), polish_wiki_saved(void);
-static void polish_notes(void);
-static int polish_notes_input(const Input *);
 static void register_builtin_views(void);
 #include "keyboard_request.h"
 static void open_keyboard(int target, const char *title, const char *value) {
@@ -1004,7 +991,6 @@ static int restore_anchor(const Book *book, int fallback, int bookmark) {
 
 void ui_save(void) {
     app_pages_checkpoint();
-    companion_checkpoint16();
     u15_flush();
     if (editor_ui.keyboard && (editor_ui.keyboard_target == 30 || editor_ui.keyboard_target == 60 ||
                      editor_ui.keyboard_target == 174))
@@ -1268,11 +1254,6 @@ void ui_draw(void) {
     if (ui_route() != 2)
         app_view_draw(APP_STATUS_BAR);
     app_render();
-    help_overlay16();
-    if (ui_route() == 79 || ui_route() == 125) {
-        rect(250, 72, 266, 48, 255);
-        dropdown_button(270, 74, 246, 44, ui_route() == 79 ? "Sternhimmel" : "Sonnensystem");
-    }
     if (ui_route() == 2 && reader_ui.reader_chrome)
         app_view_draw(APP_STATUS_BAR);
     if (ui_route() == 2 && reader_ui.selecting == 2)
@@ -1408,11 +1389,6 @@ static int ui_dispatch_input(const Input *in) {
                      (ui_route() != 2 || reader_ui.reader_chrome || app_package_installed(APP_READER));
     int system_pager = !sleeping && !editor_ui.keyboard && !dropdown && !confirm_delete &&
                        pagination_hit(in);
-    int update16 = (status_tap || system_pager || app_package_installed(app_for_route(ui_route()))) ? -1 : u16_input(in);
-    if (update16 >= 0) {
-        pressed = -1;
-        return update16;
-    }
     int update15 = (status_tap || system_pager) ? -1 : u15_input(in);
     if (update15 >= 0) {
         pressed = -1;
@@ -1424,7 +1400,8 @@ static int ui_dispatch_input(const Input *in) {
         if (sleeping) { app_process_poll(); return 2; }
         {int changed=package_ui_poll();return package_exit_requested ? 0 : changed ? 1 : 2;}
     }
-    if (in->kind == INPUT_DOWN || in->kind == INPUT_TAP || in->kind == INPUT_SWIPE)
+    if (in->kind == INPUT_DOWN || in->kind == INPUT_TAP || in->kind == INPUT_SWIPE ||
+        in->kind == INPUT_WAKE)
         activity16 = extra_millis();
     int network_poll = 0;
     Input normalized;
@@ -1976,33 +1953,8 @@ static void modal_input(const Input *in) {
                 dropdown = 0;
                 return;
             }
-            if(drop_target==2001){package_ui_choice(choice);}
-            else if(drop_target==2004){launcher_delete_confirm(choice);}
-            else if (drop_target >= 910 && drop_target <= 930) {
-                u16_dropdown(drop_target, choice);
-            } else if (drop_target == 900) {
-                settings.sort = choice;
-                library_settings_save();
-                update_view();
-
-            } else if (drop_target == 0)
-                settings.sort = choice;
-            else if (drop_target == 1)
-                settings.filter = choice;
-            else if (drop_target == 2)
-                setting_category = choice;
-            else if (drop_target >= 100) {
-                int option = drop_target - 100;
-                if (option >= 0 && option < OPT_COUNT)
-                    options[option] = option == OPT_LOCK ? lock_mode_ids[choice] : choice;
-                if (option == OPT_ZONE)
-                    extra_zone();
-                engine_options(options[OPT_FONT], options[OPT_ALIGN], options[OPT_LETTERSPACE],
-                               options[OPT_PARAGRAPH]);
-            }
-            library_ui.listpage = 0;
-            update_view();
-            library_settings_save();
+            if(drop_target==2001)package_ui_choice(choice);
+            else if(drop_target==2004)launcher_delete_confirm(choice);
         }
         if (generation == drop_generation)
             dropdown = 0;
@@ -2013,7 +1965,6 @@ static void modal_input(const Input *in) {
         return;
     }
 }
-#include "../../apps/settings/preferences.h"
 #include "../../apps/store/view.h"
 #include "../../apps/wifi/app.h"
 int ui_poll_interval(void) {
@@ -2118,15 +2069,10 @@ static void app_leave(AppId app, void *ctx) {
     app_process_pause();
     app_page_checkpoint(app);
     (void)ctx;
-    companion_checkpoint16();
     if (app >= APP_2048)
         new_apps_save();
     if (app == APP_NOTES && editor_ui.keyboard && editor_ui.keyboard_target == 30)
         commit_keyboard();
-    if (app == APP_NOTES)
-        v1_save();
-
-
     if (app == APP_BLOCKS || app == APP_SNAKE)
         apps_pause();
     if (app == APP_READER) {

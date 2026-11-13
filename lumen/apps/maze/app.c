@@ -1,4 +1,4 @@
-#include "lumen_app.h"
+#include "../games/package_ui.h"
 
 enum { COLS=33, ROWS=35, LEFT=36, TOP=140, TILE=16 };
 typedef struct {
@@ -66,8 +66,8 @@ static void load(void) {
 }
 static void draw(void) {
     ui_paint_heading(word("Labyrinth","Maze","Labyrinthe"),2);
-    lumen_button(468,74,44,44,"?",0);
-    ui_paint_icon_button(528,74,IC_RESTART);
+    lumen_button_action("help",468,74,44,44,"?",0);
+    lumen_icon_action("restart",528,74,IC_RESTART);
     for(int y=0;y<ROWS;y++) {
         for(int x=0;x<COLS;) {
             if(maze.wall[y*COLS+x]) {
@@ -82,11 +82,7 @@ static void draw(void) {
     }
     ui_paint_ring(LEFT+(COLS-2)*TILE+8,TOP+(ROWS-2)*TILE+8,6,2);
     ui_paint_ellipse(LEFT+maze.x*TILE+8,TOP+maze.y*TILE+8,6,6,0);
-    const int icons[]={IC_PREV,IC_UP,IC_DOWN,IC_NEXT};
-    for(int i=0;i<4;i++) {
-        lumen_button(150+i*79,728,60,44,"",0);
-        ui_paint_icon_button(158+i*79,728,icons[i]);
-    }
+    game_direction_pad();
 }
 static int input(const Input *in) {
     int x=in->x,y=in->y,dx=0,dy=0,steps=1;
@@ -94,21 +90,20 @@ static int input(const Input *in) {
         if(abs(in->dx)>abs(in->dy))dx=in->dx>0 ? 1 : -1;
         else dy=in->dy>0 ? 1 : -1;
         steps=4;
+    } else if(in->kind==INPUT_COMPONENT) {
+        char action[32];
+        if(!game_action(in,action,sizeof(action)))return 0;
+        if(!strcmp(action,"help")) {
+            lumen_app_open_with("lumen.reader","open_document","",word("Labyrinth","Maze","Labyrinthe"),
+                word("Finde den Ausgang unten rechts. Wische, tippe auf einen Gang oder nutze die Pfeile. Graue Punkte markieren deinen Weg.",
+                     "Find the exit in the lower right. Swipe, tap a corridor or use the arrows. Gray dots mark your trail.",
+                     "Trouvez la sortie en bas à droite. Balayez, touchez un couloir ou utilisez les flèches. Les points gris marquent votre trajet."));
+            return 0;
+        }
+        if(!strcmp(action,"restart")) {new_maze();return 1;}
+        game_direction(action,&dx,&dy);
     } else if(in->kind!=INPUT_TAP)return 0;
-    else if(y>=74 && y<118 && x>=468 && x<512) {
-        lumen_app_open_with("lumen.reader","open_document","",word("Labyrinth","Maze","Labyrinthe"),
-            word("Finde den Ausgang unten rechts. Wische, tippe auf einen Gang oder nutze die Pfeile. Graue Punkte markieren deinen Weg.",
-                 "Find the exit in the lower right. Swipe, tap a corridor or use the arrows. Gray dots mark your trail.",
-                 "Trouvez la sortie en bas à droite. Balayez, touchez un couloir ou utilisez les flèches. Les points gris marquent votre trajet."));
-        return 0;
-    } else if(y>=74 && y<118 && x>=528 && x<572) {
-        new_maze();return 1;
-    } else if(y>=728 && y<772 && x>=150 && x<447) {
-        int button=(x-150)/79;
-        if((x-150)%79>=60)return 0;
-        dx=button==0 ? -1 : button==3 ? 1 : 0;
-        dy=button==1 ? -1 : button==2 ? 1 : 0;
-    } else if(x>=LEFT && x<LEFT+COLS*TILE && y>=TOP && y<TOP+ROWS*TILE) {
+    else if(x>=LEFT && x<LEFT+COLS*TILE && y>=TOP && y<TOP+ROWS*TILE) {
         int delta_x=(x-LEFT)/TILE-maze.x,delta_y=(y-TOP)/TILE-maze.y;
         if(abs(delta_x)>abs(delta_y)){dx=delta_x>0 ? 1 : -1;steps=abs(delta_x);}
         else if(delta_y){dy=delta_y>0 ? 1 : -1;steps=abs(delta_y);}

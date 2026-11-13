@@ -4,7 +4,6 @@ static int64_t ink_refresh_at, ink_save_at;
 static int u15_ready, note_ink_mode, ink_eraser, ink_width = 3, ink_note = -1, ink_page = -1,
                                                  ink_last_x, ink_last_y, ink_drag, ink_dirty;
 static unsigned char ink_pixels[600 * 688], ink_undo[600 * 688];
-static int notes_move_folder, notes_delete_folder = -1;
 static struct {
     char name[80], url[2048];
     int enabled;

@@ -77,13 +77,14 @@ int main(void) {
     app_process_open(APP_TIMER);
     app_process_send("{\"event\":\"select\",\"action\":2,\"value\":0}");
     for(int i=0;i<30;i++){usleep(5000);package_ui_poll();}
-    route_to(40);
-    extra_page=0;picture("system-update");
+    route_to(13);
+    app_process_open(APP_SETTINGS);
+    app_process_send("{\"event\":\"component\",\"id\":\"system\",\"gesture\":\"clicked\"}");
+    picture("system-update");
     route_to(129);
     picture("sliding-puzzle");
     route_to(130);
     picture("frog-solitaire");
-    warehouse_new17(1);
     route_to(118);
     picture("sokoban");
     if (library_count) {
@@ -97,23 +98,26 @@ int main(void) {
     extra_commit(30, "A little room to think\n\nWhat made today feel different?\n\nA walk without "
                      "headphones.\nA chapter before breakfast.\nAn idea worth keeping.\n\nSmall "
                      "things, written down.");
-    route_to(30);
+    route_to(29);
+    app_process_open(APP_NOTES);
+    char note_event[100];
+    snprintf(note_event,sizeof(note_event),"{\"event\":\"intent\",\"operation\":\"note-open\",\"note_id\":%d}",note_selected);
+    app_process_send(note_event);
     picture("notes");
     open_keyboard(30, "Note", note_text);
     editor_ui.note_cursor = strlen(editor_ui.edit);
     picture("keyboard");
     editor_ui.keyboard = 0;
-    editor_ui.keyboard = 0;
     note_selected = -1;
     extra_commit(30, "Small things worth keeping\n\nA page. A walk. An unhurried morning.");
-    note_tree.current = 0;
     route_to(29);
+    app_process_send("{\"event\":\"back\"}");
     picture("notes-list");
     route_to(74);
     picture("todo");
     route_to(122);
     picture("chat");
-    route_to(12);
+    route_to(13);
     wifi_ui.wifi_enabled = 1;
     wifi_count = 3;
     wifi_ui.wifi_page = 0;
@@ -124,6 +128,8 @@ int main(void) {
     wifi_networks[1].saved = 1;
     snprintf(wifi_networks[2].ssid, sizeof(wifi_networks[2].ssid), "Guest network");
     snprintf(wifi_networks[2].flags, sizeof(wifi_networks[2].flags), "WPA2");
+    app_process_open(APP_SETTINGS);
+    app_process_send("{\"event\":\"component\",\"id\":\"wifi\",\"gesture\":\"clicked\"}");
     picture("wifi");
     ui_close();
     engine_shutdown();

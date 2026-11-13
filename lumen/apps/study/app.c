@@ -74,9 +74,11 @@ static int input(const Input *in) {
     if(in->kind==INPUT_TEXT && in->x==4) {
         static char text[7850],note[8192];
         if(lumen_string("text",text,sizeof(text)) && *text) {
-            char *newline=strpbrk(selected,"\r\n");if(newline)*newline=' ';
-            snprintf(note,sizeof(note),"%s\n%s",selected,text);
-            lumen_service("notes","create_learning",note,3);
+            char title[sizeof(selected)];
+            snprintf(title,sizeof(title),"%s",selected);
+            for(char *line=title; *line; line++)if(*line=='\r' || *line=='\n')*line=' ';
+            snprintf(note,sizeof(note),"%s\n%s",title,text);
+            lumen_app_service("lumen.notes","create_learning",note,3);
         }
         return 1;
     }

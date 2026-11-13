@@ -6,8 +6,8 @@ static int dirty;
 static const char *title(void){return game_text("Vier gewinnt","Connect Four","Puissance 4");}
 static void draw(void) {
     ui_paint_heading(title(),2);
-    ui_paint_icon_button(468,74,IC_BOOK);
-    ui_paint_icon_button(528,74,IC_RESTART);
+    lumen_icon_action("help",468,74,IC_BOOK);
+    lumen_icon_action("restart",528,74,IC_RESTART);
     char label[80];
     snprintf(label,sizeof(label),game.winner==3 ? "%s" : "%s %d",
         game.winner==3 ? game_text("Unentschieden","Draw","Match nul") :
@@ -22,10 +22,11 @@ static void draw(void) {
     }
 }
 static int input(const Input *in) {
-    if(in->kind!=INPUT_TAP)return 1;
-    if(in->y>=74 && in->y<118) {
-        if(in->x>=528){memset(&game,0,sizeof(game));game.turn=1;dirty=1;}
-        else if(in->x>=468 && in->x<512)game_help(title(),
+    char action[32];
+    if(in->kind!=INPUT_TAP && !game_action(in,action,sizeof(action)))return 0;
+    if(in->kind==INPUT_COMPONENT) {
+        if(!strcmp(action,"restart")){memset(&game,0,sizeof(game));game.turn=1;dirty=1;}
+        else if(!strcmp(action,"help"))game_help(title(),
             "Tippe eine Spalte an. Der Stein fällt auf den untersten freien Platz. Vier eigene Steine in einer Reihe, Spalte oder Diagonale gewinnen.",
             "Tap a column to drop a stone into its lowest free square. Four of your stones in a row, column or diagonal win.",
             "Touchez une colonne pour y déposer un pion. Alignez quatre pions horizontalement, verticalement ou en diagonale.");

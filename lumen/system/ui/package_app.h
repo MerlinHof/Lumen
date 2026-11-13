@@ -170,11 +170,12 @@ static void package_paint_frame(const char *text) {
             } else region(x,y,w,h);
             continue;
         }
-        if(!strcmp(type,"icon_action") || !strcmp(type,"button_action")) {
-            int is_icon=!strcmp(type,"icon_action");
+        if(!strcmp(type,"icon_action") || !strcmp(type,"button_action") || !strcmp(type,"toggle_action")) {
+            int is_icon=!strcmp(type,"icon_action"),is_toggle=!strcmp(type,"toggle_action");
             int id=package_value(&j,item,"icon");
             if(x<0 || y<STATUS_HEIGHT || w<44 || h<44 || x+w>WIDTH || y+h>HEIGHT ||
                (is_icon && (w!=44 || h!=44 || id<0 || id>IC_LAST)) ||
+               (is_toggle && (w!=64 || h!=44 || x<10 || x>WIDTH-80 || y<STATUS_HEIGHT+8)) ||
                package_component_count>=PACKAGE_COMPONENT_LIMIT)continue;
             PackageComponent *component=&package_components[package_component_count];
             json_string(&j,json_get(&j,item,"id"),component->id,sizeof(component->id));
@@ -182,7 +183,16 @@ static void package_paint_frame(const char *text) {
             component->left=x;component->top=y;component->width=w;component->height=h;
             component->kind=COMPONENT_BUTTON;
             if(is_icon)icon_button(x,y,id);
-            else button_h(x,y,w,h,label,package_value(&j,item,"primary"));
+            else if(is_toggle) {
+                component->kind=COMPONENT_TOGGLE;
+                component->checked=!!package_value(&j,item,"checked");
+                toggle(x,y,component->checked);
+                component->left=x-10;
+                component->top=y-8;
+                component->width=90;
+                component->height=48;
+                widget_shape(x-10,y-8,90,48,RADIUS_MEDIUM,3,0);
+            } else button_h(x,y,w,h,label,package_value(&j,item,"primary"));
             package_component_count++;
             continue;
         }
@@ -603,6 +613,7 @@ static void package_call_app(int id,const char *operation,const char *data,int r
     if(request_id>0)package_calls[package_call_count++]=(PackageCall){route,id,request_id,history_count};
 }
 #include "../../../tools/sdk/lumen_storage.h"
+#include "../../../tools/sdk/lumen_wire.h"
 static void package_reader_file(Json *json,const char *title) {
     int owner=app_process_owner();
     if(owner<0 || owner!=(int)app_for_route(ui_route()))return;
@@ -644,18 +655,14 @@ static int package_ui_poll(void) {
         }
     }
     else if(!strcmp(kind,"app_service")) {
-        char target[64],operation[48];
-        int app=json_get(&j,0,"app"),op=json_get(&j,0,"operation"),payload=json_get(&j,0,"text");
+        char target[64],operation[48],data[LUMEN_SERVICE_DATA_MAX+1];
         int action=package_value(&j,0,"action");
-        if(app<0 || j.tokens[app].type!='"' || j.tokens[app].end-j.tokens[app].start>65 ||
-           op<0 || j.tokens[op].type!='"' || j.tokens[op].end-j.tokens[op].start>49 ||
-           payload<0 || j.tokens[payload].type!='"') {
+        if(!wire_read(message) ||
+           !wire_bounded_string("app",target,sizeof(target)) ||
+           !wire_bounded_string("operation",operation,sizeof(operation)) ||
+           !wire_bounded_string("text",data,sizeof(data)) ||
+           !app_service_start(target,operation,data,action))
             package_acknowledge(action,0);
-        } else {
-            json_string(&j,app,target,sizeof(target));
-            json_string(&j,op,operation,sizeof(operation));
-            if(!app_service_start(target,operation,text,action))package_acknowledge(action,0);
-        }
     }
     else if(!strcmp(kind,"service")) {
         char service[64],operation[64];

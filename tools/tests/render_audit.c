@@ -73,14 +73,16 @@ int main(int argc, char **argv) {
         char name[80];
         snprintf(name, 80, "settings-%d", lang);
         capture(name);
-        for (int cat = 0; cat < 6; cat++) {
-            setting_category = cat;
-            route_to(9);
-            for (int pg = 0; pg < (cat == 1 ? 2 : 1); pg++) {
-                settings_ui.setting_page = pg;
-                snprintf(name, 80, "settings-%d-%d-%d", lang, cat, pg);
-                capture(name);
-            }
+        const char *sections[]={"wifi","appearance","date-time","manage","system"};
+        for (int section=0;section<5;section++) {
+            char event[100];
+            snprintf(event,sizeof(event),"{\"event\":\"component\",\"id\":\"%s\",\"gesture\":\"clicked\"}",sections[section]);
+            app_process_send(event);
+            for(int i=0;i<20;i++){usleep(5000);package_ui_poll();}
+            snprintf(name,80,"settings-%d-%d",lang,section);
+            capture(name);
+            app_process_send("{\"event\":\"back\"}");
+            for(int i=0;i<20;i++){usleep(5000);package_ui_poll();}
         }
     }
     options[OPT_LANGUAGE] = 1;
@@ -146,7 +148,6 @@ int main(int argc, char **argv) {
     capture("filled-store");
     route_to(114);
     recipe_recent_count16 = 5;
-    companion_page16 = 0;
     for (int i = 0; i < 5; i++)
         snprintf(recipe_recent16[i].title, 160, "%s",
                  i % 2 ? "Kartoffelsuppe"
@@ -191,7 +192,9 @@ int main(int argc, char **argv) {
     for(int i=0;i<30;i++){usleep(5000);package_ui_poll();}
     capture("alarm");
     route_to(29);
-    note_tree.current = note_tree.folder[0].id;
+    app_process_open(APP_NOTES);
+    app_process_send("{\"event\":\"component\",\"id\":\"entry-0\",\"gesture\":\"clicked\"}");
+    for(int i=0;i<20;i++){usleep(5000);package_ui_poll();}
     capture("empty-folder");
     if (library_count) {
         ui_open(0);

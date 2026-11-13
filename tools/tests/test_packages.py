@@ -73,7 +73,8 @@ done
 """
 archive(caller_app,{'app':script},format='lumen-app-1',api=1,id='test.caller',name='Caller fixture',version='1.0.0')
 run('install',caller_app)
-run('install',ROOT/'build/apps/host/lumen.study/lumen.study.lumen-app')
+for key in ('lumen.study','lumen.notes'):
+ run('install',ROOT/'build/apps/host'/key/(key+'.lumen-app'))
 worker=base/'worker.lumen-app'
 script=b"""#!/bin/sh
 IFS= read -r event
@@ -88,6 +89,8 @@ run('install',worker,ok=False)
 archive(worker,{'app':script},**meta,operations=['exit','reply_and_exit'])
 run('install',worker)
 run('service')
+recalls=[p.read_bytes() for p in (data/'notes').glob('*.txt')]
+assert recalls==['# Abrufübung: Physics\n\n'.encode()+b'A\n\t'*1600]
 
 # The ports exercise the same system input and paint protocol as user packages.
 def app_session(key,events,legacy=None):
@@ -102,14 +105,35 @@ def app_session(key,events,legacy=None):
 
 # Launch every package from its own executable with fresh private storage.
 manifests=sorted((ROOT/'lumen/apps').glob('*/package.json'))
+assert len(manifests)==52
+ids=set()
 for manifest in manifests:
- key=json.loads(manifest.read_text())['id']
+ definition=json.loads(manifest.read_text())
+ key=definition['id']
+ assert key not in ids and definition['api']==1 and definition['format']=='lumen-app-1',key
+ ids.add(key)
+ assert 'assets/icon.pgm' in definition['assets'],key
+ for source in definition['sources']:
+  assert (manifest.parent/source).is_file() and (manifest.parent/source).resolve().is_relative_to(ROOT/'lumen/apps'),key
  frames,_=app_session(key,[])
  assert any(isinstance(frame.get('ui'),list) for frame in frames),key
-print(f'PASS startup frames from all {len(manifests)} standalone apps.')
+print(f'PASS startup frames and manifests from all {len(manifests)} standalone apps.')
+
+removed=('games/manuals.h','notes/folder_state.h','notes/folders.h','notes/defaults.h',
+         'notes/shell_state.h','settings/preferences.h','settings/shell_state.h')
+for path in removed:
+ assert not (ROOT/'lumen/apps'/path).exists(),path
+assert 'INPUT_TAP' not in (ROOT/'lumen/apps/settings/app.c').read_text()
+assert 'package_learning_note' not in (ROOT/'lumen/system/ui/study_services.h').read_text()
+print('PASS extracted collection and Settings controls stay outside retired host implementations.')
 
 def tap(x,y):
  return dict(event='input',kind=1,x=x,y=y)
+
+def component(id,gesture='clicked',text=None):
+    event=dict(event='component',id=id,gesture=gesture,changed=int(text is not None))
+    if text is not None:event['text']=text
+    return event
 
 for app,x,y,help_x in [
  ('bingo',70,220,490),('connect-four',70,220,490),('hex',60,155,490),
@@ -118,7 +142,8 @@ for app,x,y,help_x in [
 ]:
  events=[tap(x,y)]
  if app=='wordle': events.append(dict(event='text',action=1,text='PAPER'))
- if help_x: events.append(tap(help_x,92))
+ if help_x:
+     events.append(component('help') if app in ('bingo','connect-four','hex') else tap(help_x,92))
  frames,folder=app_session('lumen.'+app,events)
  assert any(frame.get('ui') for frame in frames),app
  assert any(folder.glob('*.bin')),app
@@ -136,7 +161,7 @@ assert len([c for c in frames[-1]['ui'] if c.get('type')=='mono'])==1
 print('PASS standalone app ports, Reader help, private saves and persistent Terminal shell.')
 
 # Read the wall runs actually published by the executable and prove the exit is reachable.
-frames,_=app_session('lumen.maze',[tap(490,92)])
+frames,_=app_session('lumen.maze',[component('help'),component('down')])
 walls=set()
 for cmd in frames[0]['ui']:
  if cmd['type']=='surface' and cmd['y']>=140 and cmd['y']<700 and cmd['gray']==38:
@@ -154,7 +179,7 @@ assert walls and (31,33) in seen
 assert any(f.get('request')=='intent' and f.get('operation')=='open_document' for f in frames)
 print('PASS packaged Maze renders a solvable board and opens help through a Reader intent.')
 
-frames,folder=app_session('lumen.knights-tour',[tap(130,350),tap(430,92)])
+frames,folder=app_session('lumen.knights-tour',[tap(130,350),component('help')])
 assert (folder/'tour.bin').read_bytes()[17]==2
 assert any(f.get('request')=='intent' for f in frames)
 print('PASS packaged Knight’s Tour legal move, private save and Reader help.')
@@ -191,7 +216,7 @@ assert (folder/'cards.bin').is_file() and (folder/'reviews.tsv').read_text().spl
 assert any(c.get('text')=='Mass times acceleration.' for f in frames for c in f.get('ui',[]))
 print('PASS packaged Flashcards creates cards, reveals answers and records FSRS reviews.')
 
-frames,folder=app_session('lumen.sokoban',[tap(430,92)])
+frames,folder=app_session('lumen.sokoban',[component('help'),component('left')])
 assert (folder/'warehouse.bin').is_file()
 assert any(c.get('type')=='sprite' and c.get('transparent')==1 for f in frames for c in f.get('ui',[]))
 assert any(f.get('operation')=='open_document' for f in frames)
@@ -202,10 +227,6 @@ assert any(f.get('request')=='notify' and 'letters' in f.get('text','') for f in
 assert any(f.get('operation')=='open_document' for f in frames)
 print('PASS packaged Sokoban assets, save and help, and Crossword clues, editing, validation and help.')
 
-def component(id,gesture='clicked',text=None):
-    event=dict(event='component',id=id,gesture=gesture,changed=int(text is not None))
-    if text is not None:event['text']=text
-    return event
 
 frames,folder=app_session('lumen.braintrain',[component('exercise0'),tap(100,735),tap(150,300),tap(100,735)])
 assert len([c for c in frames[0]['ui'] if c['type']=='component_card'])==6
@@ -327,7 +348,8 @@ frames,folder=app_session('lumen.study',[
     dict(event='text',action=4,text='Recall\nSecond paragraph')],legacy=data)
 assert any(f.get('service')=='study_material' and f.get('operation')=='open' and f.get('text')=='Lesson.txt' for f in frames)
 assert any(f.get('service')=='clock' and f.get('operation')=='start_timer' and f.get('text')=='25' for f in frames)
-assert any(f.get('service')=='notes' and f.get('text')=='Lesson.txt\nRecall\nSecond paragraph' for f in frames)
+assert any(f.get('request')=='app_service' and f.get('app')=='lumen.notes' and
+           f.get('operation')=='create_learning' and f.get('text')=='Lesson.txt\nRecall\nSecond paragraph' for f in frames)
 assert (folder/'material.txt').read_text()=='Lesson.txt'
 print('PASS packaged Study enumerates material locally and handles semantic actions for reading, focus and recall.')
 
@@ -503,6 +525,7 @@ print('PASS packaged Reader document surface, page navigation, contents and pref
 notes_data=base/'legacy-notes'
 (notes_data/'notes').mkdir(parents=True)
 (notes_data/'notes'/'123.txt').write_text('Legacy note\nA second line')
+(notes_data/'notes-defaults16.txt').write_text('1')
 folder_record=struct.pack('=ii96s',1,0,b'Notes')
 tree=folder_record+bytes(511*104+1024*8)+struct.pack('=iii',1,0,0)
 (notes_data/'note-tree-1.bin').write_bytes(struct.pack('=II',0x4c554d16,len(tree))+tree)
@@ -518,14 +541,31 @@ assert any(c.get('type')=='note_surface' for f in frames for c in f.get('ui',[])
 assert any(f.get('operation')=='eraser' for f in frames)
 assert any(f.get('operation')=='markdown' for f in frames)
 assert any(f.get('operation')=='close' for f in frames)
-print('PASS packaged Notes opens existing notes and controls drawing, Markdown and Back.')
+# Exercise collection changes in a fresh process against the existing format.
+frames,_=app_session('lumen.notes',[
+    component('new-folder'),dict(event='text',action=1,text='Project'),
+    component('entry-1'),component('rename'),dict(event='text',action=2,text='Archive'),
+    dict(event='back'),component('menu-2'),dict(event='select',action=1,value=0),
+    component('entry-2')],notes_data)
+assert not any(f.get('service')=='notes_editor' for f in frames)
+assert (notes_data/'notes'/'123.txt').read_text()=='Legacy note\nA second line'
+frames,_=app_session('lumen.notes',[component('entry-1')],notes_data)
+assert any(c.get('text')=='Archive' for f in frames for c in f.get('ui',[]))
+assert any(c.get('text')=='Legacy note' for c in frames[-1]['ui'])
+(notes_data/'notes'/'123-page-0.ink').write_bytes(b'ink')
+app_session('lumen.notes',[component('menu-1'),dict(event='select',action=1,value=1),
+                          component('confirm')],notes_data)
+assert not (notes_data/'notes'/'123.txt').exists()
+assert not (notes_data/'notes'/'123-page-0.ink').exists()
+assert (notes_data/'note-tree-1.bin').read_bytes()[:8]==struct.pack('=II',0x4c554d16,len(tree))
+print('PASS packaged Notes editing bridge, folder mutations, legacy state, recursive delete and ink cleanup.')
 
 frames,_=app_session('lumen.settings',[
-    component('appearance'),component('tab','selected','2'),tap(480,225),dict(event='select',action=19,value=1),
+    component('appearance'),component('tab','selected','2'),component('pref-9'),dict(event='select',action=19,value=1),
     dict(event='back'),component('wifi'),dict(event='service',action=5,ok=1),
     dict(event='service',action=2,ok=1,enabled=1,count=1,name0='Wi-Fi fixture',locked0=1),
-    tap(260,245),dict(event='text',action=1,text='test-password'),
-    dict(event='back'),component('system'),tap(210,700)])
+    component('network-0'),dict(event='text',action=1,text='test-password'),
+    dict(event='back'),component('system'),component('check')])
 assert any(f.get('operation')=='preference' and f.get('text')=='9 5' for f in frames)
 assert any(f.get('request')=='secret' for f in frames)
 assert any(f.get('operation')=='wifi_connect' and f.get('text')=='Wi-Fi fixture\ntest-password' for f in frames)

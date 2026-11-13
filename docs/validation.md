@@ -1,4 +1,7 @@
-# Validation · LUMEN 4.3
+# Validation
+
+The [6.1 development status](releases/6.1.pending.md) records the current
+automated checks, baseline comparison and physical-device checks still open.
 
 ## 3.9 verification
 

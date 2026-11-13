@@ -5,7 +5,6 @@
 #include <signal.h>
 #include <sys/wait.h>
 static int v1_ready, v1_dirty;
-#include "../notes/folder_state.h"
 #include "../nonograms/shared_board_state.h"
 #include "../photos/state.h"
 #include "../news/archive_state.h"

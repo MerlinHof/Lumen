@@ -12,25 +12,6 @@ static int package_study_material(const char *operation,const char *data,int act
     if(study_document_path(path,data) && file_open16(path,ui_route()))return 1;
     return package_acknowledge(action,0);
 }
-static int package_learning_note(const char *data,int action) {
-    const char *split=strchr(data,'\n');
-    if(!split || split-data>255 || !split[1])return 0;
-    char title[256];snprintf(title,sizeof(title),"%.*s",(int)(split-data),data);
-    u16_notes_defaults();
-    int folder=0;
-    for(int i=0;i<note_tree.nf;i++)
-        if(!strcmp(note_tree.folder[i].name,"Learning"))folder=note_tree.folder[i].id;
-    char path[4096],content[9000];
-    int id=(int)time(NULL);
-    do {snprintf(path,sizeof(path),"%s/notes/%d.txt",data_root,id++);} while(!access(path,F_OK));
-    snprintf(content,sizeof(content),tr("# Abrufübung: %s\n\n%s"),*title ? title : tr("Lernen"),split+1);
-    int ok=atomic_write(path,content,strlen(content));
-    if(ok){v1_place(id-1,folder);v1_save();notes_scan();}
-    char *message=NULL;size_t length=0;
-    FILE *out=package_reply(&message,&length,action,ok);
-    if(out)package_reply_end(out,&message);
-    return ok;
-}
 static int package_start_timer(const char *data,int action) {
     char *end;long minutes=strtol(data,&end,10);
     if(!*data || *end || minutes<1 || minutes>240)return 0;

@@ -58,7 +58,6 @@ static void extra_init(void) {
         discover_parse_lookup(wiki_path);
     extra_load_text("wiki-query.txt", wiki_query, sizeof(wiki_query));
     ha_parse();
-    notes_scan();
 
 }
 static void extra_save(void) {
@@ -77,7 +76,6 @@ static void extra_save(void) {
     snprintf(b, sizeof(b), "%lld", (long long)timer_paused);
     extra_write_text("timer-paused.txt", b);
 }
-static void storage_scan(void);
 static int extra_ringing(void) {
     return alarm_ring;
 }

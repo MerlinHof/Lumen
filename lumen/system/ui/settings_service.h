@@ -74,10 +74,19 @@ static int package_settings(const char *operation,const char *data,int action) {
         return package_acknowledge(action,1);
     }
     if(!strcmp(operation,"sleep")) {
-        const int durations[]={5,10,15,30,60,0};int value=atoi(data),valid=0;
-        for(int i=0;i<6;i++)valid|=value==durations[i];
-        if(!valid || !*data)return package_acknowledge(action,0);
-        auto_sleep_minutes=value;extra_write_text("auto-sleep16.txt",data);return package_acknowledge(action,1);
+        char *end;
+        long value=strtol(data,&end,10);
+        if(end==data || *end)return package_acknowledge(action,0);
+        int valid=0;
+        for(size_t i=0;i<sizeof(sleep_durations)/sizeof(*sleep_durations);i++)
+            valid|=value==sleep_durations[i];
+        if(!valid)return package_acknowledge(action,0);
+        char canonical[12],path[2048];
+        snprintf(canonical,sizeof(canonical),"%d",(int)value);
+        local_path(path,sizeof(path),"auto-sleep16.txt");
+        if(!atomic_write(path,canonical,strlen(canonical)))return package_acknowledge(action,0);
+        auto_sleep_minutes=(int)value;
+        return package_acknowledge(action,1);
     }
     if(!strcmp(operation,"time")) {
         int y,m,d,h,min;char tail;

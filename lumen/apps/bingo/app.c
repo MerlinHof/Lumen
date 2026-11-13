@@ -26,7 +26,7 @@ static void reset(void) {
 }
 static void draw(void) {
     ui_paint_heading("Bingo",2);
-    ui_paint_icon_button(468,74,IC_BOOK);ui_paint_icon_button(528,74,IC_RESTART);
+    lumen_icon_action("help",468,74,IC_BOOK);lumen_icon_action("restart",528,74,IC_RESTART);
     for(int i=0;i<5;i++) {
         char letter[]={"BINGO"[i],0};
         ui_paint_text(35+i*106,140,100,44,letter,PAINT_HEADING);
@@ -43,10 +43,11 @@ static void draw(void) {
     if(won())ui_paint_text(28,718,544,45,"BINGO!",PAINT_DISPLAY);
 }
 static int input(const Input *in) {
-    if(in->kind!=INPUT_TAP)return 1;
-    if(in->y>=74 && in->y<118) {
-        if(in->x>=528)reset();
-        else if(in->x>=468 && in->x<512)game_help("Bingo",
+    char action[32];
+    if(in->kind!=INPUT_TAP && !game_action(in,action,sizeof(action)))return 0;
+    if(in->kind==INPUT_COMPONENT) {
+        if(!strcmp(action,"restart"))reset();
+        else if(!strcmp(action,"help"))game_help("Bingo",
             "Tippe jede aufgerufene Zahl an. Das mittlere Feld ist frei. Fünf markierte Felder in einer Reihe, Spalte oder Diagonale ergeben Bingo.",
             "Tap each called number. The center is free. Five marked squares in a row, column or diagonal make bingo.",
             "Touchez chaque numéro annoncé. La case centrale est libre. Cinq cases marquées sur une ligne, une colonne ou une diagonale font bingo.");

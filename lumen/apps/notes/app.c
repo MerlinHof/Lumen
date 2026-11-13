@@ -16,6 +16,12 @@ static void request(const char *operation,const char *data,int action) {
 static void back_state(void){lumen_back=folder || view!=LIST || delete_pending;}
 #include "collection.h"
 static void list(void){collection_list();}
+static void collection_changed(int lock,int ok) {
+    if(lock>=0)close(lock);
+    list();
+    if(!ok)lumen_request("notify","",word("Notizen konnten nicht gespeichert werden.",
+        "Could not save changes to Notes.","Impossible d’enregistrer les modifications."),0);
+}
 static void note(const char *operation,int value) {
     char data[24];snprintf(data,sizeof(data),"%d",value);request(operation,data,2);
 }
@@ -103,14 +109,19 @@ static int input(const Input *in) {
     }
     if(in->kind==INPUT_TEXT && (in->x==1 || in->x==2)) {
         char value[96];
-        if(lumen_string("text",value,sizeof(value)) && *value)
-            request(in->x==1 ? "new_folder" : "rename_folder",value,3);
+        if(wire_bounded_string("text",value,sizeof(value)) && *value) {
+            const char *root=getenv("LUMEN_LEGACY_DATA");
+            int lock=collection_lock(root);
+            collection_changed(lock,lock>=0 && collection_edit_folder(root,value,in->x==2));
+        }
         return 1;
     }
     if(in->kind==INPUT_SERVICE) {
         if(in->x==2 && in->y) {
             editor_page=lumen_number("page");pages=lumen_number("pages");
             ink=lumen_number("ink");eraser=lumen_number("eraser");width=lumen_number("width");
+        } else if(in->x==2 && view==EDITOR && !in->y) {
+            view=LIST;collection_changed(-1,0);
         } else if(in->x==3)list();
         back_state();return 1;
     }
@@ -131,8 +142,9 @@ static int input(const Input *in) {
     }
     if(delete_pending) {
         if(!strcmp(id,"confirm")) {
-            char value[48];snprintf(value,sizeof(value),"%d %d",selected_kind,selected_id);
-            request("delete",value,3);
+            const char *root=getenv("LUMEN_LEGACY_DATA");
+            int lock=collection_lock(root);
+            collection_changed(lock,lock>=0 && collection_delete(root,selected_kind,selected_id));
         }
         if(!strcmp(id,"confirm") || !strcmp(id,"cancel")){delete_pending=0;back_state();}
         return 1;
@@ -149,8 +161,12 @@ static int input(const Input *in) {
     int row=*digit-'0';
     if(page*per+row>=count)return 0;
     if(view==MOVE && !menu) {
-        char value[64];snprintf(value,sizeof(value),"%d %d %d",selected_kind,selected_id,rows[row].id);
-        view=LIST;page=previous_page;request("move",value,3);back_state();
+        int destination=rows[row].id;
+        view=LIST;page=previous_page;
+        const char *root=getenv("LUMEN_LEGACY_DATA");
+        int lock=collection_lock(root);
+        collection_changed(lock,lock>=0 && collection_move(root,selected_kind,selected_id,destination));
+        back_state();
     } else if(menu) {
         selected_kind=rows[row].kind;selected_id=rows[row].id;
         const char *choices[]={word("Verschieben","Move","Déplacer"),word("Löschen","Delete","Supprimer")};
@@ -159,4 +175,4 @@ static int input(const Input *in) {
     else show_editor(rows[row].id);
     return 1;
 }
-int main(void){lumen_run(draw,input,NULL);return 0;}
+int main(void){lumen_service_handler=serve;lumen_run(draw,input,NULL);return 0;}

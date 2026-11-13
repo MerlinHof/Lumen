@@ -1,8 +1,4 @@
 /* App-owned module; assembled by apps/host/compose.h. */
-static void v1_note_created(int id) {
-    v1_place(id, note_tree.current);
-}
-
 static void v1_close(void) {
     v1_save();
 

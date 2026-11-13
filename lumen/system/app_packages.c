@@ -178,7 +178,22 @@ int app_package_icon(AppId id,unsigned char pixels[76*76]) {
  entries[id].has_icon=ok ? 1 : -1;
  return ok;
 }
-static void json_text(FILE*f,const char*s){fputc('"',f);for(;*s;s++){unsigned char c=*s;if(c=='"'||c=='\\')fputc('\\',f);if(c<32)fprintf(f,"\\u%04x",c);else fputc(c,f);}fputc('"',f);}
+static void json_text(FILE *out, const char *text) {
+    fputc('"', out);
+    for (; *text; text++) {
+        unsigned char c = *text;
+        switch (c) {
+        case '"': case '\\': fputc('\\', out); fputc(c, out); break;
+        case '\n': fputs("\\n", out); break;
+        case '\r': fputs("\\r", out); break;
+        case '\t': fputs("\\t", out); break;
+        default:
+            if (c < 32) fprintf(out, "\\u%04x", c);
+            else fputc(c, out);
+        }
+    }
+    fputc('"', out);
+}
 static void process_close(AppProcess *p) {
  if(p->child>0){kill(-p->child,SIGTERM);kill(p->child,SIGTERM);waitpid(p->child,NULL,WNOHANG);}
  if(p->child>0 && waitpid(p->child,NULL,WNOHANG)==0)for(int i=0;i<64;i++)if(!retired[i]){retired[i]=p->child;break;}
@@ -305,7 +320,7 @@ static int process_poll(AppProcess *p) {
  return changed;
 }
 
-enum { SERVICE_TIMEOUT_MS=30000, SERVICE_DATA_MAX=4096 };
+enum { SERVICE_TIMEOUT_MS=30000 };
 static int64_t service_now(void) {
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC,&now);
@@ -340,7 +355,7 @@ int app_service_start(const char *id,const char *operation,const char *data,int 
     if(service_caller && (foreground.generation!=service_caller || foreground.paused))
         service_finish(0,"cancelled","");
     if(service_caller || foreground.child<=0 || foreground.paused ||
-       !package_operation_valid(operation) || strlen(data)>SERVICE_DATA_MAX)return 0;
+       !package_operation_valid(operation) || strlen(data)>LUMEN_SERVICE_DATA_MAX)return 0;
     int app=identify(id);
     if(!app_package_installed(app))return 0;
     char directory[2048];
@@ -390,7 +405,7 @@ void app_service_poll(void) {
     }
     process_poll(service);
     if(service->request[0] && wire_read(service->request)) {
-        char kind[32],data[SERVICE_DATA_MAX+1];
+        char kind[32],data[LUMEN_SERVICE_DATA_MAX+1];
         const WireField *status=wire_get("ok");
         int ok=wire_true("ok");
         if(wire_bounded_string("request",kind,sizeof(kind)) && !strcmp(kind,"service_result") &&

@@ -18,24 +18,6 @@ static const char *note_next_line(const char *p, int width) {
         q++;
     return q;
 }
-/* App-owned module; assembled by apps/host/compose.h. */
-static int folder15_index(int id) {
-    for (int i = 0; i < note_tree.nf; i++)
-        if (note_tree.folder[i].id == id)
-            return i;
-    return -1;
-}
-static int folder15_inside(int id, int root) {
-    for (int i = 0; i < 513 && id; i++) {
-        if (id == root)
-            return 1;
-        int f = folder15_index(id);
-        if (f < 0)
-            break;
-        id = note_tree.folder[f].parent;
-    }
-    return 0;
-}
 static void note15_layout(const char *text) {
     const char *p = text;
     note_rows = 0;

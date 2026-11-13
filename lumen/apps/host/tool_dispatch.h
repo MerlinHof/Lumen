@@ -12,24 +12,20 @@ static void extra_commit(int target, const char *text) {
 
     if (target == 30) {
         if (note_selected < 0) {
-            int id = (int)time(NULL);
-            while (1) {
-                int exists = 0;
-                for (int i = 0; i < note_count; i++)
-                    if (note_ids[i] == id)
-                        exists = 1;
-                if (!exists)
-                    break;
-                id++;
+            int lock=collection_lock(data_root);
+            int id=lock>=0 ? collection_create_note(data_root,note_editor_folder,text) : 0;
+            if (lock>=0) close(lock);
+            if (!id) {ui_message("Speichern fehlgeschlagen.");return;}
+            note_selected=id;
+        } else {
+            char path[48];
+            snprintf(path,sizeof(path),"notes/%d.txt",note_selected);
+            if (!lumen_storage_write_at(data_root,path,text,strlen(text))) {
+                ui_message("Speichern fehlgeschlagen.");
+                return;
             }
-            note_selected = id;
-            v1_note_created(id);
         }
-        snprintf(note_text, sizeof(note_text), "%s", text);
-        char path[80];
-        snprintf(path, sizeof(path), "notes/%d.txt", note_selected);
-        extra_write_text(path, note_text);
-        notes_scan();
+        snprintf(note_text,sizeof(note_text),"%s",text);
         if (ui_route() == 29 && history_count < 64 &&
             (!history_count || history[history_count - 1] != 29))
             history[history_count++] = 29;

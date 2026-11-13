@@ -87,7 +87,8 @@ static void quality_tests(void) {
     assert(app_package_installed(APP_2048));
     assert(app_package_installed(APP_SOLITAIRE));
     route_to(119);
-    assert(game_help_x() == 408);
+    settle_app();
+    assert(strstr(app_process_frame(),"\"id\":\"help\""));
     /* Weather imports the existing cache directly. */
     extra_write_text("weather.json",
                      "{\"current\":{\"temperature_2m\":18,\"weather_code\":0,\"apparent_"
@@ -116,8 +117,8 @@ static void quality_tests(void) {
         if(xx<74 || xx>=110 || yy<204 || yy>=240)assert(ui_pixels[yy*WIDTH+xx]==237);
     memset(ui_pixels,237,sizeof(ui_pixels));icon(70,200,IC_BACK);
     assert(!memcmp(expected,ui_pixels,sizeof(expected)));
-    assert(dropdown_option_icon(932,0,"Verschieben")==IC_MOVE);
-    assert(dropdown_option_icon(932,1,"Löschen")==IC_TRASH);
+    assert(dropdown_option_icon(2001,0,"Buch")==IC_BOOK);
+    assert(dropdown_option_icon(2001,1,"Löschen")==IC_TRASH);
     /* Native import boundary: atomic output, cached reuse and invalidation. */
     char importer[2048], source[2048], imported[2048];
     snprintf(importer,sizeof(importer),"%s/fake-converter.sh",data_root);

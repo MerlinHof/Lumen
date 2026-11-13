@@ -3,6 +3,9 @@
 #include <errno.h>
 #include <limits.h>
 
+/* Protocol 1 background operation payload, measured in decoded UTF-8 bytes. */
+enum { LUMEN_SERVICE_DATA_MAX = 8191 };
+
 static int wire_space(unsigned char c){return c==' ' || c=='\t' || c=='\r' || c=='\n';}
 static const char *wire_skip_space(const char *p){while(wire_space(*p))p++;return p;}
 static int wire_digit(unsigned char c){return c>='0' && c<='9';}

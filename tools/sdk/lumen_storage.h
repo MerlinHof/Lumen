@@ -1,6 +1,11 @@
 #ifndef LUMEN_STORAGE_H
 #define LUMEN_STORAGE_H
 #include <sys/stat.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <errno.h>
 
 /* Resolve each parent through a directory descriptor. Symbolic links are rejected. */
@@ -16,7 +21,7 @@ static int lumen_storage_parent_at(const char *root,const char *name,int create,
         if(!slash)return fd;
         int next=openat(fd,leaf,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
         if(next<0 && create && errno==ENOENT) {
-            if(!mkdirat(fd,leaf,0700) || errno==EEXIST)
+            if((!mkdirat(fd,leaf,0700) || errno==EEXIST) && !fsync(fd))
                 next=openat(fd,leaf,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
         }
         if(next<0)break;
@@ -27,9 +32,9 @@ static int lumen_storage_parent_at(const char *root,const char *name,int create,
 static int lumen_storage_parent(const char *name,int create,char leaf[256]) {
     return lumen_storage_parent_at(getenv("LUMEN_APP_DATA"),name,create,leaf);
 }
-static int lumen_storage_write(const char *name,const void *bytes,size_t size) {
+static int lumen_storage_write_at(const char *root,const char *name,const void *bytes,size_t size) {
     char leaf[256],temporary[64];
-    int parent=lumen_storage_parent(name,1,leaf);
+    int parent=lumen_storage_parent_at(root,name,1,leaf);
     if(parent<0)return 0;
     static unsigned serial;
     int fd=-1;
@@ -49,6 +54,9 @@ static int lumen_storage_write(const char *name,const void *bytes,size_t size) {
     if(ok)ok=!fsync(parent);
     else unlinkat(parent,temporary,0);
     close(parent);return ok;
+}
+static int lumen_storage_write(const char *name,const void *bytes,size_t size) {
+    return lumen_storage_write_at(getenv("LUMEN_APP_DATA"),name,bytes,size);
 }
 static int lumen_storage_read_at(const char *root,const char *name,void *bytes,size_t capacity,size_t *actual) {
     char leaf[256];if(actual)*actual=0;

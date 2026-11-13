@@ -1,4 +1,4 @@
-#include "lumen_app.h"
+#include "../games/package_ui.h"
 
 static const char *word(const char *de,const char *en,const char *fr) {
     return lumen_language==1 ? en : lumen_language==2 ? fr : de;
@@ -46,9 +46,9 @@ static int cell_size(void) {
 }
 static void draw(void) {
     ui_paint_heading("Sokoban",3);
-    lumen_button(408,74,44,44,"?",0);
-    ui_paint_icon_button(468,74,IC_UNDO);
-    ui_paint_icon_button(528,74,IC_RESTART);
+    lumen_button_action("help",408,74,44,44,"?",0);
+    lumen_icon_action("undo",468,74,IC_UNDO);
+    lumen_icon_action("restart",528,74,IC_RESTART);
     char label[100];
     snprintf(label,sizeof(label),word("Level %d · %d Züge","Level %d · %d moves","Niveau %d · %d coups"),
              warehouse17.level,warehouse17.moves);
@@ -62,35 +62,27 @@ static void draw(void) {
         }
     lumen_sprite("tiles.pgm",left+warehouse17.x*cell,170+warehouse17.y*cell,
                  cell,warehouse_facing17,1);
-    const int icons[]={IC_PREV,IC_UP,IC_DOWN,IC_NEXT};
-    for(int i=0;i<4;i++) {
-        lumen_button(150+i*79,728,60,44,"",0);
-        ui_paint_icon_button(158+i*79,728,icons[i]);
-    }
+    game_direction_pad();
 }
 static int input(const Input *in) {
     int x=in->x,y=in->y,dx=0,dy=0;
     if(in->kind==INPUT_SWIPE && (in->dx || in->dy)) {
         if(abs(in->dx)>abs(in->dy))dx=in->dx>0 ? 1 : -1;
         else dy=in->dy>0 ? 1 : -1;
-    } else if(in->kind!=INPUT_TAP)return 0;
-    else if(y>=74 && y<118) {
-        if(x>=408 && x<452)
+    } else if(in->kind==INPUT_COMPONENT) {
+        char action[32];
+        if(!game_action(in,action,sizeof(action)))return 0;
+        if(!strcmp(action,"help"))
             lumen_app_open_with("lumen.reader","open_document","","Sokoban",
                 word("Schiebe alle Kisten auf die Zielkreise. Du kannst Kisten weder ziehen noch zwei gleichzeitig schieben. Plane voraus und verwende Rückgängig, falls eine Kiste feststeckt.",
                 "Push every crate onto a target. You cannot pull crates or push two at once. Plan ahead and use Undo if a crate gets stuck.",
                 "Poussez chaque caisse sur une cible. Impossible de tirer une caisse ou d’en pousser deux à la fois. Utilisez Annuler si une caisse est coincée."));
-        else if(x>=468 && x<512 && warehouse_undo17) {
+        else if(!strcmp(action,"undo") && warehouse_undo17) {
             warehouse17=undo_warehouse17;warehouse_undo17=0;save();
-        } else if(x>=528 && x<572) {
+        } else if(!strcmp(action,"restart")) {
             warehouse17=initial_warehouse17;warehouse_undo17=0;save();
-        }
-        return 1;
-    } else if(y>=728 && y<772 && x>=150 && x<447 && (x-150)%79<60) {
-        int key=(x-150)/79;
-        dx=key==0 ? -1 : key==3 ? 1 : 0;
-        dy=key==1 ? -1 : key==2 ? 1 : 0;
-    } else {
+        } else game_direction(action,&dx,&dy);
+    } else if(in->kind==INPUT_TAP) {
         int cell=cell_size(),left=300-warehouse17.w*cell/2;
         if(x<left || x>=left+warehouse17.w*cell || y<170 || y>=170+warehouse17.h*cell)return 0;
         int rx=(x-left)/cell-warehouse17.x,ry=(y-170)/cell-warehouse17.y;
