@@ -1,7 +1,12 @@
 #include "lumen_app.h"
+#include "lumen_device_preferences.h"
 
 enum {HOME,WIFI,APPEARANCE,TIME,APPS,SYSTEM};
-static int screen,tab,page,count,prefs[15],sleep_minutes=10,autostart,release_state,enabled,busy;
+#define PREFERENCE_NAME(name, option) name,
+static const char *const preference_names[]={LUMEN_DEVICE_PREFERENCES(PREFERENCE_NAME)};
+#undef PREFERENCE_NAME
+static int screen,tab,page,count,prefs[sizeof(preference_names)/sizeof(*preference_names)],
+    sleep_minutes=10,autostart,release_state,enabled,busy;
 static int remove_row=-1,reset;
 static char version[24],new_version[24],checked[48],error[160],network_name[129],total[40],sizes[5][40];
 static int ratios[5];
@@ -15,7 +20,9 @@ static const char *name(int target) {
         {"Apps verwalten","Manage apps","Gérer les apps"},{"System","System","Système"}};
     return word(names[target][0],names[target][1],names[target][2]);
 }
-static void request(const char *op,const char *data,int action){lumen_service("settings",op,data,action);}
+static void request(const char *operation,const char *data,int action) {
+    lumen_service("device",operation,data,action);
+}
 static void load(void) {
     char number[16];snprintf(number,sizeof(number),"%d",page);
     if(screen==WIFI)request("wifi_list",number,2);
@@ -29,7 +36,9 @@ static void show(int next) {
     else load();
 }
 static void preference(int key,int value) {
-    char data[32];snprintf(data,sizeof(data),"%d %d",key,value);request("preference",data,5);
+    char data[64];
+    snprintf(data,sizeof(data),"%s %d",preference_names[key],value);
+    request("preference",data,5);
 }
 static const char *label(int i) {
     const char *labels[][3]={
@@ -103,7 +112,7 @@ static void draw_appearance(void) {
     const int first[]={0,4,9},last[]={4,9,13};
     for(int i=first[tab];i<last[tab];i++) {
         int y=203+(i-first[tab])*68;
-        char id[24];snprintf(id,sizeof(id),"pref-%d",i);
+        const char *id=preference_names[i];
         if(i<2 || i==9) {
             int n,selected;const char **options=values(i,&n,&selected);
             lumen_select_action(id,y,label(i),options[selected<n ? selected : 0]);
@@ -121,13 +130,13 @@ static void draw_time(void) {
     strftime(value,sizeof(value),"%d.%m.%Y  %H:%M",&t);
     ui_paint_surface(28,140,544,108,16,255,104);
     ui_paint_text(28,140,544,108,value,PAINT_TITLE);
-    toggle_row("pref-13",290,label(13),prefs[13]);
+    toggle_row("auto_time",290,label(13),prefs[13]);
     if(prefs[13])lumen_wrapped(30,385,540,104,word("Datum und Uhrzeit werden täglich über WLAN abgeglichen.",
         "Date and time synchronize over Wi-Fi daily.","La date et l’heure sont synchronisées quotidiennement en Wi-Fi."),PAINT_BODY,3);
     else {
         lumen_button_action("time",28,387,544,54,word("Datum und Uhrzeit setzen","Set date and time","Régler la date et l’heure"),0);
         int n,selected;const char **options=values(14,&n,&selected);
-        lumen_select_action("pref-14",480,label(14),options[selected<n ? selected : 0]);
+        lumen_select_action("time_zone",480,label(14),options[selected<n ? selected : 0]);
     }
 }
 static void draw_apps(void) {
@@ -302,12 +311,13 @@ static int component_input(void) {
             time_t now=time(NULL);struct tm t;localtime_r(&now,&t);
             char text[32];strftime(text,sizeof(text),"%Y-%m-%d %H:%M",&t);
             lumen_request("input","YYYY-MM-DD HH:MM",text,2);
-        } else if(!strncmp(id,"pref-",5)) {
-            char *end;
-            long key=strtol(id+5,&end,10);
+        } else {
             const int first[]={0,4,9},last[]={4,9,13};
-            if(end==id+5 || *end || (screen==APPEARANCE && (key<first[tab] || key>=last[tab])) ||
-               (screen==TIME && key!=13 && (key!=14 || prefs[13])))return 0;
+            int start=screen==TIME ? 13 : first[tab];
+            int end=screen==TIME ? (prefs[13] ? 14 : 15) : last[tab];
+            int key=start;
+            while(key<end && strcmp(id,preference_names[key]))key++;
+            if(key==end)return 0;
             if(key<2 || key==9 || key==14) {
                 if(clicked) {
                     int n,selected;
@@ -374,7 +384,8 @@ static int input(const Input *in) {
     }
     if(in->kind==INPUT_SERVICE) {
         if(in->x==1 && in->y) {
-            for(int i=0;i<15;i++){char key[16];snprintf(key,sizeof(key),"p%d",i);prefs[i]=lumen_number(key);}
+            for(size_t i=0;i<sizeof(preference_names)/sizeof(*preference_names);i++)
+                prefs[i]=lumen_number(preference_names[i]);
             lumen_language=prefs[0];sleep_minutes=lumen_number("sleep");autostart=lumen_number("autostart");
             release_state=lumen_number("release");
             lumen_string("version",version,sizeof(version));lumen_string("release_version",new_version,sizeof(new_version));

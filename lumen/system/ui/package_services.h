@@ -82,7 +82,7 @@ static int transfer_service(const char *operation,const char *data,int action) {
 #include "photo_service.h"
 #include "document_service.h"
 #include "notes_service.h"
-#include "settings_service.h"
+#include "device_service.h"
 static int package_service_request(const char *name,const char *operation,const char *data,int action) {
     if(!strcmp(name,"reading"))return package_reading_activity(operation,data,action);
     if(!strcmp(name,"study_material"))return package_study_material(operation,data,action);
@@ -95,7 +95,8 @@ static int package_service_request(const char *name,const char *operation,const 
         if(!strcmp(operation,"start_timer"))return package_start_timer(data,action);
         return package_clock_service(operation,data,action);
     }
-    if(!strcmp(name,"settings"))return package_settings(operation,data,action);
+    if(!strcmp(name,"device"))return package_device(operation,data,action,0);
+    if(!strcmp(name,"settings"))return package_device(operation,data,action,1);
     if(!strcmp(name,"notes_editor"))return package_notes(operation,data,action);
     if(!strcmp(name,"document"))return package_document(operation,data,action);
     if(!strcmp(name,"photos"))return package_photos(operation,data,action);

@@ -60,7 +60,7 @@ enum {
     OPT_COUNT
 };
 extern int options[OPT_COUNT];
-void library_options_save(void);
+int library_options_save(void);
 int library_rename(int index, const char *name);
 int library_delete(int index);
 int library_metadata(int index, const char *title, const char *author);

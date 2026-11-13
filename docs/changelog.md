@@ -1,5 +1,7 @@
 # Changelog
 
+- [6.1](releases/6.1.md) · App-owned Notes collections and recall, named device preferences, expanded SDK storage and restored puzzle help.
+
 - [6.0](releases/6.0.md) · All 52 apps packaged, SDK hardening and restored 5.4 waveform policy.
 
 - [5.9](releases/5.9.md) · Nine more standalone apps, including Reader, Library and Calculator.

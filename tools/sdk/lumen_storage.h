@@ -7,6 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <dirent.h>
 
 /* Resolve each parent through a directory descriptor. Symbolic links are rejected. */
 static int lumen_storage_parent_at(const char *root,const char *name,int create,char leaf[256]) {
@@ -77,6 +78,66 @@ static int lumen_storage_read_at(const char *root,const char *name,void *bytes,s
 }
 static int lumen_storage_read(const char *name,void *bytes,size_t capacity,size_t *actual) {
     return lumen_storage_read_at(getenv("LUMEN_APP_DATA"),name,bytes,capacity,actual);
+}
+/* Directories and entries stay inside the current package's data root. */
+static inline int lumen_storage_exists(const char *name) {
+    char leaf[256];
+    int parent=lumen_storage_parent(name,0,leaf);
+    if(parent<0)return 0;
+    struct stat status;
+    int found=!fstatat(parent,leaf,&status,AT_SYMLINK_NOFOLLOW) &&
+        (S_ISREG(status.st_mode) || S_ISDIR(status.st_mode));
+    close(parent);
+    return found;
+}
+static inline int lumen_storage_mkdir(const char *name) {
+    char leaf[256];
+    int parent=lumen_storage_parent(name,1,leaf);
+    if(parent<0)return 0;
+    int created=!mkdirat(parent,leaf,0700);
+    int ok=created && !fsync(parent);
+    if(!created && errno==EEXIST) {
+        struct stat status;
+        ok=!fstatat(parent,leaf,&status,AT_SYMLINK_NOFOLLOW) && S_ISDIR(status.st_mode);
+    }
+    close(parent);
+    return ok;
+}
+/* Visit each regular file or directory. A nonzero callback result stops the
+ * traversal successfully. Names are borrowed until the callback returns. */
+static inline int lumen_storage_list(const char *name,
+        int (*visit)(const char *name,int directory,void *context),void *context) {
+    if(!name || !visit)return 0;
+    int fd;
+    if(!*name) {
+        const char *root=getenv("LUMEN_APP_DATA");
+        fd=root ? open(root,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC) : -1;
+    } else {
+        char leaf[256];
+        int parent=lumen_storage_parent(name,0,leaf);
+        if(parent<0)return 0;
+        fd=openat(parent,leaf,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
+        close(parent);
+    }
+    if(fd<0)return 0;
+    DIR *directory=fdopendir(fd);
+    if(!directory){close(fd);return 0;}
+    int ok=1;
+    for(;;) {
+        errno=0;
+        struct dirent *entry=readdir(directory);
+        if(!entry){ok=!errno;break;}
+        if(entry->d_name[0]=='.' || strchr(entry->d_name,'\\'))continue;
+        struct stat status;
+        if(fstatat(fd,entry->d_name,&status,AT_SYMLINK_NOFOLLOW)) {
+            if(errno==ENOENT)continue;
+            ok=0;break;
+        }
+        int is_dir=S_ISDIR(status.st_mode);
+        if((is_dir || S_ISREG(status.st_mode)) && visit(entry->d_name,is_dir,context))break;
+    }
+    closedir(directory);
+    return ok;
 }
 static int lumen_storage_delete(const char *name) {
     char leaf[256];

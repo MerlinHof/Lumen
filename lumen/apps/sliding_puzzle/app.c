@@ -1,14 +1,6 @@
-#ifdef LUMEN_PACKAGED
-#include "lumen_app.h"
+#include "../games/package_ui.h"
 #include "api.h"
-#else
-#include "api.h"
-#include "../../system/app_runtime.h"
-#include "../../system/app_storage.h"
-#include "../../system/ui/paint.h"
-#include <stdio.h>
-#include <time.h>
-#endif
+
 
 static SignalGame signal_game;
 static int signal_ready, signal_dirty;
@@ -21,9 +13,14 @@ static void signal_open(void) {
     if (signal_ready) return;
     signal_ready = 1;
     int loaded=app_state_load("slide3d-v1.bin", &signal_game, sizeof(signal_game));
-#ifdef LUMEN_PACKAGED
-    if(!loaded){const char*state=getenv("LUMEN_APP_DATA");char old[2048];snprintf(old,sizeof(old),"%s/../../slide3d-v1.bin",state?state:"");FILE*f=fopen(old,"rb");if(f){unsigned h[2];loaded=fread(h,sizeof(h),1,f)==1&&h[0]==0x4c554d16&&h[1]==sizeof(signal_game)&&fread(&signal_game,1,sizeof(signal_game),f)==sizeof(signal_game);fclose(f);}}
-#endif
+    if (!loaded) {
+        struct { uint32_t magic,size; SignalGame game; } legacy;
+        if (lumen_legacy_state("slide3d-v1.bin",&legacy,sizeof(legacy)) &&
+            legacy.magic==0x4c554d16 && legacy.size==sizeof(legacy.game)) {
+            signal_game=legacy.game;
+            loaded=1;
+        }
+    }
     if (loaded) {
         unsigned seen = 0;
         for (int i = 0; i < 16; i++)
@@ -37,8 +34,9 @@ static void signal_open(void) {
 }
 static void signal_draw(void) {
     signal_open();
-    ui_paint_heading("Schiebepuzzle", 1);
-    ui_paint_icon_button(528,74,IC_RESTART);
+    ui_paint_heading(game_text("Schiebepuzzle","Sliding Puzzle","Taquin"),2);
+    lumen_icon_action("help",468,74,IC_BOOK);
+    lumen_icon_action("restart",528,74,IC_RESTART);
     for (int i=0;i<16;i++) {
         int x=28+(i%4)*138, y=151+(i/4)*138;
         int value=signal_game.tiles[i];
@@ -58,24 +56,26 @@ static void signal_draw(void) {
 }
 static int signal_input(const Input *in) {
     signal_open();
-    if (in->kind != INPUT_TAP) return 1;
-    if (in->x >= 528 && in->y >= 74 && in->y < 118) {
-        signal_new(&signal_game, (unsigned)ui_clock_millis(), 40);
-    } else {
+    if(in->kind==INPUT_COMPONENT) {
+        char action[24];
+        if(!game_action(in,action,sizeof(action)))return 0;
+        if(!strcmp(action,"help")) {
+            game_help(game_text("Schiebepuzzle","Sliding Puzzle","Taquin"),
+                "Tippe auf einen Stein neben der Lücke, um ihn zu verschieben. Ordne die Zahlen von 1 bis 15 und lass die Lücke unten rechts.",
+                "Tap a tile next to the gap to slide it. Put the numbers in order from 1 to 15, with the gap at the lower right.",
+                "Touchez une tuile voisine de la case vide pour la déplacer. Rangez les nombres de 1 à 15, avec la case vide en bas à droite.");
+            return 0;
+        }
+        if(strcmp(action,"restart"))return 0;
+        signal_new(&signal_game,(unsigned)ui_clock_millis(),40);
+    } else if(in->kind==INPUT_TAP) {
         int col=(in->x-28)/138, row=(in->y-151)/138;
         if (in->x<28 || in->y<151 || col>=4 || row>=4) return 1;
         int closest=row*4+col;
         if (signal_won(&signal_game) || !signal_slide(&signal_game, closest)) return 1;
-    }
+    } else return 0;
     signal_dirty = 1;
     return 1;
 }
 
-#ifdef LUMEN_PACKAGED
 int main(void){lumen_run(signal_draw,signal_input,signal_save);return 0;}
-#else
-void sliding_puzzle_register(void) {
-    app_page_register(APP_SIGNAL, signal_draw, signal_input, signal_save);
-}
-
-#endif

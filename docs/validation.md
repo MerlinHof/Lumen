@@ -1,7 +1,25 @@
 # Validation
 
-The [6.1 development status](releases/6.1.pending.md) records the current
-automated checks, baseline comparison and physical-device checks still open.
+## 6.1
+
+The [6.1 release notes](releases/6.1.md) list the automated checks and device
+validation limits. The 6.0 comparison uses source commit
+`da736613013d9c2de087229c034b312b9b587773` and the same pinned dependencies.
+The native Home preview renders into a file with warmed filesystem caches and
+seeded synthetic app data. Twelve interleaved runs per version measured
+process startup through the first rendered Home frame. The median timing
+difference was within run-to-run variation.
+
+| Measurement | 6.0 | 6.1 |
+| --- | ---: | ---: |
+| Stripped ARMv7 core | 25,677,396 B | 25,499,276 B |
+| Installed runtime | 58,131,677 B | 58,051,610 B |
+| USB ZIP | 37.7 MB | 37.8 MB |
+| Native Home preview, median | 10.58 ms | 10.27 ms |
+
+Installed size counts only files in the USB manifest. Kindle memory,
+responsiveness, refresh and battery use were outside the physical validation
+pass, which the maintainer asked to skip.
 
 ## 3.9 verification
 

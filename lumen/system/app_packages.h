@@ -25,6 +25,7 @@ void app_process_pause(void);
 void app_process_close(void);
 int app_process_poll(void);
 int app_process_owner(void);
+const char *app_process_data_dir(void);
 int app_process_fd(void);
 int app_process_pending(void);
 void app_process_flush(void);

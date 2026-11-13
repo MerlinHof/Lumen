@@ -481,14 +481,14 @@ void library_settings_save(void) {
     atomic_write(p, s, (size_t)n);
 }
 
-void library_options_save(void) {
+int library_options_save(void) {
     char p[2048], s[512];
     snprintf(p, sizeof(p), "%s/options-v3.txt", data_root);
     int n = 0;
     for (int i = 0; i < OPT_COUNT; i++)
         if (!retired_option(i))
             n += snprintf(s + n, sizeof(s) - (size_t)n, "%d %d\n", i, options[i]);
-    atomic_write(p, s, (size_t)n);
+    return atomic_write(p, s, (size_t)n);
 }
 static int validname(const char *s) {
     return *s && strlen(s) < 241 && s[0] != '.' && !strchr(s, '/') && !strchr(s, '\\') &&

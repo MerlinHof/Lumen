@@ -1,8 +1,12 @@
-/* Typed device/preferences operations. The Settings package chooses the UI. */
-static const int appearance_options[]={
-    OPT_LANGUAGE,OPT_KEYBOARD_LANGUAGE,OPT_INVERT,OPT_ROUNDING,OPT_DATE,OPT_CLOCK,OPT_WIFI,
-    OPT_BATTERY,OPT_BATTERY_PERCENT,OPT_LOCK,OPT_LOCK_TIME,OPT_LOCK_DATE,OPT_LOCK_HINT,OPT_AUTO_TIME,OPT_ZONE
+#include "../defaults.h"
+#include "../../../tools/sdk/lumen_device_preferences.h"
+
+#define DEVICE_PREFERENCE(name, option) {name, OPT_##option},
+static const struct { const char *name; int option; } device_preferences[]={
+    LUMEN_DEVICE_PREFERENCES(DEVICE_PREFERENCE)
 };
+#undef DEVICE_PREFERENCE
+
 static int settings_autostart(int enabled) {
     char path[2048];local_path(path,sizeof(path),"../DISABLE_AUTOSTART");
 #ifndef LUMEN_HOST
@@ -59,18 +63,34 @@ static int settings_wifi_operation(const char *operation,const char *data,int ac
     }
     package_reply_end(out,&message);return 1;
 }
-static int package_settings(const char *operation,const char *data,int action) {
-    if(app_for_route(ui_route())!=APP_SETTINGS)return 0;
+static int package_device(const char *operation,const char *data,int action,int legacy) {
+    if(app_process_owner()!=APP_SETTINGS || app_for_route(ui_route())!=APP_SETTINGS)
+        return package_acknowledge(action,0);
     if(!strncmp(operation,"wifi_",5))return settings_wifi_operation(operation,data,action);
     if(!strcmp(operation,"preference")) {
-        const int max[]={2,2,1,1,1,1,1,1,1,5,1,1,1,1,4};
-        int key,value;char tail;
-        if(sscanf(data,"%d %d %c",&key,&value,&tail)!=2 || key<0 ||
-           key>=(int)(sizeof(max)/sizeof(*max)) || value<0 || value>max[key])return package_acknowledge(action,0);
-        options[appearance_options[key]]=value;
-        if(key==14)extra_zone();
-        if(key==13 && value && !service_busy())service_start(SERVICE_TIME,"","","");
-        library_options_save();
+        char name[32],tail;
+        int value;
+        if(sscanf(data,"%31s %d %c",name,&value,&tail)!=2)return package_acknowledge(action,0);
+        size_t count=sizeof(device_preferences)/sizeof(*device_preferences);
+        size_t index=0;
+        if(legacy) {
+            char *end;
+            unsigned long position=strtoul(name,&end,10);
+            index=*end || position>=count ? count : position;
+        } else {
+            while(index<count && strcmp(name,device_preferences[index].name))index++;
+        }
+        if(index>=count)return package_acknowledge(action,0);
+        int option=device_preferences[index].option;
+        if(value<0 || value>option_maximum[option])return package_acknowledge(action,0);
+        int old=options[option];
+        options[option]=value;
+        if(!library_options_save()) {
+            options[option]=old;
+            return package_acknowledge(action,0);
+        }
+        if(option==OPT_ZONE)extra_zone();
+        if(option==OPT_AUTO_TIME && value && !service_busy())service_start(SERVICE_TIME,"","","");
         return package_acknowledge(action,1);
     }
     if(!strcmp(operation,"sleep")) {
@@ -162,8 +182,11 @@ static int package_settings(const char *operation,const char *data,int action) {
         }
     } else {
         release_poll();
-        for(unsigned i=0;i<sizeof(appearance_options)/sizeof(*appearance_options);i++)
-            fprintf(out,",\"p%u\":%d",i,options[appearance_options[i]]);
+        for(size_t i=0;i<sizeof(device_preferences)/sizeof(*device_preferences);i++) {
+            int value=options[device_preferences[i].option];
+            if(legacy)fprintf(out,",\"p%zu\":%d",i,value);
+            else fprintf(out,",\"%s\":%d",device_preferences[i].name,value);
+        }
         fprintf(out,",\"sleep\":%d,\"autostart\":%d,\"release\":%d",auto_sleep_minutes,options[OPT_AUTOSTART],release_state());
         package_field(out,"version",LUMEN_VERSION);
         package_field(out,"release_version",release_version());

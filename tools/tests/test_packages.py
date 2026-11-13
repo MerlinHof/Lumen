@@ -56,7 +56,7 @@ echo '{"back":true garbage}'
 echo '{"request":1}'
 echo '{"back":"true","ui":[{"text":"still valid"}]}'
 IFS= read -r line
-echo '{"request" : "notify", "text":"hello"}'
+printf '%s\n' '{"request" : "notify", "text":"hello"}' '{"request":"notify","text":"second"}'
 IFS= read -r line
 """
 archive(wire_app,{'app':script},format='lumen-app-1',api=1,id='test.wire',name='Wire fixture',version='1.0.0')
@@ -158,6 +158,9 @@ assert '/' in lines and any('bin' in line.split() for line in lines) and 'works'
 assert 'history.bin' not in lines and (folder/'history.bin').is_file()
 assert 'RED' in lines and not any('\x1b' in line for line in lines if line)
 assert len([c for c in frames[-1]['ui'] if c.get('type')=='mono'])==1
+for key in ('lumen.frog-solitaire','lumen.sliding-puzzle'):
+ frames,_=app_session(key,[component('restart'),component('help')],legacy=data)
+ assert any(f.get('request')=='reader' and f.get('text') for f in frames),key
 print('PASS standalone app ports, Reader help, private saves and persistent Terminal shell.')
 
 # Read the wall runs actually published by the executable and prove the exit is reachable.
@@ -561,12 +564,12 @@ assert (notes_data/'note-tree-1.bin').read_bytes()[:8]==struct.pack('=II',0x4c55
 print('PASS packaged Notes editing bridge, folder mutations, legacy state, recursive delete and ink cleanup.')
 
 frames,_=app_session('lumen.settings',[
-    component('appearance'),component('tab','selected','2'),component('pref-9'),dict(event='select',action=19,value=1),
+    component('appearance'),component('tab','selected','2'),component('lock_mode'),dict(event='select',action=19,value=1),
     dict(event='back'),component('wifi'),dict(event='service',action=5,ok=1),
     dict(event='service',action=2,ok=1,enabled=1,count=1,name0='Wi-Fi fixture',locked0=1),
     component('network-0'),dict(event='text',action=1,text='test-password'),
     dict(event='back'),component('system'),component('check')])
-assert any(f.get('operation')=='preference' and f.get('text')=='9 5' for f in frames)
+assert any(f.get('service')=='device' and f.get('operation')=='preference' and f.get('text')=='lock_mode 5' for f in frames)
 assert any(f.get('request')=='secret' for f in frames)
 assert any(f.get('operation')=='wifi_connect' and f.get('text')=='Wi-Fi fixture\ntest-password' for f in frames)
 assert any(f.get('operation')=='check' for f in frames)

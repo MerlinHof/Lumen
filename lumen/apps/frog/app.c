@@ -1,12 +1,5 @@
-#ifdef LUMEN_PACKAGED
-#include "lumen_app.h"
-#else
-#include "app.h"
-#include "../../system/app_runtime.h"
-#include "../../system/ui/paint.h"
-#include <stdlib.h>
+#include "../games/package_ui.h"
 
-#endif
 
 /* English-style peg solitaire, using a cross of lily pads. */
 static unsigned long long frog_board, frog_undo[32];
@@ -59,9 +52,10 @@ static void frog_piece(int x, int y, int selected, int look) {
 
 static void frog_draw(void) {
     if (!frog_ready) frog_reset();
-    ui_paint_heading("Frosch-Solitär", 2);
-    ui_paint_icon_button(468, 74, IC_UNDO);
-    ui_paint_icon_button(528, 74, IC_RESTART);
+    ui_paint_heading(game_text("Frosch-Solitär","Frog Solitaire","Solitaire des grenouilles"),3);
+    lumen_icon_action("help",408,74,IC_BOOK);
+    lumen_icon_action("undo",468,74,IC_UNDO);
+    lumen_icon_action("restart",528,74,IC_RESTART);
     int can_move = 0;
     for (int i = 0; i < 49; i++) {
         if (!frog_pad(i/7,i%7)) continue;
@@ -84,15 +78,20 @@ static void frog_draw(void) {
                   "Keine Sprünge mehr. Rückgängig oder neu starten.", PAINT_BODY);
 }
 static int frog_input(const Input *in) {
-    if (in->kind != INPUT_TAP) return 1;
     if (!frog_ready) frog_reset();
-    if (in->y >= 74 && in->y < 118) {
-        if (in->x >= 528) frog_reset();
-        else if (in->x >= 468 && frog_moves) {
+    if (in->kind==INPUT_COMPONENT) {
+        char action[24];
+        if(!game_action(in,action,sizeof(action)))return 0;
+        if(!strcmp(action,"help"))game_help(game_text("Frosch-Solitär","Frog Solitaire","Solitaire des grenouilles"),
+            "Wähle einen Frosch. Springe über einen benachbarten Frosch auf ein freies Feld. Der übersprungene Frosch verschwindet. Lass nur einen Frosch in der Mitte übrig.",
+            "Choose a frog. Jump over a neighbor into an empty space to remove the frog you jumped. Leave one frog in the center.",
+            "Choisissez une grenouille. Sautez par-dessus une voisine vers une case libre. La grenouille sautée disparaît. Laissez une seule grenouille au centre.");
+        else if(!strcmp(action,"restart"))frog_reset();
+        else if(!strcmp(action,"undo") && frog_moves) {
             frog_board = frog_undo[--frog_moves];
             frog_selected = -1;
         }
-    } else if (in->x >= 30 && in->x < 569 && in->y >= 136 && in->y < 675) {
+    } else if (in->kind==INPUT_TAP && in->x >= 30 && in->x < 569 && in->y >= 136 && in->y < 675) {
         int col = (in->x-30)/77, row = (in->y-136)/77, to = row*7+col;
         if (frog_pad(row,col)) {
             if (frog_board & (1ULL<<to)) frog_selected = frog_selected == to ? -1 : to;
@@ -106,14 +105,7 @@ static int frog_input(const Input *in) {
     return 1;
 }
 
-#ifdef LUMEN_PACKAGED
 static void frog_save(void){struct{unsigned long long board,undo[32];int selected,moves;}s={frog_board,{0},frog_selected,frog_moves};memcpy(s.undo,frog_undo,sizeof(frog_undo));if(frog_ready)app_state_save("game.bin",&s,sizeof(s));}
 int main(void){struct{unsigned long long board,undo[32];int selected,moves;}s;
  if(app_state_load("game.bin",&s,sizeof(s))&&s.moves>=0&&s.moves<=32&&s.selected>=-1&&s.selected<49){frog_board=s.board;memcpy(frog_undo,s.undo,sizeof(frog_undo));frog_selected=s.selected;frog_moves=s.moves;frog_ready=1;}
  lumen_run(frog_draw,frog_input,frog_save);return 0;}
-#else
-void frog_register(void) {
-    app_page_register(APP_FROG, frog_draw, frog_input, NULL);
-}
-
-#endif

@@ -105,6 +105,15 @@ controls. `lumen_pager` sends `INPUT_PAGE` for taps and horizontal swipes.
 the app process. Package-owned grayscale PGM files can use `lumen_asset`.
 `lumen_app_tile` and `lumen_qr` use the system artwork and QR renderer.
 
+## Device preferences
+
+LUMEN 6.1 uses `lumen_service("device","preference","invert 1",action)` for
+named changes. `device/state` returns the values under those same names.
+The public names are in `lumen_device_preferences.h`, and the shell permits
+these privileged operations from the Settings package. The older
+`settings/preference` and `settings/state` calls keep their positional contract
+for existing Settings packages.
+
 ## Existing app implementations
 
 All 52 active apps ship as independent packages since LUMEN 6.0. Their build
@@ -130,7 +139,11 @@ references are outside this protocol revision.
 Use the `lumen_storage_*` helpers for package-owned files. Version 6.0
 accepts relative subdirectories such as `drafts/note.txt`. Writes create missing
 parents and atomically replace the final file. Hidden components, traversal and
-symlinked directories are rejected by descriptor-relative access.
+symlinked directories are rejected by descriptor-relative access. On 6.1,
+`lumen_storage_mkdir` creates a directory and its missing parents,
+`lumen_storage_exists` checks for a regular file or directory, and
+`lumen_storage_list` visits its public entries. Pass an empty path to list
+the root of the current package's data directory.
 
 `lumen_reader_file(title, path)` opens a UTF-8 Markdown file up to 128 KiB in
 Reader using a typed document reference. The runtime resolves the path under
@@ -187,7 +200,7 @@ public API, so use a new name when an incompatible operation replaces it.
 A caller uses `lumen_app_service(package_id, operation, data, action)`. The
 recipient registers `lumen_service_handler` before calling `lumen_run` and
 answers with `lumen_app_service_result(ok, data)`. Data is a UTF-8 string
-of up to 8,191 decoded bytes in either direction in the 6.1 development build. The recipient can read the caller's
+of up to 8,191 decoded bytes in either direction on LUMEN 6.1. The recipient can read the caller's
 package ID with `lumen_string("caller", ...)`. Both sides can use an empty
 string for operations with no payload. Study declares `material_count`, which
 accepts an empty string and returns the count of locally available documents.

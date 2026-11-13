@@ -619,12 +619,17 @@ static void package_reader_file(Json *json,const char *title) {
     if(owner<0 || owner!=(int)app_for_route(ui_route()))return;
     int reference=json_get(json,0,"document");
     if(reference<0 || json->tokens[reference].type!='{')return;
-    char path[1026],format[20],root[2048];
-    json_string(json,json_get(json,reference,"type"),format,sizeof(format));
-    json_string(json,json_get(json,reference,"path"),path,sizeof(path));
-    if(strcmp(format,"markdown") || !*path || strlen(path)>1024)return;
-    int n=snprintf(root,sizeof(root),"%s/../appdata/%s",data_root,app_package_key(owner));
-    if(n<0 || (size_t)n>=sizeof(root))return;
+    int format=json_get(json,reference,"type"),file=json_get(json,reference,"path");
+    if(format<0 || file<0 || json->tokens[format].type!='"' || json->tokens[file].type!='"')return;
+    JsonToken *entry=&json->tokens[file];
+    char path[1025],type[20];
+    int clipped=0;
+    if(wire_decode_string(json->text+entry->start,path,sizeof(path),&clipped)!=json->text+entry->end ||
+       clipped || !*path)return;
+    json_string(json,format,type,sizeof(type));
+    if(strcmp(type,"markdown"))return;
+    const char *root=app_process_data_dir();
+    if(!*root)return;
     char *bytes=malloc(131073);size_t size;
     if(bytes && lumen_storage_read_at(root,path,bytes,131072,&size) && size && !memchr(bytes,0,size)) {
         bytes[size]=0;
@@ -632,20 +637,8 @@ static void package_reader_file(Json *json,const char *title) {
     } else ui_message("Dokument nicht verfügbar.");
     free(bytes);
 }
-static int package_ui_poll(void) {
-    int changed=app_process_poll();
-    static uint64_t timer_frame;
-    uint64_t serial=app_process_frame_serial();
-    if(serial!=timer_frame && app_package_installed(app_for_route(ui_route()))) {
-        timer_frame=serial;
-        int tick=app_process_frame_tick();
-        package_deadline=tick>=20 && tick<=60000 ? extra_millis()+tick : 0;
-        package_timer_owner=app_for_route(ui_route());
-    }
-    if(changed && editor_ui.keyboard && (editor_ui.keyboard_target==2000 || editor_ui.keyboard_target==2002))editor_ui.keyboard_background_valid18=0;
-    if(changed && *app_process_error())ui_message(app_process_error());
-    const char*message=app_process_request();if(!*message)return changed;
-    Json j;JsonToken t[512];if(!json_parse(&j,message,t,512))return changed;
+static void package_dispatch_request(const char *message) {
+    Json j;JsonToken t[512];if(!json_parse(&j,message,t,512))return;
     char kind[32],text[8192],title[128];json_string(&j,json_get(&j,0,"request"),kind,sizeof(kind));json_string(&j,json_get(&j,0,"text"),text,sizeof(text));json_string(&j,json_get(&j,0,"title"),title,sizeof(title));
     if(!strcmp(kind,"input") || !strcmp(kind,"multiline") || !strcmp(kind,"secret")){package_focused_component[0]=0;package_input_action=package_value(&j,0,"action");open_keyboard(!strcmp(kind,"multiline") ? 2002 : !strcmp(kind,"secret") ? 2003 : 2000,title,text);}
     else if(!strcmp(kind,"select")) {
@@ -704,5 +697,23 @@ static int package_ui_poll(void) {
             reader_markdown17(title,text,ui_route());
     }
     else if(!strcmp(kind,"open")){char key[96];json_string(&j,json_get(&j,0,"app"),key,sizeof(key));int id=-1;for(int i=0;i<APP_LIMIT;i++)if(!strcmp(key,app_package_key(i))){id=i;break;}if(id>=0){AppIntent intent={.app=id,.kind=*text?INTENT_SEARCH:INTENT_OPEN};snprintf(intent.text,sizeof(intent.text),"%s",text);app_send(&intent);}}
-    return 1;
+}
+static int package_ui_poll(void) {
+    int changed=app_process_poll();
+    static uint64_t timer_frame;
+    uint64_t serial=app_process_frame_serial();
+    if(serial!=timer_frame && app_package_installed(app_for_route(ui_route()))) {
+        timer_frame=serial;
+        int tick=app_process_frame_tick();
+        package_deadline=tick>=20 && tick<=60000 ? extra_millis()+tick : 0;
+        package_timer_owner=app_for_route(ui_route());
+    }
+    if(changed && editor_ui.keyboard && (editor_ui.keyboard_target==2000 || editor_ui.keyboard_target==2002))editor_ui.keyboard_background_valid18=0;
+    if(changed && *app_process_error())ui_message(app_process_error());
+    const char *request;
+    while(*(request=app_process_request())) {
+        package_dispatch_request(request);
+        changed=1;
+    }
+    return changed;
 }
