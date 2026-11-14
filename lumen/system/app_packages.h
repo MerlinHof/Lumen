@@ -17,6 +17,7 @@ int app_package_can_remove(AppId id);
 int app_package_deleted(AppId id);
 int app_package_icon(AppId id,unsigned char pixels[76*76]);
 int app_service_start(const char *id,const char *operation,const char *data,int action);
+int app_service_start_background(const char *id,const char *operation,const char *data,int action);
 int app_service_fd(void);
 int app_service_wait_ms(void);
 void app_service_poll(void);

@@ -7,16 +7,8 @@ typedef struct {
 static RecipeRecent16 recipe_recent16[128];
 static int recipe_recent_count16;
 static void recipe_archive16(void);
-static char job_error16[200],llm_pending_id[17];
 static int job_kind16;
 
-static void config16(const char *name, char *out, int cap) {
-    char *s = service_read(name, cap - 1);
-    if (s) {
-        snprintf(out, cap, "%s", s);
-        free(s);
-    }
-}
 static void reader16(const char *title, const char *body, int origin) {
     document_open(title, "LUMEN", title, body, NULL, origin, 0);
 }
@@ -63,36 +55,17 @@ static void url_encode(const char *s, char *out, int cap) {
     }
     out[n] = 0;
 }
-static int curl16(const char *url, const char *destination, const char *key, const char *post) {
+static int recipe_download(const char *url, const char *destination) {
     if (strncmp(url, "https://", 8) || strpbrk(url, "\r\n\"\\"))
         return 0;
-    char cfg[4096], bodypath[4096], ca[4096];
+    char cfg[4096], ca[4096];
     snprintf(cfg, sizeof(cfg), "%s/http17-%016llx.cfg", data_root,
-             (unsigned long long)press_id(destination));
-    snprintf(bodypath, sizeof(bodypath), "%s/http17-%016llx.body", data_root,
              (unsigned long long)press_id(destination));
     FILE *f = fopen(cfg, "w");
     if (!f)
         return 0;
     chmod(cfg, 0600);
     fprintf(f, "url = \"%s\"\noutput = \"%s\"\n", url, destination);
-    if (key && *key) {
-        if (strpbrk(key, "\r\n\"\\")) {
-            fclose(f);
-            unlink(cfg);
-            return 0;
-        }
-        fprintf(f, "header = \"Authorization: Bearer %s\"\n", key);
-    }
-    if (post) {
-        if (!atomic_write(bodypath, post, strlen(post))) {
-            fclose(f);
-            unlink(cfg);
-            return 0;
-        }
-        fprintf(f, "header = \"Content-Type: application/json\"\ndata-binary = \"@%s\"\n",
-                bodypath);
-    }
     fclose(f);
     pid_t p = fork();
     if (!p) {
@@ -111,7 +84,7 @@ static int curl16(const char *url, const char *destination, const char *key, con
         execlp("curl", "curl", "--user-agent", "LUMEN/1.7 (personal Kindle reader)", "--config",
                cfg, "--fail", "--silent", "--location", "--proto", "=https", "--proto-redir",
                "=https", "--max-redirs", "3", "--connect-timeout", "8", "--max-time",
-               post ? "120" : "40", "--max-filesize", "4194304", NULL);
+               "40", "--max-filesize", "4194304", NULL);
         _exit(127);
     }
     int st = 0;
@@ -119,7 +92,6 @@ static int curl16(const char *url, const char *destination, const char *key, con
         while (waitpid(p, &st, 0) < 0 && errno == EINTR) {
         }
     unlink(cfg);
-    unlink(bodypath);
     return p > 0 && WIFEXITED(st) && !WEXITSTATUS(st);
 }
 static void json_escape16(FILE *f, const char *p) {
@@ -137,41 +109,14 @@ static void json_escape16(FILE *f, const char *p) {
     fputc('"', f);
 }
 
-static void llm_private_path(char *out,size_t size,const char *leaf) {
-    snprintf(out,size,"%s/../appdata/lumen.openai/%s",data_root,leaf);
-}
-static char *llm_private_read(const char *leaf,size_t capacity) {
-    char path[2048];llm_private_path(path,sizeof(path),leaf);
-    int fd=open(path,O_RDONLY|O_NOFOLLOW);
-    if(fd<0)return NULL;
-    FILE *file=fdopen(fd,"rb");
-    if(!file){close(fd);return NULL;}
-    char *text=malloc(capacity+1);
-    if(text){
-        size_t n=fread(text,1,capacity,file);text[n]=0;
-        if(fgetc(file)!=EOF || ferror(file)){free(text);text=NULL;}
-    }
-    fclose(file);return text;
-}
-static void llm_result(const char *text) {
-    if(!*llm_pending_id)return;
-    char name[64],path[2048];
-    snprintf(name,sizeof(name),"reply-%s.txt",llm_pending_id);
-    llm_private_path(path,sizeof(path),name);
-    atomic_write(path,text,strlen(text));
-    llm_pending_id[0]=0;
-    if(app_for_route(ui_route())==APP_LLM)app_process_send("{\"event\":\"refresh\"}");
-}
 static int job_start16(int kind, const char *arg) {
     if (job_pid16 > 0) {
         ui_message("Eine Anfrage läuft bereits.");
         return 0;
     }
-    job_error16[0] = 0;
     job_kind16 = kind;
     job_pid16 = fork();
     if (job_pid16 < 0) {
-        job_error16[0] = '!';
         return 0;
     }
     if (!job_pid16) {
@@ -187,23 +132,8 @@ static int job_start16(int kind, const char *arg) {
             recipes_search17(arg);
             ok = 1;
         }
-        if (kind == 3) {
-            char key[2049] = "";
-            config16("llm-key.txt", key, sizeof(key));
-            ok = *key && curl16("https://api.openai.com/v1/models", out, key, NULL);
-            memset(key, 0, sizeof(key));
-        }
         if (kind == 4)
             ok = recipes_fetch17(arg);
-        if (kind == 2) {
-            char key[2049]="";
-            config16("llm-key.txt",key,sizeof(key));
-            char *body=llm_private_read("request.json",1024*1024);
-            if(*key && body)ok=curl16("https://api.openai.com/v1/responses",out,key,body);
-            free(body);
-            memset(key, 0, sizeof(key));
-        }
-
         _exit(ok ? 0 : 1);
     }
     return 1;
@@ -219,13 +149,7 @@ static int u16_jobs_tick(void) {
         return 0;
     job_pid16 = -1;
     if (!WIFEXITED(st) || WEXITSTATUS(st)) {
-        snprintf(job_error16, sizeof(job_error16), "%s",
-                 job_kind16 == 2
-                     ? "OpenAI-Anfrage fehlgeschlagen. Schlüssel, Modell und Verbindung prüfen."
-                     : "Anfrage fehlgeschlagen. Verbindung und Einrichtung prüfen.");
-        ui_message(job_error16);
-        if(job_kind16==2)llm_result("");
-        if(job_kind16==3 && app_for_route(ui_route())==APP_LLM)app_process_send("{\"event\":\"refresh\"}");
+        ui_message("Anfrage fehlgeschlagen. Verbindung und Einrichtung prüfen.");
         if ((job_kind16==1 || job_kind16==4) && app_for_route(ui_route())==APP_RECIPES)
             app_process_send("{\"event\":\"refresh\"}");
         return 1;
@@ -233,59 +157,8 @@ static int u16_jobs_tick(void) {
     if (job_kind16 == 1)recipes_parse17();
     if (job_kind16==1 && app_for_route(ui_route())==APP_RECIPES)
         app_process_send("{\"event\":\"refresh\"}");
-    if (job_kind16 == 3) {
-        char *s = service_read("online16.json", 4194304);
-        if (s) {
-            extra_write_text("llm-models17.json", s);
-            free(s);
-            models_parse17();
-            if(app_for_route(ui_route())==APP_LLM)app_process_send("{\"event\":\"refresh\"}");
-        }
-    }
     if (job_kind16 == 4)
         recipes_open_ready17();
-    if (job_kind16 == 2) {
-        char *s = service_read("online16.json", 4194304);
-        Json j;
-        JsonToken *t = calloc(40000, sizeof(*t));
-        if (s && t && json_parse(&j, s, t, 40000)) {
-            char *text = NULL;
-            size_t n = 0;
-            FILE *f = open_memstream(&text, &n);
-            int a = json_get(&j, 0, "output");
-            for (int i = 0; f; i++) {
-                int o = json_at(&j, a, i);
-                if (o < 0)
-                    break;
-                int c = json_get(&j, o, "content");
-                for (int k = 0;; k++) {
-                    int part = json_at(&j, c, k);
-                    if (part < 0)
-                        break;
-                    char type[40];
-                    json_string(&j, json_get(&j, part, "type"), type, 40);
-                    if (!strcmp(type, "output_text")) {
-                        char *b = calloc(1, 131073);
-                        if (b) {
-                            json_string(&j, json_get(&j, part, "text"), b, 131073);
-                            fprintf(f, "%s\n", b);
-                            free(b);
-                        }
-                    }
-                }
-            }
-            if (f) {
-                fclose(f);
-                if (n) {
-                    if(n<=131072)llm_result(text);
-                }
-                free(text);
-            }
-        }
-        free(t);
-        free(s);
-        if(*llm_pending_id)llm_result("");
-    }
 
     return 1;
 }

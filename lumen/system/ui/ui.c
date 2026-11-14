@@ -77,7 +77,7 @@ static int ink_pending16(void), job_pending16(void);
 static void companion_close16(void);
 static int text_editable_hit(const Input *);
 static void small_number17(int, int, const char *, int);
-static void models_parse17(void), reader_markdown17(const char *, const char *, int);
+static void reader_markdown17(const char *, const char *, int);
 static int recipes_fetch17(const char *);
 static void recipes_search17(const char *), recipes_parse17(void), recipes_open_ready17(void);
 static void checkbox(int, int, int),

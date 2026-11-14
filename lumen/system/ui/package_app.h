@@ -637,8 +637,28 @@ static void package_reader_file(Json *json,const char *title) {
     if(wire_decode_string(json->text+entry->start,path,sizeof(path),&clipped)!=json->text+entry->end ||
        clipped || !*path)return;
     json_string(json,format,type,sizeof(type));
-    if(strcmp(type,"markdown"))return;
     const char *root=app_process_data_dir();
+    if(!strcmp(type,"document")) {
+        char shared[2048],leaf[256],verified[4096];
+        if(json_get(json,reference,"collection")>=0) {
+            char collection[24];
+            json_string(json,json_get(json,reference,"collection"),collection,sizeof(collection));
+            if(strcmp(collection,"study") || strchr(path,'/'))return;
+            int n=snprintf(shared,sizeof(shared),"%s/study",data_root);
+            if(n<0 || (size_t)n>=sizeof(shared))return;
+            root=shared;
+        }
+        int parent=lumen_storage_parent_at(root,path,0,leaf);
+        if(parent<0){ui_message("Dokument nicht verfügbar.");return;}
+        struct stat info;
+        int exists=!fstatat(parent,leaf,&info,AT_SYMLINK_NOFOLLOW) && S_ISREG(info.st_mode);
+        close(parent);
+        int n=snprintf(verified,sizeof(verified),"%s/%s",root,path);
+        if(exists && n>0 && (size_t)n<sizeof(verified))file_open16(verified,ui_route());
+        else ui_message("Dokument nicht verfügbar.");
+        return;
+    }
+    if(strcmp(type,"markdown"))return;
     if(!*root)return;
     char *bytes=malloc(131073);size_t size;
     if(bytes && lumen_storage_read_at(root,path,bytes,131072,&size) && size && !memchr(bytes,0,size)) {
@@ -657,14 +677,15 @@ static void package_dispatch_request(const char *message) {
             package_select_action=package_value(&j,0,"action");open_dropdown(2001,package_labels,count,package_value(&j,0,"selected"),220,180,350);
         }
     }
-    else if(!strcmp(kind,"app_service")) {
+    else if(!strcmp(kind,"app_service") || !strcmp(kind,"app_service_background")) {
         char target[64],operation[48],data[LUMEN_SERVICE_DATA_MAX+1];
         int action=package_value(&j,0,"action");
         if(!wire_read(message) ||
            !wire_bounded_string("app",target,sizeof(target)) ||
            !wire_bounded_string("operation",operation,sizeof(operation)) ||
            !wire_bounded_string("text",data,sizeof(data)) ||
-           !app_service_start(target,operation,data,action))
+           !(!strcmp(kind,"app_service_background") ? app_service_start_background(target,operation,data,action) :
+             app_service_start(target,operation,data,action)))
             package_acknowledge(action,0);
     }
     else if(!strcmp(kind,"service")) {

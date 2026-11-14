@@ -31,7 +31,7 @@ static void recipes_search17(const char *q) {
                      langs[i], encoded, i == 1 ? "102" : "0");
             snprintf(out, sizeof(out), "%s/recipes-%s17.json", data_root, langs[i]);
             unlink(out);
-            int ok = curl16(url, out, NULL, NULL);
+            int ok = recipe_download(url, out);
             _exit(ok ? 0 : 1);
         }
     }
@@ -40,7 +40,7 @@ static void recipes_search17(const char *q) {
     snprintf(url, sizeof(url), "https://www.themealdb.com/api/json/v1/1/search.php?s=%s", encoded);
     local_path(out, sizeof(out), "recipes16.json");
     unlink(out);
-    curl16(url, out, NULL, NULL);
+    recipe_download(url, out);
     for (int i = 0; i < 3; i++)
         if (jobs[i] > 0)
             while (waitpid(jobs[i], NULL, 0) < 0 && errno == EINTR) {
@@ -198,7 +198,7 @@ static int recipes_fetch17(const char *unused) {
                  "api.php?action=parse&pageid=%s&prop=text&format=json&formatversion=2",
                  r->lang, id + 1);
     }
-    if (!curl16(url, out, NULL, NULL))
+    if (!recipe_download(url, out))
         return 0;
     char *s = service_read("recipe-detail17.json", 4194304);
     if (!s)
@@ -293,7 +293,7 @@ static int recipes_fetch17(const char *unused) {
     snprintf(raw, sizeof(raw), "%s/%s.jpg", dir, r->id);
     snprintf(pgm, sizeof(pgm), "%s/%s.pgm", dir, r->id);
     int photo = 0;
-    if (*image && !strncmp(image, "https://", 8) && curl16(image, raw, NULL, NULL))
+    if (*image && !strncmp(image, "https://", 8) && recipe_download(image, raw))
         photo = engine_image_fit(raw, pgm, 520, 340);
     unlink(raw);
     f = fopen(path, "w");

@@ -306,13 +306,26 @@ static void lumen_reader_file(const char *title,const char *path) {
  fputs(",\"document\":{\"type\":\"markdown\",\"path\":",stdout);lumen_json(path);
  puts("}}");fflush(stdout);
 }
+static inline void lumen_reader_document(const char *path,const char *collection) {
+ fputs("{\"request\":\"intent\",\"app\":\"lumen.reader\",\"operation\":\"open_file\",\"document\":{\"type\":\"document\",\"path\":",stdout);
+ lumen_json(path);
+ if(collection){fputs(",\"collection\":",stdout);lumen_json(collection);}
+ puts("}}");fflush(stdout);
+}
 static void lumen_open(const char*id){fputs("{\"request\":\"open\",\"app\":",stdout);lumen_json(id);puts("}");fflush(stdout);}
 static void (*lumen_service_handler)(const char *operation,const char *data);
-static inline void lumen_app_service(const char *app,const char *operation,const char *data,int action) {
- fputs("{\"request\":\"app_service\",\"app\":",stdout);lumen_json(app);
+static inline void lumen_app_service_request(const char *app,const char *operation,const char *data,int action,int background) {
+ fputs(background ? "{\"request\":\"app_service_background\",\"app\":" :
+                    "{\"request\":\"app_service\",\"app\":",stdout);lumen_json(app);
  fputs(",\"operation\":",stdout);lumen_json(operation);
  fputs(",\"text\":",stdout);lumen_json(data);
  printf(",\"action\":%d}\n",action);fflush(stdout);
+}
+static inline void lumen_app_service(const char *app,const char *operation,const char *data,int action) {
+ lumen_app_service_request(app,operation,data,action,0);
+}
+static inline void lumen_app_service_background(const char *app,const char *operation,const char *data,int action) {
+ lumen_app_service_request(app,operation,data,action,1);
 }
 static inline void lumen_app_service_result(int ok,const char *data) {
  fputs(ok ? "{\"request\":\"service_result\",\"ok\":true,\"data\":" :

@@ -95,7 +95,7 @@ static int input(const Input *in) {
         if(page*5+i<count && *files[i]) {
             snprintf(selected,sizeof(selected),"%s",files[i]);
             lumen_storage_write("material.txt",selected,strlen(selected));
-            lumen_service("study_material","open",selected,0);
+            lumen_reader_document(selected,"study");
         }
     }
     return 1;

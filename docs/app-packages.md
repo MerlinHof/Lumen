@@ -181,10 +181,11 @@ LUMEN 5.5 adds measured lists via `lumen_flow_list`, `lumen_flow_row` and
 The renderer wraps text, lays out and paginates the rows, and emits `clicked`,
 `toggled`, `pinned` and `deleted` events for row actions.
 
-LUMEN 5.6 adds scoped `study_material` operations for paged material lists
-and opening an uploaded document by name in Reader. Packages can also call
-`clock/start_timer` with minutes or `notes/create_learning` with a title
-followed by a newline and the recall text.
+LUMEN 6.2 opens a file in Reader with
+`lumen_reader_document(relative_path, collection)`. Pass `NULL` for private
+app storage or `"study"` for a filename in the shared Study uploads folder.
+A private Markdown preview can use `lumen_reader_file(title, relative_path)`.
+Packages can start a Clock timer with `clock/start_timer`.
 
 LUMEN 5.7 runs Lock Screen through a separate sleep overlay slot. The package
 receives a `sleep_state` snapshot and returns image and typography choices. The
@@ -222,8 +223,19 @@ The caller receives the existing `INPUT_SERVICE` event with its action and
 success flag, plus `data` and `status` fields for completed calls. Workers
 cannot open overlays, route the UI, or send further service calls through this
 channel. A missing package, undeclared operation or busy worker reports failure.
-Leaving the app cancels the request and discards its result. These packages run
-as trusted native code and process separation does not sandbox files or network.
+Leaving the app cancels a standard request and discards its result.
+
+An app can call its own declared operation with
+`lumen_app_service_background(package_id, operation, data, action)` and a
+positive action ID. The same worker can continue after the app closes or
+pauses and has a 130-second deadline. It shares the single worker slot with
+foreground calls. An app gets a result event if it is active when the work ends.
+Save durable results in app storage so reopening the app can recover them.
+The open and resume events report an outstanding call's `background_action`
+or zero.
+
+These packages run as trusted native code and process separation does not
+sandbox files or network.
 
 Use `lumen_button_action` for a button that needs explicit placement and
 `lumen_app_tile_action` for an interactive app tile. Both report stable

@@ -47,6 +47,7 @@ static AppProcess *service;
 static uint64_t process_generation,service_caller;
 static int64_t service_deadline;
 static int service_action;
+static int service_background_owner=-1;
 static pid_t retired[64];
 static uint64_t frame_serial;
 
@@ -258,7 +259,16 @@ static void close_inherited_fds(void) {
 }
 static int process_open(AppProcess *p,AppId id,const char *role) {
  if(!app_package_installed(id))return 0;
- if(p->active==(int)id&&p->child>0){if(p->paused)process_send(p,"{\"event\":\"resume\"}");p->paused=0;return 1;}
+ if(p->active==(int)id && p->child>0) {
+    if(p->paused) {
+        char event[96];
+        int background_action=p==&foreground && service_background_owner==id ? service_action : 0;
+        snprintf(event,sizeof(event),"{\"event\":\"resume\",\"background_action\":%d}",background_action);
+        process_send(p,event);
+    }
+    p->paused=0;
+    return 1;
+ }
  reap_apps();process_close(p);signal(SIGPIPE,SIG_IGN);int in[2],out[2];if(pipe(in))return 0;if(pipe(out)){close(in[0]);close(in[1]);return 0;}
  char dir[2048],file[2048],state[2048];root(dir,entries[id].key);snprintf(file,sizeof(file),"%s/app",dir);snprintf(state,sizeof(state),"%s/../appdata/%s",data_root,entries[id].key);
  char*absolute=realpath(dir,NULL);if(absolute){snprintf(dir,sizeof(dir),"%s",absolute);free(absolute);snprintf(file,sizeof(file),"%s/app",dir);}
@@ -296,7 +306,9 @@ static int process_open(AppProcess *p,AppId id,const char *role) {
  snprintf(p->data_dir,sizeof(p->data_dir),"%s",state);
  p->active=id;p->paused=0;p->generation=++process_generation;
  if(p==service)return 1;
- char*event=NULL;size_t n=0;FILE*f=open_memstream(&event,&n);fprintf(f,"{\"event\":\"open\",\"api\":1,\"width\":600,\"height\":800,\"content_y\":56,\"language\":%d,\"data_dir\":",options[OPT_LANGUAGE]);json_text(f,state);fputs(",\"role\":",f);json_text(f,role);fputc('}',f);fclose(f);int ok=process_send(p,event);free(event);return ok;
+ char*event=NULL;size_t n=0;FILE*f=open_memstream(&event,&n);
+ int background_action=p==&foreground && service_background_owner==id ? service_action : 0;
+ fprintf(f,"{\"event\":\"open\",\"api\":1,\"width\":600,\"height\":800,\"content_y\":56,\"language\":%d,\"background_action\":%d,\"data_dir\":",options[OPT_LANGUAGE],background_action);json_text(f,state);fputs(",\"role\":",f);json_text(f,role);fputc('}',f);fclose(f);int ok=process_send(p,event);free(event);return ok;
 }
 static int wire_true(const char *key) {
     const WireField *field=wire_get(key);
@@ -356,7 +368,7 @@ static int process_poll(AppProcess *p) {
  return changed;
 }
 
-enum { SERVICE_TIMEOUT_MS=30000 };
+enum { SERVICE_TIMEOUT_MS=30000, BACKGROUND_SERVICE_TIMEOUT_MS=130000 };
 static int64_t service_now(void) {
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC,&now);
@@ -383,17 +395,20 @@ static void service_close(void) {
 }
 static void service_finish(int ok,const char *status,const char *data) {
     service_close();
-    if(foreground.child>0 && foreground.generation==service_caller && !foreground.paused)
-        service_result(ok,status,data);
+    int same_caller=foreground.generation==service_caller ||
+        (service_background_owner>=0 && foreground.active==service_background_owner);
+    if(foreground.child>0 && same_caller && !foreground.paused)service_result(ok,status,data);
     service_caller=0;
+    service_background_owner=-1;
 }
-int app_service_start(const char *id,const char *operation,const char *data,int action) {
-    if(service_caller && (foreground.generation!=service_caller || foreground.paused))
+static int start_worker(const char *id,const char *operation,const char *data,int action,int background) {
+    if(service_caller && service_background_owner<0 &&
+       (foreground.generation!=service_caller || foreground.paused))
         service_finish(0,"cancelled","");
     if(service_caller || foreground.child<=0 || foreground.paused ||
        !package_operation_valid(operation) || strlen(data)>LUMEN_SERVICE_DATA_MAX)return 0;
     int app=identify(id);
-    if(!app_package_installed(app))return 0;
+    if(!app_package_installed(app) || (background && (foreground.active!=app || action<=0)))return 0;
     char directory[2048];
     root(directory,id);
     Package *manifest=malloc(sizeof(*manifest));
@@ -424,8 +439,15 @@ int app_service_start(const char *id,const char *operation,const char *data,int 
     if(!ok){service_close();return 0;}
     service_action=action;
     service_caller=foreground.generation;
-    service_deadline=service_now()+SERVICE_TIMEOUT_MS;
+    service_background_owner=background ? app : -1;
+    service_deadline=service_now()+(background ? BACKGROUND_SERVICE_TIMEOUT_MS : SERVICE_TIMEOUT_MS);
     return 1;
+}
+int app_service_start(const char *id,const char *operation,const char *data,int action) {
+    return start_worker(id,operation,data,action,0);
+}
+int app_service_start_background(const char *id,const char *operation,const char *data,int action) {
+    return start_worker(id,operation,data,action,1);
 }
 int app_service_fd(void){return service ? service->read_fd : -1;}
 int app_service_wait_ms(void) {
@@ -435,7 +457,8 @@ int app_service_wait_ms(void) {
 }
 void app_service_poll(void) {
     if(!service_caller)return;
-    if(foreground.generation!=service_caller || foreground.paused || foreground.child<=0) {
+    if(service_background_owner<0 &&
+       (foreground.generation!=service_caller || foreground.paused || foreground.child<=0)) {
         service_finish(0,"cancelled","");
         return;
     }
@@ -461,8 +484,8 @@ void app_service_poll(void) {
     else if(!app_service_wait_ms())service_finish(0,"timeout","");
 }
 
-void app_process_close(void){service_close();service_caller=0;process_close(&foreground);for(int i=0;i<APP_OVERLAY_COUNT;i++)process_close(&overlays[i]);}
-void app_process_pause(void){process_pause(&foreground);if(service_caller)service_finish(0,"cancelled","");}
+void app_process_close(void){service_close();service_caller=0;service_background_owner=-1;process_close(&foreground);for(int i=0;i<APP_OVERLAY_COUNT;i++)process_close(&overlays[i]);}
+void app_process_pause(void){process_pause(&foreground);if(service_caller && service_background_owner<0)service_finish(0,"cancelled","");}
 int app_process_open(AppId id){return process_open(&foreground,id,"foreground");}
 int app_process_owner(void){return foreground.active;}
 const char *app_process_data_dir(void){return foreground.data_dir;}

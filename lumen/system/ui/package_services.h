@@ -70,7 +70,6 @@ static int transfer_service(const char *operation,const char *data,int action) {
 }
 #include "annotation_service.h"
 #include "reading_service.h"
-#include "study_services.h"
 #include "clock_service.h"
 #include "recipe_service.h"
 #include "wikipedia_service.h"
@@ -78,14 +77,12 @@ static int transfer_service(const char *operation,const char *data,int action) {
 #include "catalog_service.h"
 #include "library_service.h"
 #include "home_assistant_service.h"
-#include "openai_service.h"
 #include "photo_service.h"
 #include "document_service.h"
 #include "notes_service.h"
 #include "device_service.h"
 static int package_service_request(const char *name,const char *operation,const char *data,int action) {
     if(!strcmp(name,"reading"))return package_reading_activity(operation,data,action);
-    if(!strcmp(name,"study_material"))return package_study_material(operation,data,action);
     if(!strcmp(name,"notes") && !strcmp(operation,"create_learning")) {
         /* Existing Protocol 1 Study packages can call the same installed operation. */
         if(!app_service_start("lumen.notes",operation,data,action))package_acknowledge(action,0);
@@ -100,7 +97,6 @@ static int package_service_request(const char *name,const char *operation,const 
     if(!strcmp(name,"notes_editor"))return package_notes(operation,data,action);
     if(!strcmp(name,"document"))return package_document(operation,data,action);
     if(!strcmp(name,"photos"))return package_photos(operation,data,action);
-    if(!strcmp(name,"openai"))return package_openai(operation,data,action);
     if(!strcmp(name,"home_assistant"))return package_home_assistant(operation,data,action);
     if(!strcmp(name,"library"))return package_library(operation,data,action);
     if(!strcmp(name,"store"))return package_store(operation,data,action);

@@ -17,18 +17,5 @@ const char *service_error(void);
 char *service_read(const char *name, size_t max);
 int service_url_valid(const char *url);
 int system_set_time(int year, int month, int day, int hour, int minute);
-/* Bounded JSON tree. Object lookups never traverse into sibling objects. */
-typedef struct {
-    int start, end, next, count, type;
-} JsonToken;
-typedef struct {
-    const char *text;
-    JsonToken *tokens;
-    int count, capacity;
-} Json;
-int json_parse(Json *j, const char *text, JsonToken *tokens, int cap);
-int json_get(const Json *j, int object, const char *key);
-int json_at(const Json *j, int array, int index);
-void json_string(const Json *j, int token, char *out, int cap);
-double json_number(const Json *j, int token);
+#include "../../tools/sdk/lumen_json.h"
 #endif

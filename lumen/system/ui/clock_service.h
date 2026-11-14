@@ -24,3 +24,17 @@ static int package_clock_service(const char *operation,const char *data,int acti
     package_reply_end(out,&message);
     return 1;
 }
+
+static int package_start_timer(const char *data,int action) {
+    char *end;long minutes=strtol(data,&end,10);
+    if(!*data || *end || minutes<1 || minutes>240)return 0;
+    timer_minutes=(int)minutes;
+    timer_total_seconds=timer_minutes*60;
+    timer_due=extra_millis()+timer_total_seconds*1000LL;
+    timer_paused=0;
+    extra_save();
+    char *message=NULL;size_t length=0;
+    FILE *out=package_reply(&message,&length,action,1);
+    if(out)package_reply_end(out,&message);
+    return 1;
+}

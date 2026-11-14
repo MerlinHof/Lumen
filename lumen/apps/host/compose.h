@@ -44,7 +44,7 @@
 #include "preference_dispatch.h"
 #include "tools.h"
 #include "../../system/ui/clipboard.h"
-#include "../openai/models.h"
+#include "../../system/markdown.h"
 #include "../reader/markdown.h"
 #include "../../system/ui/recipe_provider.h"
 // clang-format on

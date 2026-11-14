@@ -105,6 +105,29 @@ static int test_service(void) {
     assert(app_service_start("lumen.study","material_count","",9));
     app_process_pause();
     assert(app_service_fd()<0 && app_process_owner()==caller);
+    assert(app_process_open(caller));
+    assert(!app_service_start_background("test.worker","reply_and_exit","",13));
+    assert(!app_service_start_background("test.caller","reply_and_exit","",0));
+    assert(app_service_start_background("test.caller","reply_and_exit","",13));
+    app_process_pause();
+    assert(app_service_fd()>=0);
+    int other=app_package_find("lumen.study");
+    assert(app_process_open(other));
+    assert(app_service_fd()>=0);
+    assert(app_process_open(caller));
+    serial=app_process_frame_serial();
+    for(int i=0;i<100 && app_service_fd()>=0;i++) {
+        usleep(10000);
+        app_service_poll();
+        app_process_poll();
+    }
+    assert(app_service_fd()<0);
+    for(int i=0;i<100 && !strstr(app_process_frame(),"finished");i++) {
+        usleep(10000);
+        app_process_poll();
+    }
+    assert(app_process_frame_serial()!=serial && strstr(app_process_frame(),"finished"));
+    assert(strstr(app_process_frame(),"\"action\":13"));
     app_process_close();
     puts("PASS manifest-declared app service, result, invalid input, process exit, cancellation and worker shutdown.");
     return 0;

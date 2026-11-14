@@ -67,11 +67,15 @@ caller_app=base/'caller.lumen-app'
 script=b"""#!/bin/sh
 IFS= read -r open_event
 echo '{"ui":[]}'
+case "$open_event" in
+ *service_call*reply_and_exit*) echo '{"request":"service_result","ok":true,"data":"finished"}'; exit 0;;
+esac
 while IFS= read -r event; do
  printf '{"ui":[%s]}\n' "$event"
 done
 """
-archive(caller_app,{'app':script},format='lumen-app-1',api=1,id='test.caller',name='Caller fixture',version='1.0.0')
+archive(caller_app,{'app':script},format='lumen-app-1',api=1,id='test.caller',name='Caller fixture',
+        version='1.0.0',operations=['reply_and_exit'])
 run('install',caller_app)
 for key in ('lumen.study','lumen.notes'):
  run('install',ROOT/'build/apps/host'/key/(key+'.lumen-app'))
@@ -124,7 +128,8 @@ removed=('games/manuals.h','notes/folder_state.h','notes/folders.h','notes/defau
 for path in removed:
  assert not (ROOT/'lumen/apps'/path).exists(),path
 assert 'INPUT_TAP' not in (ROOT/'lumen/apps/settings/app.c').read_text()
-assert 'package_learning_note' not in (ROOT/'lumen/system/ui/study_services.h').read_text()
+for name in ('study_services.h','openai_service.h'):
+ assert not (ROOT/'lumen/system/ui'/name).exists(),name
 print('PASS extracted collection and Settings controls stay outside retired host implementations.')
 
 def tap(x,y):
@@ -322,6 +327,39 @@ assert any(c.get('text')=='Paris' for f in frames for c in f.get('ui',[]))
 assert not any(f.get('request')=='app_service' for f in frames)
 print('PASS Weather owns geocoding, forecast parsing, caching, refresh and semantic controls.')
 
+fake_openai=base/'openai-bin';fake_openai.mkdir()
+openai_root=base/'openai-data';openai_root.mkdir()
+(openai_root/'request.json').write_text('{"input":"hello"}')
+(openai_root/'api-key.txt').write_text('fixture-secret')
+openai_curl=fake_openai/'curl'
+openai_curl.write_text("""#!/bin/sh
+case "$*" in *fixture-secret*) exit 2;; esac
+config=$(cat)
+case "$config" in *'Authorization: Bearer fixture-secret'*) ;; *) exit 3;; esac
+case "$*" in
+ *'/v1/models') echo '{"data":[{"id":"z-model"},{"id":"a-model"}]}';;
+ *'/v1/responses')
+  case "$config" in *"@$LUMEN_APP_DATA/request.json"*) ;; *) exit 4;; esac
+  test "$(cat "$LUMEN_APP_DATA/request.json")" = '{"input":"hello"}' || exit 5
+  echo '{"output":[{"content":[{"type":"output_text","text":"Grüße ☀"}]}]}';;
+ *) exit 6;;
+esac
+""")
+openai_curl.chmod(0o755)
+def openai_worker(operation,data):
+    event=dict(event='service_call',language=1,operation=operation,data=data)
+    binary=ROOT/'build/apps/host/lumen.openai/app'
+    result=subprocess.run([str(binary)],input=json.dumps(event)+'\n',capture_output=True,text=True,
+        env=dict(os.environ,LUMEN_APP_DATA=str(openai_root),PATH=str(fake_openai)+':'+os.environ['PATH']),
+        timeout=10,check=True)
+    return json.loads(result.stdout)['ok']
+assert openai_worker('models_refresh','')
+assert openai_worker('send','0000000000000042')
+assert not openai_worker('send','../unscoped')
+assert (openai_root/'reply-0000000000000042.txt').read_text()=='Grüße ☀\n'
+assert json.loads((openai_root/'models.json').read_text())['data'][1]['id']=='a-model'
+print('PASS OpenAI package owns model loading and UTF-8 replies, with keys passed only through worker input.')
+
 catalog=dict(event='service',action=1,ok=1,data='\n'.join(['lumen.library']*10))
 frames,folder=app_session('lumen.home',[catalog,dict(event='page',page=1)])
 assert any(c.get('type')=='pager' and c.get('page')==1 for c in frames[-1]['ui'])
@@ -349,7 +387,7 @@ print('PASS packaged ToDo preserves multiline rows, flags, completion, editing a
 frames,folder=app_session('lumen.study',[
     component('material-0'),component('focus'),component('recall'),
     dict(event='text',action=4,text='Recall\nSecond paragraph')],legacy=data)
-assert any(f.get('service')=='study_material' and f.get('operation')=='open' and f.get('text')=='Lesson.txt' for f in frames)
+assert any(f.get('document')=={'type':'document','path':'Lesson.txt','collection':'study'} for f in frames)
 assert any(f.get('service')=='clock' and f.get('operation')=='start_timer' and f.get('text')=='25' for f in frames)
 assert any(f.get('request')=='app_service' and f.get('app')=='lumen.notes' and
            f.get('operation')=='create_learning' and f.get('text')=='Lesson.txt\nRecall\nSecond paragraph' for f in frames)
@@ -484,14 +522,15 @@ assert any(c.get('type')=='line' for f in frames for c in f.get('ui',[]))
 assert not frames[-1]['back']
 print('PASS packaged Home Assistant sensor cards, graph, UTF-8 search, device selection and Back.')
 
+(data/'llm-key.txt').write_text('fixture-key')
+(data/'llm-models17.json').write_text('{"data":[{"id":"test-model"}]}')
 frames,folder=app_session('lumen.openai',[
-    dict(event='service',action=1,ok=1,key_set=1),
-    dict(event='text',action=1,text='First question'),tap(549,765),
+    dict(event='text',action=1,text='First question'),component('send'),
     dict(event='service',action=3,ok=0),
-    dict(event='text',action=1,text='Follow-up'),tap(549,765),
+    dict(event='text',action=1,text='Follow-up'),component('send'),
     dict(event='service',action=3,ok=0),
-    tap(488,95),tap(220,173),tap(550,95),tap(470,170),
-    dict(event='service',action=2,ok=1,count=1,model0='test-model'),tap(120,160)])
+    component('archive'),component('chat-0'),component('settings'),component('models'),
+    component('model-0')],legacy=data)
 assert any(f.get('operation')=='send' for f in frames)
 request=json.loads((folder/'request.json').read_text())
 assert [turn['content'] for turn in request['input']]==['First question','Follow-up']
