@@ -4,14 +4,12 @@ static int keyboard_multiline(void) {
 static void keyboard_insert(const char *text) {
     editor_ui.note_scroll_lock = 0;
     text_insert(editor_ui.edit, keyboard_capacity(), &editor_ui.note_cursor, text);
-    editor_ui.cursor_visible = 1;
-    editor_ui.cursor_epoch = extra_millis();
+    caret_restart();
 }
 static void keyboard_backspace(void) {
     editor_ui.note_scroll_lock = 0;
     text_backspace(editor_ui.edit, &editor_ui.note_cursor);
-    editor_ui.cursor_visible = 1;
-    editor_ui.cursor_epoch = extra_millis();
+    caret_restart();
 }
 
 /* System keyboard: one geometry for drawing, touch feedback and text dispatch.
@@ -131,8 +129,7 @@ static void keyboard_place18(int x) {
         p = q;
     }
     editor_ui.note_cursor = p - editor_ui.edit;
-    editor_ui.cursor_visible = 1;
-    editor_ui.cursor_epoch = extra_millis();
+    caret_restart();
 }
 static void keyboard_draw18(void) {
     ui_y_offset = 0;
@@ -330,6 +327,7 @@ static int keyboard_intercept18(const Input *in) {
         if (key >= 0) {
             KeyboardKey18 *k = &keyboard_keys18[key];
             pressed = hit(k->x+k->w/2,k->y+k->h/2);
+            if(pressed>=0)press_bounds=widgets[pressed];
             return pressed >= 0 ? 3 : 2;
         }
     }

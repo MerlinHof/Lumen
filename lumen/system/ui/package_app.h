@@ -120,7 +120,7 @@ static void package_editor_line(int x,int y,int w,int h,const char *text,int cur
     int caret=x+textwidth(prefix,ui_font(UI_BODY));
     if(caret<x+w) {
         package_caret_visible=1;
-        text_caret(caret,baseline,ui_font(UI_BODY));
+        if(editor_ui.cursor_visible)text_caret(caret,baseline,ui_font(UI_BODY));
     }
 }
 static void package_paint_frame(const char *text) {
@@ -135,6 +135,7 @@ static void package_paint_frame(const char *text) {
         int x=package_value(&j,item,"x"),y=package_value(&j,item,"y"),w=package_value(&j,item,"w"),h=package_value(&j,item,"h");
         if(!strcmp(type,"page_layout")) {
             package_component_layout=1;package_component_top=141;
+            if(!*package_view_title)snprintf(package_view_title,sizeof(package_view_title),"%.127s",label);
             heading_actions(label,0);continue;
         }
         if(!strcmp(type,"flow_list")){package_flow_list(&j,item);continue;}
@@ -358,7 +359,10 @@ static void package_paint_frame(const char *text) {
             const Font *font=ui_font(role==4 ? UI_TITLE : role==1 ? UI_HEADING : UI_BODY);
             if(lines>0 && lines<=12)wrapped_raw(x,y,label,font,w,lines);
         }
-        else if(!strcmp(type,"heading"))heading_actions(label,package_value(&j,item,"actions"));
+        else if(!strcmp(type,"heading")) {
+            if(!*package_view_title)snprintf(package_view_title,sizeof(package_view_title),"%.127s",label);
+            heading_actions(label,package_value(&j,item,"actions"));
+        }
         else if(!strcmp(type,"formula") && strlen(label)<1024)math_formula(label,x,y,w,h);
         else if(!strcmp(type,"editor_line") && strlen(label)<1024) {
             int cursor=package_value(&j,item,"cursor");
@@ -378,11 +382,19 @@ static void package_paint_frame(const char *text) {
             int role=package_value(&j,item,"role");
             static const TextRole roles[]={UI_BODY,UI_HEADING,UI_DISPLAY,UI_SECONDARY,UI_TITLE};
             TextStyle style=ui_text_style((unsigned)role<sizeof(roles)/sizeof(roles[0]) ? roles[role] : UI_BODY);
-            double override=json_number(&j,json_get(&j,item,"ink"));
+            int ink=json_get(&j,item,"ink");
+            double override=ink>=0 ? json_number(&j,ink) : -1;
+            char align[12];json_string(&j,json_get(&j,item,"align"),align,sizeof(align));
+            int right=!strcmp(align,"right");
+            int text_width=right ? textwidth_raw(label,style.font) : 0;
             int previous=ink_color, left=package_value(&j,item,"left");
             ink_color=override>=0 && override<=255 ? (int)override : style.color;
             for(int dx=0;dx<=!!style.weight;dx++) {
-                if(left)label_ellipsis(x+dx,y,w-dx,h,label,style.font,0);
+                if(right) {
+                    int remaining=w-!!style.weight;
+                    int offset=text_width<remaining ? remaining-text_width : 0;
+                    label_ellipsis(x+dx+offset,y,remaining-offset,h,label,style.font,0);
+                } else if(left)label_ellipsis(x+dx,y,w-dx,h,label,style.font,0);
                 else centered(x+dx,y,w-dx,h,label,style.font);
             }
             ink_color=previous;
@@ -487,16 +499,14 @@ static void package_paint_frame(const char *text) {
 }
 static void package_ui_draw(void) {
     package_fullscreen=package_document_visible=0;
+    package_view_title[0]=0;
     package_fullscreen_owner=app_for_route(ui_route());
     package_pager.count=0;
     package_component_count=package_component_layout=0;
     if(!*app_process_error())app_process_open(app_for_route(ui_route()));
-    static unsigned char status_bar[600*STATUS_HEIGHT];
-    memcpy(status_bar,ui_pixels,sizeof(status_bar));
     const char*text=app_process_frame();
     if(app_process_frame_loading()) {heading(app_definition(app_for_route(ui_route()))->name);centered(28,340,544,60,*app_process_error()?tr(app_process_error()):tr("App wird geöffnet …"),ui_font(UI_BODY));return;}
     package_paint_frame(text);
-    if(!package_fullscreen)memcpy(ui_pixels,status_bar,sizeof(status_bar));
     if(!package_document_visible && app_for_route(ui_route())==APP_READER)reader_ui.reader_chrome=0;
 }
 static int package_ui_input(const Input*in) {
@@ -703,6 +713,7 @@ static int package_ui_poll(void) {
     static uint64_t timer_frame;
     uint64_t serial=app_process_frame_serial();
     if(serial!=timer_frame && app_package_installed(app_for_route(ui_route()))) {
+        if(changed && !editor_ui.keyboard)caret_restart();
         timer_frame=serial;
         int tick=app_process_frame_tick();
         package_deadline=tick>=20 && tick<=60000 ? extra_millis()+tick : 0;

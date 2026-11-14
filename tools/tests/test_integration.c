@@ -29,6 +29,35 @@ static void shot17(const char *n) {
 #include "test_input_ui.h"
 #include "test_improvements.h"
 #include "test_quality.h"
+#include "../../lumen/system/power_state.h"
+static void test_power_state(void) {
+    assert(power_state_event("outOfScreenSaver 1")==POWER_AWAKE);
+    assert(power_state_event("exitingScreenSaver")==POWER_AWAKE);
+    assert(power_state_event("goingToScreenSaver 2")==POWER_ASLEEP);
+    assert(power_state_event("other goingToScreenSaver")==POWER_UNKNOWN);
+    assert(power_state_status("Powerd state: Active")==POWER_AWAKE);
+    assert(power_state_status("Powerd state: Screen Saver")==POWER_ASLEEP);
+    assert(power_state_status("")==POWER_UNKNOWN);
+}
+static void test_editor_feedback(void) {
+    memset(ui_pixels,255,WIDTH*HEIGHT);
+    package_paint_frame("{\"ui\":[{\"type\":\"text\",\"x\":40,\"y\":280,\"w\":510,\"h\":54,"
+                        "\"role\":2,\"align\":\"right\",\"text\":\"123.45\"}]}");
+    int left=WIDTH,right=0;
+    for(int y=280;y<334;y++)for(int x=40;x<550;x++)
+        if(ui_pixels[y*WIDTH+x]<200){if(x<left)left=x;if(x>right)right=x;}
+    assert(left>350 && right>530 && right<550);
+    package_caret_visible=1;
+    caret_restart();
+    assert(caret_wait()>0);
+    editor_ui.cursor_epoch-=CARET_BLINK_MS;
+    assert(caret_tick() && !editor_ui.cursor_visible);
+    editor_ui.cursor_epoch-=CARET_BLINK_MS;
+    assert(caret_tick() && editor_ui.cursor_visible);
+    editor_ui.cursor_epoch-=CARET_BLINK_MS*CARET_PHASES;
+    assert(caret_wait()==-1);
+    package_caret_visible=0;
+}
 static void test_package_surfaces(void) {
     memset(ui_pixels,255,WIDTH*HEIGHT);
     package_paint_frame("{\"ui\":["
@@ -45,7 +74,9 @@ int main(int argc, char **argv) {
     data_root = "build/tests/test-data";
     mkdir(data_root, 0700);
     assert(engine_init());
+    test_power_state();
     test_package_surfaces();
+    test_editor_feedback();
     assert(atomic_write("build/tests/test-data/photo-default-seeded","1",1));
     ui_init();
     for(int i=0;i<200 && !keyboard_layout_serial;i++){usleep(3000);keyboard_package_poll();}
@@ -307,7 +338,8 @@ int main(int argc, char **argv) {
     unsigned char rim = ui_pixels[22*WIDTH+22];
     pressed = 0;
     ui_feedback_draw();
-    assert(ui_pixels[22*WIDTH+22] == rim && ui_pixels[42*WIDTH+70] == 0);
+    assert(ui_pixels[22*WIDTH+22] == rim && ui_pixels[28*WIDTH+70] == 0);
+    assert(ui_pixels[42*WIDTH+70]==255);
     pressed = -1;
     memset(ui_pixels, 255, sizeof(ui_pixels));
     control_surface(20, 20, 48, 48, 16, 0);
@@ -374,10 +406,21 @@ int main(int argc, char **argv) {
     assert(dropdown && drop_count==5 && drop_visible==5);
     tap17(drop_x+70,drop_y+5+48+23);
     assert(options[OPT_LOCK]==5 && !dropdown);
+    memset(ui_pixels,255,WIDTH*HEIGHT);
+    dropdown_button(360,203,210,48,"Example");
+    assert(ui_pixels[230*WIDTH+549]<100); /* shared selector chevron */
     route_to(1);
     settle_app();ui_draw();
     tap17(550,83);
     assert(ui_route() == 1 && strstr(app_process_frame(),"Sortierung"));
+
+    Input sleep_fixture={.kind=INPUT_SLEEP},wake_fixture={.kind=INPUT_WAKE};
+    Input release_fixture={.kind=INPUT_POWER};
+    assert(ui_input(&sleep_fixture)==1 && sleeping);
+    assert(ui_input(&sleep_fixture)==2 && sleeping);
+    assert(ui_input(&release_fixture)==2 && sleeping);
+    assert(ui_input(&wake_fixture)==1 && !sleeping);
+    assert(ui_input(&sleep_fixture)==1 && ui_input(&wake_fixture)==1 && !sleeping);
 
     route_to(29);settle_app();ui_draw();tap17(550,95);
     assert(ui_route()==30 && editor_ui.keyboard);

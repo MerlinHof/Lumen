@@ -24,11 +24,11 @@ static void shelf(void) {
     int featured=*books[6].id,top=featured ? 419 : 115;
     lumen_text(28,featured ? 366 : 66,420,44,*query ? query :
         word("M E I N E  B Ü C H E R","M Y  B O O K S","M E S  L I V R E S"),PAINT_SECONDARY,-1,1);
-    ui_paint_icon_button(468,60,IC_SEARCH);
-    ui_paint_icon_button(528,60,IC_SETTINGS);
+    lumen_icon_action("search",468,60,IC_SEARCH);
+    lumen_icon_action("preferences",528,60,IC_SETTINGS);
     if(featured) {
         cover(28,80,152,208,books[6].id);
-        ui_paint_hitbox(28,113,544,196);
+        lumen_custom_action("book-6",28,80,544,230);
         lumen_text(204,96,366,36,word("W E I T E R L E S E N","C O N T I N U E  R E A D I N G","R E P R E N D R E"),PAINT_SECONDARY,-1,1);
         lumen_book_label(204,135,366,books[6].title,books[6].author);
         ui_paint_line(206,282,488,282,3,199);
@@ -43,7 +43,8 @@ static void shelf(void) {
         if(books[i].pin)ui_paint_icon_button(x+113,y+4,IC_PIN);
         lumen_wrapped(x+8,y+229,156,48,books[i].title,PAINT_BODY,2);
         lumen_text(x+8,y+273,156,25,books[i].author,PAINT_SECONDARY,-1,1);
-        ui_paint_hitbox(x,y,168,300);
+        char id[16];snprintf(id,sizeof(id),"book-%d",i);
+        lumen_custom_action(id,x,y,168,300);
     }
     if(!featured && !*books[0].id)lumen_wrapped(28,180,544,115,
         word("Deine Bücher erscheinen hier.","Your books will appear here.","Vos livres apparaîtront ici."),
@@ -56,20 +57,20 @@ static void draw(void) {
             word("Zuletzt gelesen","Last read","Dernière lecture"),word("Zuletzt hinzugefügt","Recently added","Ajout récent"),
             word("Dateigröße","Size","Taille"),word("Fortschritt","Progress","Progression")};
         ui_paint_heading(word("Bibliothek","Library","Bibliothèque"),0);
-        lumen_select_row(203,word("Sortierung","Sort by","Trier par"),modes[sort]);
+        lumen_select_action("sort",203,word("Sortierung","Sort by","Trier par"),modes[sort]);
     } else if(view==DETAIL) {
         ui_paint_heading(word("Buchdetails","Book details","Détails du livre"),0);
         cover(28,145,120,164,selected);
         lumen_book_label(176,151,396,item.title,item.author);
         char details[64];snprintf(details,sizeof(details),"%s · %.1f MB",format,kilobytes/1024.0);
         lumen_text(30,329,540,36,details,PAINT_SECONDARY,-1,1);
-        lumen_button(30,385,540,48,supported ? word("Lesen","Read","Lire") :
+        lumen_button_action("read",30,385,540,48,supported ? word("Lesen","Read","Lire") :
             word("Im Kindle lesen","Read in Kindle","Lire sur Kindle"),1);
-        lumen_button(30,451,260,48,item.pin ? word("Loslösen","Unpin","Désépingler") : word("Anheften","Pin","Épingler"),0);
-        lumen_button(310,451,260,48,word("Umbenennen","Rename file","Renommer"),0);
-        lumen_button(30,517,260,48,word("Titel bearbeiten","Edit title","Modifier le titre"),0);
-        lumen_button(310,517,260,48,word("Autor bearbeiten","Edit author","Modifier l’auteur"),0);
-        lumen_button(30,583,260,48,word("Buch löschen","Delete book","Supprimer le livre"),0);
+        lumen_button_action("pin",30,451,260,48,item.pin ? word("Loslösen","Unpin","Désépingler") : word("Anheften","Pin","Épingler"),0);
+        lumen_button_action("rename",310,451,260,48,word("Umbenennen","Rename file","Renommer"),0);
+        lumen_button_action("title",30,517,260,48,word("Titel bearbeiten","Edit title","Modifier le titre"),0);
+        lumen_button_action("author",310,517,260,48,word("Autor bearbeiten","Edit author","Modifier l’auteur"),0);
+        lumen_button_action("delete",30,583,260,48,word("Buch löschen","Delete book","Supprimer le livre"),0);
         if(detail_total>0) {
             snprintf(details,sizeof(details),"%d / %d",detail_page+1,detail_total);
             lumen_text(30,661,540,35,details,PAINT_SECONDARY,-1,1);
@@ -79,8 +80,8 @@ static void draw(void) {
         ui_paint_surface(20,274,560,218,16,255,100);
         ui_paint_text(30,294,540,90,word("Dieses Buch dauerhaft löschen?","Permanently delete this book?",
             "Supprimer définitivement ce livre ?"),PAINT_HEADING);
-        lumen_button(36,414,250,52,word("Abbrechen","Cancel","Annuler"),0);
-        lumen_button(312,414,250,52,word("Löschen","Delete","Supprimer"),1);
+        lumen_button_action("cancel",36,414,250,52,word("Abbrechen","Cancel","Annuler"),0);
+        lumen_button_action("confirm",312,414,250,52,word("Löschen","Delete","Supprimer"),1);
     }
 }
 static void read_row(int row,int field) {
@@ -148,45 +149,42 @@ static int input(const Input *in) {
         }
         return 1;
     }
-    if(in->kind!=INPUT_TAP && in->kind!=INPUT_HOLD)return 0;
-    int x=in->x,y=in->y;
+    char id[32],gesture[24];
+    if(in->kind!=INPUT_COMPONENT || !wire_bounded_string("id",id,sizeof(id)) ||
+       !wire_bounded_string("gesture",gesture,sizeof(gesture)))return 0;
+    int clicked=!strcmp(gesture,"clicked"),held=!strcmp(gesture,"long_pressed");
     if(confirm) {
-        if(in->kind==INPUT_TAP && y>=414 && y<466) {
-            if(x>=312 && x<562){action("delete",NULL);view=SHELF;}
-            confirm=0;set_back();
-        }
+        if(clicked && !strcmp(id,"confirm")){action("delete",NULL);view=SHELF;}
+        else if(!clicked || strcmp(id,"cancel"))return 0;
+        confirm=0;set_back();
         return 1;
     }
-    if(view==DETAIL && in->kind==INPUT_TAP) {
-        if(y>=385 && y<433)action("read",NULL);
-        else if(y>=451 && y<499) {
-            if(x<300)action("pin",NULL);
-            else lumen_request("input",word("Datei umbenennen","Rename file","Renommer"),filename,4);
-        } else if(y>=517 && y<565)
-            lumen_request("input",x<300 ? word("Titel","Title","Titre") : word("Autor","Author","Auteur"),
-                x<300 ? item.title : raw_author,x<300 ? 5 : 6);
-        else if(y>=583 && y<631 && x<300){confirm=1;set_back();}
+    if(view==DETAIL && clicked) {
+        if(!strcmp(id,"read"))action("read",NULL);
+        else if(!strcmp(id,"pin"))action("pin",NULL);
+        else if(!strcmp(id,"rename"))lumen_request("input",word("Datei umbenennen","Rename file","Renommer"),filename,4);
+        else if(!strcmp(id,"title"))lumen_request("input",word("Titel","Title","Titre"),item.title,5);
+        else if(!strcmp(id,"author"))lumen_request("input",word("Autor","Author","Auteur"),raw_author,6);
+        else if(!strcmp(id,"delete")){confirm=1;set_back();}
         return 1;
     }
-    if(view==PREFERENCES && in->kind==INPUT_TAP && y>=203 && y<251 && x>=360) {
+    if(view==PREFERENCES && clicked && !strcmp(id,"sort")) {
         const char *modes[]={word("Titel","Title","Titre"),word("Autor","Author","Auteur"),
             word("Zuletzt gelesen","Last read","Dernière lecture"),word("Zuletzt hinzugefügt","Recently added","Ajout récent"),
             word("Dateigröße","Size","Taille"),word("Fortschritt","Progress","Progression")};
         lumen_select(modes,6,sort,2);return 1;
     }
     if(view!=SHELF)return 0;
-    if(in->kind==INPUT_TAP && y>=60 && y<104 && x>=468) {
-        if(x>=528){view=PREFERENCES;set_back();}
-        else lumen_request("input",word("Bücher suchen","Search books","Chercher des livres"),query,1);
+    if(clicked && !strcmp(id,"preferences")){view=PREFERENCES;set_back();return 1;}
+    if(clicked && !strcmp(id,"search")) {
+        lumen_request("input",word("Bücher suchen","Search books","Chercher des livres"),query,1);
         return 1;
     }
-    int index=-1,featured=*books[6].id,top=featured ? 419 : 115;
-    if(featured && x>=28 && x<572 && y>=80 && y<310)index=6;
-    else if(x>=28 && x<572 && y>=top && y<742 && (x-28)%188<168)
-        index=(y-top)/304*3+(x-28)/188;
-    if(index<0 || index>=7 || !*books[index].id)return 0;
+    if((!clicked && !held) || strncmp(id,"book-",5) || strlen(id)!=6 || id[5]<'0' || id[5]>'6')return 0;
+    int index=id[5]-'0';
+    if(!*books[index].id)return 0;
     snprintf(selected,sizeof(selected),"%s",books[index].id);
-    if(in->kind==INPUT_HOLD) {
+    if(held) {
         const char *modes[]={books[index].pin ? word("Loslösen","Unpin","Désépingler") :
             word("Anheften","Pin","Épingler"),word("Buchdetails","Book details","Détails"),
             word("Löschen","Delete","Supprimer")};

@@ -94,8 +94,6 @@ static void extra_timer_label(char *out, int cap) {
     }
 }
 static int extra_poll(void) {
-    if (editor_ui.keyboard || package_caret_visible)
-        return 500;
     if (ui_route() == 36 && *discover_lookup_image() && !wiki_image_available() &&
         wiki_image_attempts < 3)
         return 1000;

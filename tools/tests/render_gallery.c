@@ -41,11 +41,11 @@ int main(void) {
     picture("apps");
     route_to(27);
     app_process_open(APP_CALCULATOR);
-    app_process_send("{\"event\":\"input\",\"kind\":1,\"x\":550,\"y\":95}");
+    app_process_send("{\"event\":\"component\",\"id\":\"settings\",\"gesture\":\"clicked\"}");
     app_process_send("{\"event\":\"select\",\"action\":1,\"value\":1}");
     app_process_send("{\"event\":\"back\"}");
     app_process_send("{\"event\":\"text\",\"action\":80,\"text\":\"sin(pi/3)^2+sqrt(5^2+3^2)\"}");
-    app_process_send("{\"event\":\"input\",\"kind\":1,\"x\":500,\"y\":730}");
+    app_process_send("{\"event\":\"component\",\"id\":\"equals\",\"gesture\":\"clicked\"}");
     for(int i=0;i<30;i++){usleep(5000);package_ui_poll();}
     picture("calculator");
     route_to(13);

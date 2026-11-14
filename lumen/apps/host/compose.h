@@ -27,7 +27,6 @@
 #include "../launcher/view.h"
 #include "../photos/storage.h"
 #include "../news/archive_view.h"
-#include "../../system/ui/markdown_lines.h"
 #include "../launcher/manage.h"
 #include "personal_dispatch.h"
 #include "personal_shutdown.h"

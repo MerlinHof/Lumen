@@ -2,7 +2,7 @@
 
 enum {LIST,EDITOR,MOVE};
 static int view,folder,parent,page,count,ink,eraser,width,pages,editor_page,delete_pending,selected_kind,selected_id;
-static int previous_page;
+static int previous_page, editor_note;
 static char folder_title[96];
 static struct {int id,kind,children;char title[256],detail[48];} rows[8];
 static const char *word(const char *de,const char *en,const char *fr) {
@@ -25,7 +25,24 @@ static void collection_changed(int lock,int ok) {
 static void note(const char *operation,int value) {
     char data[24];snprintf(data,sizeof(data),"%d",value);request(operation,data,2);
 }
-static void show_editor(int id){view=EDITOR;editor_page=0;back_state();note("open",id);}
+static void show_editor(int id) {
+    view=EDITOR;
+    editor_note=id;
+    editor_page=0;
+    back_state();
+    note("open",id);
+}
+static void markdown_preview(void) {
+    if(editor_note<=0)return;
+    char path[48],text[8192];
+    size_t size;
+    snprintf(path,sizeof(path),"notes/%d.txt",editor_note);
+    if(lumen_storage_read_at(getenv("LUMEN_LEGACY_DATA"),path,text,sizeof(text)-1,&size) &&
+       size && lumen_storage_write("preview.md",text,size)) {
+        lumen_reader_file(word("Notizen","Notes","Notes"),"preview.md");
+    } else lumen_request("notify","",word("Vorschau nicht verfügbar.","Preview unavailable.",
+        "Aperçu indisponible."),0);
+}
 static void draw(void) {
     if(view==EDITOR) {
         lumen_note_surface();
@@ -120,6 +137,8 @@ static int input(const Input *in) {
         if(in->x==2 && in->y) {
             editor_page=lumen_number("page");pages=lumen_number("pages");
             ink=lumen_number("ink");eraser=lumen_number("eraser");width=lumen_number("width");
+            int saved=lumen_number("note_id");
+            if(saved>0)editor_note=saved;
         } else if(in->x==2 && view==EDITOR && !in->y) {
             view=LIST;collection_changed(-1,0);
         } else if(in->x==3)list();
@@ -135,7 +154,8 @@ static int input(const Input *in) {
     if(in->kind!=INPUT_COMPONENT || !lumen_string("id",id,sizeof(id)) ||
        !lumen_string("gesture",gesture,sizeof(gesture)) || strcmp(gesture,"clicked"))return 0;
     if(view==EDITOR) {
-        if(!strcmp(id,"ink") || (!ink && !strcmp(id,"markdown")) ||
+        if(!ink && !strcmp(id,"markdown"))markdown_preview();
+        else if(!strcmp(id,"ink") ||
            (ink && (!strcmp(id,"eraser") || !strcmp(id,"width") || !strcmp(id,"undo") || !strcmp(id,"export"))))
             request(id,"",2);
         return 1;

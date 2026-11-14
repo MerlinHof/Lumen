@@ -46,6 +46,7 @@ static inline RefreshWaveform refresh_large(const unsigned char *a,const unsigne
 static inline int refresh_binary(const unsigned char *a,const unsigned char *b,int w,RefreshBounds area) {
     for(int y=area.top;y<area.bottom;y++)for(int x=area.left;x<area.right;x++) {
         int old=a[y*w+x],next=b[y*w+x];
+        if(old==next)continue;
         if((old!=0 && old!=255) || (next!=0 && next!=255))return 0;
     }
     return 1;
@@ -61,7 +62,8 @@ static inline RefreshPlan refresh_plan(const unsigned char *a,const unsigned cha
     RefreshWaveform mode=dirty_area*100>=pixels*40 ? refresh_large(a,b,w,h,dirty) : REFRESH_GL16;
     if(mode==REFRESH_CLEAR)return (RefreshPlan){whole,mode};
     if(full)return (RefreshPlan){whole,REFRESH_GC16};
-    if(dirty.top<status_height) {
+    if(dirty.top<status_height && (dirty.bottom>status_height ||
+       !refresh_binary(a,b,w,dirty) || dirty_area*100>pixels*3)) {
         dirty.left=0;dirty.right=w;dirty.top=0;
         if(dirty.bottom<status_height)dirty.bottom=status_height;
     }
@@ -70,7 +72,7 @@ static inline RefreshPlan refresh_plan(const unsigned char *a,const unsigned cha
     if(dirty.right>w)dirty.right=w;
     if(dirty.bottom>h)dirty.bottom=h;
     int64_t area=(int64_t)(dirty.right-dirty.left)*(dirty.bottom-dirty.top);
-    if(mode==REFRESH_GL16 && dirty.top>=status_height && area*100<=pixels*18 &&
+    if(mode==REFRESH_GL16 && (dirty.top>=status_height || dirty.bottom<status_height) && area*100<=pixels*18 &&
        refresh_binary(a,b,w,dirty))mode=REFRESH_DU;
     return (RefreshPlan){dirty,mode};
 }

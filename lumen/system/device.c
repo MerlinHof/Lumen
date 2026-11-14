@@ -3,6 +3,7 @@
 #include "app_packages.h"
 #include "network.h"
 #include "refresh.h"
+#include "power_state.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -28,6 +29,8 @@
 static int fbfd = -1, touch = -1, power = -1, lockfd = -1, eventfd = -1, usbfd = -1;
 static pid_t eventpid = -1, usbpid = -1;
 static int wait_ms = -1;
+static PowerState power_state=POWER_AWAKE;
+static int check_power,emit_power;
 static unsigned char *fb;
 static size_t fbsize;
 static int stride, xoff, yoff;
@@ -223,6 +226,7 @@ void device_poll_interval(int ms) { wait_ms = ms; }
 void device_request_sleep(void) {
     char *a[] = {"lipc-set-prop", "-i", "com.lab126.powerd", "powerButton", "1", NULL};
     execute("/usr/bin/lipc-set-prop", a);
+    check_power=1;
 }
 static void reclaim_ui(void) {
     char *args[] = {"sh", "/mnt/us/lumen/ui-session.sh", "reassert", NULL};
@@ -231,7 +235,7 @@ static void reclaim_ui(void) {
 int device_wake(void) {
     char *a[] = {"lipc-set-prop", "-i", "com.lab126.powerd", "wakeUp", "1", NULL};
     int ok = execute("/usr/bin/lipc-set-prop", a) == 0;
-    reclaim_ui();
+    check_power=1;
     return ok;
 }
 int device_system_power(int restart) {
@@ -341,38 +345,53 @@ void device_present_async(const unsigned char *pixels) {
     present_frame(pixels,0,1);
 }
 static int parse_event(int fd, int source, Input *input) {
+    static char lines[2][1024];
+    static size_t used[2];
     char buf[1024];
-    ssize_t n = read(fd, buf, sizeof(buf) - 1);
-    if (n <= 0)
+    PowerState transition=POWER_UNKNOWN;
+    int status=0, usb=0;
+    ssize_t n;
+    while((n=read(fd,buf,sizeof(buf)))>0)for(ssize_t i=0;i<n;i++) {
+        if(buf[i]!='\n') {
+            if(used[source]<sizeof(lines[0])-1)lines[source][used[source]++]=buf[i];
+            continue;
+        }
+        char *line=lines[source];
+        line[used[source]]=0;
+        used[source]=0;
+        PowerState event=source==0 ? power_state_event(line) : POWER_UNKNOWN;
+        if(event!=POWER_UNKNOWN)transition=event;
+        if(strstr(line,"charging") || strstr(line,"Charging") || strstr(line,"usbUnplug") ||
+           strstr(line,"usbPlugOut"))status=1;
+        if(source==1 && (strstr(line,"usbConfigured") || strstr(line,"usbPlugIn") ||
+           strstr(line,"enteringUsbMs") || strstr(line,"UsbMode") || strstr(line,"usbStateChanged")))usb=1;
+    }
+    if(usb){input->kind=INPUT_USB;return 1;}
+    if(transition!=POWER_UNKNOWN) {
+        emit_power=transition;
         return 0;
-    buf[n] = 0;
-    fprintf(stderr, "event[%d] %s", source, buf);
-    char *sleep = strstr(buf, "goingToScreenSaver"), *wake = strstr(buf, "outOfScreenSaver"),
-         *exiting = strstr(buf, "exitingScreenSaver");
-    if (exiting && (!wake || exiting > wake))
-        wake = exiting;
-    if (wake && (!sleep || wake > sleep)) {
-        reclaim_ui();
-        input->kind = INPUT_WAKE;
-        return 1;
     }
-    if (sleep) {
-        input->kind = INPUT_SLEEP;
-        return 1;
-    }
-    if (strstr(buf, "charging") || strstr(buf, "Charging") || strstr(buf, "usbUnplug") ||
-        strstr(buf, "usbPlugOut")) {
-        input->kind = INPUT_STATUS;
-        input->x = -1;
-        return 1;
-    }
-    if (source == 1 &&
-        (strstr(buf, "usbConfigured") || strstr(buf, "usbPlugIn") || strstr(buf, "enteringUsbMs") ||
-         strstr(buf, "UsbMode") || strstr(buf, "usbStateChanged"))) {
-        input->kind = INPUT_USB;
-        return 1;
-    }
+    if(status){input->kind=INPUT_STATUS;input->x=-1;return 1;}
     return 0;
+}
+static int sync_power(Input *input) {
+    PowerState state=emit_power;
+    emit_power=POWER_UNKNOWN;
+    if(check_power) {
+        char status[128];
+        check_power=0;
+        getprop("com.lab126.powerd","status",status,sizeof(status));
+        PowerState observed=power_state_status(status);
+        if(observed!=POWER_UNKNOWN)state=observed;
+    }
+    if(state==POWER_UNKNOWN || state==power_state)return 0;
+    power_state=state;
+    if(state==POWER_AWAKE) {
+        reclaim_ui();
+        initialized=0;
+    }
+    input->kind=state==POWER_AWAKE ? INPUT_WAKE : INPUT_SLEEP;
+    return 1;
 }
 int device_wait(Input *input) {
     static int x, y, sx, sy, active, started, release, held, desynced;
@@ -382,6 +401,10 @@ int device_wait(Input *input) {
     struct pollfd p[6+APP_OVERLAY_COUNT] = {
         {touch, POLLIN, 0}, {power, POLLIN, 0}, {eventfd, POLLIN, 0}, {usbfd, POLLIN, 0}, {-1, POLLIN, 0}, {-1, POLLIN, 0}};
     while (alive) {
+        if(sync_power(input)) {
+            active=started=release=held=desynced=0;
+            return 1;
+        }
         if (network_ready) {
             network_ready = 0;
             input->kind = INPUT_NETWORK;
@@ -453,6 +476,10 @@ int device_wait(Input *input) {
                 p[k].fd = -1;
             }
         }
+        if(sync_power(input)) {
+            active=started=release=held=desynced=0;
+            return 1;
+        }
         for (int k = 0; k < 2; k++) {
             if (!(p[k].revents & POLLIN))
                 continue;
@@ -468,8 +495,10 @@ int device_wait(Input *input) {
                                 power_began = (int64_t)t.tv_sec * 1000 + t.tv_nsec / 1000000;
                                 power_active = 1;
                                 power_sent = 0;
-                            } else
+                            } else {
                                 power_active = 0;
+                                check_power=1;
+                            }
                             input->kind = INPUT_POWER;
                             input->x = e.value;
                             return 1;
@@ -511,6 +540,13 @@ int device_wait(Input *input) {
                     if (active && !release) {
                         input->x = x;
                         input->y = y;
+                        if (!started && power_state==POWER_ASLEEP) {
+                            check_power=1;
+                            if(sync_power(input)) {
+                                active=started=release=held=desynced=0;
+                                return 1;
+                            }
+                        }
                         if (!started) {
                             sx = x;
                             sy = y;

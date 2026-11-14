@@ -3,7 +3,7 @@
   "api": 1,
   "id": "lumen.status-bar",
   "name": "Statusleiste",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "sources": ["app.c"],
   "assets": ["assets/icon.pgm"]
 }

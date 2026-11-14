@@ -1,6 +1,12 @@
 /* The status package selects fields and geometry. LUMEN supplies device state,
  * draws shared symbols, and executes navigation from the declared hit regions. */
 static const char *status_app_id="lumen.status-bar";
+static const char *status_title(void) {
+    if(*package_view_title && app_process_owner()==(int)app_for_route(ui_route()))
+        return tr(package_view_title);
+    const AppDefinition *app=app_definition(app_for_route(ui_route()));
+    return app ? tr(app->name) : "";
+}
 static void status_send(void) {
     static char previous[1024];
     static int64_t attempted;
@@ -26,8 +32,7 @@ static void status_send(void) {
         "\"show_battery\":%d,\"show_percent\":%d,\"show_wifi\":%d,\"show_clock\":%d,\"show_date\":%d",
         atoi(status_ui.battery),status_ui.battery_charging,!strcmp(status_ui.wifi,"Offline"),can_back(),
         options[OPT_BATTERY],options[OPT_BATTERY_PERCENT],options[OPT_WIFI],options[OPT_CLOCK],options[OPT_DATE]);
-    const AppDefinition *app=app_definition(app_for_route(ui_route()));
-    package_field(out,"name",app ? tr(app->name) : "");
+    package_field(out,"name",status_title());
     package_field(out,"date",date);package_field(out,"clock",clock);package_field(out,"timer",timer_label);
     fputc('}',out);fclose(out);
     if(message && (!alive || strcmp(previous,message))) {
@@ -62,8 +67,12 @@ static void header(void) {
     status_ui.status_date_w=status_ui.status_clock_w=0;
     if(can_back()){system_region(0,0,62,STATUS_HEIGHT);icon_sized(9,6,IC_BACK,44);}
     Json frame;JsonToken tokens[512];
-    if(!json_parse(&frame,app_overlay_frame(APP_OVERLAY_STATUS),tokens,512))return;
-    int items=json_get(&frame,0,"ui");
+    int left=can_back() ? 68 : 24, title_width=195, title_right=WIDTH;
+    if(!json_parse(&frame,app_overlay_frame(APP_OVERLAY_STATUS),tokens,512)) {
+        label_ellipsis(left,0,title_width,STATUS_HEIGHT,status_title(),&small,0);
+        return;
+    }
+    int items=json_get(&frame,0,"ui"), bind_title=0;
     for(int index=0;index<12;index++) {
         int item=json_at(&frame,items,index);
         if(item<0)break;
@@ -73,6 +82,7 @@ static void header(void) {
         int x=package_value(&frame,item,"x"),width=package_value(&frame,item,"w");
         if(x<0 || x>=WIDTH || width<1 || width>WIDTH-x)continue;
         if(!strcmp(id,"back"))continue;
+        if(strcmp(id,"name") && x>=left && x<title_right)title_right=x;
         if(!strcmp(id,"battery")) {
             status_ui.status_battery_x=x;status_ui.status_battery_right=x+width;
             status_battery(x,package_value(&frame,item,"value"),package_value(&frame,item,"flag"));
@@ -82,7 +92,8 @@ static void header(void) {
             if(package_value(&frame,item,"flag"))aa_stroke(x+2,15,x+27,38,2);
             system_region(x-5,0,width+10,STATUS_HEIGHT);
         } else if(!strcmp(id,"name")) {
-            label_ellipsis(x,0,width,STATUS_HEIGHT,text,&small,0);
+            bind_title=1;
+            if(package_value(&frame,item,"value")==1)title_width=width;
         } else if(!strcmp(id,"timer")) {
             int start=x+(width-textwidth_raw(text,&caption)-24)/2;
             if(start<x)continue;
@@ -105,4 +116,6 @@ static void header(void) {
             system_region(x,0,width,STATUS_HEIGHT);
         }
     }
+    if(title_width>title_right-left-8)title_width=title_right-left-8;
+    if(bind_title && title_width>0)label_ellipsis(left,0,title_width,STATUS_HEIGHT,status_title(),&small,0);
 }

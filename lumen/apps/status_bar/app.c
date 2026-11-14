@@ -7,8 +7,7 @@ static void item(const char *id,int x,int width,const char *label,int value,int 
     printf(",\"value\":%d,\"flag\":%d}",value,flag);
 }
 static void status(void) {
-    char name[96],date[24],clock[16],timer[72],percent[16];
-    lumen_string("name",name,sizeof(name));
+    char date[24],clock[16],timer[72],percent[16];
     lumen_string("date",date,sizeof(date));
     lumen_string("clock",clock,sizeof(clock));
     lumen_string("timer",timer,sizeof(timer));
@@ -43,9 +42,7 @@ static void status(void) {
     }
     int name_width=right-left-12;
     if(name_width>195)name_width=195;
-    int measured=(int)strlen(name)*13;
-    if(name_width>measured)name_width=measured;
-    if(name_width>0 && *name)item("name",left,name_width,name,0,0);
+    if(name_width>0)item("name",left,name_width,"",1,0);
     left+=name_width>0 ? name_width+12 : 0;
     if(*timer && right-left>98)item("timer",left,right-left,timer,0,0);
     lumen_end();

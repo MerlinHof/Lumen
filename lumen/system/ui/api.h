@@ -8,6 +8,7 @@ void ui_loading(const char *message);
 int ui_defer_app_frame(void);
 void ui_draw(void);
 void ui_feedback_draw(void);
+int ui_feedback_active(void);
 int ui_poll_interval(void);
 int ui_input(const Input *input);
 int ui_open(int index);

@@ -61,6 +61,7 @@ static int package_exit_requested;
 static void package_ui_draw(void),package_clock_tick(void);
 static int package_clock_wait(void);
 static int package_fullscreen,package_document_visible,package_caret_visible;
+static char package_view_title[128];
 static AppId package_fullscreen_owner=APP_COUNT;
 static int package_ui_input(const Input *);
 static int package_ui_commit(int target,const char *text);
@@ -97,7 +98,7 @@ static void u15_init(void), u15_note_overlay(void);
 static int store_complete(int done);
 static void store_restore(void);
 
-static int page, full = 1, sleeping;
+static int page, full = 1, sleeping, updating;
 static float zoom = 1, panx, pany;
 static int selection_release;
 static int64_t activity16;
@@ -478,6 +479,30 @@ static void text_caret(int x, int y, const Font *f) {
     int cap, top = ink_top("H", f, &cap), height = f->h - 8;
     rect(x, y + top + (cap - height) / 2, 2, height, 0);
 }
+/* Short blink bursts after editing keep an idle E-Ink panel quiet. */
+enum { CARET_BLINK_MS=650, CARET_PHASES=6 };
+static void caret_restart(void) {
+    editor_ui.cursor_epoch=extra_millis();
+    editor_ui.cursor_visible=1;
+}
+static int caret_active(void) {
+    return !sleeping && !updating && !dropdown && !editor_ui.clip_active &&
+        (editor_ui.keyboard || package_caret_visible);
+}
+static int caret_wait(void) {
+    if(!caret_active() || !editor_ui.cursor_epoch)return -1;
+    int64_t elapsed=extra_millis()-editor_ui.cursor_epoch;
+    if(elapsed>=CARET_BLINK_MS*CARET_PHASES)return editor_ui.cursor_visible ? -1 : 0;
+    return CARET_BLINK_MS-(int)(elapsed%CARET_BLINK_MS);
+}
+static int caret_tick(void) {
+    if(!caret_active() || !editor_ui.cursor_epoch)return 0;
+    int64_t phase=(extra_millis()-editor_ui.cursor_epoch)/CARET_BLINK_MS;
+    int visible=phase>=CARET_PHASES || !(phase&1);
+    if(visible==editor_ui.cursor_visible)return 0;
+    editor_ui.cursor_visible=visible;
+    return 1;
+}
 static void centered(int x, int y, int w, int h, const char *label, const Font *font) {
     label = tr(label);
     int width = textwidth(label, font);
@@ -504,8 +529,9 @@ static void dropdown_button(int x, int y, int w, int h, const char *label) {
     control_surface(x, y, w, h, 12, 0);
     control_surface(x + 2, y + 2, w - 4, h - 4, 10, 255);
     centered(x + 2, y, w - 34, h, label, &small);
-    stroke(x + w - 27, y + h / 2 - 3, x + w - 20, y + h / 2 + 4, 2);
-    stroke(x + w - 20, y + h / 2 + 4, x + w - 13, y + h / 2 - 3, 2);
+    int tip=x+w-21, mid=y+h/2;
+    stroke(tip-7,mid-4,tip,mid+3,3);
+    stroke(tip,mid+3,tip+7,mid-4,3);
 }
 static void segments(int x, int y, int w, int h, const char *const *labels, int count,
                      int selected) {
@@ -644,11 +670,6 @@ static int can_back(void) {
     return (app_package_installed(app_for_route(ui_route())) && app_process_frame_back()) || editor_ui.keyboard || dropdown || confirm_delete || battery_popup ||
            history_count || ui_route() != 131;
 }
-static void progress(int x, int y, int w, int n, int total) {
-    rect(x, y, w, 4, 180);
-    if (total > 0)
-        rect(x, y, (int)((long long)w * n / total), 4, 0);
-}
 #include "image_sampling.h"
 #include "cover_cache.h"
 static void cover_bounds(const unsigned char *p, int cw, int ch, int *x0, int *y0, int *x1,
@@ -780,9 +801,6 @@ static void cover_size(Book *b, int x, int y, int w, int h) {
     if (ui_route() == 1 || ui_route() == 0)
         outline_surface(x,y,w,h,RADIUS_LARGE,198);
 }
-static void cover(Book *b, int x, int y, int scale) {
-    cover_size(b, x, y, scale == 2 ? 52 : 120 / scale, scale == 2 ? 72 : 164 / scale);
-}
 #include "../../apps/library/layout.h"
 static void page_arrow(int x, int y, int kind, int enabled) {
     if (enabled) {
@@ -806,9 +824,6 @@ typedef struct {
     void (*move)(int);
 } Pagination;
 static Pagination pagination;
-static void pagination_bind(int *state, int count, int y, int visible, void (*move)(int)) {
-    pagination = (Pagination){state, count, y, visible, move};
-}
 static void pagination_move(int delta) {
     device_activity();
     if (!pagination.state)
@@ -857,16 +872,6 @@ static void pager_draw(int x, int y, int w, int page, int pages) {
     char text[32];
     snprintf(text,sizeof(text),"%d / %d",page+1,pages);
     centered(x+44,y,w-88,44,text,&caption);
-}
-static void pager(int y, int *state, int pages) {
-    if (*state < 0)
-        *state = 0;
-    if (*state >= pages)
-        *state = pages > 0 ? pages - 1 : 0;
-    pagination_bind(state, pages, y, 1, NULL);
-    if (pages <= 1)
-        return;
-    pager_draw(PAGER_X, y, PAGER_W, *state, pages);
 }
 static void system_loading(int target) {
     if (target != 2 && target != 79 && target != 40)
@@ -1169,7 +1174,6 @@ static int centered_lines(int x, int y, int width, const char *text, const Font 
     return row;
 }
 #include "sleep_surface.h"
-static int updating;
 static const char *update_error;
 void ui_update_progress(int step,int percent,const char *version,const char *error) {
     memset(ui_pixels,255,sizeof(ui_pixels));
@@ -1238,8 +1242,8 @@ void ui_draw(void) {
         return;
     }
     if(app_package_installed(app_for_route(ui_route()))) {
-        app_view_draw(APP_STATUS_BAR);
         package_ui_draw();
+        if(!package_fullscreen)app_view_draw(APP_STATUS_BAR);
         if(ui_route()==2 && package_document_visible && reader_ui.selecting==2)selection_overlay();
         if(editor_ui.keyboard){memcpy(editor_ui.keyboard_background18,ui_pixels,sizeof(ui_pixels));editor_ui.keyboard_background_valid18=1;}
         goto input_overlays18;
@@ -1273,6 +1277,7 @@ input_overlays18:
     if (options[OPT_INVERT])
         for (size_t i = 0; i < sizeof(ui_pixels); i++)
             ui_pixels[i] = 255 - ui_pixels[i];
+    ui_feedback_draw();
 }
 int ui_full_refresh(void) {
     int n = full;
@@ -1360,6 +1365,43 @@ static int ui_dispatch_input(const Input *in) {
         }
         return 2;
     }
+    if (in->kind == INPUT_SLEEP) {
+        if(sleeping)return 2;
+        int handled=polish_power(in);
+        if(handled)return 1;
+        pressed=-1;
+        press_canceled=0;
+        editor_ui.pressed_key=-1;
+        u15_input(in);
+        app_process_pause();
+        apps_pause();
+        extra_save();
+        service_cancel();
+        reader_ui.selecting = 0;
+        battery_popup = 0;
+        connect_stop();
+        discover_cancel();
+        ui_save();
+        sleeping=1;
+        full=1;
+        return 1;
+    }
+    if (in->kind == INPUT_WAKE) {
+        full=1;
+        if (sleeping) {
+            pressed=-1;
+            press_canceled=0;
+            editor_ui.pressed_key=-1;
+            caret_restart();
+            activity16=editor_ui.cursor_epoch;
+            sleeping = 0;
+            device_status(status_ui.battery, sizeof(status_ui.battery), status_ui.wifi, sizeof(status_ui.wifi));
+            status_ui.battery_charging = device_charging();
+            status_ui.status_time = status_ui.charging_checked = time(NULL);
+            extra_tick();
+        }
+        return 1;
+    }
     if (in->kind == INPUT_CANCEL) {
         notification_input(in,0);
         pressed = -1;
@@ -1411,6 +1453,7 @@ static int ui_dispatch_input(const Input *in) {
         return v1_sleep_tick() ? 1 : 2;
     if (in->kind == INPUT_STATUS) {
         package_clock_tick();
+        int blink=caret_tick();
         if (refresh_status(in->x == -1))
             return 1;
         int tick16 = u16_tick();
@@ -1425,6 +1468,7 @@ static int ui_dispatch_input(const Input *in) {
             in = &normalized;
             network_poll = 1;
         } else {
+            if(blink)return 1;
             int needs_status = ui_route() == 12 ||
                                package_clock_wait() >= 0;
             if (action && !needs_status)
@@ -1531,8 +1575,7 @@ static int ui_dispatch_input(const Input *in) {
     if (in->kind == INPUT_TAP && !sleeping)
         device_activity();
     if (in->kind == INPUT_TAP) {
-        editor_ui.cursor_visible = 1;
-        editor_ui.cursor_epoch = extra_millis();
+        caret_restart();
     }
     if (in->kind == INPUT_STATUS) {
         if (app_for_route(ui_route())==APP_SETTINGS && wifi_ui.wifi_enabled) {
@@ -1609,48 +1652,8 @@ static int ui_dispatch_input(const Input *in) {
         ui_save();
         return 0;
     }
-    if (in->kind == INPUT_SLEEP) {
-        app_process_pause();
-        apps_pause();
-        extra_save();
-        service_cancel();
-        reader_ui.selecting = 0;
-        battery_popup = 0;
-        if (!sleeping) {
-            connect_stop();
-            discover_cancel();
-            ui_save();
-            sleeping = 1;
-            full = 1;
-        }
-        return 1;
-    }
-    if (in->kind == INPUT_POWER) {
-        static int was_sleeping = -1;
-        if (in->x == 1)
-            was_sleeping = sleeping;
-        else {
-            if (sleeping && was_sleeping != 0) {
-                if (device_wake()) {
-                    sleeping = 0;
-                    full = 1;
-                }
-            }
-            was_sleeping = -1;
-        }
-        return 1;
-    }
-    if (in->kind == INPUT_WAKE) {
-        if (sleeping) {
-            sleeping = 0;
-            full = 1;
-            device_status(status_ui.battery, sizeof(status_ui.battery), status_ui.wifi, sizeof(status_ui.wifi));
-            status_ui.battery_charging = device_charging();
-            status_ui.status_time = status_ui.charging_checked = time(NULL);
-            extra_tick();
-        }
-        return 1;
-    }
+    if (in->kind == INPUT_POWER)
+        return 2;
     if (sleeping)
         return 2;
     int x = in->x, y = in->y;
@@ -1845,8 +1848,6 @@ static void overlays(void) {
         snprintf(b, sizeof(b), "%s%%", status_ui.battery);
         centered(430, 58, 144, 64, b, &body);
     }
-    if (pressed >= 0 && pressed < widget_count)
-        ui_feedback_draw();
 }
 static void refresh_library(void) {
     ui_save();
@@ -1975,6 +1976,8 @@ int ui_poll_interval(void) {
         other = extra_poll();
     int tick=package_clock_wait();
     if(tick>=0 && (other<0 || tick<other))other=tick;
+    int blink=caret_wait();
+    if(blink>=0 && (other<0 || blink<other))other=blink;
     int np = new_apps_poll();
     int pp = polish_poll();
     if (pp >= 0 && (np < 0 || pp < np))
@@ -2179,32 +2182,26 @@ static int app_handle_input(const Input *in) {
     return 1;
 }
 
+int ui_feedback_active(void) {
+    return pressed>=0 && pressed<widget_count && !widgets[pressed].quiet && !sleeping && !updating;
+}
 void ui_feedback_draw(void) {
-    if (pressed < 0 || pressed >= widget_count)
-        return;
-    Widget r = widgets[pressed];
-    if (r.quiet) return;
-    /* Invert the actual inset of the shared curve and preserve the outer rim. */
-    int inset = 2, w = r.w - 2*inset, h = r.h - 2*inset;
-    if (w <= 0 || h <= 0) return;
-    int radius = r.radius;
-    if (radius > r.w/2) radius = r.w/2;
-    if (radius > r.h/2) radius = r.h/2;
-    int profile = rounding_profile();
-    if (profile && radius*2 >= (r.w < r.h ? r.w : r.h)-1) profile = CORNER_CIRCLE;
-    radius -= inset;
-    const unsigned char *mask = radius > 0 && profile ? corner_mask(radius, profile) : NULL;
-    for (int y = 0; y < h; y++) {
-        for (int x = 0; x < w; x++) {
-            int px = r.x + inset + x, py = r.y + inset + y;
-            if ((unsigned)px >= WIDTH || (unsigned)py >= HEIGHT) continue;
-            int cx = x < w/2 ? x : w-1-x, cy = y < h/2 ? y : h-1-y;
-            int side = x < w/2 ? 1 : 2;
-            int alpha = mask && (r.sides & side) && cx < radius && cy < radius
-                            ? mask[cy*radius+cx] : CORNER_ALPHA;
-            unsigned char *pixel = &ui_pixels[py*WIDTH+px];
-            *pixel = corner_blend(*pixel, 255-*pixel, alpha);
-        }
+    if(!ui_feedback_active())return;
+    Widget r=widgets[pressed];
+    /* Change only solid pixels along the inner edges. The compact binary
+     * mark can go straight through the fast E-Ink waveform. */
+    int inset=r.radius>8 ? 8 : 4;
+    if(r.w<=2*inset || r.h<=2*inset+4)return;
+    int ink=options[OPT_INVERT] ? 255 : 0;
+    for(int edge=0;edge<2;edge++) {
+        int y=r.y+inset+edge*(r.h-2*inset-2);
+        for(int dy=0;dy<2;dy++)
+            for(int x=r.x+inset;x<r.x+r.w-inset;x++)
+                if((unsigned)x<WIDTH && (unsigned)(y+dy)<HEIGHT) {
+                    unsigned char *pixel=&ui_pixels[(y+dy)*WIDTH+x];
+                    if(*pixel==255-ink)*pixel=ink;
+                    else if(r.sides==0 && *pixel==ink)*pixel=255-ink;
+                }
     }
 }
 

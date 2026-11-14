@@ -172,7 +172,9 @@ Lumen/
 
 All 52 bundled apps run as independent native processes. Some apps still use
 host-side services for data or background jobs. The [6.1 release notes](docs/releases/6.1.md)
-describe the remaining host dependencies and device validation limits. Supported Amazon imports reuse locally prepared copies;
+describe the remaining host dependencies and device validation limits.
+The [6.2 development status](docs/releases/6.2.pending.md) tracks the UI fixes
+and the remaining architecture work. Supported Amazon imports reuse locally prepared copies;
 protection variants that the converter cannot handle retain the original-reader fallback.
 
 ## Credits & license

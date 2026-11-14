@@ -461,9 +461,9 @@ frames,_=app_session('lumen.library',[
     dict(event='service',action=1,ok=1,page=0,pages=2,sort=2,id6='1234567890abcdee',
          title6='Continue book',author6='An Author',progress6=45,id0='1234567890abcdef',
          title0='Shelf book',author0='Another Author'),
-    dict(event='input',kind=12,x=100,y=480),dict(event='select',action=3,value=1),
+    component('book-0','long_pressed'),dict(event='select',action=3,value=1),
     dict(event='service',action=2,ok=1,id0='1234567890abcdef',title0='Shelf book',supported=1),
-    tap(230,408),dict(event='back'),dict(event='page',page=1)])
+    component('read'),dict(event='back'),dict(event='page',page=1)])
 assert any(c.get('type')=='book_cover' for f in frames for c in f.get('ui',[]))
 assert any(f.get('operation')=='detail' and f.get('text')=='1234567890abcdef' for f in frames)
 assert any(f.get('operation')=='read' and f.get('text')=='1234567890abcdef' for f in frames)
@@ -532,7 +532,7 @@ notes_data=base/'legacy-notes'
 folder_record=struct.pack('=ii96s',1,0,b'Notes')
 tree=folder_record+bytes(511*104+1024*8)+struct.pack('=iii',1,0,0)
 (notes_data/'note-tree-1.bin').write_bytes(struct.pack('=II',0x4c554d16,len(tree))+tree)
-frames,_=app_session('lumen.notes',[
+frames,preview_data=app_session('lumen.notes',[
     component("entry-1"),dict(event='service',action=2,ok=1,page=0,pages=2),
     component("ink"),dict(event='service',action=2,ok=1,page=0,pages=2,ink=1),
     component("eraser"),dict(event='back'),dict(event='service',action=2,ok=1,pages=2),
@@ -542,7 +542,8 @@ assert any(c.get('text')=='Legacy note' for f in frames for c in f.get('ui',[]))
 assert not any(f.get('operation') in ('list','folders') for f in frames)
 assert any(c.get('type')=='note_surface' for f in frames for c in f.get('ui',[]))
 assert any(f.get('operation')=='eraser' for f in frames)
-assert any(f.get('operation')=='markdown' for f in frames)
+assert any(f.get('operation')=='open_file' and f.get('document')=={'type':'markdown','path':'preview.md'} for f in frames)
+assert (preview_data/'preview.md').read_text()=='Legacy note\nA second line'
 assert any(f.get('operation')=='close' for f in frames)
 # Exercise collection changes in a fresh process against the existing format.
 frames,_=app_session('lumen.notes',[

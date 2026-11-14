@@ -64,6 +64,10 @@ static void lumen_text(int x,int y,int w,int h,const char*s,PaintText role,int g
  lumen_cmd("text",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(s);
  printf(",\"role\":%d,\"ink\":%d,\"left\":%d}",role,gray,left);
 }
+static inline void lumen_text_right(int x,int y,int w,int h,const char *text,PaintText role) {
+ lumen_cmd("text",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(text);
+ printf(",\"role\":%d,\"align\":\"right\"}",role);
+}
 static void lumen_mono(int x,int y,int w,int h,const char*s,int gray) {
  lumen_cmd("mono",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(s);
  printf(",\"ink\":%d}",gray);

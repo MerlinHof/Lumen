@@ -90,8 +90,7 @@ static void editor_place18(int x, int y) {
         p = q;
     }
     editor_ui.note_cursor = p - editor_ui.edit;
-    editor_ui.cursor_visible = 1;
-    editor_ui.cursor_epoch = extra_millis();
+    caret_restart();
 }
 
 static void editor_reset18(void) {

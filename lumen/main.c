@@ -138,29 +138,34 @@ int main(int argc, char **argv) {
     int profile = getenv("LUMEN_PROFILE") && !strcmp(getenv("LUMEN_PROFILE"), "1");
     Input input;
     device_poll_interval(ui_poll_interval());
-    int redraw_pending = 0;
+    int redraw_pending = 0, feedback_pending = 0, feedback_shown = 0;
     while (device_wait(&input)) {
         double began = stamp();
         int action = ui_input(&input);
         if (!action)
             break;
-        if (action == 1)
-            redraw_pending = 1;
+        if (action == 1) redraw_pending = 1;
+        if (action == 3) feedback_pending = 1;
+        if (!ui_feedback_active()) {
+            feedback_pending = 0;
+            if (feedback_shown) redraw_pending = 1;
+        }
         int poll = ui_poll_interval();
-        device_poll_interval(redraw_pending && (poll < 0 || poll > 24) ? 24 : poll);
-        if ((action == 3 || redraw_pending) && device_input_pending())
-            continue;
-        if ((action == 3 || redraw_pending) && device_refresh_busy())
-            continue;
-        if (action == 3 && !redraw_pending) {
+        if ((redraw_pending || feedback_pending) && (poll < 0 || poll > 16)) poll=16;
+        device_poll_interval(poll);
+        if ((feedback_pending || redraw_pending) && device_refresh_busy()) continue;
+        if (feedback_pending && !redraw_pending) {
+            feedback_pending = 0;
             ui_feedback_draw();
             device_present_async(ui_pixels);
+            feedback_shown = 1;
             continue;
         }
-        if (!redraw_pending || ui_defer_app_frame())
+        if (!redraw_pending || device_input_pending() || ui_defer_app_frame())
             continue;
-        redraw_pending = 0;
+        redraw_pending = feedback_pending = 0;
         ui_draw();
+        feedback_shown = ui_feedback_active();
         int full_refresh = ui_full_refresh();
         if (!full_refresh)
             device_present_async(ui_pixels);

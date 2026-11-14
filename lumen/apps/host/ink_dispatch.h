@@ -1,5 +1,10 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 static int u15_input(const Input *in) {
+    if (in->kind == INPUT_SLEEP) {
+        ink_save();
+        ink_drag=0;
+        return -1;
+    }
     if (editor_ui.keyboard || dropdown)
         return -1;
     if (sleeping)
@@ -9,10 +14,6 @@ static int u15_input(const Input *in) {
         note_ink_mode = 0;
     }
     int x = in->x, y = in->y;
-    if (in->kind == INPUT_SLEEP) {
-        ink_save();
-        ink_drag = 0;
-    }
     if (ui_route() == 30 && !editor_ui.keyboard) {
         if (note_ink_mode) {
             if (in->kind==INPUT_HOLD)return 2;

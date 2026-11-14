@@ -3,8 +3,8 @@ static int notes_service_reply(int action) {
     char *message=NULL;size_t length=0;
     FILE *out=package_reply(&message,&length,action,1);
     if(!out)return 0;
-    fprintf(out,",\"page\":%d,\"pages\":%d,\"ink\":%d,\"eraser\":%d,\"width\":%d",
-        extra_page,u15_note_page_count(),note_ink_mode,ink_eraser,ink_width);
+    fprintf(out,",\"page\":%d,\"pages\":%d,\"ink\":%d,\"eraser\":%d,\"width\":%d,\"note_id\":%d",
+        extra_page,u15_note_page_count(),note_ink_mode,ink_eraser,ink_width,note_selected);
     package_reply_end(out,&message);return 1;
 }
 static int package_notes(const char *operation,const char *data,int action) {
@@ -39,6 +39,7 @@ static int package_notes(const char *operation,const char *data,int action) {
         editor_ui.note_cursor=strlen(editor_ui.edit);editor_ui.note_view_start=extra_page*23;
         u15_note_editor_touch(x,y);
     } else if(!strcmp(operation,"markdown")) {
+        /* Compatibility for Notes versions that predate scoped file intents. */
         reader_markdown17("Notizen",note_text,30);return 1;
     } else if(!strcmp(operation,"page")) {
         char *end;

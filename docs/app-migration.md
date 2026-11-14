@@ -145,6 +145,13 @@ for all screens and still accesses preferences and device operations through
 the host. Bingo, Connect Four, Hex, Knight’s Tour, Maze and Sokoban use semantic
 controls for their toolbars and direction buttons where applicable.
 
+## Work on 6.2
+
+Library uses named SDK actions for ordinary controls, book cards and
+long-press menus. Notes prepares its own Markdown preview and opens it
+through the same scoped Reader file intent as other packages. The host still
+provides the Notes text and ink session and authenticated export.
+
 ## Completion checks
 
 A migration counts when the app owns its behavior in an independently built

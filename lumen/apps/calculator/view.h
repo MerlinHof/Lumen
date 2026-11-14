@@ -137,7 +137,7 @@ static void app_calculator(void) {
         wrapped(43, 285, calc_error, ui_font(UI_BODY), 510, 2);
     else {
         const char *value = *calc_result ? calc_result : "0";
-        lumen_text(43,288,514,54,value,PAINT_DISPLAY,0,0);
+        lumen_text_right(43,288,514,54,value,PAINT_DISPLAY);
     }
     const char **top = calc_alt ? calc_all1 : calc_all0;
     lumen_icon_action("functions",calc_alt ? 20 : 536,454,calc_alt ? IC_PREV : IC_NEXT);

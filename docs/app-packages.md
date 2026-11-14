@@ -73,7 +73,10 @@ system-rendered text, headings, icons, hitboxes, rounded surfaces, ellipses, lin
 and rings. `lumen_button` uses the shared button component. All ordinary app
 content is below the 56px status bar. Touch feedback, rounding, icons, typography,
 keyboard and E-Ink presentation remain owned by LUMEN. Use `lumen_text` for
-left-aligned labels or when text needs contrasting ink on a game tile. Use
+left-aligned labels or when text needs contrasting ink on a game tile. The
+6.2 SDK adds `lumen_text_right` for numbers and other right-aligned labels.
+A frame's first heading is used as its current view title in the status bar
+when that title slot is enabled. Use
 `lumen_mono` for fixed-column output and `lumen_hex_cell` for an outlined hex-grid cell.
 Those two drawing commands require LUMEN 4.6 or later. LUMEN 5.8 adds
 `lumen_points_begin`, `lumen_point` and `lumen_points_end` for grayscale

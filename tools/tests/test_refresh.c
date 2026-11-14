@@ -18,11 +18,16 @@ int main(void) {
     RefreshPlan small=plan(0);
     assert(small.waveform==REFRESH_DU && small.area.left==16 && small.area.right==32);
     assert(small.area.top==100 && small.area.bottom==104);
-    after[101*W+20]=140;
+    before[101*W+20]=after[101*W+20]=140;
+    assert(plan(0).waveform==REFRESH_DU);
+    after[101*W+20]=100;
     assert(plan(0).waveform==REFRESH_GL16);
     clear_frames();
     after[20*W+58]=0;
     RefreshPlan header=plan(0);
+    assert(header.waveform==REFRESH_DU && header.area.left==56 && header.area.right==64);
+    after[20*W+58]=160;
+    header=plan(0);
     assert(header.area.top==0 && header.area.left==0 && header.area.right==W && header.area.bottom==BAR);
     clear_frames();
     after[0]=0;after[W*H-1]=0;
