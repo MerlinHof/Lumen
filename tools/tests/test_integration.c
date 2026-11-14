@@ -122,8 +122,18 @@ int main(int argc, char **argv) {
     assert(photos);
     int exported=0;
     struct dirent *photo_entry;
-    while((photo_entry=readdir(photos)))
-        if(!strncmp(photo_entry->d_name,"note-",5))exported=1;
+    while((photo_entry=readdir(photos))) {
+        if(strncmp(photo_entry->d_name,"note-",5))continue;
+        char path[1024];
+        snprintf(path,sizeof(path),"%s/photos/%s",data_root,photo_entry->d_name);
+        FILE *file=fopen(path,"rb");
+        unsigned char photo[WIDTH*HEIGHT];
+        assert(file && photo_image_read(path,photo));
+        fclose(file);
+        assert(photo[210*WIDTH+170]<50);
+        assert(!unlink(path));
+        exported=1;
+    }
     closedir(photos);
     assert(exported);
     tap17(20,20);
