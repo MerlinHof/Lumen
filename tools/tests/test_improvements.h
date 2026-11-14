@@ -12,24 +12,6 @@ static void improvements_tests(void) {
     int ids[APP_COUNT], n = v1_visible(ids);
     for (int i = 0; i < n; i++)
         assert(ids[i] != APP_FILES && ids[i] != APP_RPG);
-    memset(ink_pixels, 255, sizeof(ink_pixels));
-    ink_eraser = 0;
-    ink_width = 3;
-    ink_stamp(100, 154);
-    assert(ink_pixels[100 * 600 + 100] < 255);
-    ink_eraser = 1;
-    ink_stamp(100, 154);
-    for (int y = 96; y <= 104; y++)
-        for (int x = 96; x <= 104; x++)
-            assert(ink_pixels[y * 600 + x] == 255);
-    ink_note = 12345;
-    ink_page = 0;
-    ink_dirty = 1;
-    ink_save();
-    char p[2048];
-    snprintf(p, sizeof(p), "%s/notes/12345-page-0.ink", data_root);
-    assert(access(p, F_OK));
-    ink_note = -1;
     route_to(1);
     open_keyboard(0, "Search", "select these words");
     ui_draw();

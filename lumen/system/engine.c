@@ -721,9 +721,8 @@ int engine_photo_thumbnail(const char *source, const char *output) {
     return ok;
 }
 
-/* Export a Markdown note with page-bound ink using an independent document.
- * The reader's current document and selection are never modified. */
-int engine_note_pdf(const char *html, const char *inkdir, int id, const char *output) {
+/* Export a reflowable document with optional greyscale page overlays. */
+int engine_document_pdf(const char *html, const char *overlays, const char *output) {
     fz_context *c = fz_new_context(NULL, NULL, 16 * 1024 * 1024);
     if (!c)
         return 0;
@@ -748,7 +747,7 @@ int engine_note_pdf(const char *html, const char *inkdir, int id, const char *ou
         int pages = fz_count_pages(c, d), inkpages = pages;
         for (int i = 0; i < 512; i++) {
             char path[4096];
-            snprintf(path, sizeof(path), "%s/%d-page-%d.ink", inkdir, id, i);
+            snprintf(path, sizeof(path), "%s/page-%d.raw", overlays, i);
             if (!access(path, R_OK))
                 inkpages = i + 1 > inkpages ? i + 1 : inkpages;
         }
@@ -761,7 +760,7 @@ int engine_note_pdf(const char *html, const char *inkdir, int id, const char *ou
                 p = NULL;
             }
             char path[4096];
-            snprintf(path, sizeof(path), "%s/%d-page-%d.ink", inkdir, id, i);
+            snprintf(path, sizeof(path), "%s/page-%d.raw", overlays, i);
             FILE *f = fopen(path, "rb");
             if (f) {
                 unsigned char *raw = malloc(600 * 688);

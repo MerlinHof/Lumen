@@ -7,7 +7,7 @@ typedef struct {
     int page, depth;
 } Chapter;
 int engine_init(void);
-int engine_note_pdf(const char *, const char *, int, const char *);
+int engine_document_pdf(const char *html, const char *overlays, const char *output);
 int engine_metadata(const char *path, char *title, size_t nt, char *author, size_t na);
 int engine_open(const char *path, int size, int leading, int margin);
 void engine_close(void);

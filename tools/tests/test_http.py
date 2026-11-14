@@ -38,6 +38,8 @@ try:
  apps=json.loads(catalog)['apps'];assert len([a for a in apps if a['id']=='lumen.sliding-puzzle'])==1
  assert(sandbox/'bin/lumen').read_bytes()==b'old executable'
  assert not(sandbox/'.update/relaunch').exists()
+ notes_package=Path('build/apps/host/lumen.notes/lumen.notes.lumen-app').read_bytes()
+ assert req('/api/apps/install','PUT',notes_package)[0]==201
  status,data=req('/api/notes');assert status==200 and len(json.loads(data)['notes'])==1
  assert req('/api/note?id=123')[1].startswith(b'# Example')
  status,pdf=req('/api/note?id=123&format=pdf');assert status==200 and pdf.startswith(b'%PDF')

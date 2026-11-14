@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <ifaddrs.h>
+#include <limits.h>
 #include <net/if.h>
 #include <netinet/in.h>
 #include <poll.h>
@@ -442,6 +443,7 @@ static void upload(int fd, const char *query, uint64_t length, const char *initi
 }
 #include "connect_web.h"
 #include "markdown.h"
+#include "connect_exports.h"
 #include "connect_notes.h"
 static void handle(int fd,const char *initial,size_t initial_size) {
     authenticated = 0;
@@ -664,12 +666,20 @@ static void handle(int fd,const char *initial,size_t initial_size) {
 #endif
         return;
     }
-    if (!strcmp(method, "GET") && !strcmp(url, "/api/notes")) {
-        web_notes16(fd);
+    /* Keep the File Transfer API used by existing browsers and bookmarks. */
+    if (!strcmp(method,"GET") && !strcmp(url,"/api/notes")) {
+        web_export(fd,"lumen.notes","export_list","");
         return;
     }
-    if (!strcmp(method, "GET") && !strcmp(url, "/api/note")) {
-        web_note16(fd, query);
+    if (!strcmp(method,"GET") && !strcmp(url,"/api/note")) {
+        char id[40],format[12]="txt",*end;
+        if(!arg(query,"id",id,sizeof(id))) {response(fd,400,"text/plain","Invalid note");return;}
+        long number=strtol(id,&end,10);
+        if(end==id || *end || number<=0 || number>INT_MAX) {
+            response(fd,400,"text/plain","Invalid note");return;
+        }
+        arg(query,"format",format,sizeof(format));
+        web_export(fd,"lumen.notes",!strcmp(format,"pdf") ? "export_pdf" : "export_text",id);
         return;
     }
     if (!strcmp(method, "PUT") && !strcmp(url, "/api/setup") && haslength) {

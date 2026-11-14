@@ -33,7 +33,6 @@ TextInputSpec text_input_spec(int target) {
     case 162:
         s.capacity = 96;
         break;
-    case 30:
     case 60:
     case 2002:
     case 171:
@@ -88,7 +87,6 @@ TextInputSpec text_input_spec(int target) {
         s.capacity = 8;
         break;
     }
-    s.gutter = target == 30 ? 20 : 0;
     s.secret = target == 5 || target == 32 || target == 2003;
     return s;
 }

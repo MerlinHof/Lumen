@@ -8,7 +8,7 @@ typedef struct {
     int64_t cursor_epoch;
     char edit[8192];
     int note_cursor;
-    int note_view_start;
+    int line_numbers, autosave;
     int note_scroll_lock;
     int keyboard_view18;
     int accent_count18, accent_opening_touch, pressed_key;

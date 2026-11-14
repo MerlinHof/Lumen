@@ -571,19 +571,32 @@ notes_data=base/'legacy-notes'
 folder_record=struct.pack('=ii96s',1,0,b'Notes')
 tree=folder_record+bytes(511*104+1024*8)+struct.pack('=iii',1,0,0)
 (notes_data/'note-tree-1.bin').write_bytes(struct.pack('=II',0x4c554d16,len(tree))+tree)
+def note_pointer(kind,x,y):
+    return dict(event='input',kind=kind,x=x,y=y,captured=1)
+
 frames,preview_data=app_session('lumen.notes',[
-    component("entry-1"),dict(event='service',action=2,ok=1,page=0,pages=2),
-    component("ink"),dict(event='service',action=2,ok=1,page=0,pages=2,ink=1),
-    component("eraser"),dict(event='back'),dict(event='service',action=2,ok=1,pages=2),
-    component("markdown"),dict(event='back')],notes_data)
-assert any(f.get('operation')=='open' and f.get('text')=='0\n123' for f in frames)
+    component("entry-1"),dict(event='service',action=5,ok=1,breaks='12 13 '),
+    component("ink"),note_pointer(7,200,250),note_pointer(1,250,250),
+    component("eraser"),note_pointer(7,225,250),note_pointer(1,225,250),
+    dict(event='back'),component("markdown"),dict(event='back')],notes_data)
+assert any(f.get('request')=='text_measure' for f in frames)
 assert any(c.get('text')=='Legacy note' for f in frames for c in f.get('ui',[]))
-assert not any(f.get('operation') in ('list','folders') for f in frames)
-assert any(c.get('type')=='note_surface' for f in frames for c in f.get('ui',[]))
-assert any(f.get('operation')=='eraser' for f in frames)
+assert not any(f.get('request')=='service' for f in frames)
+assert any(c.get('type')=='pointer_area' for f in frames for c in f.get('ui',[]))
 assert any(f.get('operation')=='open_file' and f.get('document')=={'type':'markdown','path':'preview.md'} for f in frames)
 assert (preview_data/'preview.md').read_text()=='Legacy note\nA second line'
-assert any(f.get('operation')=='close' for f in frames)
+ink_file=notes_data/'notes'/'123-page-0.ink'
+pixels=ink_file.read_bytes()
+assert len(pixels)==600*688 and pixels[(250-54)*600+200]==0 and pixels[(250-54)*600+225]==255
+frames,_=app_session('lumen.notes',[
+    component("entry-1"),dict(event='service',action=5,ok=1,breaks='12 13 '),component("ink"),
+    note_pointer(7,200,450),note_pointer(1,260,450),component("undo")],notes_data)
+assert ink_file.read_bytes()==pixels
+frames,_=app_session('lumen.notes',[
+    component("new-note"),dict(event='text',action=4,text='A separate local note')],notes_data)
+created=next(p for p in (notes_data/'notes').glob('*.txt') if p.name!='123.txt')
+assert created.read_text()=='A separate local note'
+created.unlink()
 # Exercise collection changes in a fresh process against the existing format.
 frames,_=app_session('lumen.notes',[
     component('new-folder'),dict(event='text',action=1,text='Project'),
@@ -601,7 +614,7 @@ app_session('lumen.notes',[component('menu-1'),dict(event='select',action=1,valu
 assert not (notes_data/'notes'/'123.txt').exists()
 assert not (notes_data/'notes'/'123-page-0.ink').exists()
 assert (notes_data/'note-tree-1.bin').read_bytes()[:8]==struct.pack('=II',0x4c554d16,len(tree))
-print('PASS packaged Notes editing bridge, folder mutations, legacy state, recursive delete and ink cleanup.')
+print('PASS standalone Notes text, drawing, erasing, undo, Markdown, folder mutations and legacy formats.')
 
 frames,_=app_session('lumen.settings',[
     component('appearance'),component('tab','selected','2'),component('lock_mode'),dict(event='select',action=19,value=1),

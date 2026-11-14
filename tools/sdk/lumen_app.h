@@ -14,19 +14,20 @@
 #include "lumen_icons.h"
 typedef enum{PAINT_BODY,PAINT_HEADING,PAINT_DISPLAY,PAINT_SECONDARY,PAINT_TITLE}PaintText;
 static char lumen_event[65536];static int lumen_first,lumen_language,lumen_back,lumen_frame_tick,lumen_fullscreen,lumen_ready=1;
-static void lumen_json(const char *s) {
- putchar('"');
+static void lumen_json_write(FILE *out,const char *s) {
+ fputc('"',out);
  for(;*s;s++) {
      unsigned char c=*s;
-     if(c==34 || c=='\\'){putchar('\\');putchar(c);}
-     else if(c=='\n')fputs("\\n",stdout);
-     else if(c=='\r')fputs("\\r",stdout);
-     else if(c=='\t')fputs("\\t",stdout);
-     else if(c<32)printf("\\u%04x",c);
-     else putchar(c);
+     if(c==34 || c=='\\'){fputc('\\',out);fputc(c,out);}
+     else if(c=='\n')fputs("\\n",out);
+     else if(c=='\r')fputs("\\r",out);
+     else if(c=='\t')fputs("\\t",out);
+     else if(c<32)fprintf(out,"\\u%04x",c);
+     else fputc(c,out);
  }
- putchar('"');
+ fputc('"',out);
 }
+static void lumen_json(const char *s) { lumen_json_write(stdout,s); }
 #include "lumen_wire.h"
 static int lumen_next(void) {
  while(fgets(lumen_event,sizeof(lumen_event),stdin)) {
@@ -164,9 +165,25 @@ static inline void lumen_app_tile_action(int x,int y,int width,int height,const 
  fputs(",\"text\":",stdout);lumen_json(id);
  fputs(",\"id\":",stdout);lumen_json(id);putchar('}');
 }
-static void lumen_note_surface(void) {
- lumen_cmd("note_surface",0,56,600,688);putchar('}');
+/* Composite a scoped raw grayscale file. White pixels are transparent. */
+static inline void lumen_bitmap(const char *path,int x,int y,int w,int h,int revision) {
+ lumen_cmd("bitmap",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(path);
+ printf(",\"revision\":%d}",revision);
 }
+/* Send raw pointer events only to a declared spatial input area. */
+static inline void lumen_pointer_area(int x,int y,int w,int h) {
+ lumen_cmd("pointer_area",x,y,w,h);putchar('}');
+}
+static inline void lumen_view_title(const char *title) {
+ lumen_cmd("view_title",0,56,0,0);fputs(",\"text\":",stdout);lumen_json(title);putchar('}');
+}
+/* Capture a paint-only frame to a scoped PGM image. */
+static inline void lumen_capture_begin(const char *path,int x,int y,int w,int h,int action) {
+ fputs("{\"request\":\"capture\",\"text\":",stdout);lumen_json(path);
+ printf(",\"x\":%d,\"y\":%d,\"w\":%d,\"h\":%d,\"action\":%d,\"ui\":[",x,y,w,h,action);
+ lumen_first=1;
+}
+static inline void lumen_capture_end(void) {puts("]}");fflush(stdout);}
 static void lumen_document_page(int chrome) {
  lumen_cmd("document_page",0,56,600,680);printf(",\"chrome\":%d}",chrome);
 }
@@ -277,6 +294,20 @@ static void lumen_wrapped(int x,int y,int w,int h,const char *text,PaintText rol
 }
 static void lumen_request(const char*kind,const char*title,const char*text,int action){fputs("{\"request\":",stdout);lumen_json(kind);fputs(",\"title\":",stdout);lumen_json(title);fputs(",\"text\":",stdout);lumen_json(text);printf(",\"action\":%d}\n",action);fflush(stdout);}
 /* Existing small app modules can reuse their Input-based controller directly. */
+/* Request word-wrapped text row lengths using the display font. */
+static inline void lumen_text_measure(const char *text,int wide,int narrow,int narrow_rows,int page_rows,int action) {
+ fputs("{\"request\":\"text_measure\",\"text\":",stdout);lumen_json(text);
+ printf(",\"wide\":%d,\"narrow\":%d,\"narrow_rows\":%d,\"page_rows\":%d,\"action\":%d}\n",
+     wide,narrow,narrow_rows,page_rows,action);
+ fflush(stdout);
+}
+/* Open the multiline editor at a UTF-8 byte offset. */
+static inline void lumen_multiline_at(const char *title,const char *text,int action,int cursor,int numbered,int autosave) {
+ fputs("{\"request\":\"multiline\",\"title\":",stdout);lumen_json(title);
+ fputs(",\"text\":",stdout);lumen_json(text);
+ printf(",\"action\":%d,\"cursor\":%d,\"numbered\":%d,\"autosave\":%d}\n",action,cursor,!!numbered,!!autosave);
+ fflush(stdout);
+}
 static void lumen_multiline(const char *title,const char *text,int action) {
  lumen_request("multiline",title,text,action);
 }
@@ -364,7 +395,12 @@ static void lumen_run(void(*draw)(void),int(*input)(const Input*),void(*save)(vo
    if(lumen_is("viewport")){Input in={.kind=INPUT_VIEWPORT,.y=lumen_number("bottom")};input(&in);}
    if(lumen_is("back")){Input in={.kind=INPUT_BACK};input(&in);if(save)save();}
    if(lumen_is("text")||lumen_is("select")){Input in={.kind=lumen_is("text")?INPUT_TEXT:INPUT_SELECT,.x=lumen_number("action"),.y=lumen_number("value")};input(&in);if(save)save();}
-   if(lumen_is("input")){Input in={lumen_number("kind"),lumen_number("x"),lumen_number("y"),lumen_number("dx"),lumen_number("dy")};input(&in);if(save)save();}
+   if(lumen_is("input")) {
+     Input in={lumen_number("kind"),lumen_number("x"),lumen_number("y"),lumen_number("dx"),lumen_number("dy")};
+     int handled=input(&in);
+     if(save)save();
+     if(!handled && lumen_number("captured"))continue;
+   }
    if(lumen_is("open")||lumen_is("resume")||lumen_is("input")||lumen_is("back")||lumen_is("text")||lumen_is("select")||lumen_is("viewport")||lumen_is("service")||lumen_is("page")||lumen_is("tick")||lumen_is("refresh")||lumen_is("component")||named_intent||lumen_is("intent_result")){lumen_begin();draw();lumen_end();}
  }
  if(save)save();

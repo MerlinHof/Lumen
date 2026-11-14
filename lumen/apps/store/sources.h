@@ -1,3 +1,9 @@
+static int u15_ready;
+static struct {
+    char name[80], url[2048];
+    int enabled;
+} source15[10];
+static int source15_count, source15_page, sources15_dirty;
 /* App-owned module; assembled by apps/host/compose.h. */
 static void sources15_save(void) {
     sources15_dirty = 1;

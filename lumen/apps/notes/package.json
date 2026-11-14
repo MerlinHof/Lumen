@@ -3,8 +3,8 @@
   "api": 1,
   "id": "lumen.notes",
   "name": "Notizen",
-  "version": "1.4.0",
-  "operations": ["create_learning"],
+  "version": "1.5.0",
+  "operations": ["create_learning", "export_list", "export_text", "export_pdf"],
   "sources": ["app.c"],
   "assets": ["assets/icon.pgm"]
 }

@@ -148,15 +148,10 @@ controls for their toolbars and direction buttons where applicable.
 ## Work on 6.2
 
 Library uses named SDK actions for ordinary controls, book cards and
-long-press menus. Notes prepares its own Markdown preview and opens it
-through the same scoped Reader file intent as other packages. The host still
-provides the Notes text and ink session and authenticated export.
+long-press menus. Notes owns its text and ink editing state, persistence,
+Markdown, and exports. The host supplies generic keyboard, text measurement,
+drawing surface, and document conversion primitives. Browser downloads call
+the Notes package while retaining the existing File Transfer URLs.
 
-## Completion checks
-
-A migration counts when the app owns its behavior in an independently built
-package and its old host view and dispatch are removed. Keep the same ID,
-preserve existing data, exercise the normal entry points and verify the
-package is present in both the USB and wireless installers. Keep Protocol 1
-apps working. Share generic components and services when extracting a
-dependency, and keep app-specific state in the app.
+OpenAI owns its provider and request processing. Study opens uploads with
+the scoped Reader file intent.

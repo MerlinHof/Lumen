@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,7 +25,7 @@
 static const char *keys[APP_COUNT]={
  "lumen.library","lumen.reader","lumen.settings","lumen.store","lumen.transfer","lumen.calendar","lumen.insights","lumen.minesweeper","lumen.hangman","lumen.tetris","lumen.snake","lumen.calculator","lumen.clock","lumen.notes","retired.drawing","lumen.weather","lumen.home-assistant","lumen.wikipedia","lumen.quotes","lumen.chess","lumen.tic-tac-toe","retired.numscratch","lumen.2048","lumen.solitaire","lumen.sudoku","lumen.braintrain","lumen.news","lumen.wordle","lumen.photos","lumen.languages","lumen.todo","lumen.flashcards","lumen.planetarium","lumen.nonograms","lumen.hex","lumen.status-bar","retired.tabs","lumen.lock-screen","lumen.keyboard","lumen.journal","lumen.study","lumen.bingo","lumen.connect-four","lumen.recipes","lumen.periodic-table","retired.files","lumen.knights-tour","lumen.sokoban","lumen.maze","lumen.crossword","retired.rpg","lumen.openai","lumen.sliding-puzzle","lumen.frog-solitaire","lumen.home"};
 static struct {AppDefinition def;char key[64],name[96],version[32];int installed,removed,has_icon;} entries[APP_LIMIT];
-enum { APP_REQUEST_MAX=32768, APP_REQUEST_LIMIT=8 };
+enum { APP_REQUEST_MAX=49152, APP_REQUEST_LIMIT=8 };
 typedef struct {
     pid_t child;
     int read_fd,write_fd,active,paused,frame_back,frame_ready,frame_tick,frame_loading;
@@ -373,6 +374,78 @@ static int64_t service_now(void) {
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC,&now);
     return (int64_t)now.tv_sec*1000+now.tv_nsec/1000000;
+}
+/* Transfer runs in its own process. Its short-lived export subprocess
+ * never touches the foreground package or its IPC descriptors. */
+int app_package_export(const char *id,const char *operation,const char *data,
+                       const char *output,char *result,size_t capacity) {
+    if(!valid_id(id) || deleted(id) || strncmp(operation,"export_",7) ||
+       !package_operation_valid(operation) || strlen(data)>LUMEN_SERVICE_DATA_MAX)return 0;
+    char directory[2048];
+    root(directory,id);
+    Package *manifest=malloc(sizeof(*manifest));
+    if(!manifest)return 0;
+    int declared=0;
+    if(read_manifest(directory,manifest) && !strcmp(id,manifest->id))
+        for(int i=0;i<manifest->operation_count;i++)
+            if(!strcmp(operation,manifest->operations[i]))declared=1;
+    free(manifest);
+    if(!declared)return 0;
+
+    char *assets=realpath(directory,NULL),*legacy=realpath(data_root,NULL);
+    if(!assets || !legacy){free(assets);free(legacy);return 0;}
+    FILE *input=tmpfile();
+    if(!input){free(assets);free(legacy);return 0;}
+    fputs("{\"event\":\"service_call\",\"caller\":\"transfer\",\"operation\":",input);
+    json_text(input,operation);
+    fputs(",\"data\":",input);
+    json_text(input,data);
+    fputs("}\n",input);
+    int out[2];
+    if(fflush(input) || fseek(input,0,SEEK_SET) || pipe(out)){
+        fclose(input);free(assets);free(legacy);return 0;
+    }
+    pid_t child=fork();
+    if(child==0) {
+        setpgid(0,0);
+        signal(SIGTERM,SIG_DFL);signal(SIGINT,SIG_DFL);signal(SIGPIPE,SIG_DFL);
+        close(out[0]);
+        if(dup2(fileno(input),STDIN_FILENO)<0 || dup2(out[1],STDOUT_FILENO)<0)_exit(127);
+        close_inherited_fds();
+        if(chdir(assets) || setenv("LUMEN_APP_ASSETS",assets,1) ||
+           setenv("LUMEN_LEGACY_DATA",legacy,1) || setenv("LUMEN_EXPORT_DATA",output,1))_exit(127);
+        unsetenv("LUMEN_APP_DATA");
+        execl("./app","./app",(char *)NULL);
+        _exit(127);
+    }
+    fclose(input);close(out[1]);free(assets);free(legacy);
+    if(child<0){close(out[0]);return 0;}
+    setpgid(child,child);
+    char line[4096];size_t used=0;
+    int64_t deadline=service_now()+5000;
+    while(used+1<sizeof(line)) {
+        int64_t left=deadline-service_now();
+        if(left<=0)break;
+        struct pollfd fd={out[0],POLLIN,0};
+        int ready=poll(&fd,1,(int)left);
+        if(ready<0 && errno==EINTR)continue;
+        if(ready<=0)break;
+        ssize_t size=read(out[0],line+used,sizeof(line)-used-1);
+        if(size<0 && errno==EINTR)continue;
+        if(size<=0)break;
+        used+=(size_t)size;
+        if(memchr(line,'\n',used))break;
+    }
+    close(out[0]);
+    kill(-child,SIGKILL);kill(child,SIGKILL);
+    while(waitpid(child,NULL,0)<0 && errno==EINTR){}
+    line[used]=0;
+    char kind[32],*newline=strchr(line,'\n');
+    if(!newline)return 0;
+    *newline=0;
+    return wire_read(line) && wire_bounded_string("request",kind,sizeof(kind)) &&
+        !strcmp(kind,"service_result") && wire_true("ok") &&
+        wire_bounded_string("data",result,capacity);
 }
 static void service_result(int ok,const char *status,const char *data) {
     char *event=NULL;

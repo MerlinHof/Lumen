@@ -64,7 +64,9 @@ static int package_fullscreen,package_document_visible,package_caret_visible;
 static char package_view_title[128];
 static AppId package_fullscreen_owner=APP_COUNT;
 static int package_ui_input(const Input *);
+static int package_pointer_input(const Input *);
 static int package_ui_commit(int target,const char *text);
+static void package_input_checkpoint(void);
 static void package_ui_choice(int choice);
 static int app_read_book(int index);
 static int app_handle_input(const Input *in);
@@ -73,7 +75,7 @@ static int selected = -1, current = -1;
 static int battery_popup;
 
 static pid_t job_pid16 = -1;
-static int ink_pending16(void), job_pending16(void);
+static int job_pending16(void);
 static void companion_close16(void);
 static int text_editable_hit(const Input *);
 static void small_number17(int, int, const char *, int);
@@ -83,18 +85,13 @@ static void recipes_search17(const char *), recipes_parse17(void), recipes_open_
 static void checkbox(int, int, int),
     select_row17(int, const char *, const char *);
 static int keyboard_multiline(void);
-static void u15_note_editor_touch(int,int);
-static void u15_note_scroll(int);
 static void editor_reset18(void);
 static int keyboard_intercept18(const Input *in);
 static int u16_jobs_tick(void);
 static int u16_tick(void);
-static int u15_input(const Input *);
-static int u15_note_page_count(void);
-static void u15_flush(void);
-static void u15_note_editor_draw(void);
+static void package_pointer_reset(void);
 static void u15_sources_prepare(const char *);
-static void u15_init(void), u15_note_overlay(void);
+static void u15_init(void);
 static int store_complete(int done);
 static void store_restore(void);
 
@@ -171,7 +168,6 @@ static void extra_init(void);
 static int extra_poll(void);
 static int extra_tick(void);
 static void extra_save(void);
-static void extra_commit(int target, const char *text);
 static void extra_timer_label(char *out, int cap);
 static void extra_alarm_label(char *out, int cap);
 static int extra_ringing(void);
@@ -996,10 +992,7 @@ static int restore_anchor(const Book *book, int fallback, int bookmark) {
 
 void ui_save(void) {
     app_pages_checkpoint();
-    u15_flush();
-    if (editor_ui.keyboard && (editor_ui.keyboard_target == 30 || editor_ui.keyboard_target == 60 ||
-                     editor_ui.keyboard_target == 174))
-        extra_commit(editor_ui.keyboard_target, editor_ui.edit);
+    package_input_checkpoint();
     apps_checkpoint();
     apps_save();
     extra_save();
@@ -1230,7 +1223,7 @@ void ui_draw(void) {
     }
     widget_count = 0;
     pagination = (Pagination){0};
-    if (editor_ui.keyboard && editor_ui.keyboard_target != 30 && editor_ui.keyboard_background_valid18 && !sleeping) {
+    if (editor_ui.keyboard && editor_ui.keyboard_background_valid18 && !sleeping) {
         memcpy(ui_pixels, editor_ui.keyboard_background18, sizeof(ui_pixels));
         if (ui_route() != 2)
             app_view_draw(APP_STATUS_BAR);
@@ -1262,7 +1255,7 @@ void ui_draw(void) {
         app_view_draw(APP_STATUS_BAR);
     if (ui_route() == 2 && reader_ui.selecting == 2)
         selection_overlay();
-    if (editor_ui.keyboard && editor_ui.keyboard_target != 30) {
+    if (editor_ui.keyboard) {
         memcpy(editor_ui.keyboard_background18, ui_pixels, sizeof(ui_pixels));
         editor_ui.keyboard_background_valid18 = 1;
     }
@@ -1372,7 +1365,8 @@ static int ui_dispatch_input(const Input *in) {
         pressed=-1;
         press_canceled=0;
         editor_ui.pressed_key=-1;
-        u15_input(in);
+        package_input_checkpoint();
+        package_pointer_reset();
         app_process_pause();
         apps_pause();
         extra_save();
@@ -1403,6 +1397,7 @@ static int ui_dispatch_input(const Input *in) {
         return 1;
     }
     if (in->kind == INPUT_CANCEL) {
+        package_pointer_input(in);
         notification_input(in,0);
         pressed = -1;
         press_canceled = 0;
@@ -1431,11 +1426,12 @@ static int ui_dispatch_input(const Input *in) {
                      (ui_route() != 2 || reader_ui.reader_chrome || app_package_installed(APP_READER));
     int system_pager = !sleeping && !editor_ui.keyboard && !dropdown && !confirm_delete &&
                        pagination_hit(in);
-    int update15 = (status_tap || system_pager) ? -1 : u15_input(in);
-    if (update15 >= 0) {
-        pressed = -1;
-        return update15;
+    if(!sleeping && !editor_ui.keyboard && !dropdown && !status_tap && !system_pager &&
+       app_package_installed(app_for_route(ui_route())) && package_pointer_input(in)) {
+        pressed=-1;
+        return 2;
     }
+
     if (!sleeping && clipboard_input(in))
         return 1;
     if (in->kind == INPUT_APP) {
@@ -1861,7 +1857,7 @@ static void refresh_library(void) {
 static void commit_keyboard(void) {
     if (editor_ui.keyboard_target >= 30) {
         int previous_target = editor_ui.keyboard_target;
-        extra_commit(editor_ui.keyboard_target, editor_ui.edit);
+        package_ui_commit(editor_ui.keyboard_target,editor_ui.edit);
         if (editor_ui.keyboard_target == previous_target) {
             memset(editor_ui.edit, 0, sizeof(editor_ui.edit));
             editor_ui.keyboard = 0;
@@ -1910,8 +1906,7 @@ static size_t keyboard_capacity(void) {
 static void modal_input(const Input *in) {
     if (in->kind == INPUT_SWIPE && editor_ui.keyboard && keyboard_multiline() && down_y >= 54 &&
         down_y < 502) {
-        if (editor_ui.keyboard_target == 30) u15_note_scroll(in->dy > 0 ? -8 : 8);
-        else editor_scroll18(in->dy > 0 ? -8 : 8);
+        editor_scroll18(in->dy > 0 ? -8 : 8);
         return;
     }
     if (in->kind != INPUT_TAP)
@@ -1990,8 +1985,6 @@ int ui_poll_interval(void) {
     int status_wait = status_ui.battery_charging ? 5000 : 30000;
     if (job_pending16())
         status_wait = 100;
-    else if (ink_pending16())
-        status_wait = 1000;
     if (wait < 0 || status_wait < wait)
         wait = status_wait;
     return other >= 0 && (wait < 0 || other < wait) ? other : wait;
@@ -2069,13 +2062,14 @@ int ui_prepare_home(void) {
 }
 
 static void app_leave(AppId app, void *ctx) {
+    package_input_checkpoint();
+    if(editor_ui.autosave)editor_ui.keyboard=0;
+    package_pointer_reset();
     app_process_pause();
     app_page_checkpoint(app);
     (void)ctx;
     if (app >= APP_2048)
         new_apps_save();
-    if (app == APP_NOTES && editor_ui.keyboard && editor_ui.keyboard_target == 30)
-        commit_keyboard();
     if (app == APP_BLOCKS || app == APP_SNAKE)
         apps_pause();
     if (app == APP_READER) {
@@ -2216,7 +2210,6 @@ void ui_close(void) {
     release_cancel();
     cover_tiles_clear();
     companion_close16();
-    u15_flush();
     polish_close();
     v1_close();
     news_cancel();

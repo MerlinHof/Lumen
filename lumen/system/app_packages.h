@@ -16,6 +16,8 @@ int app_package_remove(const char *id);
 int app_package_can_remove(AppId id);
 int app_package_deleted(AppId id);
 int app_package_icon(AppId id,unsigned char pixels[76*76]);
+int app_package_export(const char *id,const char *operation,const char *data,
+                       const char *output,char *result,size_t capacity);
 int app_service_start(const char *id,const char *operation,const char *data,int action);
 int app_service_start_background(const char *id,const char *operation,const char *data,int action);
 int app_service_fd(void);

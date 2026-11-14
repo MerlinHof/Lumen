@@ -1,7 +1,33 @@
 /* All installed app packages use the same system controls and input bridge. */
+static void package_bitmap(const char *name,int x,int y,int width,int height) {
+    if(x<0 || y<STATUS_HEIGHT || width<=0 || width>WIDTH-x || height<=0 || height>HEIGHT-y)return;
+    char leaf[256];
+    int parent=lumen_storage_parent_at(app_process_data_dir(),name,0,leaf);
+    if(parent<0)return;
+    int fd=openat(parent,leaf,O_RDONLY|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC);
+    close(parent);
+    if(fd<0)return;
+    struct stat info;
+    if(fstat(fd,&info) || !S_ISREG(info.st_mode) || info.st_size!=(off_t)width*height){close(fd);return;}
+    FILE *file=fdopen(fd,"rb");
+    if(!file){close(fd);return;}
+    unsigned char row[WIDTH];
+    for(int line=0;line<height && fread(row,1,width,file)==(size_t)width;line++) {
+        unsigned char *dest=ui_pixels+(line+y)*WIDTH+x;
+        for(int col=0;col<width;col++)
+            if(row[col]<dest[col])dest[col]=row[col];
+    }
+    fclose(file);
+}
+static struct {
+    int x,y,w,h;
+    int owner,active;
+} package_pointer;
+static int package_pointer_input(const Input *in);
 static JsonToken package_tokens[32768];
 static int package_value(Json*j,int obj,const char*key){double v=json_number(j,json_get(j,obj,key));return isfinite(v)&&v>=-100000&&v<=100000?(int)v:0;}
 static int package_input_action, package_select_action;
+static char checkpoint_text[8192];
 static int64_t package_deadline;
 static int package_timer_owner=-1;
 static int package_clock_wait(void) {
@@ -110,7 +136,8 @@ static int package_line_offset(const PackageComponent *component,int x) {
     return (int)(at-value);
 }
 static void package_editor_line(int x,int y,int w,int h,const char *text,int cursor) {
-    cursor=text_boundary(text,cursor<0 ? 0 : (size_t)cursor);
+    int show_caret=cursor>=0;
+    cursor=text_boundary(text,show_caret ? (size_t)cursor : 0);
     int start=package_line_start(text,cursor,w),height;
     int top=ink_top(text[start] ? text+start : "Ag",ui_font(UI_BODY),&height);
     int baseline=y+(h-height)/2-top;
@@ -118,21 +145,26 @@ static void package_editor_line(int x,int y,int w,int h,const char *text,int cur
     char prefix[2048];
     snprintf(prefix,sizeof(prefix),"%.*s",cursor-start,text+start);
     int caret=x+textwidth(prefix,ui_font(UI_BODY));
-    if(caret<x+w) {
+    if(show_caret && caret<x+w) {
         package_caret_visible=1;
         if(editor_ui.cursor_visible)text_caret(caret,baseline,ui_font(UI_BODY));
     }
 }
-static void package_paint_frame(const char *text) {
+static void package_paint_frame_mode(const char *text,int capture) {
     Json j;if(!json_parse(&j,text,package_tokens,32768))return;
     int commands=json_get(&j,0,"ui");if(commands<0 || j.tokens[commands].type!='[' || j.tokens[commands].count>2048)return;
-    package_fullscreen=!!package_value(&j,0,"fullscreen");
-    if(package_fullscreen)memset(ui_pixels,255,WIDTH*STATUS_HEIGHT);
+    if(!capture)package_fullscreen=!!package_value(&j,0,"fullscreen");
+    if(!capture && package_fullscreen)memset(ui_pixels,255,WIDTH*STATUS_HEIGHT);
     size_t cost=0;
     for(int item=commands+1;item<j.tokens[commands].next;item=j.tokens[item].next) {
         char type[32],label[2048];
         json_string(&j,json_get(&j,item,"type"),type,sizeof(type));json_string(&j,json_get(&j,item,"text"),label,sizeof(label));
         int x=package_value(&j,item,"x"),y=package_value(&j,item,"y"),w=package_value(&j,item,"w"),h=package_value(&j,item,"h");
+        if(capture && strcmp(type,"line") && strcmp(type,"text") && strcmp(type,"bitmap"))continue;
+        if(!strcmp(type,"view_title")) {
+            snprintf(package_view_title,sizeof(package_view_title),"%.127s",label);
+            continue;
+        }
         if(!strcmp(type,"page_layout")) {
             package_component_layout=1;package_component_top=141;
             if(!*package_view_title)snprintf(package_view_title,sizeof(package_view_title),"%.127s",label);
@@ -292,9 +324,10 @@ static void package_paint_frame(const char *text) {
                         rect(x+offset+col*step,y+offset+row*step,step,step,0);
             }
         }
-        else if(!strcmp(type,"note_surface") && ui_route()==30) {
-            u15_note_editor_draw();
-            u15_note_overlay();
+        else if(!strcmp(type,"bitmap"))package_bitmap(label,x,y,w,h);
+        else if(!strcmp(type,"pointer_area") && x>=0 && w>0 && w<=WIDTH-x && h>0 && h<=HEIGHT-y) {
+            package_pointer.x=x;package_pointer.y=y;package_pointer.w=w;package_pointer.h=h;
+            package_pointer.owner=app_process_owner();
         }
         else if(!strcmp(type,"document_page") && app_for_route(ui_route())==APP_READER) {
             package_document_visible=1;
@@ -367,7 +400,7 @@ static void package_paint_frame(const char *text) {
         else if(!strcmp(type,"editor_line") && strlen(label)<1024) {
             int cursor=package_value(&j,item,"cursor");
             package_editor_line(x,y,w,h,label,cursor);
-            if(x>=0 && x+w<=WIDTH && y+h<=HEIGHT && w>=44 && h>=44 &&
+            if(x>=0 && x+w<=WIDTH && y+h<=HEIGHT && w>=44 && h>=24 &&
                package_component_count<PACKAGE_COMPONENT_LIMIT) {
                 PackageComponent *component=&package_components[package_component_count];
                 json_string(&j,json_get(&j,item,"id"),component->id,sizeof(component->id));
@@ -497,17 +530,43 @@ static void package_paint_frame(const char *text) {
     }
 
 }
+static void package_paint_frame(const char *text) { package_paint_frame_mode(text,0); }
 static void package_ui_draw(void) {
     package_fullscreen=package_document_visible=0;
     package_view_title[0]=0;
     package_fullscreen_owner=app_for_route(ui_route());
     package_pager.count=0;
+    package_pointer.w=0;
     package_component_count=package_component_layout=0;
     if(!*app_process_error())app_process_open(app_for_route(ui_route()));
     const char*text=app_process_frame();
     if(app_process_frame_loading()) {heading(app_definition(app_for_route(ui_route()))->name);centered(28,340,544,60,*app_process_error()?tr(app_process_error()):tr("App wird geöffnet …"),ui_font(UI_BODY));return;}
     package_paint_frame(text);
     if(!package_document_visible && app_for_route(ui_route())==APP_READER)reader_ui.reader_chrome=0;
+}
+static void package_pointer_reset(void) {
+    package_pointer.active=0;
+    package_pointer.w=0;
+}
+static int package_pointer_input(const Input *in) {
+    if(package_pointer.owner!=(int)app_for_route(ui_route()))return 0;
+    int active=package_pointer.active;
+    if(in->kind==INPUT_DOWN) {
+        active=in->x>=package_pointer.x && in->x<package_pointer.x+package_pointer.w &&
+               in->y>=package_pointer.y && in->y<package_pointer.y+package_pointer.h;
+        package_pointer.active=active;
+    }
+    if(!active)return 0;
+    if(in->kind==INPUT_TAP || in->kind==INPUT_SWIPE || in->kind==INPUT_CANCEL)
+        package_pointer.active=0;
+    if(in->kind==INPUT_HOLD)return 1;
+    if(in->kind!=INPUT_DOWN && in->kind!=INPUT_MOVE && in->kind!=INPUT_TAP &&
+       in->kind!=INPUT_SWIPE && in->kind!=INPUT_CANCEL)return 0;
+    char event[192];
+    snprintf(event,sizeof(event),"{\"event\":\"input\",\"kind\":%d,\"x\":%d,\"y\":%d,\"dx\":%d,\"dy\":%d,\"captured\":1}",
+        in->kind,in->x,in->y,in->dx,in->dy);
+    app_process_send(event);
+    return 1;
 }
 static int package_ui_input(const Input*in) {
     if(app_process_frame_loading())return 2;
@@ -523,14 +582,14 @@ static int package_ui_input(const Input*in) {
                 else package_component_event(component->id,"long_pressed",NULL);
                 return 2;
             }
-            if(in->kind==INPUT_HOLD) {
+            if(in->kind==INPUT_HOLD && component->kind!=COMPONENT_EDITOR_LINE) {
                 package_component_event(component->id,"long_pressed",NULL);
                 return 2;
             }
             if(component->kind==COMPONENT_EDITOR_LINE) {
                 char offset[16];
                 snprintf(offset,sizeof(offset),"%d",package_line_offset(component,in->x-component->left));
-                package_component_event(component->id,"caret",offset);
+                package_component_event(component->id,in->kind==INPUT_HOLD ? "long_pressed" : "caret",offset);
                 return 2;
             }
             if(component->kind==COMPONENT_FIELD) {
@@ -571,6 +630,21 @@ static int package_ui_commit(int target,const char*text) {
     }
     char*event=NULL;size_t n=0;FILE*f=open_memstream(&event,&n);fprintf(f,"{\"event\":\"text\",\"action\":%d,\"text\":",package_input_action);
     json_escape16(f,text);fputc('}',f);fclose(f);app_process_send(event);free(event);return 1;
+}
+static void package_input_checkpoint(void) {
+    if(!editor_ui.keyboard || !editor_ui.autosave ||
+       app_process_owner()!=(int)app_for_route(ui_route()) ||
+       !strcmp(checkpoint_text,editor_ui.edit))return;
+    uint64_t serial=app_process_frame_serial();
+    if(!package_ui_commit(editor_ui.keyboard_target,editor_ui.edit))return;
+    int64_t deadline=extra_millis()+250;
+    while(app_process_frame_serial()==serial && extra_millis()<deadline && app_process_fd()>=0) {
+        app_process_poll();
+        if(app_process_frame_serial()!=serial)break;
+        struct pollfd fd={app_process_fd(),POLLIN,0};
+        poll(&fd,1,10);
+    }
+    if(app_process_frame_serial()!=serial)memcpy(checkpoint_text,editor_ui.edit,sizeof(checkpoint_text));
 }
 typedef struct {int caller_route,callee,request_id,depth;} PackageCall;
 static PackageCall package_calls[8];
@@ -667,15 +741,86 @@ static void package_reader_file(Json *json,const char *title) {
     } else ui_message("Dokument nicht verfügbar.");
     free(bytes);
 }
+static void package_text_measure(const char *message,int action,int wide,int narrow,int narrow_rows,int page_rows) {
+    if(narrow<48 || wide<narrow || wide>WIDTH || page_rows<1 || page_rows>100 || narrow_rows<0 ||
+       narrow_rows>page_rows){package_acknowledge(action,0);return;}
+    char value[8192];
+    if(!wire_read(message) || !wire_bounded_string("text",value,sizeof(value))){
+        package_acknowledge(action,0);return;
+    }
+    char *event=NULL;size_t size=0;
+    FILE *out=package_reply(&event,&size,action,1);
+    if(!out)return;
+    fputs(",\"breaks\":\"",out);
+    int row=0;
+    for(const char *p=value;*p;row++) {
+        int width=row%page_rows<narrow_rows ? narrow : wide;
+        const char *q=p,*space=NULL;
+        int used=0;
+        while(*q && *q!='\n') {
+            const char *old=q;
+            unsigned code=glyph(&q);
+            int advance=glyph_advance(ui_font(UI_BODY),code);
+            if(used+advance>width && old>p){q=space ? space : old;break;}
+            used+=advance;
+            if(code==' ')space=q;
+        }
+        if(*q=='\n')q++;
+        fprintf(out,"%ld ",(long)(q-p));
+        p=q;
+    }
+    fputc('"',out);
+    package_reply_end(out,&event);
+}
+static void package_capture(const char *message) {
+    int x=lumen_number("x"),y=lumen_number("y"),w=lumen_number("w"),h=lumen_number("h");
+    int action=lumen_number("action"),ok=0;
+    char path[1025];
+    if(x>=0 && x<WIDTH && y>=STATUS_HEIGHT && y<HEIGHT && w>0 && w<=WIDTH-x &&
+       h>0 && h<=HEIGHT-y && wire_bounded_string("text",path,sizeof(path))) {
+        unsigned char *previous=malloc(sizeof(ui_pixels));
+        unsigned char *image=malloc((size_t)w*h+64);
+        if(previous && image) {
+            memcpy(previous,ui_pixels,sizeof(ui_pixels));
+            memset(ui_pixels,255,sizeof(ui_pixels));
+            package_paint_frame_mode(message,1);
+            int prefix=snprintf((char *)image,64,"P5\n%d %d\n255\n",w,h);
+            for(int i=0;i<h;i++)memcpy(image+prefix+i*w,ui_pixels+(i+y)*WIDTH+x,w);
+            memcpy(ui_pixels,previous,sizeof(ui_pixels));
+            ok=lumen_storage_write_at(app_process_data_dir(),path,image,prefix+(size_t)w*h);
+        }
+        free(previous);free(image);
+    }
+    package_acknowledge(action,ok);
+}
 static void package_dispatch_request(const char *message) {
+    char request[32];
+    if(wire_read(message) && wire_bounded_string("request",request,sizeof(request)) &&
+       !strcmp(request,"capture")){package_capture(message);return;}
     Json j;JsonToken t[512];if(!json_parse(&j,message,t,512))return;
     char kind[32],text[8192],title[128];json_string(&j,json_get(&j,0,"request"),kind,sizeof(kind));json_string(&j,json_get(&j,0,"text"),text,sizeof(text));json_string(&j,json_get(&j,0,"title"),title,sizeof(title));
-    if(!strcmp(kind,"input") || !strcmp(kind,"multiline") || !strcmp(kind,"secret")){package_focused_component[0]=0;package_input_action=package_value(&j,0,"action");open_keyboard(!strcmp(kind,"multiline") ? 2002 : !strcmp(kind,"secret") ? 2003 : 2000,title,text);}
+    if(!strcmp(kind,"input") || !strcmp(kind,"multiline") || !strcmp(kind,"secret")) {
+        package_focused_component[0]=0;
+        package_input_action=package_value(&j,0,"action");
+        if(!wire_read(message) || !wire_bounded_string("text",text,sizeof(text)))return;
+        open_keyboard(!strcmp(kind,"multiline") ? 2002 : !strcmp(kind,"secret") ? 2003 : 2000,title,text);
+        if(json_get(&j,0,"cursor")>=0) {
+            int cursor=package_value(&j,0,"cursor");
+            editor_ui.note_cursor=text_boundary(editor_ui.edit,cursor<0 ? 0 : (size_t)cursor);
+        }
+        editor_ui.line_numbers=!!package_value(&j,0,"numbered");
+        editor_ui.autosave=editor_ui.keyboard_target==2002 && package_value(&j,0,"autosave");
+        if(editor_ui.autosave)memcpy(checkpoint_text,editor_ui.edit,sizeof(checkpoint_text));
+    }
     else if(!strcmp(kind,"select")) {
         int array=json_get(&j,0,"options");if(array>=0 && j.tokens[array].type=='[' && j.tokens[array].count>0 && j.tokens[array].count<=48) {
             int count=j.tokens[array].count;for(int i=0;i<count;i++){json_string(&j,json_at(&j,array,i),package_options[i],128);package_labels[i]=package_options[i];}
             package_select_action=package_value(&j,0,"action");open_dropdown(2001,package_labels,count,package_value(&j,0,"selected"),220,180,350);
         }
+    }
+    else if(!strcmp(kind,"text_measure")) {
+        package_text_measure(message,package_value(&j,0,"action"),package_value(&j,0,"wide"),
+            package_value(&j,0,"narrow"),package_value(&j,0,"narrow_rows"),package_value(&j,0,"page_rows"));
     }
     else if(!strcmp(kind,"app_service") || !strcmp(kind,"app_service_background")) {
         char target[64],operation[48],data[LUMEN_SERVICE_DATA_MAX+1];

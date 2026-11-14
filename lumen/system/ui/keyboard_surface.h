@@ -134,7 +134,7 @@ static void keyboard_place18(int x) {
 static void keyboard_draw18(void) {
     ui_y_offset = 0;
     if (keyboard_multiline()) {
-        if (editor_ui.keyboard_target != 30) {
+        {
             rect(0, editor_ui.keyboard_target == 60 ? 132 : 54, 600,
                  editor_ui.keyboard_target == 60 ? 370 : 450, 255);
             editor_draw18();
@@ -256,8 +256,7 @@ static void keyboard_tap18(int x, int y) {
     }
     if (y < 502) {
         if (keyboard_multiline() && y >= (editor_ui.keyboard_target == 60 ? 132 : 54)) {
-            if (editor_ui.keyboard_target == 30) u15_note_editor_touch(x,y);
-            else editor_place18(x,y);
+            editor_place18(x,y);
         }
         else if (!keyboard_multiline() && y >= 452)
             keyboard_place18(x);

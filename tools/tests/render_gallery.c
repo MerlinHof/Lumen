@@ -93,24 +93,16 @@ int main(void) {
         reader_ui.reader_chrome = 0;
         picture("reader");
     }
-    route_to(29);
-    note_selected = -1;
-    extra_commit(30, "A little room to think\n\nWhat made today feel different?\n\nA walk without "
-                     "headphones.\nA chapter before breakfast.\nAn idea worth keeping.\n\nSmall "
-                     "things, written down.");
+    const char *demo_note="A little room to think\n\nWhat made today feel different?\n\n"
+        "A walk without headphones.\nA chapter before breakfast.\nAn idea worth keeping.";
+    lumen_storage_write_at(data_root,"notes/123.txt",demo_note,strlen(demo_note));
     route_to(29);
     app_process_open(APP_NOTES);
-    char note_event[100];
-    snprintf(note_event,sizeof(note_event),"{\"event\":\"intent\",\"operation\":\"note-open\",\"note_id\":%d}",note_selected);
-    app_process_send(note_event);
+    app_process_send("{\"event\":\"intent\",\"operation\":\"note-open\",\"note_id\":123}");
     picture("notes");
-    open_keyboard(30, "Note", note_text);
-    editor_ui.note_cursor = strlen(editor_ui.edit);
+    app_process_send("{\"event\":\"component\",\"id\":\"line-0\",\"gesture\":\"caret\",\"text\":\"21\"}");
     picture("keyboard");
-    editor_ui.keyboard = 0;
-    note_selected = -1;
-    extra_commit(30, "Small things worth keeping\n\nA page. A walk. An unhurried morning.");
-    route_to(29);
+    editor_ui.keyboard=0;
     app_process_send("{\"event\":\"back\"}");
     picture("notes-list");
     route_to(74);

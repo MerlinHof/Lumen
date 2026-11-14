@@ -79,7 +79,6 @@ static int transfer_service(const char *operation,const char *data,int action) {
 #include "home_assistant_service.h"
 #include "photo_service.h"
 #include "document_service.h"
-#include "notes_service.h"
 #include "device_service.h"
 static int package_service_request(const char *name,const char *operation,const char *data,int action) {
     if(!strcmp(name,"reading"))return package_reading_activity(operation,data,action);
@@ -94,7 +93,6 @@ static int package_service_request(const char *name,const char *operation,const 
     }
     if(!strcmp(name,"device"))return package_device(operation,data,action,0);
     if(!strcmp(name,"settings"))return package_device(operation,data,action,1);
-    if(!strcmp(name,"notes_editor"))return package_notes(operation,data,action);
     if(!strcmp(name,"document"))return package_document(operation,data,action);
     if(!strcmp(name,"photos"))return package_photos(operation,data,action);
     if(!strcmp(name,"home_assistant"))return package_home_assistant(operation,data,action);

@@ -103,9 +103,37 @@ int main(int argc, char **argv) {
         return 0;
     }
     route_to(29);settle_app();ui_draw();
-    tap17(550,95);assert(ui_route()==30 && editor_ui.keyboard);
-    strcpy(editor_ui.edit,"Title\nSome text to edit.");commit_keyboard();settle_app();
-    int id=note_selected;assert(id>0);tap17(20,20);
+    tap17(550,95);assert(ui_route()==29 && editor_ui.keyboard);
+    strcpy(editor_ui.edit,"Title\nSome text to edit.");commit_keyboard();settle_app();ui_draw();
+    assert(strstr(app_process_frame(),"Some text to edit."));
+    tap17(490,78);
+    assert(strstr(app_process_frame(),"pointer_area"));
+    Input stroke_begin={.kind=INPUT_DOWN,.x=120,.y=210};
+    Input stroke_end={.kind=INPUT_TAP,.x=220,.y=210};
+    ui_input(&stroke_begin);ui_input(&stroke_end);
+    settle_app();ui_draw();
+    assert(ui_pixels[210*WIDTH+170]<50);
+    tap17(300,80);
+    assert(ui_pixels[210*WIDTH+170]==255);
+    ui_input(&stroke_begin);ui_input(&stroke_end);
+    settle_app();ui_draw();
+    tap17(549,80);
+    DIR *photos=opendir("build/tests/test-data/photos");
+    assert(photos);
+    int exported=0;
+    struct dirent *photo_entry;
+    while((photo_entry=readdir(photos)))
+        if(!strncmp(photo_entry->d_name,"note-",5))exported=1;
+    closedir(photos);
+    assert(exported);
+    tap17(20,20);
+    tap17(90,95);
+    assert(editor_ui.keyboard);
+    strcpy(editor_ui.edit,"Title\nEdited during an autosave.");
+    ui_save();settle_app();
+    assert(strstr(app_process_frame(),"Edited during an autosave."));
+    commit_keyboard();settle_app();
+    tap17(20,20);
     assert(ui_route()==29 && strstr(app_process_frame(),"Title"));
     shot17("notes");
     route_to(13);settle_app();ui_draw();
@@ -434,12 +462,7 @@ int main(int argc, char **argv) {
     assert(ui_input(&wake_fixture)==1 && !sleeping);
     assert(ui_input(&sleep_fixture)==1 && ui_input(&wake_fixture)==1 && !sleeping);
 
-    route_to(29);settle_app();ui_draw();tap17(550,95);
-    assert(ui_route()==30 && editor_ui.keyboard);
-    strcpy(editor_ui.edit,"First line");
-    ui_draw();
-    assert(ui_pixels[78*WIDTH+180] == theme_gray(231));
-    editor_ui.keyboard = 0;
+    route_to(1);
     char photo_file[2048];
     snprintf(photo_file,sizeof(photo_file),"%s/rotation-test.pgm",data_root);
     unsigned char *source=malloc(480000), *result=malloc(480000);
@@ -483,13 +506,6 @@ int main(int argc, char **argv) {
     assert(!math_bad && mb[math_root].up>0 && mb[math_root].down>0);
     rect(0,0,600,800,255);math_paint(math_root,28,300,0);
     assert(ui_pixels[300*600+32]==0); /* first fraction bar */
-    int saved_note=note_selected;
-    note_selected=ink_note=987654;extra_page=ink_page=0;
-    memset(ink_pixels,255,sizeof(ink_pixels));ink_pixels[100*600+300]=0;
-    editor_ui.keyboard=1;editor_ui.keyboard_target=30;editor_ui.note_view_start=2;
-    rect(0,0,600,800,255);u15_note_overlay();
-    assert(ui_pixels[(54+100-58)*600+300]==0);
-    editor_ui.keyboard=0;ink_dirty=0;ink_note=ink_page=-1;note_selected=saved_note;
     route_to(131);
     settle_app();
     int call_depth=history_count;

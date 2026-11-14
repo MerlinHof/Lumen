@@ -1,7 +1,7 @@
 static int text_editable_hit(const Input *in) {
     if (editor_ui.keyboard)
         return keyboard_multiline() ? (in->y >= 54 && in->y < 458) : (in->y >= 452 && in->y < 501);
-    return ui_route() == 30 && !note_ink_mode && in->y >= 54 && in->y < 742;
+    return 0;
 }
 /* Shared editable-text clipboard and word selection. UI buttons never become selection targets. */
 static int clip_s, clip_e;
@@ -26,18 +26,12 @@ static void selection_span(int left, int top, const Font *font, const char *text
 static void clipboard_draw(void) {
     if (!editor_ui.clip_active)
         return;
-    if (editor_ui.keyboard && editor_ui.keyboard_target == 30) {
-        for (int r = 0; r < 15 && editor_ui.note_view_start+r < note_rows; r++) {
-            int i = editor_ui.note_view_start+r;
-            selection_span(48,54+r*29,ui_font(UI_BODY),editor_ui.edit,
-                           note_offsets[i],note_offsets[i+1],clip_s,clip_e,i%23 < 2 ? 420 : 528);
-        }
-    } else if (editor_ui.keyboard && keyboard_multiline()) {
+    if (editor_ui.keyboard && keyboard_multiline()) {
         for (int r = 0; r < 14 && editor_first18 + r < editor_count18; r++) {
             FlowLine line = editor_lines18[editor_first18 + r];
-            selection_span(28 + text_input_spec(editor_ui.keyboard_target).gutter, 54 + r * 29, &small, editor_ui.edit,
+            selection_span(28 + (editor_ui.line_numbers ? 20 : 0), 54 + r * 29, &small, editor_ui.edit,
                            line.start, line.end, clip_s, clip_e,
-                           544 - text_input_spec(editor_ui.keyboard_target).gutter);
+                           544 - (editor_ui.line_numbers ? 20 : 0));
         }
     } else if (editor_ui.keyboard)
         selection_span(28, 459, &body, editor_ui.edit, editor_ui.keyboard_view18, strlen(editor_ui.edit), clip_s, clip_e, 535);
@@ -72,9 +66,7 @@ static void clipboard_paste(void) {
 static int clip_anchor, clip_dragged;
 static int clipboard_position(int x, int y) {
     if (editor_ui.keyboard) {
-        if (editor_ui.keyboard_target == 30)
-            u15_note_editor_touch(x,y);
-        else if (keyboard_multiline())
+        if (keyboard_multiline())
             editor_place18(x, y);
         else
             keyboard_place18(x);
@@ -150,9 +142,6 @@ static int clipboard_input(const Input *in) {
     }
     if (in->kind != INPUT_HOLD || ui_route() == 2 || !text_editable_hit(in))
         return 0;
-    if (!editor_ui.keyboard && ui_route() == 30) {
-        open_keyboard(30, "Notiz", note_text);
-    }
     if (editor_ui.keyboard && (text_input_spec(editor_ui.keyboard_target).secret || editor_ui.keyboard_target == 176))
         return 0;
     char *buffer = clipboard_edit_buffer18();

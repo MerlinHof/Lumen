@@ -164,9 +164,6 @@ static int u16_jobs_tick(void) {
 }
 
 
-static int ink_pending16(void) {
-    return ink_dirty;
-}
 static int job_pending16(void) {
     return job_pid16 > 0;
 }

@@ -6,7 +6,7 @@ static int editor_numbers18[8192];
 static void editor_layout18(void) {
     const char *p = editor_ui.edit;
     editor_count18 = 0;
-    int width = 544 - text_input_spec(editor_ui.keyboard_target).gutter, number = 1;
+    int width = 544 - (editor_ui.line_numbers ? 20 : 0), number = 1;
     do {
         const char *start = p;
         int used = 0;
@@ -48,19 +48,19 @@ static void editor_layout18(void) {
 }
 static void editor_draw18(void) {
     editor_layout18();
-    int left = 28 + text_input_spec(editor_ui.keyboard_target).gutter;
+    int left = 28 + (editor_ui.line_numbers ? 20 : 0);
     for (int r = 0; r < 14 && editor_first18 + r < editor_count18; r++) {
         int i = editor_first18 + r;
         FlowLine line = editor_lines18[i];
         char b[8192];
         snprintf(b, sizeof(b), "%.*s", line.end - line.start, editor_ui.edit + line.start);
-        if (text_input_spec(editor_ui.keyboard_target).gutter &&
+        if ((editor_ui.line_numbers ? 20 : 0) &&
             (i == 0 || editor_numbers18[i] != editor_numbers18[i - 1])) {
             char num[16];
             snprintf(num, sizeof(num), "%d", editor_numbers18[i]);
             small_number17(left / 2, 54 + r * 29, num, 135);
         }
-        drawtext_raw(left, 54 + r * 29, b, &small, 544 - text_input_spec(editor_ui.keyboard_target).gutter);
+        drawtext_raw(left, 54 + r * 29, b, &small, 544 - (editor_ui.line_numbers ? 20 : 0));
         int active = editor_ui.note_cursor >= line.start && editor_ui.note_cursor <= line.end;
         if (i + 1 < editor_count18 && editor_ui.note_cursor == editor_lines18[i + 1].start)
             active = 0;
@@ -79,7 +79,7 @@ static void editor_place18(int x, int y) {
         row = editor_count18 - 1;
     FlowLine line = editor_lines18[row];
     const char *p = editor_ui.edit + line.start, *end = editor_ui.edit + line.end;
-    int xx = 28 + text_input_spec(editor_ui.keyboard_target).gutter;
+    int xx = 28 + (editor_ui.line_numbers ? 20 : 0);
     while (p < end) {
         const char *q = p;
         unsigned c = glyph(&q);

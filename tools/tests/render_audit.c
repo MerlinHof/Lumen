@@ -44,8 +44,8 @@ int main(int argc, char **argv) {
         library[0].page = 14;
         library[0].total = 32;
     }
-    note_selected = -1;
-    extra_commit(30, "A quiet morning\n\nOne idea worth keeping.");
+    lumen_storage_write_at(data_root,"notes/123.txt",
+        "A quiet morning\n\nOne idea worth keeping.",strlen("A quiet morning\n\nOne idea worth keeping."));
     for (int id = 0; id < APP_COUNT; id++) {
         const AppDefinition *a = app_definition(id);
         if (a->entry < 0 || !app_route_valid(a->entry) || id == APP_DRAWING ||
@@ -179,7 +179,6 @@ int main(int argc, char **argv) {
     capture("launcher-management");
     for (int pg = 0; pg < 2; pg++) {
         route_to(40);
-        extra_page = pg;
         char name[40];
         snprintf(name, 40, "system-%d", pg);
         capture(name);
