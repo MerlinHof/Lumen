@@ -27,12 +27,10 @@ jobs:
           VERSION=$(cat VERSION)
           python3 -c 'import sys;sys.path.insert(0,"tools");from package import validate_version;validate_version(open("VERSION").read().strip())'
           echo "number=$VERSION" >> "$GITHUB_OUTPUT"
-          if test -f "docs/releases/$VERSION.pending.md"; then
-            echo "LUMEN $VERSION is pending release validation."
-            echo 'publish=false' >> "$GITHUB_OUTPUT"
-          elif gh release view "v$VERSION" >/dev/null 2>&1; then
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
             echo 'publish=false' >> "$GITHUB_OUTPUT"
           else
+            test -f "docs/releases/$VERSION.md"
             echo 'publish=true' >> "$GITHUB_OUTPUT"
           fi
       - name: Install build tools

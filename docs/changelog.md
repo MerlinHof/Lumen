@@ -1,5 +1,7 @@
 # Changelog
 
+- [6.4](releases/6.4.md) · App state on return, in-Reader context and Wikipedia, ToDo deadlines, faster Notes drawing, and layout refinements.
+
 - [6.3](releases/6.3.md) · OpenAI chat continuity, Reader startup, Clock dropdown, and shared touch and caret feedback.
 
 - [6.2](https://github.com/MerlinHof/Lumen/releases/tag/v6.2) · App-owned Notes editor, ink and exports, plus Calculator and Kindle power fixes.
