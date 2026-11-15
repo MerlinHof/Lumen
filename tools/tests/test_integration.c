@@ -388,7 +388,8 @@ int main(int argc, char **argv) {
     unsigned char rim = ui_pixels[22*WIDTH+22];
     pressed = 0;
     ui_feedback_draw();
-    assert(ui_pixels[22*WIDTH+22] == rim && ui_pixels[28*WIDTH+70] == 0);
+    assert(ui_pixels[22*WIDTH+22]==rim && ui_pixels[24*WIDTH+70]==0);
+    assert(ui_pixels[42*WIDTH+24]==0 && ui_pixels[42*WIDTH+115]==0);
     assert(ui_pixels[42*WIDTH+70]==255);
     pressed = -1;
     memset(ui_pixels, 255, sizeof(ui_pixels));

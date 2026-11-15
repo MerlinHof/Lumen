@@ -187,7 +187,7 @@ static void package_paint_frame_mode(const char *text,int capture) {
             package_component_count++;
             continue;
         }
-        if(!strcmp(type,"select_action") || !strcmp(type,"custom_action")) {
+        if(!strcmp(type,"select_action") || !strcmp(type,"dropdown_action") || !strcmp(type,"custom_action")) {
             int selector=!strcmp(type,"select_action");
             if(x<0 || y<STATUS_HEIGHT || w<44 || h<44 || x+w>WIDTH || y+h>HEIGHT ||
                package_component_count>=PACKAGE_COMPONENT_LIMIT)continue;
@@ -200,7 +200,8 @@ static void package_paint_frame_mode(const char *text,int capture) {
                 char value[256];
                 json_string(&j,json_get(&j,item,"value"),value,sizeof(value));
                 select_row17(y,label,value);
-            } else region(x,y,w,h);
+            } else if(!strcmp(type,"dropdown_action"))dropdown_button(x,y,w,h,label);
+            else region(x,y,w,h);
             continue;
         }
         if(!strcmp(type,"icon_action") || !strcmp(type,"button_action") || !strcmp(type,"toggle_action")) {

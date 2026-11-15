@@ -2182,20 +2182,40 @@ int ui_feedback_active(void) {
 void ui_feedback_draw(void) {
     if(!ui_feedback_active())return;
     Widget r=widgets[pressed];
-    /* Change only solid pixels along the inner edges. The compact binary
-     * mark can go straight through the fast E-Ink waveform. */
-    int inset=r.radius>8 ? 8 : 4;
-    if(r.w<=2*inset || r.h<=2*inset+4)return;
-    int ink=options[OPT_INVERT] ? 255 : 0;
-    for(int edge=0;edge<2;edge++) {
-        int y=r.y+inset+edge*(r.h-2*inset-2);
-        for(int dy=0;dy<2;dy++)
-            for(int x=r.x+inset;x<r.x+r.w-inset;x++)
-                if((unsigned)x<WIDTH && (unsigned)(y+dy)<HEIGHT) {
-                    unsigned char *pixel=&ui_pixels[(y+dy)*WIDTH+x];
-                    if(*pixel==255-ink)*pixel=ink;
-                    else if(r.sides==0 && *pixel==ink)*pixel=255-ink;
-                }
+    /* A binary inset outline follows the control and stays on the fast
+     * waveform without changing its label or filling the button. */
+    int inset=4, w=r.w-2*inset,h=r.h-2*inset;
+    if(w<8 || h<8)return;
+    int radius=r.radius-inset;
+    int profile=rounding_profile();
+    if(radius>MAX_CORNER_RADIUS)radius=MAX_CORNER_RADIUS;
+    if(radius>w/2)radius=w/2;
+    if(radius>h/2)radius=h/2;
+    const unsigned char *mask=profile && radius>0 ? corner_mask(radius,profile) : NULL;
+    int x0=r.x+inset,y0=r.y+inset;
+    int normal=options[OPT_INVERT] ? 255 : 0;
+    int probe_x=x0+3,probe_y=y0+h/2;
+    int ink=normal;
+    if((unsigned)probe_x<WIDTH && (unsigned)probe_y<HEIGHT &&
+       ui_pixels[probe_y*WIDTH+probe_x]==normal)ink=255-normal;
+    for(int y=0;y<h;y++) {
+        int corner_y=y<h/2 ? y : h-1-y;
+        int cut=0;
+        if(mask && corner_y<radius)
+            while(cut<radius && mask[corner_y*radius+cut]<CORNER_ALPHA/2)cut++;
+        int left=r.sides&1 ? cut : 0,right=w-(r.sides&2 ? cut : 0);
+        int inside_cut=0;
+        if(mask && corner_y>=2 && corner_y<radius)
+            while(inside_cut<radius && mask[(corner_y-2)*radius+inside_cut]<CORNER_ALPHA/2)inside_cut++;
+        int inner_left=(r.sides&1 ? inside_cut : 0)+2;
+        int inner_right=w-(r.sides&2 ? inside_cut : 0)-2;
+        for(int x=left;x<right;x++) {
+            if(y>=2 && y<h-2 && x>=inner_left && x<inner_right)continue;
+            if((unsigned)(x+x0)<WIDTH && (unsigned)(y+y0)<HEIGHT) {
+                unsigned char *pixel=&ui_pixels[(y+y0)*WIDTH+x+x0];
+                if(*pixel==255-ink)*pixel=ink;
+            }
+        }
     }
 }
 

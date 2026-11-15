@@ -258,6 +258,11 @@ static inline void lumen_toggle_action(const char *id,int x,int y,int checked) {
  fputs(",\"id\":",stdout);lumen_json(id);
  printf(",\"checked\":%d}",!!checked);
 }
+static inline void lumen_dropdown_action(const char *id,int x,int y,int w,int h,const char *value) {
+ lumen_cmd("dropdown_action",x,y,w,h);
+ fputs(",\"id\":",stdout);lumen_json(id);
+ fputs(",\"text\":",stdout);lumen_json(value);putchar('}');
+}
 static inline void lumen_select_action(const char *id,int y,const char *label,const char *value) {
  lumen_cmd("select_action",28,y,544,48);
  fputs(",\"id\":",stdout);lumen_json(id);

@@ -113,6 +113,7 @@ static void draw(void) {
         }
         return;
     }
+    if(!lumen_ready)return;
     if(!total) {
         ui_paint_heading(word("Lesen","Reader","Lecture"),0);
         lumen_button_action("resume",28,298,544,54,word("Weiterlesen","Continue reading","Reprendre la lecture"),1);
@@ -187,9 +188,10 @@ static int activate(const char *id) {
     return 1;
 }
 static int input(const Input *in) {
-    if(in->kind==INPUT_OPEN || in->kind==INPUT_RESUME || in->kind==INPUT_REFRESH){if(view==CONTENTS)contents();else state();return 1;}
+    if(in->kind==INPUT_OPEN){lumen_ready=0;state();return 1;}
+    if(in->kind==INPUT_RESUME || in->kind==INPUT_REFRESH){if(view==CONTENTS)contents();else state();return 1;}
     if(in->kind==INPUT_INTENT) {
-        view=BOOK;chrome=0;lumen_back=0;state();return 1;
+        view=BOOK;chrome=0;lumen_back=0;lumen_ready=0;state();return 1;
     }
     if(in->kind==INPUT_BACK && view!=BOOK){if(confirm>=0)confirm=-1;else show(BOOK);return 1;}
     if(in->kind==INPUT_PAGE) {
@@ -201,6 +203,7 @@ static int input(const Input *in) {
     if(in->kind==INPUT_SELECT && view==SETTINGS && in->x>=10 && in->x<20 && in->y>=0)
         setting(in->x-10,in->y);
     if(in->kind==INPUT_SERVICE) {
+        if(in->x==1)lumen_ready=1;
         if(in->y) {
             page=lumen_number("page");total=lumen_number("total");
             lumen_string("title",title,sizeof(title));

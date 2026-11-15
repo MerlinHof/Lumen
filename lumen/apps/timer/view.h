@@ -116,7 +116,7 @@ static void app_timer(void) {
     lumen_segments("mode",28,74,544,44,tabs,3,timer_panel);
     char b[80];
     if (!timer_panel) {
-        lumen_button_action("faces",28,137,310,44,face_label(clock_style_row()),0);
+        lumen_dropdown_action("faces",28,137,310,44,face_label(clock_style_row()));
         lumen_icon_action("fullscreen",528,137,IC_FULLSCREEN);
         clock_face(0);
         return;

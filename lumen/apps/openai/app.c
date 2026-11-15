@@ -56,7 +56,10 @@ static void provider_error(void) {
         "La requête a échoué. Vérifiez la clé, le modèle et la connexion."),0);
 }
 static void view_set(int next){view=next;lumen_back=view!=CHAT;}
-static void new_chat(void){chat_clear();llm_prompt16[0]=0;view_set(CHAT);}
+static void remember_chat(void) {
+    app_state_save("active-chat.bin",&chat_id,sizeof(chat_id));
+}
+static void new_chat(void){chat_clear();remember_chat();llm_prompt16[0]=0;view_set(CHAT);}
 static void restore_reply(void) {
     if(!pending)return;
     char file[64],*text=malloc(131073);
@@ -78,6 +81,7 @@ static void send(void) {
     if(!key_set){view_set(SETUP);state();return;}
     if((!chat_count || chat_messages[chat_count-1].role ||
         strcmp(chat_messages[chat_count-1].text,llm_prompt16)) && !chat_append(0,llm_prompt16))return;
+    remember_chat();
     char *bytes=NULL;size_t size=0;FILE *file=open_memstream(&bytes,&size);
     if(!file)return;
     chat_write_request(file,model);fclose(file);
@@ -124,8 +128,7 @@ static void draw(void) {
     if(view==SETUP || view==MODELS) {
         if(view==SETUP) {
             lumen_icon_action("refresh-models",528,74,IC_RESTART);
-            lumen_custom_action("models",30,155,540,48);
-            lumen_select_row(155,word("Modell","Model","Modèle"),model);
+            lumen_select_action("models",155,word("Modell","Model","Modèle"),model);
             lumen_button_action("key",28,282,544,54,key_set ? word("API-Schlüssel ändern","Change API key","Modifier la clé API") : "API key",0);
             lumen_wrapped(30,380,540,130,word("API-Schlüssel und Modell für dieses Konto wählen.",
                 "Set the API key and choose a model for this account.","Définissez la clé API et choisissez un modèle."),PAINT_BODY,4);
@@ -178,10 +181,14 @@ static void draw(void) {
         }
     }
     lumen_pager(686,chat_page,pages);
-    lumen_button_action("prompt",28,738,480,50,*llm_prompt16 ? llm_prompt16 :
-        busy ? word("Antwort wird geschrieben …","Writing reply…","Réponse en cours…") :
-        word("Nachricht schreiben …","Write a message…","Écrire un message…"),0);
-    lumen_icon_action("send",525,741,IC_SEND);
+    if(busy) {
+        ui_paint_surface(28,738,544,50,12,235,170);
+        lumen_text(44,738,512,50,word("Antwort wird geschrieben …","Generating reply…","Réponse en cours…"),PAINT_BODY,0,0);
+    } else {
+        lumen_button_action("prompt",28,738,480,50,*llm_prompt16 ? llm_prompt16 :
+            word("Nachricht schreiben …","Write a message…","Écrire un message…"),0);
+        lumen_icon_action("send",525,741,IC_SEND);
+    }
 }
 static int action_index(const char *action,const char *prefix,int limit) {
     size_t length=strlen(prefix);
@@ -196,7 +203,10 @@ static int input(const Input *in) {
         legacy_root=getenv("LUMEN_LEGACY_DATA");
         size_t n;char stored[160];
         if(lumen_storage_read("model.txt",stored,sizeof(stored)-1,&n)){stored[n]=0;snprintf(model,sizeof(model),"%s",stored);}
-        if(app_state_load("pending.bin",&pending,sizeof(pending)) && pending)chat_load(pending);
+        unsigned long long active=0;
+        app_state_load("active-chat.bin",&active,sizeof(active));
+        app_state_load("pending.bin",&pending,sizeof(pending));
+        if(pending || active)chat_load(pending ? pending : active);
     }
     if(in->kind==INPUT_OPEN || in->kind==INPUT_RESUME) {
         int action=lumen_number("background_action");
@@ -260,7 +270,7 @@ static int input(const Input *in) {
         else {
             int i=action_index(id,"chat-",7);
             if(i>=0 && chat_archive_page*7+i<chat_archive_count &&
-               chat_load(chat_archive[chat_archive_page*7+i].id))view_set(CHAT);
+               chat_load(chat_archive[chat_archive_page*7+i].id)){remember_chat();view_set(CHAT);}
         }
     } else if(view==CHAT) {
         if(!strcmp(id,"settings")){view_set(SETUP);state();}

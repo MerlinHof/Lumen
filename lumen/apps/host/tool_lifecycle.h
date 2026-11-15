@@ -127,11 +127,6 @@ static int extra_poll(void) {
 static int extra_tick(void) {
     int changed = new_apps_tick() | v1_tick(), done = service_poll();
     if (release_poll() && ui_route()==40) changed=1;
-    if ((editor_ui.keyboard || package_caret_visible) && extra_millis() - editor_ui.cursor_epoch >= 600) {
-        editor_ui.cursor_epoch = extra_millis();
-        editor_ui.cursor_visible ^= 1;
-        changed = 1;
-    }
     if (ui_route() == 36 && !discover_busy() && !service_busy() && *discover_lookup_image() &&
         (strcmp(wiki_image_requested, discover_lookup_image()) ||
          (!wiki_image_available() && wiki_image_attempts < 3 &&

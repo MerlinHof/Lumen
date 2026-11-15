@@ -469,6 +469,7 @@ frames,folder=app_session('lumen.clock',[
     dict(event='service',action=1,ok=1,minutes=20,total=1200,hour=7,minute=15,armed=0),
     component("start-pause"),component("reset"),
     component('mode','selected','2'),component('arm')])
+assert any(c.get('id')=='faces' and c.get('type')=='dropdown_action' for f in frames for c in f.get('ui',[]))
 assert any(f.get('fullscreen') for f in frames)
 assert any(c.get('type')=='display_text' for f in frames for c in f.get('ui',[]))
 assert any(f.get('operation')=='timer' and f.get('text')=='0' for f in frames)
@@ -532,6 +533,9 @@ frames,folder=app_session('lumen.openai',[
     component('archive'),component('chat-0'),component('settings'),component('models'),
     component('model-0')],legacy=data)
 assert any(f.get('operation')=='send' for f in frames)
+assert any(c.get('text')=='Generating reply…' for f in frames for c in f.get('ui',[]))
+reopened,_=app_session('lumen.openai',[],legacy=data)
+assert any(c.get('text')=='Follow-up' for c in reopened[-1]['ui'])
 request=json.loads((folder/'request.json').read_text())
 assert [turn['content'] for turn in request['input']]==['First question','Follow-up']
 assert len(list(folder.glob('*.chat')))==1
@@ -558,6 +562,9 @@ frames,_=app_session('lumen.reader',[
          position0=2,label0='Chapter 1'),
     component("entry-0"),tap(300,70),component("settings"),dict(event='page',page=1),
     dict(event='select',action=19,value=2)])
+first_frame=next(f for f in frames if 'ui' in f)
+assert not first_frame['ready'] and not first_frame['ui']
+assert not any(c.get('id') in ('resume','library') for f in frames for c in f.get('ui',[]))
 assert any(c.get('type')=='document_page' for f in frames for c in f.get('ui',[]))
 assert any(f.get('operation')=='turn' and f.get('text')=='1' for f in frames)
 assert any(f.get('operation')=='goto' and f.get('text')=='2' for f in frames)
