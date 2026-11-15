@@ -85,8 +85,11 @@ with radii from one to four pixels.
 
 A frame is bounded to 256 KiB and 2,048 commands. Input events are queued without
 blocking the system's touch loop. An idle app blocks on stdin, rather than
-polling or animating. LUMEN retains one foreground process and pauses it when
-another tool opens. Independent overlays run alongside foreground content. Apps should save state after meaningful changes. A closed
+polling or animating. LUMEN runs one foreground app and keeps up to three
+recently used apps paused. Returning to a retained app delivers `resume` with
+the current language and keeps its in-memory view. Older apps can be evicted.
+Independent overlays run alongside foreground content. Apps should save their
+important view and data state in private storage. A closed
 or crashed app does not exit LUMEN. This is process isolation, **not a security
 sandbox**: install only trusted native code.
 
@@ -95,6 +98,19 @@ Service requests use `lumen_request(kind,title,text,action)`:
 - `input`: opens the actual system keyboard; the response is a text event.
 - `reader`: opens Markdown in the shared Reader and retains Back navigation.
 - `notify`: calls the installed `lumen.notifications` app, which owns the banner and its lifetime.
+
+Drawing packages can use `LUMEN_APP_SURFACES` for transient raw grayscale
+surfaces. `lumen_transient_bitmap` composites the file with white pixels
+transparent. Its revision should change when pixels change, even if the rest
+of the frame is identical. The runtime scopes the files to their foreground
+process and removes them on exit. Maintain a fallback for older runtimes.
+
+A flow row with `lumen_flow_row_detail` can show secondary text and an optional
+warning, with a clock button producing a `deadline` component event.
+
+The Wikipedia package offers a declared `summary` operation for a short
+selected term. The result contains the article title and lead extract on
+separate lines. It uses [MediaWiki TextExtracts](https://www.mediawiki.org/wiki/Extension%3ATextExtracts).
 
 Use the open event's language (0 German, 1 English, 2 French) for app-owned text.
 Do not draw a private keyboard, status bar or refresh loop. Do not manipulate

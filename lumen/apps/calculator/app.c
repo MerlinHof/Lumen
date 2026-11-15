@@ -56,6 +56,7 @@ enum {UI_SECONDARY=PAINT_SECONDARY,UI_PRIMARY=PAINT_BODY,UI_BODY=PAINT_BODY};
 #define wrapped(x,y,text,role,w,lines) lumen_wrapped(x,y,w,lines*28,tr(text),role,lines)
 #define rect(x,y,w,h,gray) ui_paint_surface(x,y,w,h,0,gray,-1)
 #define stroke(x,y,u,v,w) ui_paint_line(x,y,u,v,w,0)
+enum { HISTORY_ROWS=10 };
 #include "view.h"
 #include "plots.h"
 
@@ -163,8 +164,8 @@ static int component(const char *id) {
         return 1;
     }
     if(page==HISTORY) {
-        int row=action_index(id,"history-",8);
-        int index=calc_history_count-1-(extra_page*8+row);
+        int row=action_index(id,"history-",HISTORY_ROWS);
+        int index=calc_history_count-1-(extra_page*HISTORY_ROWS+row);
         if(row>=0 && index>=0) {
             snprintf(calc_expr,sizeof(calc_expr),"%s",calc_history[index]);
             calc_cursor=strlen(calc_expr);set_page(CALCULATOR);calc_preview();calc_error[0]=0;

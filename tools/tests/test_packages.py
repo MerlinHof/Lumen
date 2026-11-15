@@ -360,6 +360,22 @@ assert (openai_root/'reply-0000000000000042.txt').read_text()=='Grüße ☀\n'
 assert json.loads((openai_root/'models.json').read_text())['data'][1]['id']=='a-model'
 print('PASS OpenAI package owns model loading and UTF-8 replies, with keys passed only through worker input.')
 
+wiki_worker=base/'wiki-bin';wiki_worker.mkdir()
+wiki_curl=wiki_worker/'curl'
+wiki_curl.write_text("""#!/bin/sh
+case "$*" in
+ *en.wikipedia.org*%44%61%72%63%79*) echo '{"query":{"pages":[{"title":"Mr. Darcy","extract":"A character in Pride and Prejudice."}]}}';;
+ *) exit 2;;
+esac
+""")
+wiki_curl.chmod(0o755)
+wiki_request=dict(event='service_call',language=1,operation='summary',data='Darcy')
+wiki_process=subprocess.run([str(ROOT/'build/apps/host/lumen.wikipedia/app')],
+    input=json.dumps(wiki_request)+'\n',capture_output=True,text=True,check=True,timeout=10,
+    env=dict(os.environ,PATH=str(wiki_worker)+':'+os.environ['PATH']))
+assert json.loads(wiki_process.stdout)['data']=='Mr. Darcy\nA character in Pride and Prejudice.'
+print('PASS standalone Wikipedia summary operation and bounded text response.')
+
 catalog=dict(event='service',action=1,ok=1,data='\n'.join(['lumen.library']*10))
 frames,folder=app_session('lumen.home',[catalog,dict(event='page',page=1)])
 assert any(c.get('type')=='pager' and c.get('page')==1 for c in frames[-1]['ui'])
@@ -374,12 +390,21 @@ frames,folder=app_session('lumen.todo',[
     dict(event='text',action=1,text='New task\nSecond line'),
     component('0','pinned'),component('0','toggled'),component('0'),
     dict(event='text',action=2,text='Edited task'),
-    tap(490,92)])
+    component('board')])
 lists=[c for f in frames for c in f.get('ui',[]) if c.get('type')=='flow_list']
 assert any(c['rows'] and c['rows'][0]['title']=='Older task' and c['rows'][0]['checked'] for c in lists)
 assert any(f.get('request')=='input' and f.get('text')=='Older task' for f in frames)
 assert lists[-1]['columns']==2 and lists[-1]['rows'][0]['title']=='Edited task'
-assert (folder/'tasks.bin').is_file()
+assert (folder/'tasks-v2.bin').is_file()
+frames,_=app_session('lumen.todo',[
+    dict(event='text',action=1,text='Deadline later'),
+    dict(event='text',action=1,text='Deadline sooner'),
+    component('2','deadline'),dict(event='text',action=4,text='2099-02-07'),
+    component('3','deadline'),dict(event='text',action=4,text='2020-03-01 09:30')])
+due_rows=next(c['rows'] for c in frames[-1]['ui'] if c['type']=='flow_list')
+assert [r['title'] for r in due_rows]==['Deadline sooner','Deadline later','New task\nSecond line']
+assert due_rows[0]['warning']==1 and due_rows[0]['detail']=='2020-03-01 09:30'
+assert due_rows[1]['warning']==0 and due_rows[1]['detail']=='2099-02-07'
 print('PASS packaged ToDo preserves multiline rows, flags, completion, editing and board grouping.')
 
 (data/'study').mkdir(exist_ok=True)

@@ -142,7 +142,12 @@ int main(int argc, char **argv) {
     strcpy(editor_ui.edit,"Title\nEdited during an autosave.");
     ui_save();settle_app();
     assert(strstr(app_process_frame(),"Edited during an autosave."));
-    commit_keyboard();settle_app();
+    commit_keyboard();settle_app();ui_draw();
+    tap17(553,77);assert(ui_route()==2);
+    settle_app();ui_draw();
+    if(!reader_ui.reader_chrome)tap17(300,70);
+    tap17(20,20);
+    assert(ui_route()==29 && strstr(app_process_frame(),"Edited during an autosave."));
     tap17(20,20);
     assert(ui_route()==29 && strstr(app_process_frame(),"Title"));
     shot17("notes");
@@ -182,6 +187,7 @@ int main(int argc, char **argv) {
     tap17(drop_x + 80, drop_y + 5 + 48 + 15);
     assert(strstr(app_process_frame(),"RAD"));
     route_to(13);settle_app();ui_draw();
+    if(app_process_frame_back())tap17(20,20);
     tap17(530,235);tap17(490,150);tap17(450,525);
     assert(dropdown && drop_target==2001);
     dropdown=0;
@@ -244,9 +250,24 @@ int main(int argc, char **argv) {
     tap17(550,95);shot17("llm-settings");
     tap17(20,20);
     shot17("llm");
-    reader_markdown17("Markdown test", "# Heading\n\nA **bold** paragraph.\n\n- One\n- Two\n", 122);
+    reader_markdown17("Markdown test", "# Heading\n\nDarcyville thrived. Mr. Darcy arrived silently. A **bold** paragraph.\n\n- One\n- Two\n", 122);
+    char mention_fixture[480];
+    assert(engine_first_mention("Darcy",0,mention_fixture,sizeof(mention_fixture))==0);
+    assert(!strcmp(mention_fixture,"Mr. Darcy arrived silently."));
+    assert(engine_first_mention("Head",0,mention_fixture,sizeof(mention_fixture))<0);
     assert(ui_route() == 2 && reader_ui.reader_document_active);
-    settle_app();ui_draw();tap17(300,70);
+    settle_app();ui_draw();
+    assert(app_process_send("{\"event\":\"intent\",\"operation\":\"selection-context\",\"text\":\"Darcy\"}"));
+    settle_app();
+    for(int i=0;i<25 && document_excerpt_wait()>=0;i++){usleep(10000);document_excerpt_poll();}
+    settle_app();
+    assert(strstr(app_process_frame(),"context-close") && strstr(app_process_frame(),"Seite 1"));
+    assert(app_process_send("{\"event\":\"service\",\"action\":103,\"ok\":1,\"data\":\"Mr. Darcy\\nA character in Pride and Prejudice.\"}"));
+    settle_app();
+    assert(strstr(app_process_frame(),"A character in Pride and Prejudice."));
+    shot17("reader-context");
+    tap17(541,181);
+    tap17(300,70);
     assert(reader_ui.reader_chrome);shot17("reader");
     int page_before=page;
     tap17(300,300);
@@ -390,7 +411,7 @@ int main(int argc, char **argv) {
     ui_feedback_draw();
     assert(ui_pixels[22*WIDTH+22]==rim && ui_pixels[24*WIDTH+70]==0);
     assert(ui_pixels[42*WIDTH+24]==0 && ui_pixels[42*WIDTH+115]==0);
-    assert(ui_pixels[42*WIDTH+70]==255);
+    assert(ui_pixels[42*WIDTH+70]==0);
     pressed = -1;
     memset(ui_pixels, 255, sizeof(ui_pixels));
     control_surface(20, 20, 48, 48, 16, 0);

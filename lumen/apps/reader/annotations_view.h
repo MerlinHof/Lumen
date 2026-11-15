@@ -69,6 +69,9 @@ static void annotations_draw(void) {
         shade_selection(&reader_ui.selection, 180);
 }
 static void selection_overlay(void) {
-    const char *actions[] = {"Kopieren", "Wikipedia", "Wörterbuch", "Markieren", "Schließen"};
+    const char *context[]={"Kontext + Wiki","Context + Wiki","Contexte + Wiki"};
+    int language=options[OPT_LANGUAGE];
+    const char *actions[]={"Kopieren",context[language>=0 && language<3 ? language : 0],
+        "Wörterbuch","Markieren","Schließen"};
     selection_menu_draw(READER_SELECTION_Y, reader_ui.selection.text, actions);
 }

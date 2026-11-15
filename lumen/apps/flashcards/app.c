@@ -83,7 +83,7 @@ static void draw(void) {
             lumen_text(30,y,466,32,card->front,PAINT_BODY,-1,1);
             lumen_text(30,y+33,466,30,card->deck,PAINT_SECONDARY,-1,1);
             ui_paint_icon_button(522,y+8,IC_TRASH);
-            ui_paint_line(28,y+66,572,y+66,1,190);
+            lumen_list_divider(28,y+66,572);
         }
         lumen_pager(695,page,(count+6)/7);
         return;

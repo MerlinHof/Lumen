@@ -2,7 +2,7 @@
  * handles the shared text input overlay. */
 enum { NOTE_ROWS=23, NOTE_TEXT_ACTION=4, NOTE_LAYOUT_ACTION=5 };
 static char editor_text[8192];
-static int editor_offsets[8193],editor_numbers[8192],editor_rows,layout_pending;
+static int editor_offsets[8193],editor_numbers[8192],editor_rows,layout_pending,restore_editor_page;
 
 static void editor_measure(void) {
     pages=1;editor_rows=1;editor_offsets[0]=editor_offsets[1]=0;editor_numbers[0]=1;
@@ -32,6 +32,11 @@ static void editor_layout(void) {
     editor_rows=rows;
     pages=(editor_rows+NOTE_ROWS-1)/NOTE_ROWS;
     layout_pending=0;
+    if(restore_editor_page>0) {
+        editor_page=restore_editor_page<pages ? restore_editor_page : pages-1;
+        restore_editor_page=0;
+        ink_load();
+    }
 }
 static int editor_save(const char *text) {
     const char *root=getenv("LUMEN_LEGACY_DATA");
@@ -63,7 +68,7 @@ static void show_editor(int id) {
     if(id && !lumen_storage_read_at(getenv("LUMEN_LEGACY_DATA"),path,text,sizeof(text)-1,&size)){editor_error();return;}
     text[size]=0;
     memcpy(editor_text,text,size+1);
-    view=EDITOR;editor_note=id;editor_page=0;ink=eraser=0;width=3;
+    view=EDITOR;editor_note=id;editor_page=restore_editor_page=0;ink=eraser=0;width=3;
     ink_load();editor_measure();back_state();
     if(!id)editor_keyboard(0);
 }
@@ -71,7 +76,7 @@ static void editor_draw(void) {
     int first=editor_page*NOTE_ROWS;
     for(int r=0;r<NOTE_ROWS;r++) {
         int i=first+r,y=56+r*29,w=r<2 ? 420 : 528;
-        ui_paint_line(48,y+22,571,y+22,1,231);
+        ui_paint_line(48,y+22,571,y+22,1,244);
         if(i>=editor_rows || layout_pending) {
             if(!ink)lumen_editor_action("end",48,y,w,29,"",-1);
             continue;
@@ -90,7 +95,10 @@ static void editor_draw(void) {
             lumen_editor_action(id,48,y,w,29,text,-1);
         }
     }
-    if(ink_present)lumen_bitmap("ink-surface.raw",0,56,600,INK_HEIGHT-2,ink_revision);
+    if(ink_present && ink_transient)
+        lumen_transient_bitmap("ink.raw",0,56,600,INK_HEIGHT-2,2,ink_revision);
+    else if(ink_present)lumen_bitmap("ink-surface.raw",0,56,600,INK_HEIGHT-2,ink_revision);
+    if(ink_dirty && !ink_drag)lumen_schedule(350);
 }
 static void export_image(void) {
     if(!ink_save()){editor_error();return;}

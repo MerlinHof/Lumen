@@ -67,7 +67,7 @@ static void draw(void) {
                 lumen_icon_action(action,522,y+17,IC_MORE);
             }
         }
-        ui_paint_line(28,y+height-1,572,y+height-1,1,190);
+        lumen_list_divider(28,y+height-1,572);
     }
     if(!count)lumen_text(30,161,540,49,word("Dieser Ordner ist leer.","This folder is empty.","Ce dossier est vide."),PAINT_SECONDARY,-1,1);
     if(delete_pending) {
@@ -79,9 +79,34 @@ static void draw(void) {
         lumen_button_action("confirm",312,412,250,52,word("Löschen","Delete","Supprimer"),1);
     } else lumen_pager(746,page,(count+per-1)/per);
 }
+typedef struct {
+    int32_t folder,list_page,note,editor_page,ink;
+} NotesView;
+static void save_view(void) {
+    NotesView saved={folder,page,view==EDITOR ? editor_note : 0,editor_page,ink};
+    app_state_save("view-v1.bin",&saved,sizeof(saved));
+}
+static void restore_view(void) {
+    NotesView saved={0};
+    if(app_state_load("view-v1.bin",&saved,sizeof(saved))) {
+        folder=saved.folder>0 ? saved.folder : 0;
+        page=saved.list_page>0 ? saved.list_page : 0;
+        list();
+        if(saved.note>0) {
+            show_editor(saved.note);
+            if(view==EDITOR) {
+                restore_editor_page=saved.editor_page>0 ? saved.editor_page : 0;
+                ink=!!saved.ink;
+            }
+        }
+    } else list();
+    back_state();
+}
 static int input(const Input *in) {
-    if(in->kind==INPUT_OPEN || in->kind==INPUT_RESUME || in->kind==INPUT_REFRESH){
+    if(in->kind==INPUT_OPEN){restore_view();return 1;}
+    if(in->kind==INPUT_RESUME || in->kind==INPUT_REFRESH){
         if(view!=EDITOR)list();
+        else if(layout_pending)editor_measure();
         return 1;
     }
     if(in->kind==INPUT_INTENT) {
@@ -90,10 +115,15 @@ static int input(const Input *in) {
         if(!strcmp(operation,"note-open") && id>0)show_editor(id);
         return 1;
     }
+    if(in->kind==INPUT_TICK && ink_dirty && !ink_drag){
+        if(!ink_save())editor_error();
+        return 1;
+    }
     if(in->kind==INPUT_PAUSE) {
         if(ink_drag)ink_publish();
         ink_drag=0;
         if(!ink_save())editor_error();
+        save_view();
         return 1;
     }
     if(in->kind==INPUT_BACK) {
@@ -144,9 +174,7 @@ static int input(const Input *in) {
     }
     if(view==EDITOR && ink && (in->kind==INPUT_DOWN || in->kind==INPUT_MOVE ||
             in->kind==INPUT_CANCEL || in->kind==INPUT_TAP || in->kind==INPUT_SWIPE)) {
-        int changed=ink_pointer(in);
-        if(changed<0)editor_error();
-        return changed!=0;
+        return ink_pointer(in);
     }
     char id[24],gesture[24];
     if(in->kind!=INPUT_COMPONENT || !lumen_string("id",id,sizeof(id)) ||
@@ -172,9 +200,8 @@ static int input(const Input *in) {
             } else if(ink && !strcmp(id,"eraser"))eraser^=1;
             else if(ink && !strcmp(id,"width"))width=width==3 ? 7 : 3;
             else if(ink && !strcmp(id,"undo")) {
-                memcpy(ink_pixels,ink_undo,sizeof(ink_pixels));ink_dirty=1;
+                memcpy(ink_pixels,ink_undo,INK_BYTES);ink_dirty=1;
                 ink_publish();
-                if(!ink_save())editor_error();
             } else if(ink && !strcmp(id,"export"))export_image();
         }
         return 1;
@@ -215,4 +242,4 @@ static int input(const Input *in) {
     else show_editor(rows[row].id);
     return 1;
 }
-int main(void){lumen_service_handler=serve_note;lumen_run(draw,input,NULL);return 0;}
+int main(void){lumen_service_handler=serve_note;lumen_run(draw,input,NULL);ink_save();return 0;}

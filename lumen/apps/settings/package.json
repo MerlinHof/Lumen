@@ -3,7 +3,7 @@
   "api": 1,
   "id": "lumen.settings",
   "name": "Einstellungen",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "sources": ["app.c"],
   "assets": ["assets/icon.pgm"]
 }

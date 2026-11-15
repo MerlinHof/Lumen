@@ -1,14 +1,15 @@
 /* All installed app packages use the same system controls and input bridge. */
-static void package_bitmap(const char *name,int x,int y,int width,int height) {
+static void package_bitmap(const char *name,int x,int y,int width,int height,int transient,int skip) {
     if(x<0 || y<STATUS_HEIGHT || width<=0 || width>WIDTH-x || height<=0 || height>HEIGHT-y)return;
     char leaf[256];
-    int parent=lumen_storage_parent_at(app_process_data_dir(),name,0,leaf);
+    int parent=lumen_storage_parent_at(transient ? app_process_render_dir() : app_process_data_dir(),name,0,leaf);
     if(parent<0)return;
     int fd=openat(parent,leaf,O_RDONLY|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC);
     close(parent);
     if(fd<0)return;
     struct stat info;
-    if(fstat(fd,&info) || !S_ISREG(info.st_mode) || info.st_size!=(off_t)width*height){close(fd);return;}
+    if(skip<0 || skip>16 || fstat(fd,&info) || !S_ISREG(info.st_mode) ||
+       info.st_size!=(off_t)width*(height+skip) || lseek(fd,(off_t)width*skip,SEEK_SET)<0){close(fd);return;}
     FILE *file=fdopen(fd,"rb");
     if(!file){close(fd);return;}
     unsigned char row[WIDTH];
@@ -325,7 +326,8 @@ static void package_paint_frame_mode(const char *text,int capture) {
                         rect(x+offset+col*step,y+offset+row*step,step,step,0);
             }
         }
-        else if(!strcmp(type,"bitmap"))package_bitmap(label,x,y,w,h);
+        else if(!strcmp(type,"bitmap"))package_bitmap(label,x,y,w,h,
+            package_value(&j,item,"transient"),package_value(&j,item,"skip"));
         else if(!strcmp(type,"pointer_area") && x>=0 && w>0 && w<=WIDTH-x && h>0 && h<=HEIGHT-y) {
             package_pointer.x=x;package_pointer.y=y;package_pointer.w=w;package_pointer.h=h;
             package_pointer.owner=app_process_owner();
@@ -354,7 +356,21 @@ static void package_paint_frame_mode(const char *text,int capture) {
             json_string(&j,json_get(&j,item,"author"),author,sizeof(author));
             const Font *font=ui_font(UI_TITLE);
             int lines=wrapped_raw(x,y,label,font,w,2);
-            drawtext_raw(x,y+lines*(font->h-4)+4,author,ui_font(UI_BODY),w);
+            const Font *body_font=ui_font(UI_BODY);
+            int author_y=y+lines*(font->h-4)+4;
+            drawtext_raw(x,author_y,author,body_font,w);
+            if(json_get(&j,item,"progress")>=0 && w>=100) {
+                int value=package_value(&j,item,"progress");
+                if(value<0)value=0;
+                if(value>100)value=100;
+                int progress_y=author_y+(*author ? body_font->h : 0)+9;
+                int length=w-62;
+                rect(x,progress_y+11,length,3,232);
+                rect(x,progress_y+11,length*value/100,3,0);
+                char percent[8];
+                snprintf(percent,sizeof(percent),"%d%%",value);
+                drawtext_raw(x+length+10,progress_y-1,percent,body_font,52);
+            }
         }
         else if(!strcmp(type,"catalog_cover")) {
             int item=store_item(label);
@@ -539,7 +555,7 @@ static void package_ui_draw(void) {
     package_pager.count=0;
     package_pointer.w=0;
     package_component_count=package_component_layout=0;
-    if(!*app_process_error())app_process_open(app_for_route(ui_route()));
+    if(app_process_owner()!=(int)package_fullscreen_owner || !*app_process_error())app_process_open(package_fullscreen_owner);
     const char*text=app_process_frame();
     if(app_process_frame_loading()) {heading(app_definition(app_for_route(ui_route()))->name);centered(28,340,544,60,*app_process_error()?tr(app_process_error()):tr("App wird geöffnet …"),ui_font(UI_BODY));return;}
     package_paint_frame(text);
@@ -578,7 +594,7 @@ static int package_ui_input(const Input*in) {
             if(in->x<component->left || in->x>=component->left+component->width ||
                in->y<component->top || in->y>=component->top+component->height)continue;
             if(component->kind==COMPONENT_FLOW) {
-                const char *actions[]={"clicked","toggled","pinned","deleted"};
+                const char *actions[]={"clicked","toggled","pinned","deleted","deadline"};
                 if(in->kind==INPUT_TAP)package_component_event(component->id,actions[component->checked],NULL);
                 else package_component_event(component->id,"long_pressed",NULL);
                 return 2;

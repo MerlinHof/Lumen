@@ -25,7 +25,7 @@ static void draw(void) {
         lumen_custom_action(id,28,y,544,ROW_HEIGHT-10);
         lumen_wrapped(34,y,532,95,quotes[i],PAINT_BODY,3);
         lumen_text(34,y+94,532,29,books[i],PAINT_SECONDARY,95,1);
-        ui_paint_line(28,y+ROW_HEIGHT-6,572,y+ROW_HEIGHT-6,1,190);
+        lumen_list_divider(28,y+ROW_HEIGHT-6,572);
     }
     lumen_pager(745,page,(count+PER_PAGE-1)/PER_PAGE);
 }

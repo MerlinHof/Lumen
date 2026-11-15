@@ -24,7 +24,7 @@ static void draw(void) {
         lumen_text(88,y+6,472,35,rows[i].title,PAINT_BODY,-1,1);
         lumen_text(88,y+41,472,28,*rows[i].source ? rows[i].source :
             word("Offline verfügbar","Available offline","Disponible hors ligne"),PAINT_SECONDARY,-1,1);
-        ui_paint_line(28,y+79,572,y+79,1,190);
+        lumen_list_divider(28,y+79,572);
     }
     lumen_pager(715,page,(count+5)/6);
     if(busy) {

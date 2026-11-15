@@ -144,7 +144,7 @@ static void draw(void) {
                 word("Öffnen und weiter schreiben","Open and continue writing","Ouvrir et continuer"),
                 PAINT_SECONDARY,-1,1);
             ui_paint_icon_button(528,y+15,IC_NEXT);
-            ui_paint_line(28,y+73,572,y+73,1,190);
+            lumen_list_divider(28,y+73,572);
         }
         lumen_pager(745,page,(count+PAGE_SIZE-1)/PAGE_SIZE);
         return;

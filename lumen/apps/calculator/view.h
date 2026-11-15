@@ -153,15 +153,14 @@ static void app_calculator(void) {
 }
 static void app_calc_history(void) {
     heading("Rechenverlauf");
-    for (int r = 0; r < 8; r++) {
-        int i = calc_history_count - 1 - (extra_page * 8 + r);
-        if (i < 0)
-            break;
-        int y = 145 + r * 64;
-        lumen_wrapped(31,y+7,540,54,calc_history[i],PAINT_BODY,2);
+    for (int r = 0; r < HISTORY_ROWS; r++) {
+        int i=calc_history_count-1-(extra_page*HISTORY_ROWS+r);
+        if(i<0)break;
+        int y=132+r*60;
+        lumen_wrapped(36,y+3,528,46,calc_history[i],PAINT_BODY,2);
         char id[16];snprintf(id,sizeof(id),"history-%d",r);
-        lumen_custom_action(id,28,y,544,64);
-        ui_paint_line(28,y+63,572,y+63,1,185);
+        lumen_custom_action(id,28,y,544,60);
+        lumen_list_divider(28,y+58,572);
     }
-    lumen_pager(679,extra_page, (calc_history_count + 7) / 8);
+    lumen_pager(742,extra_page,(calc_history_count+HISTORY_ROWS-1)/HISTORY_ROWS);
 }

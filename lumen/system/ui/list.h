@@ -1,6 +1,6 @@
 /* Shared paper-list rhythm. Coordinates describe visible ink, never a font's
  * invisible cell padding. Apps own data and actions; this owns row geometry. */
-enum { UI_MARGIN = 28, UI_CONTENT = 544, UI_DIVIDER = 205 };
+enum { UI_MARGIN = 28, UI_CONTENT = 544, UI_DIVIDER = 232 };
 typedef struct {
     int x, title_y, title_h, detail_y, detail_h, width, icon_y, action_y;
 } ListLayout;

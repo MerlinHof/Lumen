@@ -103,6 +103,9 @@ static int annotations_write(void);
 static void annotations_load(void);
 static void annotations_draw(void);
 static void selection_overlay(void);
+static void json_escape16(FILE *,const char *);
+static void document_excerpt_close(void),document_excerpt_poll(void);
+static int document_excerpt_wait(void);
 
 
 typedef struct {
@@ -537,7 +540,7 @@ static void segments(int x, int y, int w, int h, const char *const *labels, int 
         int left = x + w * i / count;
         int right = x + w * (i + 1) / count;
         region(left, y, right - left, h);
-        widget_shape(left, y, right-left, h, RADIUS_MEDIUM, 0, 1);
+        widget_shape(left,y,right-left,h,RADIUS_MEDIUM,(i==0 ? 1 : 0)|(i==count-1 ? 2 : 0),i==selected);
         if (i != selected) {
             int edge_left = i == 0 ? 2 : 0;
             int edge_right = i == count - 1 ? 2 : 0;
@@ -1030,6 +1033,7 @@ int ui_open(int index) {
     reader_ui.layout_epoch++;
     if (index < 0 || (index >= library_count && !(index == BOOK_LIMIT && reader_ui.reader_document_active)))
         return 0;
+    document_excerpt_close();
     reader_ui.selecting = selection_release = 0;
     notification_dismiss();
     Book *b = &library[index];
@@ -1199,7 +1203,7 @@ int ui_defer_app_frame(void) {
     static int64_t until;
     AppId owner=app_for_route(ui_route());
     if(updating || sleeping || editor_ui.keyboard || dropdown || !app_package_installed(owner) ||
-       *app_process_error() || !app_process_open(owner) || !app_process_frame_loading()) {
+       (app_process_owner()==(int)owner && *app_process_error()) || !app_process_open(owner) || !app_process_frame_loading()) {
         waiting=-1;
         return 0;
     }
@@ -1323,6 +1327,7 @@ static void toggle_bookmark(void) {
 static unsigned navigation_rewinds;
 static int ui_dispatch_input(const Input *in) {
     if(in->kind==INPUT_APP_SERVICE || in->kind==INPUT_STATUS)app_service_poll();
+    if(in->kind==INPUT_STATUS)document_excerpt_poll();
     if(in->kind==INPUT_APP_SERVICE)return 2;
     if(in->kind==INPUT_STATUS && app_process_pending())app_process_flush();
     if(in->kind==INPUT_APP && updating){app_process_poll();return 2;}
@@ -1367,6 +1372,7 @@ static int ui_dispatch_input(const Input *in) {
         editor_ui.pressed_key=-1;
         package_input_checkpoint();
         package_pointer_reset();
+        document_excerpt_close();
         app_process_pause();
         apps_pause();
         extra_save();
@@ -1672,9 +1678,15 @@ static int ui_dispatch_input(const Input *in) {
                         ui_message("Markierung gespeichert.");
                 }
             } else if (action == 1) {
-                AppIntent request = {.app = APP_WIKIPEDIA, .kind = INTENT_SEARCH};
-                snprintf(request.text, sizeof(request.text), "%s", reader_ui.selection.text);
-                app_send(&request);
+                char *event=NULL;size_t length=0;
+                FILE *out=open_memstream(&event,&length);
+                if(out) {
+                    fputs("{\"event\":\"intent\",\"operation\":\"selection-context\",\"lookup\":1,\"text\":",out);
+                    json_escape16(out,reader_ui.selection.text);
+                    fputc('}',out);
+                    if(!fclose(out))app_process_send(event);
+                    free(event);
+                }
             } else {
                 const char *definition = dictionary_lookup(reader_ui.selection.text, options[OPT_LANGUAGE], NULL);
                 char translation[420];
@@ -1973,6 +1985,8 @@ int ui_poll_interval(void) {
     if(tick>=0 && (other<0 || tick<other))other=tick;
     int blink=caret_wait();
     if(blink>=0 && (other<0 || blink<other))other=blink;
+    int context=document_excerpt_wait();
+    if(context>=0 && (other<0 || context<other))other=context;
     int np = new_apps_poll();
     int pp = polish_poll();
     if (pp >= 0 && (np < 0 || pp < np))
@@ -2073,6 +2087,7 @@ static void app_leave(AppId app, void *ctx) {
     if (app == APP_BLOCKS || app == APP_SNAKE)
         apps_pause();
     if (app == APP_READER) {
+        document_excerpt_close();
         apps_checkpoint();
         ui_save();
     }
@@ -2182,39 +2197,28 @@ int ui_feedback_active(void) {
 void ui_feedback_draw(void) {
     if(!ui_feedback_active())return;
     Widget r=widgets[pressed];
-    /* A binary inset outline follows the control and stays on the fast
-     * waveform without changing its label or filling the button. */
-    int inset=4, w=r.w-2*inset,h=r.h-2*inset;
+    /* Invert solid pixels in the filled control. Keeping grayscale pixels
+     * stable allows the sparse feedback frame to use the fast waveform. */
+    int inset=4,w=r.w-2*inset,h=r.h-2*inset;
     if(w<8 || h<8)return;
-    int radius=r.radius-inset;
-    int profile=rounding_profile();
+    int radius=r.radius-inset,profile=rounding_profile();
     if(radius>MAX_CORNER_RADIUS)radius=MAX_CORNER_RADIUS;
     if(radius>w/2)radius=w/2;
     if(radius>h/2)radius=h/2;
     const unsigned char *mask=profile && radius>0 ? corner_mask(radius,profile) : NULL;
     int x0=r.x+inset,y0=r.y+inset;
-    int normal=options[OPT_INVERT] ? 255 : 0;
-    int probe_x=x0+3,probe_y=y0+h/2;
-    int ink=normal;
-    if((unsigned)probe_x<WIDTH && (unsigned)probe_y<HEIGHT &&
-       ui_pixels[probe_y*WIDTH+probe_x]==normal)ink=255-normal;
     for(int y=0;y<h;y++) {
+        if((unsigned)(y+y0)>=HEIGHT)continue;
         int corner_y=y<h/2 ? y : h-1-y;
         int cut=0;
         if(mask && corner_y<radius)
             while(cut<radius && mask[corner_y*radius+cut]<CORNER_ALPHA/2)cut++;
         int left=r.sides&1 ? cut : 0,right=w-(r.sides&2 ? cut : 0);
-        int inside_cut=0;
-        if(mask && corner_y>=2 && corner_y<radius)
-            while(inside_cut<radius && mask[(corner_y-2)*radius+inside_cut]<CORNER_ALPHA/2)inside_cut++;
-        int inner_left=(r.sides&1 ? inside_cut : 0)+2;
-        int inner_right=w-(r.sides&2 ? inside_cut : 0)-2;
+        if(left+x0<0)left=-x0;
+        if(right+x0>WIDTH)right=WIDTH-x0;
         for(int x=left;x<right;x++) {
-            if(y>=2 && y<h-2 && x>=inner_left && x<inner_right)continue;
-            if((unsigned)(x+x0)<WIDTH && (unsigned)(y+y0)<HEIGHT) {
-                unsigned char *pixel=&ui_pixels[(y+y0)*WIDTH+x+x0];
-                if(*pixel==255-ink)*pixel=ink;
-            }
+            unsigned char *pixel=&ui_pixels[(y+y0)*WIDTH+x+x0];
+            if(*pixel==0 || *pixel==255)*pixel=255-*pixel;
         }
     }
 }
@@ -2226,6 +2230,7 @@ static int app_read_book(int index) {
     return app_send(&request);
 }
 void ui_close(void) {
+    document_excerpt_close();
     app_process_close();
     release_cancel();
     cover_tiles_clear();

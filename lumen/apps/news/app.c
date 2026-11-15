@@ -42,7 +42,7 @@ static void draw(void) {
                 word("Gespeicherte Ausgabe","Saved edition","Édition enregistrée"),PAINT_SECONDARY,-1,1);
             ui_paint_icon_button(522,y+15,IC_NEXT);
         }
-        ui_paint_line(28,y+height-1,572,y+height-1,1,190);
+        lumen_list_divider(28,y+height-1,572);
     }
     if(articles && !count && !busy)
         lumen_wrapped(30,210,540,120,word("Keine Artikel verfügbar.","No articles available.",

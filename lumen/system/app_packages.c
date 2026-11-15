@@ -34,10 +34,14 @@ typedef struct {
     char process_hash[65],pending[65536],incoming[APP_FRAME_MAX],frame[APP_FRAME_MAX];
     char *requests[APP_REQUEST_LIMIT];
     unsigned request_first,request_count;
-    char failure[160],data_dir[2048];
+    char failure[160],data_dir[2048],render_dir[64];
 } AppProcess;
 
-static AppProcess foreground={.read_fd=-1,.write_fd=-1,.active=-1};
+enum { KEPT_APP_COUNT=3 };
+static AppProcess initial_foreground={.read_fd=-1,.write_fd=-1,.active=-1};
+static AppProcess *active_foreground=&initial_foreground;
+static AppProcess *kept_apps[KEPT_APP_COUNT];
+#define foreground (*active_foreground)
 static AppProcess overlays[APP_OVERLAY_COUNT]={
     {.read_fd=-1,.write_fd=-1,.active=-1},
     {.read_fd=-1,.write_fd=-1,.active=-1},
@@ -53,12 +57,14 @@ static pid_t retired[64];
 static uint64_t frame_serial;
 
 static void process_close(AppProcess *process);
+static int process_poll(AppProcess *process);
 static void reap_apps(void) {
     for(int i=0;i<64;i++)
         if(retired[i] && waitpid(retired[i],NULL,WNOHANG)!=0)retired[i]=0;
 }
 static void refresh_process(AppProcess *process) {
     if(process->active<0 || process->child<=0)return;
+    if(!app_package_installed(process->active)){process_close(process);return;}
     char exe[2048],hash[65];
     snprintf(exe,sizeof(exe),"%s/../apps/%s/app",data_root,entries[process->active].key);
     if(!package_sha256(exe,hash) || strcmp(hash,process->process_hash))process_close(process);
@@ -102,6 +108,7 @@ void app_packages_scan(void) {
  closedir(d);free(p);
  char slots[4096];size_t n=0;for(int i=APP_COUNT;i<APP_LIMIT;i++)if(*entries[i].key)n+=snprintf(slots+n,sizeof(slots)-n,"%d %s\n",i,entries[i].key);
  refresh_process(&foreground);
+ for(int i=0;i<KEPT_APP_COUNT;i++)if(kept_apps[i])refresh_process(kept_apps[i]);
  if(service)refresh_process(service);
  for(int i=0;i<APP_OVERLAY_COUNT;i++)refresh_process(&overlays[i]);
  root(file,"slots.txt");char old[4096];size_t old_n=0;FILE*before=fopen(file,"rb");if(before){old_n=fread(old,1,sizeof(old),before);fclose(before);}
@@ -221,6 +228,7 @@ static int queue_request(AppProcess *p) {
 }
 static void process_close(AppProcess *p) {
  clear_requests(p);
+ if(*p->render_dir) {package_remove(p->render_dir);p->render_dir[0]=0;}
  if(p->child>0){kill(-p->child,SIGTERM);kill(p->child,SIGTERM);waitpid(p->child,NULL,WNOHANG);}
  if(p->child>0 && waitpid(p->child,NULL,WNOHANG)==0)for(int i=0;i<64;i++)if(!retired[i]){retired[i]=p->child;break;}
  p->child=0;if(p->read_fd>=0)close(p->read_fd);if(p->write_fd>=0)close(p->write_fd);p->read_fd=p->write_fd=-1;p->active=-1;p->frame[0]=p->failure[0]=p->data_dir[0]=0;p->incoming_n=p->pending_n=0;p->frame_back=p->frame_ready=p->frame_tick=p->frame_loading=0;
@@ -260,11 +268,12 @@ static void close_inherited_fds(void) {
 }
 static int process_open(AppProcess *p,AppId id,const char *role) {
  if(!app_package_installed(id))return 0;
+ if(p->active==(int)id && p->child>0 && p->paused)process_poll(p);
  if(p->active==(int)id && p->child>0) {
     if(p->paused) {
-        char event[96];
-        int background_action=p==&foreground && service_background_owner==id ? service_action : 0;
-        snprintf(event,sizeof(event),"{\"event\":\"resume\",\"background_action\":%d}",background_action);
+        char event[128];
+        int background_action=p==&foreground && service_background_owner==(int)id ? service_action : 0;
+        snprintf(event,sizeof(event),"{\"event\":\"resume\",\"background_action\":%d,\"language\":%d}",background_action,options[OPT_LANGUAGE]);
         process_send(p,event);
     }
     p->paused=0;
@@ -295,9 +304,15 @@ static int process_open(AppProcess *p,AppId id,const char *role) {
  if(legacy){snprintf(old_state,sizeof(old_state),"%s",legacy);free(legacy);}
  else old_state[0]=0;
  package_sha256(file,p->process_hash);
- p->child=fork();if(p->child<0){p->child=0;close(in[0]);close(in[1]);close(out[0]);close(out[1]);return 0;}
+ if(!strcmp(role,"foreground")) {
+     snprintf(p->render_dir,sizeof(p->render_dir),"/tmp/lumen-surface-XXXXXX");
+     if(!mkdtemp(p->render_dir))p->render_dir[0]=0;
+ }
+ p->child=fork();if(p->child<0){p->child=0;process_close(p);close(in[0]);close(in[1]);close(out[0]);close(out[1]);return 0;}
  if(!p->child){setpgid(0,0);signal(SIGTERM,SIG_DFL);signal(SIGPIPE,SIG_DFL);dup2(in[0],0);dup2(out[1],1);close(in[0]);close(in[1]);close(out[0]);close(out[1]);
    int null=open("/dev/null",O_WRONLY);dup2(null,2);close(null);close_inherited_fds();chdir(dir);setenv("LUMEN_APP_DATA",state,1);setenv("LUMEN_APP_ASSETS",dir,1);setenv("LUMEN_LEGACY_DATA",old_state,1);
+   if(*p->render_dir)setenv("LUMEN_APP_SURFACES",p->render_dir,1);
+   else unsetenv("LUMEN_APP_SURFACES");
    char ca[2048];
    int ca_length=snprintf(ca,sizeof(ca),"%s/../certs/ca-bundle.pem",old_state);
    if(*old_state && ca_length>0 && (size_t)ca_length<sizeof(ca) && !access(ca,R_OK))
@@ -308,7 +323,7 @@ static int process_open(AppProcess *p,AppId id,const char *role) {
  p->active=id;p->paused=0;p->generation=++process_generation;
  if(p==service)return 1;
  char*event=NULL;size_t n=0;FILE*f=open_memstream(&event,&n);
- int background_action=p==&foreground && service_background_owner==id ? service_action : 0;
+ int background_action=p==&foreground && service_background_owner==(int)id ? service_action : 0;
  fprintf(f,"{\"event\":\"open\",\"api\":1,\"width\":600,\"height\":800,\"content_y\":56,\"language\":%d,\"background_action\":%d,\"data_dir\":",options[OPT_LANGUAGE],background_action);json_text(f,state);fputs(",\"role\":",f);json_text(f,role);fputc('}',f);fclose(f);int ok=process_send(p,event);free(event);return ok;
 }
 static int wire_true(const char *key) {
@@ -557,11 +572,70 @@ void app_service_poll(void) {
     else if(!app_service_wait_ms())service_finish(0,"timeout","");
 }
 
-void app_process_close(void){service_close();service_caller=0;service_background_owner=-1;process_close(&foreground);for(int i=0;i<APP_OVERLAY_COUNT;i++)process_close(&overlays[i]);}
-void app_process_pause(void){process_pause(&foreground);if(service_caller && service_background_owner<0)service_finish(0,"cancelled","");}
-int app_process_open(AppId id){return process_open(&foreground,id,"foreground");}
+static void dispose_foreground(AppProcess *process) {
+    if(!process)return;
+    process_close(process);
+    if(process!=&initial_foreground)free(process);
+}
+static void keep_foreground(AppProcess *process) {
+    if(process->child<=0){dispose_foreground(process);return;}
+    process_pause(process);
+    dispose_foreground(kept_apps[KEPT_APP_COUNT-1]);
+    for(int i=KEPT_APP_COUNT-1;i>0;i--)kept_apps[i]=kept_apps[i-1];
+    kept_apps[0]=process;
+}
+void app_process_close(void) {
+    service_close();service_caller=0;service_background_owner=-1;
+    dispose_foreground(active_foreground);
+    active_foreground=&initial_foreground;
+    for(int i=0;i<KEPT_APP_COUNT;i++){
+        dispose_foreground(kept_apps[i]);kept_apps[i]=NULL;
+    }
+    for(int i=0;i<APP_OVERLAY_COUNT;i++)process_close(&overlays[i]);
+}
+/* A forked system worker must close its inherited pipe ends without
+ * signalling the parent's children or removing their transient surfaces. */
+void app_process_detach_inherited(void) {
+    AppProcess *processes[]={active_foreground,service,
+        kept_apps[0],kept_apps[1],kept_apps[2],
+        &overlays[0],&overlays[1],&overlays[2],&overlays[3]};
+    for(size_t i=0;i<sizeof(processes)/sizeof(processes[0]);i++) {
+        if(!processes[i])continue;
+        processes[i]->child=0;
+        processes[i]->render_dir[0]=0;
+    }
+    memset(retired,0,sizeof(retired));
+    app_process_close();
+}
+void app_process_pause(void) {
+    process_pause(&foreground);
+    if(service_caller && service_background_owner<0)service_finish(0,"cancelled","");
+}
+int app_process_open(AppId id) {
+    if(!app_package_installed(id))return 0;
+    if(foreground.active==(int)id)return process_open(&foreground,id,"foreground");
+    AppProcess *next=NULL;
+    for(int i=0;i<KEPT_APP_COUNT;i++)if(kept_apps[i] && kept_apps[i]->active==(int)id) {
+        next=kept_apps[i];
+        for(int j=i;j<KEPT_APP_COUNT-1;j++)kept_apps[j]=kept_apps[j+1];
+        kept_apps[KEPT_APP_COUNT-1]=NULL;
+        break;
+    }
+    if(!next && foreground.child<=0)return process_open(&foreground,id,"foreground");
+    if(!next) {
+        next=calloc(1,sizeof(*next));
+        if(!next)return 0;
+        next->active=next->read_fd=next->write_fd=-1;
+    }
+    app_process_pause();
+    AppProcess *previous=active_foreground;
+    active_foreground=next;
+    keep_foreground(previous);
+    return process_open(&foreground,id,"foreground");
+}
 int app_process_owner(void){return foreground.active;}
 const char *app_process_data_dir(void){return foreground.data_dir;}
+const char *app_process_render_dir(void){return foreground.render_dir;}
 int app_process_fd(void){return foreground.read_fd;}
 int app_overlay_fd(int slot){return slot>=0 && slot<APP_OVERLAY_COUNT ? overlays[slot].read_fd : -1;}
 int app_process_pending(void){

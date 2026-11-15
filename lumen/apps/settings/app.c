@@ -74,7 +74,7 @@ static const char **values(int id,int *count,int *selected) {
 }
 static void toggle_row(const char *id,int y,const char *title,int selected) {
     lumen_text(30,y,453,48,title,PAINT_BODY,0,1);
-    lumen_toggle_action(id,492,y+4,selected);ui_paint_line(28,y+55,572,y+55,1,190);
+    lumen_toggle_action(id,492,y+4,selected);lumen_list_divider(28,y+55,572);
 }
 static void draw_wifi(void) {
     toggle_row("wifi-power",137,name(WIFI),enabled);
@@ -98,7 +98,7 @@ static void draw_wifi(void) {
             snprintf(id,sizeof(id),"forget-%d",i);
             lumen_icon_action(id,522,y+15,IC_TRASH);
         }
-        ui_paint_line(28,y+73,572,y+73,1,190);
+        lumen_list_divider(28,y+73,572);
     }
     if(!count)lumen_wrapped(28,257,544,100,busy ? word("Suche läuft …","Scanning…","Recherche…") :
         word("Keine Netzwerke gefunden.","No networks found.","Aucun réseau trouvé."),PAINT_TITLE,3);
@@ -161,7 +161,7 @@ static void draw_apps(void) {
             lumen_icon_action(id,526,y+10,IC_TRASH);
         }
         else ui_paint_icon_button(526,y+10,IC_LOCK);
-        ui_paint_line(28,y+67,572,y+67,1,190);
+        lumen_list_divider(28,y+67,572);
     }
     lumen_pager(745,page,(count+7)/8);
 }

@@ -21,21 +21,16 @@ static void action(const char *operation,const char *value) {
 }
 static void cover(int x,int y,int w,int h,const char *id){lumen_book_cover(x,y,w,h,id);}
 static void shelf(void) {
-    int featured=*books[6].id,top=featured ? 419 : 115;
-    lumen_text(28,featured ? 366 : 66,420,44,*query ? query :
+    int featured=*books[6].id,top=featured ? 429 : 115;
+    lumen_text(28,featured ? 376 : 66,420,44,*query ? query :
         word("M E I N E  B Ü C H E R","M Y  B O O K S","M E S  L I V R E S"),PAINT_SECONDARY,-1,1);
     lumen_icon_action("search",468,60,IC_SEARCH);
     lumen_icon_action("preferences",528,60,IC_SETTINGS);
     if(featured) {
-        cover(28,80,152,208,books[6].id);
-        lumen_custom_action("book-6",28,80,544,230);
-        lumen_text(204,96,366,36,word("W E I T E R L E S E N","C O N T I N U E  R E A D I N G","R E P R E N D R E"),PAINT_SECONDARY,-1,1);
-        lumen_book_label(204,135,366,books[6].title,books[6].author);
-        ui_paint_line(206,282,488,282,3,199);
-        int progress=books[6].progress;if(progress>100)progress=100;
-        if(progress>0)ui_paint_line(206,282,206+282*progress/100,282,3,0);
-        char label[16];snprintf(label,sizeof(label),"%d%%",progress);
-        lumen_text(495,263,75,39,label,PAINT_BODY,0,0);
+        cover(28,109,152,208,books[6].id);
+        lumen_custom_action("book-6",28,109,544,218);
+        lumen_text(204,111,366,30,word("W E I T E R L E S E N","C O N T I N U E  R E A D I N G","R E P R E N D R E"),PAINT_SECONDARY,-1,1);
+        lumen_book_progress(204,150,366,books[6].title,books[6].author,books[6].progress);
     }
     for(int i=0;i<(featured ? 3 : 6);i++)if(*books[i].id) {
         int x=28+i%3*188,y=top+i/3*304;

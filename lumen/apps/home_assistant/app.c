@@ -120,7 +120,7 @@ static void draw(void) {
             lumen_text(30,y+4,445,33,d->name,PAINT_BODY,0,1);
             lumen_text(30,y+35,445,26,value,PAINT_SECONDARY,-1,1);
             lumen_toggle(492,y+14,d->saved);
-            ui_paint_line(28,y+67,572,y+67,1,190);
+            lumen_list_divider(28,y+67,572);
         } else {
             int x=28+i%2*282,y=148+i/2*140;
             ui_paint_surface(x,y,262,126,20,255,100);

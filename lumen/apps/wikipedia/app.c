@@ -1,4 +1,5 @@
 #include "lumen_app.h"
+#include "summary.h"
 
 static int page,count,busy;
 static char query[256],deleting[17];
@@ -32,7 +33,7 @@ static void draw(void) {
             snprintf(action,sizeof(action),"delete-%d",i);
             lumen_icon_action(action,522,y+17,IC_TRASH);
         }
-        ui_paint_line(28,y+77,572,y+77,1,190);
+        lumen_list_divider(28,y+77,572);
     }
     if(!count)
         lumen_wrapped(30,175,540,120,word("Gelesene Artikel bleiben hier offline verfügbar.",
@@ -103,4 +104,4 @@ static int input(const Input *in) {
     }
     return 1;
 }
-int main(void){lumen_run(draw,input,NULL);return 0;}
+int main(void){lumen_service_handler=serve_summary;lumen_run(draw,input,NULL);return 0;}

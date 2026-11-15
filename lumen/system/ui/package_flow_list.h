@@ -21,8 +21,11 @@ static void package_flow_list(Json *j,int item) {
         height[i]=0;
         if(col<0 || col>=columns)continue;
         char title[512];json_string(j,json_get(j,r,"title"),title,sizeof(title));
-        FlowLine lines[14];int n=text_flow(title,ui_font(UI_BODY),text_width,lines,14);
-        int h=n*27+22;if(h<68)h=68;
+        int details=json_get(j,r,"detail");
+        int available=text_width-(details>=0 ? 46 : 0);
+        FlowLine lines[14];int n=text_flow(title,ui_font(UI_BODY),available,lines,14);
+        int h=n*27+22+(details>=0 && j->tokens[details].end-j->tokens[details].start>2 ? 21 : 0);
+        if(h<68)h=68;
         if(offset[col]+h>720 && offset[col]>first){offset[col]=first;pages[col]++;}
         height[i]=h;row_top[i]=offset[col];row_page[i]=pages[col];line_count[i]=n;
         offset[col]+=h+4;
@@ -37,17 +40,33 @@ static void package_flow_list(Json *j,int item) {
         json_string(j,json_get(j,r,"title"),title,sizeof(title));
         if(!*id)continue;
         int checked=package_value(j,r,"checked"),pinned=package_value(j,r,"pinned");
+        int has_action=json_get(j,r,"detail")>=0,warning=package_value(j,r,"warning");
+        char detail[96];json_string(j,json_get(j,r,"detail"),detail,sizeof(detail));
         if(columns==2)key_outline(x,y,width,height[i]);
-        else rect(x,y+height[i],width,1,205);
+        else divider(x,y+height[i],width);
         region(x,y,width,height[i]);
         int left=x+(columns==2 ? 8 : 1),flag=x+(columns==2 ? 212 : 430);
+        int action_x=flag-48,text_x=x+(columns==2 ? 60 : 52);
+        int available=text_width-(has_action ? 46 : 0);
+        int text_top=center-(line_count[i]*27+(*detail ? 21 : 0))/2;
         checkbox(left,center-15,checked);
         icon_button(flag,center-22,pinned ? IC_FLAG_FILLED : IC_FLAG);
         if(columns==1)icon_button(522,center-22,IC_TRASH);
-        text_flow_draw(x+(columns==2 ? 60 : 52),center-line_count[i]*27/2,text_width,title,ui_font(UI_BODY),27,14,checked);
+        if(has_action)icon_button(action_x,center-22,IC_CLOCK);
+        text_flow_draw(text_x,text_top,available,title,ui_font(UI_BODY),27,14,checked);
+        if(*detail) {
+            int detail_y=text_top+line_count[i]*27-2;
+            if(warning) {
+                outline_surface(text_x,detail_y+4,16,16,8,0);
+                centered(text_x,detail_y+1,16,21,"!",&caption);
+            }
+            int shift=warning ? 21 : 0;
+            label_ellipsis(text_x+shift,detail_y,available-shift,25,detail,&caption,0);
+        }
         package_flow_action(id,left,center-24,44,48,1);
         package_flow_action(id,flag,center-22,44,44,2);
         if(columns==1)package_flow_action(id,510,y,62,height[i],3);
+        if(has_action)package_flow_action(id,action_x,center-22,44,44,4);
         package_flow_action(id,x,y,width,height[i],0);
     }
     if(total>1) {

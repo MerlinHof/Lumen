@@ -2,6 +2,8 @@
 #include "engine.h"
 #include "fonts.h"
 #include <math.h>
+#include <ctype.h>
+#include <time.h>
 #include <mupdf/fitz.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -520,6 +522,117 @@ int engine_restore(const ReaderPosition *position) {
     if (page >= count)
         page = count - 1;
     return page;
+}
+
+static int word_rune(int rune) {
+    return fz_isalpha(rune) || (rune>='0' && rune<='9') || rune=='_';
+}
+static const char *match_term(const char *text,const char *term,const char **end) {
+    int previous=0;
+    for(const char *at=text;*at;) {
+        if(!word_rune(previous)) {
+            const char *left=at,*right=term;
+            while(*left && *right) {
+                int a,b;
+                int an=fz_chartorune(&a,left),bn=fz_chartorune(&b,right);
+                if(fz_tolower(a)!=fz_tolower(b))break;
+                left+=an;right+=bn;
+            }
+            int next=0;
+            if(*left)fz_chartorune(&next,left);
+            if(!*right && !word_rune(next)){*end=left;return at;}
+        }
+        at+=fz_chartorune(&previous,at);
+    }
+    return NULL;
+}
+static int sentence_boundary(const char *start,const char *at) {
+    if(*at=='\n')return 1;
+    if(*at!='.' && *at!='!' && *at!='?')return 0;
+    const char *after=at+1;
+    while(*after && strchr("\"'",*after))after++;
+    if(*after && *after!=' ' && *after!='\n')return 0;
+    if(*at!='.')return 1;
+    const char *word=at;
+    while(word>start && isalpha((unsigned char)word[-1]))word--;
+    size_t size=(size_t)(at-word);
+    static const char *const titles[]={"Mr","Mrs","Ms","Dr","Prof","St","Jr","Sr","Mme","Mlle"};
+    if(size==1 && isupper((unsigned char)*word))return 0;
+    for(size_t i=0;i<sizeof(titles)/sizeof(*titles);i++)
+        if(size==strlen(titles[i]) && !strncmp(word,titles[i],size))return 0;
+    return 1;
+}
+static void collapse_spaces(unsigned char *text,size_t size) {
+    size_t out=0;
+    for(size_t i=0;i<size;) {
+        unsigned char value=text[i++];
+        if(!value || isspace(value)) {
+            int breaks=value=='\n';
+            while(i<size && (!text[i] || isspace(text[i])))breaks+=text[i++]=='\n';
+            if(out && i<size)text[out++]=breaks>1 ? '\n' : ' ';
+        } else text[out++]=value;
+    }
+    text[out]=0;
+}
+/* The caller runs this bounded search outside the input and rendering loop. */
+int engine_first_mention(const char *term,int through,char *excerpt,size_t capacity) {
+    if(!doc || !*term || through<0 || capacity<32)return -1;
+    *excerpt=0;
+    if(through>=count)through=count-1;
+    struct timespec started;
+    clock_gettime(CLOCK_MONOTONIC,&started);
+    for(int page=0;page<=through;page++) {
+        struct timespec now;
+        clock_gettime(CLOCK_MONOTONIC,&now);
+        if(now.tv_sec-started.tv_sec>7)break;
+        fz_buffer *buffer=NULL;
+        int found=0;
+        fz_var(buffer);fz_var(found);
+        fz_try(ctx) {
+            fz_stext_options options={0};
+            buffer=fz_new_buffer_from_page_number(ctx,doc,page,&options);
+            fz_terminate_buffer(ctx,buffer);
+            unsigned char *bytes=NULL;
+            size_t size=fz_buffer_storage(ctx,buffer,&bytes);
+            if(size<2*1024*1024) {
+                collapse_spaces(bytes,size);
+                const char *text=(char *)bytes,*end=NULL,*match,*cursor=text;
+                while((match=match_term(cursor,term,&end))!=NULL) {
+                    const char *start=text,*term_end=end;
+                    for(const char *p=text;p<match;p++)if(sentence_boundary(text,p))start=p+1;
+                    while(*start && (isspace((unsigned char)*start) || *start=='"' || *start=='\''))start++;
+                    while(*end && !sentence_boundary(text,end))end++;
+                    if(start==match && term_end==end && (!*end || *end=='\n')) {
+                        cursor=term_end;
+                        continue;
+                    }
+                    if(*end && *end!='\n') {
+                        end++;
+                        while(*end && strchr("\"'",*end))end++;
+                    }
+                    int cropped=(size_t)(end-start)>=capacity;
+                    if(cropped) {
+                        size_t before=(size_t)(match-start);
+                        if(before>capacity/2) {
+                            start=match-capacity/3;
+                            while(((unsigned char)*start&192)==128)start++;
+                        }
+                        if((size_t)(end-start)>=capacity-4)end=start+capacity-4;
+                    }
+                    while(end>start && ((unsigned char)*end&192)==128)end--;
+                    size_t length=(size_t)(end-start);
+                    memcpy(excerpt,start,length);
+                    strcpy(excerpt+length,cropped ? "…" : "");
+                    found=1;
+                    break;
+                }
+            }
+        }
+        fz_always(ctx) {fz_drop_buffer(ctx,buffer);}
+        fz_catch(ctx) {}
+        if(found)return page;
+    }
+    return -1;
 }
 
 static fz_stext_page *selection_get(int number, fz_page *p) {

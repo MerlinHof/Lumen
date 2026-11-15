@@ -171,6 +171,10 @@ static inline void lumen_bitmap(const char *path,int x,int y,int w,int h,int rev
  printf(",\"revision\":%d}",revision);
 }
 /* Send raw pointer events only to a declared spatial input area. */
+static inline void lumen_transient_bitmap(const char *path,int x,int y,int w,int h,int skip,int revision) {
+ lumen_cmd("bitmap",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(path);
+ printf(",\"transient\":1,\"skip\":%d,\"revision\":%d}",skip,revision);
+}
 static inline void lumen_pointer_area(int x,int y,int w,int h) {
  lumen_cmd("pointer_area",x,y,w,h);putchar('}');
 }
@@ -194,9 +198,14 @@ static void lumen_photo(int x,int y,int w,int h,const char *key,int fill,int rot
 static void lumen_book_cover(int x,int y,int w,int h,const char *key) {
  lumen_cmd("book_cover",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(key);putchar('}');
 }
-static void lumen_book_label(int x,int y,int w,const char *title,const char *author) {
+static inline void lumen_book_progress(int x,int y,int w,const char *title,const char *author,int progress) {
  lumen_cmd("book_label",x,y,w,135);fputs(",\"text\":",stdout);lumen_json(title);
- fputs(",\"author\":",stdout);lumen_json(author);putchar('}');
+ fputs(",\"author\":",stdout);lumen_json(author);
+ if(progress>=0)printf(",\"progress\":%d",progress);
+ putchar('}');
+}
+static void lumen_book_label(int x,int y,int w,const char *title,const char *author) {
+ lumen_book_progress(x,y,w,title,author,-1);
 }
 static void lumen_catalog_cover(int x,int y,int w,int h,const char *key) {
  lumen_cmd("catalog_cover",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(key);putchar('}');
@@ -213,11 +222,20 @@ static void lumen_flow_list(int columns,int page) {
  lumen_cmd("flow_list",28,137,544,583);
  printf(",\"columns\":%d,\"page\":%d,\"rows\":[",columns,page);
 }
-static void lumen_flow_row(int row,const char *id,const char *title,int column,int checked,int pinned) {
+static inline void lumen_flow_row_detail(int row,const char *id,const char *title,int column,
+        int checked,int pinned,const char *detail,int warning) {
  if(row)putchar(',');
  fputs("{\"id\":",stdout);lumen_json(id);
  fputs(",\"title\":",stdout);lumen_json(title);
- printf(",\"column\":%d,\"checked\":%d,\"pinned\":%d}",column,!!checked,!!pinned);
+ printf(",\"column\":%d,\"checked\":%d,\"pinned\":%d",column,!!checked,!!pinned);
+ if(detail) {
+    fputs(",\"detail\":",stdout);lumen_json(detail);
+    printf(",\"warning\":%d",!!warning);
+ }
+ putchar('}');
+}
+static void lumen_flow_row(int row,const char *id,const char *title,int column,int checked,int pinned) {
+ lumen_flow_row_detail(row,id,title,column,checked,pinned,NULL,0);
 }
 static void lumen_flow_end(void){fputs("]}",stdout);}
 static void lumen_segments(const char *id,int x,int y,int w,int h,const char **labels,int count,int selected) {
@@ -289,6 +307,10 @@ static void lumen_textfield(const char *id,const char *label,const char *value) 
 }
 static void lumen_qr(int x,int y,int side,const char *value) {
  lumen_cmd("qr",x,y,side,side);fputs(",\"text\":",stdout);lumen_json(value);putchar('}');
+}
+enum { LUMEN_LIST_DIVIDER=232 };
+static inline void lumen_list_divider(int left,int y,int right) {
+ ui_paint_line(left,y,right,y,1,LUMEN_LIST_DIVIDER);
 }
 static void lumen_pager(int y,int page,int count) {
  lumen_cmd("pager",205,y,189,44);printf(",\"page\":%d,\"count\":%d}",page,count);
@@ -384,7 +406,10 @@ static void lumen_run(void(*draw)(void),int(*input)(const Input*),void(*save)(vo
       lumen_language=lumen_number("language");
       Input in={.kind=INPUT_OPEN};input(&in);
    }
-   if(lumen_is("resume")){Input in={.kind=INPUT_RESUME};input(&in);}
+   if(lumen_is("resume")){
+      if(wire_get("language"))lumen_language=lumen_number("language");
+      Input in={.kind=INPUT_RESUME};input(&in);
+   }
    if(lumen_is("service")){Input in={.kind=INPUT_SERVICE,.x=lumen_number("action"),.y=lumen_number("ok")};input(&in);if(save)save();}
    if(lumen_is("component")){Input in={.kind=INPUT_COMPONENT,.x=lumen_number("changed")};input(&in);if(save)save();}
    char operation[48];

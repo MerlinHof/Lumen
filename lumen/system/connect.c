@@ -1061,6 +1061,7 @@ int connect_start(int port, int timeout) {
     }
     if (!service) {
         close(ready[0]);
+        app_process_detach_inherited();
 #ifndef LUMEN_HOST
         prctl(PR_SET_PDEATHSIG, SIGTERM);
         if (getppid() == 1)

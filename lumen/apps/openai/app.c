@@ -154,7 +154,7 @@ static void draw(void) {
             char date[50];struct tm local;localtime_r(&chat_archive[index].modified,&local);
             strftime(date,sizeof(date),"%d.%m.%Y · %H:%M",&local);
             lumen_text(30,y+42,540,23,date,PAINT_SECONDARY,-1,1);
-            ui_paint_line(28,y+75,572,y+75,1,191);
+            lumen_list_divider(28,y+75,572);
         }
         lumen_pager(745,chat_archive_page,(chat_archive_count+6)/7);
         return;

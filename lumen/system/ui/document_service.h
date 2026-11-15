@@ -39,8 +39,58 @@ static int reader_set_value(int id,int value) {
     else library_options_save();
     return 1;
 }
+typedef struct {int page;char quote[480];} DocumentExcerpt;
+static struct {pid_t child;int fd,action;int64_t due;} document_excerpt={.fd=-1};
+static void document_excerpt_close(void) {
+    if(document_excerpt.fd>=0)close(document_excerpt.fd);
+    if(document_excerpt.child>0) {
+        kill(document_excerpt.child,SIGKILL);
+        while(waitpid(document_excerpt.child,NULL,0)<0 && errno==EINTR){}
+    }
+    document_excerpt.fd=-1;document_excerpt.child=0;
+}
+static int document_excerpt_start(const char *term,int action) {
+    document_excerpt_close();
+    if(current<0 || !*term || strlen(term)>128)return package_acknowledge(action,0);
+    int out[2];
+    if(pipe(out))return package_acknowledge(action,0);
+    pid_t child=fork();
+    if(child==0) {
+        close(out[0]);
+        app_process_detach_inherited();
+        DocumentExcerpt result={0};
+        result.page=engine_first_mention(term,page,result.quote,sizeof(result.quote));
+        ssize_t written=write(out[1],&result,sizeof(result));
+        _exit(written==(ssize_t)sizeof(result) ? 0 : 1);
+    }
+    close(out[1]);
+    if(child<0){close(out[0]);return package_acknowledge(action,0);}
+    fcntl(out[0],F_SETFL,O_NONBLOCK);
+    document_excerpt.child=child;document_excerpt.fd=out[0];
+    document_excerpt.action=action;document_excerpt.due=extra_millis()+8000;
+    return 1;
+}
+static int document_excerpt_wait(void) {return document_excerpt.child>0 ? 100 : -1;}
+static void document_excerpt_poll(void) {
+    if(document_excerpt.child<=0)return;
+    DocumentExcerpt result;
+    ssize_t got=read(document_excerpt.fd,&result,sizeof(result));
+    if(got<0 && (errno==EAGAIN || errno==EINTR) && extra_millis()<document_excerpt.due)return;
+    int ok=got==(ssize_t)sizeof(result) && result.page>=0;
+    int action=document_excerpt.action;
+    document_excerpt_close();
+    if(!ok){package_acknowledge(action,0);return;}
+    char *message=NULL;size_t length=0;
+    FILE *out=package_reply(&message,&length,action,1);
+    if(out) {
+        fprintf(out,",\"mention_page\":%d",result.page+1);
+        package_field(out,"quote",result.quote);
+        package_reply_end(out,&message);
+    }
+}
 static int package_document(const char *operation,const char *data,int action) {
     if(app_for_route(ui_route())!=APP_READER)return 0;
+    if(!strcmp(operation,"first_mention"))return document_excerpt_start(data,action);
     if(!strcmp(operation,"setting")) {
         int field,value;char tail;
         if(sscanf(data,"%d %d %c",&field,&value,&tail)!=2 || !reader_set_value(field,value))

@@ -49,7 +49,7 @@ static void draw(void) {
             lumen_text(30,y+6,425,37,rows[i].title,PAINT_BODY,0,1);
             lumen_text(30,y+42,425,25,rows[i].author,PAINT_SECONDARY,-1,1);
             lumen_toggle(492,y+10,rows[i].flag);
-            ui_paint_line(28,y+75,572,y+75,1,190);
+            lumen_list_divider(28,y+75,572);
         } else {
             int y=174+i*87;
             lumen_catalog_cover(30,y+7,50,69,rows[i].id);
@@ -57,7 +57,7 @@ static void draw(void) {
             lumen_text(100,y+57,419,24,rows[i].author,PAINT_SECONDARY,-1,1);
             ui_paint_icon_button(528,y+20,IC_NEXT);
             ui_paint_hitbox(28,y,544,87);
-            ui_paint_line(28,y+86,572,y+86,1,190);
+            lumen_list_divider(28,y+86,572);
         }
     }
     if(view!=FEATURED)lumen_pager(745,page,(count+limit-1)/limit);
