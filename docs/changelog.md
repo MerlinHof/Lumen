@@ -1,5 +1,9 @@
 # Changelog
 
+- [6.3](releases/6.3.md) · OpenAI chat continuity, Reader startup, Clock dropdown, and shared touch and caret feedback.
+
+- [6.2](https://github.com/MerlinHof/Lumen/releases/tag/v6.2) · App-owned Notes editor, ink and exports, plus Calculator and Kindle power fixes.
+
 - [6.1](releases/6.1.md) · App-owned Notes collections and recall, named device preferences, expanded SDK storage and restored puzzle help.
 
 - [6.0](releases/6.0.md) · All 52 apps packaged, SDK hardening and restored 5.4 waveform policy.
