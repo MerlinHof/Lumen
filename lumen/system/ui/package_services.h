@@ -48,7 +48,7 @@ static int transfer_service(const char *operation,const char *data,int action) {
     if(!strcmp(operation,"start"))ok=connect_start(options[OPT_PORT],options[OPT_TIMEOUT]);
     else if(!strcmp(operation,"stop")){
         connect_stop();
-        if(library_ui.library_dirty)refresh_library();
+        if(library_dirty)refresh_library();
     } else if(!strcmp(operation,"port") || !strcmp(operation,"timeout")) {
         char *end;long value=strtol(data,&end,10);
         int port=!strcmp(operation,"port");
@@ -75,7 +75,7 @@ static int transfer_service(const char *operation,const char *data,int action) {
 #include "wikipedia_service.h"
 #include "news_service.h"
 #include "catalog_service.h"
-#include "library_service.h"
+#include "book_catalog.h"
 #include "media_service.h"
 #include "document_service.h"
 #include "device_service.h"
@@ -94,12 +94,26 @@ static int package_service_request(const char *name,const char *operation,const 
     if(!strcmp(name,"settings"))return package_device(operation,data,action,1);
     if(!strcmp(name,"document"))return package_document(operation,data,action);
     if(!strcmp(name,"media"))return package_media(operation,data,action);
-    if(!strcmp(name,"library"))return package_library(operation,data,action);
+    if(!strcmp(name,"books"))return package_books(operation,data,action);
     if(!strcmp(name,"store"))return package_store(operation,data,action);
     if(!strcmp(name,"news"))return package_news(operation,data,action);
     if(!strcmp(name,"wikipedia"))return package_wikipedia(operation,data,action);
     if(!strcmp(name,"recipes"))return package_recipes(operation,data,action);
     if(!strcmp(name,"transfer"))return transfer_service(operation,data,action);
+    if(!strcmp(name,"dictionary") && !strcmp(operation,"lookup")) {
+        char translation[420];
+        if(!*data || strlen(data)>2047)return package_acknowledge(action,0);
+        const char *definition=dictionary_lookup(data,options[OPT_LANGUAGE],NULL);
+        if(!definition && dictionary_translate(data,options[OPT_LANGUAGE],translation,sizeof(translation)))
+            definition=translation;
+        if(!definition)return package_acknowledge(action,0);
+        char *message=NULL;size_t length=0;
+        FILE *out=package_reply(&message,&length,action,1);
+        if(!out)return 0;
+        package_field(out,"definition",definition);
+        package_reply_end(out,&message);
+        return 1;
+    }
     if(!strcmp(name,"dictionary") && !strcmp(operation,"game_word")) {
         char *end;
         unsigned long seed=strtoul(data,&end,10);

@@ -1,4 +1,4 @@
-main.c
+system/main.c
 system/ui/ui.c
 system/library.c
 system/defaults.c

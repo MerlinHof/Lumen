@@ -14,7 +14,7 @@ obj, executable = out / "benchmark.o", out / "benchmark"
 subprocess.run(["clang", "-DLUMEN_HOST", "-O2", "-I" + str(mupdf / "include"),
                 "-c", str(source), "-o", str(obj)], check=True)
 objects = [build.object_path("host", s) for s in build.sources()
-           if s not in ("main.c", "system/ui/ui.c")]
+           if s not in ("system/main.c", "system/ui/ui.c")]
 subprocess.run(["clang++", str(obj), *map(str, objects + libs), "-lm", "-lpthread",
                 "-o", str(executable)], check=True)
 result = subprocess.run([str(executable)], cwd=root, check=True, capture_output=True, text=True)

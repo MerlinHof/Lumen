@@ -17,30 +17,53 @@ static void package_book_summary(FILE *out,int row,const Book *book) {
     fprintf(out,",\"pinned%d\":%d,\"progress%d\":%d",row,book->favorite,row,
         book->total>0 ? (int)(100LL*(book->page+1)/book->total) : 0);
 }
-static int package_library(const char *operation,const char *data,int action) {
-    if(!strcmp(operation,"sort")) {
-        if(strlen(data)!=1 || data[0]<'0' || data[0]>'5')return package_acknowledge(action,0);
-        settings.sort=data[0]-'0';library_settings_save();update_view();
-        return package_acknowledge(action,1);
+/* Shared catalog query. Page geometry, featured cards and persisted sort
+ * preferences belong to the caller. */
+static int catalog_contains_line(const char *lines,const char *name) {
+    for(const char *at=lines;*at;) {
+        size_t size=strcspn(at,"\n");
+        if(strlen(name)==size && !memcmp(name,at,size))return 1;
+        at+=size+(at[size]=='\n');
     }
-    if(!strcmp(operation,"shelf")) {
-        char *end;long requested=strtol(data,&end,10);
-        if(end==data || *end!='\n' || requested<0 || requested>BOOK_LIMIT ||
-           strlen(end+1)>=sizeof(library_ui.query))return package_acknowledge(action,0);
-        if(library_ui.library_dirty)refresh_library();
-        snprintf(library_ui.query,sizeof(library_ui.query),"%s",end+1);
-        library_ui.listpage=(int)requested;update_view();
-        char *message=NULL;size_t length=0;
-        FILE *out=package_reply(&message,&length,action,1);
-        if(!out)return 0;
-        fprintf(out,",\"page\":%d,\"pages\":%d,\"sort\":%d",library_ui.listpage,library_pages(),settings.sort);
-        int last=featured(),begin=library_begin();
-        if(last>=0 && !library_ui.listpage)package_book_summary(out,6,&library[last]);
-        for(int i=0;i<library_per() && begin+i<library_ui.view_count;i++)
-            package_book_summary(out,i,&library[library_ui.view[begin+i]]);
-        package_reply_end(out,&message);
-        return 1;
+    return 0;
+}
+static int package_book_query(const char *data,int action) {
+    int offset,limit,sort,flags,read=0;
+    if(sscanf(data,"%d %d %d %d%n",&offset,&limit,&sort,&flags,&read)!=4 ||
+       offset<0 || offset>BOOK_LIMIT || limit<1 || limit>16 || sort< -1 || sort>5 ||
+       flags<0 || flags>3 || data[read]!='\n')return package_acknowledge(action,0);
+    const char *query=data+read+1,*filters=strchr(query,'\n');
+    if(!filters || filters-query>=128 || strlen(filters+1)>512)return package_acknowledge(action,0);
+    char term[128];
+    snprintf(term,sizeof(term),"%.*s",(int)(filters-query),query);
+    if(library_dirty)refresh_library();
+    int order[BOOK_LIMIT],visible[BOOK_LIMIT];
+    if(sort<0)sort=settings.sort>=0 && settings.sort<=5 ? settings.sort : 0;
+    int count=library_view(order,term,0,sort),found=0,recent=library_last();
+    for(int pass=0;pass<((flags&1) ? 2 : 1);pass++) {
+        for(int i=0;i<count;i++) {
+            int index=order[i];
+            const Book *book=&library[index];
+            const char *name=strrchr(book->path,'/');
+            name=name ? name+1 : book->path;
+            if(((flags&1) && (!!book->favorite)!=(pass==0)) ||
+               ((flags&2) && index==recent) || catalog_contains_line(filters+1,name))continue;
+            visible[found++]=index;
+        }
     }
+    char *message=NULL;size_t length=0;
+    FILE *out=package_reply(&message,&length,action,1);
+    if(!out)return 0;
+    fprintf(out,",\"count\":%d,\"sort\":%d,\"has_recent\":%d",found,sort,recent>=0);
+    for(int i=0;i<limit && offset+i<found;i++)
+        package_book_summary(out,i,&library[visible[offset+i]]);
+    if(recent>=0)package_book_summary(out,16,&library[recent]);
+    package_reply_end(out,&message);
+    return 1;
+}
+static int package_books(const char *operation,const char *data,int action) {
+    if(!strcmp(operation,"query"))return package_book_query(data,action);
+    if(library_dirty)refresh_library();
     const char *text=strchr(data,'\n');
     char key[17];
     if(text && text-data!=16)return package_acknowledge(action,0);
@@ -57,13 +80,13 @@ static int package_library(const char *operation,const char *data,int action) {
         return 1;
     }
     if(!strcmp(operation,"pin")) {
-        book->favorite=!book->favorite;library_save_book(book);update_view();
+        book->favorite=!book->favorite;library_save_book(book);
         return package_acknowledge(action,1);
     }
     if(!strcmp(operation,"delete")) {
         if(current==index){ui_save();engine_close();current=-1;}
         int ok=library_delete(index);
-        if(ok){selected=-1;update_view();}
+        if(ok)selected=-1;
         return package_acknowledge(action,ok);
     }
     if(text && text[1]) {

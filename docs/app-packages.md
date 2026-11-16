@@ -50,7 +50,7 @@ require 6.5 or later. From 6.6, packages can declare a `launcher` object with
 ## System providers
 
 A package may declare a role in `provides`. The startup role requires a
-foreground surface, as does `document`. The other four roles require an overlay surface and
+foreground surface, as do `document` and `books`. The other four roles require an overlay surface and
 receive their existing role-specific event stream. To override a shipped
 provider, install a package declaring that role and set the respective entry
 in `lumen/data/providers.conf` before restarting LUMEN.
@@ -62,6 +62,7 @@ status=lumen.status-bar
 notification=lumen.notifications
 sleep=lumen.lock-screen
 document=lumen.reader
+books=lumen.library
 ```
 
 The runtime uses the shipped provider if an override is unavailable.

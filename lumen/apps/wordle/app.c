@@ -1,5 +1,5 @@
 #include "../games/package_ui.h"
-#include "../../vendor/wordle_words.h"
+#include "wordle_words.h"
 #include <ctype.h>
 static struct {
     int date, row, over;

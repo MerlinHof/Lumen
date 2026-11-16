@@ -40,14 +40,6 @@ static void u15_init(void) {
         while (source15_count < 10 && *source15[source15_count].name)
             source15_count++;
     }
-    local_path(p, sizeof(p), "reader-progress15.txt");
-    f = fopen(p, "r");
-    if (f) {
-        fscanf(f, "%d", &reader_ui.reader_progress_mode);
-        fclose(f);
-    }
-    if (reader_ui.reader_progress_mode < 0 || reader_ui.reader_progress_mode > 6)
-        reader_ui.reader_progress_mode = 0;
 }
 static void u15_sources_prepare(const char *encoded) {
     u15_init();

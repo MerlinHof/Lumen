@@ -201,6 +201,10 @@ static void lumen_photo(int x,int y,int w,int h,const char *key,int fill,int rot
 static void lumen_book_cover(int x,int y,int w,int h,const char *key) {
  lumen_cmd("book_cover",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(key);putchar('}');
 }
+static inline void lumen_book_cover_outline(int x,int y,int w,int h,const char *key,int gray) {
+ lumen_cmd("book_cover",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(key);
+ printf(",\"outline\":%d}",gray);
+}
 static inline void lumen_book_progress(int x,int y,int w,const char *title,const char *author,int progress) {
  lumen_cmd("book_label",x,y,w,135);fputs(",\"text\":",stdout);lumen_json(title);
  fputs(",\"author\":",stdout);lumen_json(author);
@@ -372,6 +376,9 @@ static inline void lumen_reader_document(const char *path,const char *collection
  lumen_json(path);
  if(collection){fputs(",\"collection\":",stdout);lumen_json(collection);}
  puts("}}");fflush(stdout);
+}
+static inline void lumen_open_provider(const char *role) {
+ fputs("{\"request\":\"open_provider\",\"provider\":",stdout);lumen_json(role);puts("}");fflush(stdout);
 }
 static void lumen_open(const char*id){fputs("{\"request\":\"open\",\"app\":",stdout);lumen_json(id);puts("}");fflush(stdout);}
 static void (*lumen_service_handler)(const char *operation,const char *data);

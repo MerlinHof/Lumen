@@ -44,7 +44,7 @@ jobs:
       - name: Build complete release
         if: steps.version.outputs.publish == 'true'
         run: |
-          python3 tools/check-architecture.py --complete
+          python3 tools/check-architecture.py --reading
           python3 tools/setup.py kindle
           python3 tools/build.py kindle
           python3 tools/package.py

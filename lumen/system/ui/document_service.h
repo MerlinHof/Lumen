@@ -10,14 +10,14 @@ static int reader_value(int id) {
     case 6:return options[OPT_LETTERSPACE];
     case 7:return options[OPT_SWIPE];
     case 8:return options[OPT_TAP];
-    case 9:return options[OPT_PROGRESS] ? reader_ui.reader_progress_mode : 5;
+    case 9:return options[OPT_PROGRESS] ? 0 : 5;
     default:return 0;
     }
 }
 static int reader_set_value(int id,int value) {
-    static const int low[]={0,16,110,0,0,0,0,0,0,0};
-    static const int high[]={4,34,190,30,1,24,20,1,1,6};
-    if(id<0 || id>=10 || value<low[id] || value>high[id])return 0;
+    static const int low[]={0,16,110,0,0,0,0};
+    static const int high[]={4,34,190,30,1,24,20};
+    if(id<0 || id>=7 || value<low[id] || value>high[id])return 0;
     switch(id) {
     case 0:options[OPT_FONT]=value;break;
     case 1:settings.size=value;break;
@@ -26,17 +26,8 @@ static int reader_set_value(int id,int value) {
     case 4:options[OPT_ALIGN]=value;break;
     case 5:options[OPT_PARAGRAPH]=value;break;
     case 6:options[OPT_LETTERSPACE]=value;break;
-    case 7:options[OPT_SWIPE]=value;break;
-    case 8:options[OPT_TAP]=value;break;
-    case 9:{
-        char setting[8];snprintf(setting,sizeof(setting),"%d",value);
-        reader_ui.reader_progress_mode=value;
-        options[OPT_PROGRESS]=value!=5;
-        extra_write_text("reader-progress15.txt",setting);
-        break;
-    }}
-    if(id<=6)apply_reading_settings();
-    else library_options_save();
+    }
+    apply_reading_settings();
     return 1;
 }
 typedef struct {int page;char quote[480];} DocumentExcerpt;
@@ -88,15 +79,38 @@ static void document_excerpt_poll(void) {
         package_reply_end(out,&message);
     }
 }
+static int document_selection_operation(const char *operation,int action) {
+    int ok=current>=0 && reader_ui.selecting==2;
+    if(!strcmp(operation,"selection_clear")) {
+        reader_ui.selecting=0;
+        return package_acknowledge(action,1);
+    }
+    if(!ok)return package_acknowledge(action,0);
+    if(!strcmp(operation,"selection_copy")) {
+        snprintf(clipboard_text,sizeof(clipboard_text),"%s",reader_ui.selection.text);
+    } else if(!strcmp(operation,"selection_mark")) {
+        if(reader_ui.annotation_count>=128)return package_acknowledge(action,0);
+        Annotation *annotation=&reader_ui.annotations[reader_ui.annotation_count++];
+        memset(annotation,0,sizeof(*annotation));
+        engine_position(page,&annotation->position);
+        snprintf(annotation->text,sizeof(annotation->text),"%s",reader_ui.selection.text);
+        snprintf(annotation->position.quote,sizeof(annotation->position.quote),"%s",reader_ui.selection.text);
+        ok=annotations_write();
+        if(!ok)reader_ui.annotation_count--;
+    } else return package_acknowledge(action,0);
+    reader_ui.selecting=0;
+    return package_acknowledge(action,ok);
+}
 static int package_document(const char *operation,const char *data,int action) {
     if(active_app()!=document_provider())return 0;
+    if(!strncmp(operation,"selection_",10))return document_selection_operation(operation,action);
     if(!strcmp(operation,"first_mention"))return document_excerpt_start(data,action);
     if(!strcmp(operation,"setting")) {
         int field,value;char tail;
         if(sscanf(data,"%d %d %c",&field,&value,&tail)!=2 || !reader_set_value(field,value))
             return package_acknowledge(action,0);
     } else if(!strcmp(operation,"resume_book")) {
-        int last=featured();
+        int last=library_last();
         if(last<0)return package_acknowledge(action,0);
         return ui_open(last) || package_acknowledge(action,0);
     } else if(strcmp(operation,"state") && strcmp(operation,"contents")) {

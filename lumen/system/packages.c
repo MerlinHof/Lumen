@@ -59,7 +59,7 @@ int package_operation_valid(const char *operation) {
     return n>0 && n<48 && strspn(operation,"abcdefghijklmnopqrstuvwxyz0123456789_-")==n;
 }
 const char *const package_provider_names[PROVIDER_COUNT]={
-    "startup", "text-input", "status", "notification", "sleep", "document"
+    "startup", "text-input", "status", "notification", "sleep", "document", "books"
 };
 
 static int package_flags(const Json *json,int array,const char *const *names,
@@ -94,7 +94,7 @@ int package_manifest(const char *text,Package *p) {
    if(p->api!=2 || strcmp(entry,"app") ||
       !package_flags(&j,json_get(&j,0,"surfaces"),surfaces,3,&p->surfaces) || !p->surfaces ||
       (provider_list>=0 && !package_flags(&j,provider_list,package_provider_names,PROVIDER_COUNT,&p->providers)))return 0;
-   unsigned foreground_providers=(1u<<PROVIDER_STARTUP)|(1u<<PROVIDER_DOCUMENT);
+   unsigned foreground_providers=(1u<<PROVIDER_STARTUP)|(1u<<PROVIDER_DOCUMENT)|(1u<<PROVIDER_BOOKS);
    if((p->providers & foreground_providers) && !(p->surfaces & PACKAGE_FOREGROUND))return 0;
    if((p->providers & ~foreground_providers) && !(p->surfaces & PACKAGE_OVERLAY))return 0;
    int launcher=json_get(&j,0,"launcher");

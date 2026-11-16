@@ -22,7 +22,7 @@
 #include "lumen_package_defaults.h"
 /* IDs are a package identity, never an origin or privilege class. */
 static struct {AppDefinition def;char key[64],name[96],version[32];int installed,removed,has_icon,api,launcher_order,launcher_visible;unsigned surfaces,providers;} entries[APP_LIMIT];
-static int provider_ids[PROVIDER_COUNT]={-1,-1,-1,-1,-1,-1};
+static int provider_ids[PROVIDER_COUNT]={-1,-1,-1,-1,-1,-1,-1};
 enum { APP_REQUEST_MAX=49152, APP_REQUEST_LIMIT=8 };
 typedef struct {
     pid_t child;
@@ -41,7 +41,7 @@ static AppProcess *active_foreground=&initial_foreground;
 static AppProcess *kept_apps[KEPT_APP_COUNT];
 #define foreground (*active_foreground)
 static AppProcess *overlays[APP_OVERLAY_COUNT];
-static int overlay_provider_slots[PROVIDER_COUNT]={-1,-1,-1,-1,-1,-1};
+static int overlay_provider_slots[PROVIDER_COUNT]={-1,-1,-1,-1,-1,-1,-1};
 static AppProcess *service;
 static uint64_t process_generation,service_caller;
 static int64_t service_deadline;
@@ -427,7 +427,7 @@ static int process_open(AppProcess *p,AppId id,const char *role) {
  if(p==service)return 1;
  char*event=NULL;size_t n=0;FILE*f=open_memstream(&event,&n);
  int background_action=p==&foreground && service_background_owner==(int)id ? service_action : 0;
- fprintf(f,"{\"event\":\"open\",\"api\":%d,\"surface_api\":2,\"width\":600,\"height\":800,\"content_y\":56,\"language\":%d,\"background_action\":%d,\"data_dir\":",entries[id].api,options[OPT_LANGUAGE],background_action);json_text(f,state);fputs(",\"role\":",f);json_text(f,role);fputc('}',f);fclose(f);int ok=process_send(p,event);free(event);return ok;
+ fprintf(f,"{\"event\":\"open\",\"api\":%d,\"surface_api\":2,\"catalog_query\":1,\"reader_preferences\":1,\"width\":600,\"height\":800,\"content_y\":56,\"language\":%d,\"background_action\":%d,\"data_dir\":",entries[id].api,options[OPT_LANGUAGE],background_action);json_text(f,state);fputs(",\"role\":",f);json_text(f,role);fputc('}',f);fclose(f);int ok=process_send(p,event);free(event);return ok;
 }
 static int wire_true(const char *key) {
     const WireField *field=wire_get(key);

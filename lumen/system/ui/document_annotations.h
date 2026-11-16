@@ -1,5 +1,5 @@
 static void annotations_load(void) {
-    reader_ui.annotation_count = reader_ui.annotation_page = 0;
+    reader_ui.annotation_count = 0;
     if (current < 0)
         return;
     char path[2048];
@@ -68,10 +68,12 @@ static void annotations_draw(void) {
     if (reader_ui.selecting)
         shade_selection(&reader_ui.selection, 180);
 }
-static void selection_overlay(void) {
-    const char *context[]={"Kontext + Wiki","Context + Wiki","Contexte + Wiki"};
-    int language=options[OPT_LANGUAGE];
-    const char *actions[]={"Kopieren",context[language>=0 && language<3 ? language : 0],
-        "Wörterbuch","Markieren","Schließen"};
-    selection_menu_draw(READER_SELECTION_Y, reader_ui.selection.text, actions);
+
+static int annotations_write(void) {
+    if (current < 0)
+        return 0;
+    char path[2048];
+    snprintf(path, sizeof(path), "%s/books/%016llx.notes-v1", data_root,
+             (unsigned long long)library[current].id);
+    return atomic_write(path, reader_ui.annotations, sizeof(Annotation) * (size_t)reader_ui.annotation_count);
 }

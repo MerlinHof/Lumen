@@ -7,6 +7,8 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--reading', action='store_true',
+                    help='Enforce the Library and Reader package boundary for 6.6.')
 parser.add_argument('--complete', action='store_true',
                     help='Require every app-specific host dependency to be removed.')
 args = parser.parse_args()
@@ -21,6 +23,7 @@ legacy = re.compile(r'\b(?:app_for_route|app_route_valid|app_factory_definition|
 imports = re.compile(r'^\s*#\s*include\s*"[^"]*apps/')
 direct_identity = re.compile(r'\bapp_package_find\("([^"]+)"\)')
 host_dependencies = []
+reading_dependencies = []
 violations = []
 for file in sorted((root/'lumen/system').rglob('*')):
     if file.suffix not in ('.c', '.h') or not file.is_file():
@@ -29,6 +32,8 @@ for file in sorted((root/'lumen/system').rglob('*')):
         location = f'{file.relative_to(root)}:{number}'
         if legacy.search(line):
             violations.append(location)
+        if re.search(r'["/]apps/(?:library|reader)/|app_package_find\("lumen\.(?:library|reader)"\)',line):
+            reading_dependencies.append(location)
         if imports.search(line) or any(name in package_ids for name in direct_identity.findall(line)):
             host_dependencies.append(location)
 for source in (root/'tools/config/sources.txt').read_text().splitlines():
@@ -38,5 +43,9 @@ for source in (root/'tools/config/sources.txt').read_text().splitlines():
 if violations:
     raise SystemExit('Numeric app routes returned:\n'+'\n'.join(violations))
 print('PASS 52 distinct packages and no numeric app routing.')
+if args.reading:
+    if reading_dependencies:
+        raise SystemExit('Remaining Library and Reader imports or identities:\n'+'\n'.join(reading_dependencies))
+    print('PASS Library and Reader package boundary.')
 if args.complete and host_dependencies:
     raise SystemExit('Remaining app-specific core references:\n'+'\n'.join(host_dependencies))

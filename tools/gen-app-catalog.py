@@ -21,7 +21,7 @@ for manifest in sorted((root / 'lumen/apps').glob('*/package.json')):
             raise ValueError(f'Invalid old preference index for {manifest}')
         legacy[slot] = app['id']
 
-roles = ['startup', 'text-input', 'status', 'notification', 'sleep', 'document']
+roles = ['startup', 'text-input', 'status', 'notification', 'sleep', 'document', 'books']
 header = root / 'build/generated/lumen_package_defaults.h'
 header.parent.mkdir(parents=True, exist_ok=True)
 lines = ['/* Generated from package manifests. */',

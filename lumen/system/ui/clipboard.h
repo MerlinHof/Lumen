@@ -75,12 +75,6 @@ static int clipboard_position(int x, int y) {
     return 0;
 }
 static int clipboard_input(const Input *in) {
-    if (active_app()==document_provider() && reader_ui.selecting == 2 && in->kind == INPUT_TAP && selection_menu_action(READER_SELECTION_Y, in->x, in->y) == 0) {
-        snprintf(clipboard_text, sizeof(clipboard_text), "%s", reader_ui.selection.text);
-        reader_ui.selecting = 0;
-        ui_message("Kopiert.");
-        return 1;
-    }
     if (editor_ui.clip_active == 1) {
         if (in->kind == INPUT_MOVE || in->kind == INPUT_TAP || in->kind == INPUT_SWIPE) {
             int end = clipboard_position(in->x, in->y);

@@ -3,23 +3,32 @@
 enum {SHELF,DETAIL,PREFERENCES};
 static struct {char id[17],title[384],author[256];int pin,progress;} books[7],item;
 static char query[128],selected[17],filename[256],raw_author[192],format[16];
-static int view,page,pages,sort,detail_page,detail_total,kilobytes,supported,confirm;
+static int view,page,pages,sort=-1,has_recent,query_api=1,detail_page,detail_total,kilobytes,supported,confirm;
 static const char *word(const char *de,const char *en,const char *fr) {
     return lumen_language==1 ? en : lumen_language==2 ? fr : de;
 }
 static void set_back(void){lumen_back=view!=SHELF || confirm || *query;}
+static const char *catalog_service(void){return query_api ? "books" : "library";}
 static void load(void) {
-    if(view==DETAIL)lumen_service("library","detail",selected,2);
-    else {
+    if(view==DETAIL) {
+        lumen_service(catalog_service(),"detail",selected,2);
+    } else if(query_api) {
+        int offset=has_recent && page>0 ? 3+(page-1)*6 : page*6;
+        char data[280];
+        query[strcspn(query,"\r\n")]=0;
+        snprintf(data,sizeof(data),"%d %d %d 3\n%s\nLUMEN Lesetest.epub\nLUMEN – Willkommen.txt",
+                 offset,page==0 && has_recent ? 3 : 6,sort,query);
+        lumen_service("books","query",data,1);
+    } else {
         char data[160];snprintf(data,sizeof(data),"%d\n%s",page,query);
         lumen_service("library","shelf",data,1);
     }
 }
 static void action(const char *operation,const char *value) {
     char data[448];snprintf(data,sizeof(data),"%s%s%s",selected,value ? "\n" : "",value ? value : "");
-    lumen_service("library",operation,data,!strcmp(operation,"read") ? 4 : 3);
+    lumen_service(catalog_service(),operation,data,!strcmp(operation,"read") ? 4 : 3);
 }
-static void cover(int x,int y,int w,int h,const char *id){lumen_book_cover(x,y,w,h,id);}
+static void cover(int x,int y,int w,int h,const char *id){lumen_book_cover_outline(x,y,w,h,id,198);}
 static void shelf(void) {
     int featured=*books[6].id,top=featured ? 429 : 115;
     lumen_text(28,featured ? 376 : 66,420,44,*query ? query :
@@ -52,7 +61,7 @@ static void draw(void) {
             word("Zuletzt gelesen","Last read","Dernière lecture"),word("Zuletzt hinzugefügt","Recently added","Ajout récent"),
             word("Dateigröße","Size","Taille"),word("Fortschritt","Progress","Progression")};
         ui_paint_heading(word("Bibliothek","Library","Bibliothèque"),0);
-        lumen_select_action("sort",203,word("Sortierung","Sort by","Trier par"),modes[sort]);
+        lumen_select_action("sort",203,word("Sortierung","Sort by","Trier par"),modes[sort<0 ? 0 : sort]);
     } else if(view==DETAIL) {
         ui_paint_heading(word("Buchdetails","Book details","Détails du livre"),0);
         cover(28,145,120,164,selected);
@@ -88,6 +97,11 @@ static void read_row(int row,int field) {
     snprintf(key,sizeof(key),"progress%d",field);books[row].progress=lumen_number(key);
 }
 static int input(const Input *in) {
+    if(in->kind==INPUT_OPEN) {
+        int saved;
+        if(lumen_number("api"))query_api=!!lumen_number("catalog_query");
+        if(query_api && app_state_load("shelf-sort",&saved,sizeof(saved)) && saved>=0 && saved<6)sort=saved;
+    }
     if(in->kind==INPUT_OPEN || in->kind==INPUT_RESUME || in->kind==INPUT_REFRESH){load();return 1;}
     if(in->kind==INPUT_INTENT) {
         char operation[24];
@@ -106,10 +120,15 @@ static int input(const Input *in) {
         else if(*query){query[0]=0;page=0;load();}
         set_back();return 1;
     }
-    if(in->kind==INPUT_PAGE && !confirm){page=in->x;load();return 1;}
+    if(in->kind==INPUT_PAGE && !confirm){page=in->x>=0 && in->x<342 ? in->x : 0;load();return 1;}
     if(in->kind==INPUT_SELECT) {
         if(in->x==2 && in->y>=0 && in->y<6) {
-            char value[2]={(char)('0'+in->y),0};lumen_service("library","sort",value,3);
+            if(query_api) {
+                int value=in->y;
+                if(app_state_save("shelf-sort",&value,sizeof(value))){sort=value;page=0;load();}
+            } else {
+                char value[2]={(char)('0'+in->y),0};lumen_service("library","sort",value,3);
+            }
         }
         if(in->x==3 && in->y>=0 && in->y<3) {
             if(in->y==0)action("pin",NULL);
@@ -129,9 +148,22 @@ static int input(const Input *in) {
     }
     if(in->kind==INPUT_SERVICE) {
         if(in->x==1 && in->y) {
-            page=lumen_number("page");pages=lumen_number("pages");sort=lumen_number("sort");
+            if(!query_api || sort<0)sort=lumen_number("sort");
             if(sort<0 || sort>=6)sort=0;
-            for(int i=0;i<7;i++)read_row(i,i);
+            if(query_api) {
+                int recent=!!lumen_number("has_recent"),old=has_recent;
+                int count=lumen_number("count");
+                has_recent=recent;
+                pages=recent ? 1+(count>3 ? (count-3+5)/6 : 0) : count ? (count+5)/6 : 1;
+                if(page>=pages){page=pages-1;load();return 1;}
+                if(old!=recent && page){load();return 1;}
+                memset(books,0,sizeof(books));
+                for(int i=0;i<(recent && !page ? 3 : 6);i++)read_row(i,i);
+                if(recent && !page)read_row(6,16);
+            } else {
+                page=lumen_number("page");pages=lumen_number("pages");
+                for(int i=0;i<7;i++)read_row(i,i);
+            }
         } else if(in->x==2 && in->y && view==DETAIL) {
             typeof(item) original=books[0];read_row(0,0);item=books[0];books[0]=original;
             lumen_string("filename",filename,sizeof(filename));lumen_string("raw_author",raw_author,sizeof(raw_author));
@@ -167,7 +199,7 @@ static int input(const Input *in) {
         const char *modes[]={word("Titel","Title","Titre"),word("Autor","Author","Auteur"),
             word("Zuletzt gelesen","Last read","Dernière lecture"),word("Zuletzt hinzugefügt","Recently added","Ajout récent"),
             word("Dateigröße","Size","Taille"),word("Fortschritt","Progress","Progression")};
-        lumen_select(modes,6,sort,2);return 1;
+        lumen_select(modes,6,sort<0 ? 0 : sort,2);return 1;
     }
     if(view!=SHELF)return 0;
     if(clicked && !strcmp(id,"preferences")){view=PREFERENCES;set_back();return 1;}

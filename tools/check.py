@@ -9,12 +9,12 @@ OUT=ROOT/'build/tests'
 def compile_test(name,source,ui=False):
     mupdf,_,libs=build.dependencies('host');obj=OUT/(name+'.o');binary=OUT/name
     subprocess.run(['clang','-DLUMEN_HOST','-g','-fsanitize=address,undefined','-I'+str(mupdf/'include'),'-c',str(ROOT/source),'-o',str(obj)],check=True)
-    objects=[build.object_path('host',s) for s in build.sources() if s not in ('main.c','system/ui/ui.c')]
+    objects=[build.object_path('host',s) for s in build.sources() if s not in ('system/main.c','system/ui/ui.c')]
     subprocess.run(['clang++','-fsanitize=address,undefined',str(obj)]+[str(p) for p in objects+libs]+['-lm','-lpthread','-o',str(binary)],check=True)
     return binary
 def run(http=False,native_only=False):
     os.chdir(ROOT);OUT.mkdir(parents=True,exist_ok=True)
-    subprocess.run([sys.executable,'tools/check-architecture.py'],check=True)
+    subprocess.run([sys.executable,'tools/check-architecture.py','--reading'],check=True)
     shutil.rmtree(OUT/'test-data',ignore_errors=True)
     shutil.rmtree(OUT/'apps',ignore_errors=True)
     shutil.rmtree(OUT/'appdata',ignore_errors=True)

@@ -52,11 +52,13 @@ static struct {
     time_t status_time, charging_checked;
     int battery_charging;
 } status_ui;
-#include "../../apps/library/state.h"
-#include "../../apps/reader/state.h"
+#include "document_state.h"
 static AppRuntime runtime;
 static AppId document_provider(void) {
     return app_package_find(app_package_provider(PROVIDER_DOCUMENT));
+}
+static AppId books_provider(void) {
+    return app_package_find(app_package_provider(PROVIDER_BOOKS));
 }
 static AppId active_app(void) { return runtime.active; }
 static void app_leave(AppId app, void *ctx);
@@ -109,7 +111,6 @@ static int64_t activity16;
 static int annotations_write(void);
 static void annotations_load(void);
 static void annotations_draw(void);
-static void selection_overlay(void);
 static void json_escape16(FILE *,const char *);
 static void document_excerpt_close(void),document_excerpt_poll(void);
 static int document_excerpt_wait(void);
@@ -123,7 +124,7 @@ static int widget_count, pressed = -1, press_canceled, down_y, history[64], hist
 static int dropdown, drop_target,
     drop_count, drop_selected, drop_first, drop_visible;
 static unsigned drop_generation;
-static int drop_x, drop_y, drop_w, confirm_delete;
+static int drop_x, drop_y, drop_w;
 static const char **drop_labels;
 static size_t keyboard_capacity(void);
 static int hit(int x, int y) {
@@ -165,6 +166,7 @@ static void overlays(void);
 static void sleep_surface_draw(void);
 void ui_feedback_draw(void);
 static void modal_input(const Input *in);
+static int library_dirty;
 static void refresh_library(void);
 static void wifi_open(void);
 static void apps_init(void);
@@ -681,7 +683,7 @@ static AppId startup_app(void) {
     return id;
 }
 static int can_back(void) {
-    return (app_package_installed(active_app()) && app_process_frame_back()) || editor_ui.keyboard || dropdown || confirm_delete || battery_popup ||
+    return (app_package_installed(active_app()) && app_process_frame_back()) || editor_ui.keyboard || dropdown || battery_popup ||
            history_count || active_app() != startup_app();
 }
 #include "image_sampling.h"
@@ -812,10 +814,8 @@ static void cover_draw(Book *b, int x, int y, int w, int h, int fill) {
 }
 static void cover_size(Book *b, int x, int y, int w, int h) {
     cover_draw(b,x,y,w,h,0);
-    if (active_app() == app_package_find("lumen.library"))
-        outline_surface(x,y,w,h,RADIUS_LARGE,198);
+
 }
-#include "../../apps/library/layout.h"
 static void page_arrow(int x, int y, int kind, int enabled) {
     if (enabled) {
         icon_button(x, y, kind);
@@ -905,7 +905,6 @@ static void system_loading(void) {
 #include "text_flow.h"
 #include "list.h"
 #include "titlebar.h"
-#include "../../apps/library/shelf.h"
 void ui_message(const char *s) {
     NotificationRequest request={.duration_ms=6000};
     snprintf(request.text,sizeof(request.text),"%s",tr(s));
@@ -931,9 +930,7 @@ void ui_init(void) {
     settings.grid = 1;
     settings.filter = 0;
 
-    library_ui.query[0] = 0;
     activate_app(startup_app());
-    update_view();
     char sourcepath[2048];
     snprintf(sourcepath, sizeof(sourcepath), tr("%s/opds-source.txt"), data_root);
     FILE *source = fopen(sourcepath, "r");
@@ -1098,7 +1095,6 @@ int ui_open(int index) {
     if (page < 0)
         page = 0;
     reader_ui.chapter_count = engine_outline(reader_ui.chapters, 256);
-    reader_ui.chapterpage = reader_ui.chaptertab = 0;
     zoom = 1;
     panx = pany = 0;
     activate_app(document_provider());
@@ -1242,7 +1238,6 @@ void ui_draw(void) {
     if(app_package_installed(active_app())) {
         package_ui_draw();
         if(!package_fullscreen)header();
-        if(active_app()==document_provider() && package_document_visible && reader_ui.selecting==2)selection_overlay();
         if(editor_ui.keyboard){memcpy(editor_ui.keyboard_background18,ui_pixels,sizeof(ui_pixels));editor_ui.keyboard_background_valid18=1;}
         goto input_overlays18;
     }
@@ -1258,8 +1253,6 @@ void ui_draw(void) {
     app_render();
     if (active_app()==document_provider() && reader_ui.reader_chrome)
         header();
-    if (active_app()==document_provider() && reader_ui.selecting == 2)
-        selection_overlay();
     if (editor_ui.keyboard) {
         memcpy(editor_ui.keyboard_background18, ui_pixels, sizeof(ui_pixels));
         editor_ui.keyboard_background_valid18 = 1;
@@ -1436,7 +1429,7 @@ static int ui_dispatch_input(const Input *in) {
                        press_bounds.y == 0 && press_bounds.w == 62 && in->y < STATUS_HEIGHT+8 && in->x < 70;
     int status_tap = in->kind == INPUT_TAP && (in->y < STATUS_HEIGHT || back_release) &&
                      (active_app()!=document_provider() || reader_ui.reader_chrome || app_package_installed(document_provider()));
-    int system_pager = !sleeping && !editor_ui.keyboard && !dropdown && !confirm_delete &&
+    int system_pager = !sleeping && !editor_ui.keyboard && !dropdown &&
                        pagination_hit(in);
     if(!sleeping && !editor_ui.keyboard && !dropdown && !status_tap && !system_pager &&
        app_package_installed(active_app()) && package_pointer_input(in)) {
@@ -1516,8 +1509,20 @@ static int ui_dispatch_input(const Input *in) {
         reader_ui.selection_last_y = in->y;
         engine_select(page, reader_ui.selection_x - 28, reader_ui.selection_y - 12, in->x - 28, in->y - 12, 544, 728,
                       zoom, panx, pany, &reader_ui.selection);
-        if (in->kind != INPUT_MOVE)
-            reader_ui.selecting = reader_ui.selection.count ? 2 : 0;
+        if(in->kind!=INPUT_MOVE) {
+            reader_ui.selecting=reader_ui.selection.count ? 2 : 0;
+            if(reader_ui.selecting==2) {
+                char *event=NULL;size_t length=0;
+                FILE *stream=open_memstream(&event,&length);
+                if(stream) {
+                    fputs("{\"event\":\"intent\",\"operation\":\"document-selection\",\"text\":",stream);
+                    json_escape16(stream,reader_ui.selection.text);
+                    fputc('}',stream);
+                    if(!fclose(stream))app_process_send(event);
+                    free(event);
+                }
+            }
+        }
         pressed = -1;
         return 1;
     }
@@ -1567,7 +1572,7 @@ static int ui_dispatch_input(const Input *in) {
         if (active_app()==document_provider() ? (down_y < 48 || down_y >= 752) : (down_y < 130 || down_y >= 700))
             return 1;
     }
-    if (!sleeping && !editor_ui.keyboard && !dropdown && !confirm_delete && !battery_popup &&
+    if (!sleeping && !editor_ui.keyboard && !dropdown && !battery_popup &&
         pagination.state) {
         if (in->kind == INPUT_SWIPE && abs(in->dx) > abs(in->dy) &&
             (active_app()!=document_provider() || (options[OPT_SWIPE] && zoom <= 1))) {
@@ -1600,12 +1605,9 @@ static int ui_dispatch_input(const Input *in) {
     if (in->kind == INPUT_NETWORK) {
         char books[2048];
         snprintf(books,sizeof(books),"%s/books-changed",data_root);
-        if (!unlink(books)) {
-            if (active_app()==app_package_find("lumen.library")) {
-                refresh_library();
-                app_process_send("{\"event\":\"refresh\"}");
-            }
-            else library_ui.library_dirty=1;
+        if(!unlink(books)) {
+            library_dirty=1;
+            app_process_send("{\"event\":\"refresh\"}");
         }
         app_packages_scan();
         if(!network_poll && active_app()==startup_app() &&
@@ -1644,7 +1646,7 @@ static int ui_dispatch_input(const Input *in) {
             ui_message(message);
         } else if (done == 2) {
             if (active_app()==document_provider())
-                library_ui.library_dirty = 1;
+                library_dirty = 1;
             else
                 refresh_library();
             ui_message("Buch zur Bibliothek hinzugefügt.");
@@ -1665,60 +1667,19 @@ static int ui_dispatch_input(const Input *in) {
     if (sleeping)
         return 2;
     int x = in->x, y = in->y;
-    if (active_app()==document_provider() && reader_ui.selecting == 2 && in->kind == INPUT_TAP) {
-        int action = selection_menu_action(READER_SELECTION_Y, x, y);
-        if (action > 0 && action < 4) {
-            if (action == 3) {
-                if (reader_ui.annotation_count >= 128)
-                    ui_message("Maximal 128 Markierungen pro Buch.");
-                else {
-                    Annotation *a = &reader_ui.annotations[reader_ui.annotation_count++];
-                    memset(a, 0, sizeof(*a));
-                    engine_position(page, &a->position);
-                    snprintf(a->text, sizeof(a->text), "%s", reader_ui.selection.text);
-                    snprintf(a->position.quote, sizeof(a->position.quote), "%s", reader_ui.selection.text);
-                    if (!annotations_write()) {
-                        reader_ui.annotation_count--;
-                        ui_message("Speichern fehlgeschlagen.");
-                    } else
-                        ui_message("Markierung gespeichert.");
-                }
-            } else if (action == 1) {
-                char *event=NULL;size_t length=0;
-                FILE *out=open_memstream(&event,&length);
-                if(out) {
-                    fputs("{\"event\":\"intent\",\"operation\":\"selection-context\",\"lookup\":1,\"text\":",out);
-                    json_escape16(out,reader_ui.selection.text);
-                    fputc('}',out);
-                    if(!fclose(out))app_process_send(event);
-                    free(event);
-                }
-            } else {
-                const char *definition = dictionary_lookup(reader_ui.selection.text, options[OPT_LANGUAGE], NULL);
-                char translation[420];
-                if (definition) ui_message(definition);
-                else if (dictionary_translate(reader_ui.selection.text, options[OPT_LANGUAGE], translation,
-                                              sizeof(translation))) ui_message(translation);
-                else ui_message("Kein Eintrag im Offline-Wörterbuch.");
-            }
-        }
-        reader_ui.selecting = 0;
-        pressed = -1;
-        return 1;
-    }
-    if(app_package_installed(active_app()) && !editor_ui.keyboard && !dropdown && !confirm_delete &&
+    if(app_package_installed(active_app()) && !editor_ui.keyboard && !dropdown &&
        ((in->kind==INPUT_TAP && (y>=STATUS_HEIGHT ||
           (package_fullscreen && package_fullscreen_owner==active_app()))) || in->kind==INPUT_SWIPE || in->kind==INPUT_HOLD))return package_ui_input(in);
     if(in->kind==INPUT_TAP && y<STATUS_HEIGHT && !editor_ui.keyboard &&
-       !dropdown && !confirm_delete && !battery_popup && status_action(in))return 1;
+       !dropdown && !battery_popup && status_action(in))return 1;
     if (in->kind == INPUT_TAP && y < STATUS_HEIGHT && (active_app()!=document_provider() || reader_ui.reader_chrome || app_package_installed(document_provider()))) {
         if(x<62 && app_package_installed(active_app()) && app_process_frame_back() && !editor_ui.keyboard && !dropdown){app_process_send("{\"event\":\"back\"}");return 2;}
         if (x < 62 && can_back()) {
             apps_pause();
-            if (editor_ui.keyboard || dropdown || confirm_delete) {
+            if (editor_ui.keyboard || dropdown) {
                 if (editor_ui.keyboard && keyboard_multiline())
                     commit_keyboard();
-                editor_ui.keyboard = dropdown = confirm_delete = 0;
+                editor_ui.keyboard = dropdown = 0;
                 return 1;
             }
             AppId target=startup_app();
@@ -1732,15 +1693,11 @@ static int ui_dispatch_input(const Input *in) {
             activate_app(target);
             package_back_results();
             if (active_app()==document_provider() && current<0 && !app_package_foreground(document_provider()))
-                activate_app(app_package_find("lumen.library"));
-            if (active_app()==app_package_find("lumen.library")) {
-                if (library_ui.library_dirty) refresh_library();
-                else update_view();
-            }
+                activate_app(books_provider());
             return 1;
         }
     }
-    if (editor_ui.keyboard || dropdown || confirm_delete) {
+    if (editor_ui.keyboard || dropdown) {
         modal_input(in);
         return 1;
     }
@@ -1761,7 +1718,7 @@ int ui_input(const Input *in) {
 #include "text_editor.h"
 #include "keyboard_surface.h"
 static void overlays(void) {
-    if (editor_ui.keyboard || dropdown || confirm_delete) {
+    if (editor_ui.keyboard || dropdown) {
         int keep = 0;
         for (int i = 0; i < widget_count; i++)
             if (widgets[i].system)
@@ -1798,17 +1755,6 @@ static void overlays(void) {
             pager_draw(drop_x + (drop_w - 189) / 2, yy, 189, drop_first / drop_visible, (drop_count + drop_visible - 1) / drop_visible);
         }
     }
-    if (confirm_delete) {
-        control_surface(20, 270, 554, 260, 12, 0);
-        control_surface(22, 272, 550, 256, 10, 255);
-        drawtext(42, 292, confirm_delete == 2 ? "Markierung löschen?" : "Buch wirklich löschen?",
-                 &body, 510);
-        wrapped(42, 340,
-                confirm_delete == 2 ? reader_ui.annotations[reader_ui.annotation_delete].text : library[selected].title,
-                &small, 500, 2);
-        button(42, 446, 235, "Abbrechen", 0);
-        button(309, 446, 235, "Löschen", 0);
-    }
     if (battery_popup) {
         control_surface(428, 50, 148, 84, RADIUS_MEDIUM, 255);
         key_outline(428, 50, 148, 84);
@@ -1818,13 +1764,27 @@ static void overlays(void) {
     }
 }
 static void refresh_library(void) {
-    ui_save();
-    engine_close();
-    current = -1;
-    selected = -1;
+    int transient=current==BOOK_LIMIT && reader_ui.reader_document_active;
+    BookId opened=current>=0 ? library[current].id : 0;
+    BookId focused=selected>=0 ? library[selected].id : 0;
+    if(current>=0 && !transient) {
+        library_progress(&library[current],page,engine_count());
+        save_anchor(&library[current],page,-1);
+    }
     library_scan();
-    library_ui.library_dirty = 0;
-    update_view();
+    if(!transient) {
+        current=selected=-1;
+        for(int i=0;i<library_count;i++) {
+            if(opened && library[i].id==opened)current=i;
+            if(focused && library[i].id==focused)selected=i;
+        }
+        if(opened && current<0) {
+            engine_close();
+            reader_ui.selecting=0;
+            document_excerpt_close();
+        }
+    }
+    library_dirty=0;
 }
 static void commit_keyboard(void) {
     if (editor_ui.keyboard_target >= 30) {
@@ -1848,26 +1808,6 @@ static void commit_keyboard(void) {
         char p[2048];
         snprintf(p, sizeof(p), tr("%s/opds-source.txt"), data_root);
         atomic_write(p, store_ui.opds_source, strlen(store_ui.opds_source));
-    } else if (editor_ui.keyboard_target == 0) {
-        snprintf(library_ui.query, sizeof(library_ui.query), tr("%s"), editor_ui.edit);
-        library_ui.listpage = 0;
-        update_view();
-    } else if (selected >= 0) {
-        if (editor_ui.keyboard_target == 1) {
-            if (current == selected) {
-                ui_save();
-                engine_close();
-                current = -1;
-            }
-            if (!library_rename(selected, editor_ui.edit))
-                ui_message("Umbenennen fehlgeschlagen. Name muss frei sein.");
-        } else if (editor_ui.keyboard_target == 2) {
-            if (!library_metadata(selected, editor_ui.edit, library[selected].author))
-                ui_message("Titel konnte nicht gespeichert werden.");
-        } else if (editor_ui.keyboard_target == 3) {
-            if (!library_metadata(selected, library[selected].title, editor_ui.edit))
-                ui_message("Autor konnte nicht gespeichert werden.");
-        }
     }
     editor_ui.keyboard = 0;
     pressed = -1;
@@ -1884,27 +1824,6 @@ static void modal_input(const Input *in) {
     if (in->kind != INPUT_TAP)
         return;
     int x = in->x, y = in->y;
-    if (confirm_delete == 2) {
-        if (y >= 446 && y < 494) {
-            if (x >= 309 && reader_ui.annotation_delete < reader_ui.annotation_count) {
-                Annotation backup = reader_ui.annotations[reader_ui.annotation_delete];
-                memmove(reader_ui.annotations + reader_ui.annotation_delete, reader_ui.annotations + reader_ui.annotation_delete + 1,
-                        (size_t)(reader_ui.annotation_count - reader_ui.annotation_delete - 1) * sizeof(Annotation));
-                reader_ui.annotation_count--;
-                if (!annotations_write()) {
-                    memmove(reader_ui.annotations + reader_ui.annotation_delete + 1, reader_ui.annotations + reader_ui.annotation_delete,
-                            (size_t)(reader_ui.annotation_count - reader_ui.annotation_delete) * sizeof(Annotation));
-                    reader_ui.annotations[reader_ui.annotation_delete] = backup;
-                    reader_ui.annotation_count++;
-                    ui_message("Speichern fehlgeschlagen.");
-                }
-                if (reader_ui.annotation_page && reader_ui.annotation_page * 5 >= reader_ui.annotation_count)
-                    reader_ui.annotation_page--;
-            }
-            confirm_delete = 0;
-        }
-        return;
-    }
     if (dropdown) {
         unsigned generation = drop_generation;
         if (drop_count > drop_visible && x >= drop_x && x < drop_x + drop_w &&
@@ -1964,9 +1883,7 @@ int ui_poll_interval(void) {
     return other >= 0 && (wait < 0 || other < wait) ? other : wait;
 }
 
-#include "../../apps/reader/annotations_view.h"
-
-#include "../../apps/reader/annotations_store.h"
+#include "document_annotations.h"
 #include "../../apps/host/compose.h"
 #include "sleep_surface.h"
 void ui_paint_heading(const char *text, int actions) { heading_actions(text, actions); }
@@ -2036,6 +1953,7 @@ static void app_leave(AppId app, void *ctx) {
     app_process_pause();
     (void)ctx;
     if (app == document_provider()) {
+        reader_ui.selecting=0;
         document_excerpt_close();
         apps_checkpoint();
         ui_save();
@@ -2056,7 +1974,7 @@ static int activate_app(AppId app) {
 static void show_library_detail(int index) {
     if(index<0 || index>=library_count)return;
     selected=index;
-    if(activate_app(app_package_find("lumen.library")) && app_process_open(app_package_find("lumen.library"))) {
+    if(activate_app(books_provider()) && app_process_open(books_provider())) {
         char event[128];
         snprintf(event,sizeof(event),
                  "{\"event\":\"intent\",\"operation\":\"book-detail\",\"text\":\"%016llx\"}",
@@ -2071,10 +1989,10 @@ static int app_send(const AppIntent *intent) {
     if (intent->kind == INTENT_BOOK && intent->app != document_provider())
         return 0;
     if (intent->app == document_provider() && intent->kind == INTENT_OPEN && !app_package_installed(document_provider())) {
-        int i = current >= 0 ? current : featured();
+        int i = current >= 0 ? current : library_last();
         if (i >= 0)
             return app_read_book(i);
-        AppIntent fallback = {.app = app_package_find("lumen.library"), .kind = INTENT_OPEN};
+        AppIntent fallback = {.app = books_provider(), .kind = INTENT_OPEN};
         return app_send(&fallback);
     }
     AppIntent owned = *intent;

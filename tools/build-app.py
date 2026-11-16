@@ -32,7 +32,7 @@ def build_app(manifest,target='kindle',output=None):
         surfaces=meta.get('surfaces')
         providers=meta.get('provides',[])
         valid_surfaces={'foreground','overlay','background'}
-        valid_providers={'startup','text-input','status','notification','sleep','document'}
+        valid_providers={'startup','text-input','status','notification','sleep','document','books'}
         if meta.get('entry')!='app':
             raise ValueError('Protocol 2 entry must be app')
         if (not isinstance(surfaces,list) or not surfaces or not all(
@@ -43,9 +43,9 @@ def build_app(manifest,target='kindle',output=None):
                 isinstance(item,str) and item in valid_providers for item in providers)
                 or len(providers)!=len(set(providers))):
             raise ValueError('Invalid system provider roles')
-        foreground_providers={'startup','document'}
+        foreground_providers={'startup','document','books'}
         if set(providers) & foreground_providers and 'foreground' not in surfaces:
-            raise ValueError('Startup and document providers require a foreground surface')
+            raise ValueError('Foreground providers require a foreground surface')
         if set(providers)-foreground_providers and 'overlay' not in surfaces:
             raise ValueError('System overlays require an overlay surface')
         if meta.get('operations') and 'background' not in surfaces:

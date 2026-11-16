@@ -532,8 +532,8 @@ assert any(f.get('operation')=='search' and f.get('text')=='Poems' for f in fram
 print('PASS packaged Store featured books, details, download, source toggles and search.')
 
 frames,_=app_session('lumen.library',[
-    dict(event='service',action=1,ok=1,page=0,pages=2,sort=2,id6='1234567890abcdee',
-         title6='Continue book',author6='An Author',progress6=45,id0='1234567890abcdef',
+    dict(event='service',action=1,ok=1,count=6,has_recent=1,sort=2,id16='1234567890abcdee',
+         title16='Continue book',author16='An Author',progress16=45,id0='1234567890abcdef',
          title0='Shelf book',author0='Another Author'),
     component('book-0','long_pressed'),dict(event='select',action=3,value=1),
     dict(event='service',action=2,ok=1,id0='1234567890abcdef',title0='Shelf book',supported=1),
@@ -541,7 +541,7 @@ frames,_=app_session('lumen.library',[
 assert any(c.get('type')=='book_cover' for f in frames for c in f.get('ui',[]))
 assert any(f.get('operation')=='detail' and f.get('text')=='1234567890abcdef' for f in frames)
 assert any(f.get('operation')=='read' and f.get('text')=='1234567890abcdef' for f in frames)
-assert any(f.get('operation')=='shelf' and f.get('text')=='1\n' for f in frames)
+assert any(f.get('operation')=='query' and f.get('text','').startswith('3 6 2 3\n') for f in frames)
 print('PASS packaged Library cover grid, book details, Reader intent and pagination.')
 
 home_assistant=base/'home-assistant-legacy'
@@ -601,7 +601,7 @@ assert b'Travel' in (photo_state/'albums.bin').read_bytes()
 assert bytes.fromhex('efcdab9078563412') in (photo_state/'albums.bin').read_bytes()
 print('PASS Photos gallery, fullscreen slideshow, rotation and private album assignment.')
 
-frames,_=app_session('lumen.reader',[
+frames,reader_state=app_session('lumen.reader',[
     dict(event='service',action=1,ok=1,title='Sample document',page=0,total=7,setting7=1),
     tap(400,380),tap(300,70),component("contents"),
     dict(event='service',action=2,ok=1,title='Sample document',page=1,total=7,count=1,
@@ -614,7 +614,13 @@ assert not any(c.get('id') in ('resume','library') for f in frames for c in f.ge
 assert any(c.get('type')=='document_page' for f in frames for c in f.get('ui',[]))
 assert any(f.get('operation')=='turn' and f.get('text')=='1' for f in frames)
 assert any(f.get('operation')=='goto' and f.get('text')=='2' for f in frames)
-assert any(f.get('operation')=='setting' and f.get('text')=='9 2' for f in frames)
+assert struct.unpack('=iii',(reader_state/'reader-controls').read_bytes())==(1,0,2)
+selection,_=app_session('lumen.reader',[
+    dict(event='service',action=1,ok=1,title='Sample',total=7),
+    dict(event='intent',operation='document-selection',text='Darcy'),
+    component('selection-copy'),dict(event='service',action=4,ok=1)])
+assert any(c.get('id')=='selection-mark' for f in selection for c in f.get('ui',[]))
+assert any(f.get('operation')=='selection_copy' for f in selection)
 print('PASS packaged Reader document surface, page navigation, contents and preferences.')
 
 notes_data=base/'legacy-notes'

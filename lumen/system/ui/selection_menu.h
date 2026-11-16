@@ -1,5 +1,5 @@
-/* Shared selection preview and action layout for document and editable text. */
-enum { EDIT_SELECTION_Y = 246, READER_SELECTION_Y = 515 };
+/* Shared selection preview and action layout for editable text. */
+enum { EDIT_SELECTION_Y = 246 };
 static void selection_menu_draw(int y, const char *text, const char *const actions[5]) {
     raised_surface(19, y, 558, 258);
     wrapped_raw(35, y + 18, text, &small, 526, 3);

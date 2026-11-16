@@ -39,7 +39,7 @@
 #include "tools.h"
 #include "../../system/ui/clipboard.h"
 #include "../../system/markdown.h"
-#include "../reader/markdown.h"
+#include "../../system/ui/document_markdown.h"
 #include "../../system/ui/recipe_provider.h"
 // clang-format on
 

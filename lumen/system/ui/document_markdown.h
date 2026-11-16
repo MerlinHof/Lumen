@@ -1,4 +1,4 @@
-/* App-owned module; assembled by apps/host/compose.h. */
+/* Convert a package-supplied Markdown document for the shared engine. */
 static void reader_markdown17(const char *title, const char *text, int origin) {
     char dir[2048], path[4096];
     local_path(dir, sizeof(dir), "reader-documents");

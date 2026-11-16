@@ -1,6 +1,5 @@
 /* App-owned module; assembled by apps/host/compose.h. */
 /* LUMEN 1.0: native, paper-first applications, shared local persistence. */
-#include "../../vendor/ha_icon.h"
 #include <errno.h>
 #include <signal.h>
 #include <sys/wait.h>

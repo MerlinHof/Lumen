@@ -380,8 +380,14 @@ static void package_paint_frame_mode(const char *text,int mode) {
         }
         else if(!strcmp(type,"book_cover")) {
             int book=package_book_index(label);
-            if(book>=0 && x>=0 && x+w<=WIDTH && y+h<=HEIGHT && w>=25 && h>=30)
+            if(book>=0 && x>=0 && x+w<=WIDTH && y+h<=HEIGHT && w>=25 && h>=30) {
                 cover_size(&library[book],x,y,w,h);
+                int outline=json_get(&j,item,"outline");
+                if(outline>=0) {
+                    double gray=json_number(&j,outline);
+                    if(gray>=0 && gray<=255)outline_surface(x,y,w,h,RADIUS_LARGE,(int)gray);
+                }
+            }
         } else if(!strcmp(type,"book_label") && x>=0 && x+w<=WIDTH && y+h<=HEIGHT) {
             char author[256];
             json_string(&j,json_get(&j,item,"author"),author,sizeof(author));
@@ -923,6 +929,16 @@ static void package_dispatch_request(const char *message) {
             app_send(&intent);
         } else if(document_intent && !strcmp(operation,"open_document") && *text)
             reader_markdown17(title,text,active_app());
+    }
+    else if(!strcmp(kind,"open_provider")) {
+        char role[32];
+        json_string(&j,json_get(&j,0,"provider"),role,sizeof(role));
+        for(int i=0;i<PROVIDER_COUNT;i++) {
+            if(strcmp(role,package_provider_names[i]))continue;
+            int provider=app_package_find(app_package_provider((PackageProvider)i));
+            if(app_package_foreground(provider))app_send(&(AppIntent){.app=provider,.kind=INTENT_OPEN});
+            break;
+        }
     }
     else if(!strcmp(kind,"open")){char key[96];json_string(&j,json_get(&j,0,"app"),key,sizeof(key));int id=-1;for(int i=0;i<APP_LIMIT;i++)if(!strcmp(key,app_package_key(i))){id=i;break;}if(id>=0){AppIntent intent={.app=id,.kind=*text?INTENT_SEARCH:INTENT_OPEN};snprintf(intent.text,sizeof(intent.text),"%s",text);app_send(&intent);}}
 }

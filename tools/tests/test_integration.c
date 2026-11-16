@@ -258,13 +258,21 @@ int main(int argc, char **argv) {
     tap17(550,95);shot17("llm-settings");
     tap17(20,20);
     shot17("llm");
-    reader_markdown17("Markdown test", "# Heading\n\nDarcyville thrived. Mr. Darcy arrived silently. A **bold** paragraph.\n\n- One\n- Two\n", 122);
+    reader_markdown17("Markdown test", "# Heading\n\nDarcyville thrived. Mr. Darcy arrived silently. A **bold** paragraph.\n\n- One\n- Two\n", active_app());
     char mention_fixture[480];
     assert(engine_first_mention("Darcy",0,mention_fixture,sizeof(mention_fixture))==0);
     assert(!strcmp(mention_fixture,"Mr. Darcy arrived silently."));
     assert(engine_first_mention("Head",0,mention_fixture,sizeof(mention_fixture))<0);
     assert(active_app()==app_package_find("lumen.reader") && reader_ui.reader_document_active);
     settle_app();ui_draw();
+    snprintf(reader_ui.selection.text,sizeof(reader_ui.selection.text),"Darcy");
+    reader_ui.selecting=2;
+    assert(app_process_send("{\"event\":\"intent\",\"operation\":\"document-selection\",\"text\":\"Darcy\"}"));
+    settle_app();ui_draw();
+    assert(strstr(app_process_frame(),"selection-copy"));
+    tap17(100,655);
+    assert(!strcmp(clipboard_text,"Darcy") && reader_ui.selecting==0);
+    notification_dismiss();
     assert(app_process_send("{\"event\":\"intent\",\"operation\":\"selection-context\",\"text\":\"Darcy\"}"));
     settle_app();
     for(int i=0;i<25 && document_excerpt_wait()>=0;i++){usleep(10000);document_excerpt_poll();}

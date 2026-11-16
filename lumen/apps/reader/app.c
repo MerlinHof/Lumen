@@ -1,8 +1,10 @@
 #include "lumen_app.h"
 
-enum {BOOK,CONTENTS,SETTINGS,CONTEXT};
+enum {BOOK,CONTENTS,SETTINGS,CONTEXT,SELECTION};
 static int context_action=100,mention_state,wiki_state,mention_page;
+static char selected_text[2048];
 static char context_term[129],mention_quote[480],wiki_title[180],wiki_extract[2600];
+static int private_preferences=1,preferences_loaded;
 static int view,chrome,page,total,preferences[10],settings_page,category,list_page,count,confirm=-1;
 static char title[384],labels[8][768];
 static int positions[8];
@@ -20,8 +22,37 @@ static void contents(void) {
 static void number(const char *operation,int value,int action) {
     char data[24];snprintf(data,sizeof(data),"%d",value);request(operation,data,action);
 }
+static int valid_preferences(const int values[3]) {
+    return values[0]>=0 && values[0]<=1 && values[1]>=0 && values[1]<=1 &&
+           values[2]>=0 && values[2]<=6;
+}
 static void setting(int id,int value) {
+    if(private_preferences && id>=7 && id<=9) {
+        int values[3];
+        memcpy(values,preferences+7,sizeof(values));
+        values[id-7]=value;
+        if(valid_preferences(values) && app_state_save("reader-controls",values,sizeof(values))) {
+            memcpy(preferences+7,values,sizeof(values));
+            preferences_loaded=1;
+        }
+        return;
+    }
     char data[32];snprintf(data,sizeof(data),"%d %d",id,value);request("setting",data,1);
+}
+static void import_controls(void) {
+    if(!valid_preferences(preferences+7)) {
+        preferences[7]=1;preferences[8]=0;preferences[9]=0;
+    }
+    if(preferences[9]!=5) {
+        char text[32];size_t length;
+        if(lumen_legacy_read("reader-progress15.txt",text,sizeof(text)-1,&length)) {
+            text[length]=0;
+            char *end;
+            long value=strtol(text,&end,10);
+            if(end!=text && value>=0 && value<=6)preferences[9]=(int)value;
+        }
+    }
+    preferences_loaded=1;
 }
 static void show(int next) {
     view=next;lumen_back=view!=BOOK;
@@ -83,8 +114,11 @@ static void draw_settings(void) {
     }
     lumen_pager(745,settings_page,2);
 }
-static void context_open(void) {
-    if(!wire_bounded_string("text",context_term,sizeof(context_term)) || !*context_term)return;
+static void context_open(const char *text,int lookup) {
+    size_t used=strcspn(text,"\n\r");
+    if(used>sizeof(context_term)-1)used=sizeof(context_term)-1;
+    while(used && ((unsigned char)text[used]&0xc0)==0x80)used--;
+    snprintf(context_term,sizeof(context_term),"%.*s",(int)used,text);
     size_t size=strlen(context_term);
     while(size && strchr(".,;:!? ",context_term[size-1]))context_term[--size]=0;
     if(!size)return;
@@ -93,7 +127,7 @@ static void context_open(void) {
     mention_quote[0]=wiki_title[0]=wiki_extract[0]=0;
     view=CONTEXT;lumen_back=1;
     request("first_mention",context_term,context_action);
-    if(lumen_number("lookup")) {
+    if(lookup) {
         wiki_state=1;
         lumen_app_service("lumen.wikipedia","summary",context_term,context_action+1);
     }
@@ -130,8 +164,40 @@ static void context_draw(void) {
             "Rechercher l’article"),0);
     }
 }
+static void selection_draw(void) {
+    lumen_document_page(0);
+    ui_paint_surface(19,515,558,258,16,255,100);
+    lumen_wrapped(35,533,526,82,selected_text,PAINT_BODY,3);
+    lumen_button_action("selection-copy",35,631,165,48,word("Kopieren","Copy","Copier"),0);
+    lumen_button_action("selection-context",217,631,165,48,word("Kontext + Wiki","Context + Wiki","Contexte + Wiki"),0);
+    lumen_button_action("selection-dictionary",399,631,160,48,word("Wörterbuch","Dictionary","Dictionnaire"),0);
+    lumen_button_action("selection-mark",35,704,250,48,word("Markieren","Highlight","Surligner"),0);
+    lumen_button_action("selection-close",310,704,250,48,word("Schließen","Close","Fermer"),0);
+}
+static void selection_close(void) {
+    view=BOOK;chrome=lumen_back=0;
+    request("selection_clear","",0);
+}
+static int selection_action(const char *id) {
+    if(!strcmp(id,"selection-context")) {
+        selection_close();
+        context_open(selected_text,1);
+    } else if(!strcmp(id,"selection-dictionary")) {
+        selection_close();
+        lumen_service("dictionary","lookup",selected_text,6);
+    } else if(!strcmp(id,"selection-copy")) {
+        view=BOOK;chrome=lumen_back=0;
+        request("selection_copy","",4);
+    } else if(!strcmp(id,"selection-mark")) {
+        view=BOOK;chrome=lumen_back=0;
+        request("selection_mark","",5);
+    } else if(!strcmp(id,"selection-close"))selection_close();
+    else return 0;
+    return 1;
+}
 static void draw(void) {
     if(view==CONTEXT){context_draw();return;}
+    if(view==SELECTION){lumen_fullscreen=1;selection_draw();return;}
     lumen_fullscreen=view==BOOK && !chrome && total>0;
     if(view==SETTINGS){draw_settings();return;}
     if(view==CONTENTS) {
@@ -238,7 +304,10 @@ static int activate(const char *id) {
         }
     } else if(!total) {
         if(!strcmp(id,"resume"))request("resume_book","",1);
-        else if(!strcmp(id,"library"))lumen_open("lumen.library");
+        else if(!strcmp(id,"library")) {
+            if(private_preferences)lumen_open_provider("books");
+            else lumen_open("lumen.library");
+        }
     } else if(chrome) {
         if(!strcmp(id,"settings")){settings_page=0;show(SETTINGS);}
         else if(!strcmp(id,"contents"))show(CONTENTS);
@@ -246,19 +315,31 @@ static int activate(const char *id) {
     return 1;
 }
 static int input(const Input *in) {
-    if(in->kind==INPUT_OPEN){lumen_ready=0;state();return 1;}
+    if(in->kind==INPUT_OPEN) {
+        if(lumen_number("api"))private_preferences=!!lumen_number("reader_preferences");
+        int values[3];
+        if(private_preferences && app_state_load("reader-controls",values,sizeof(values)) && valid_preferences(values)) {
+            memcpy(preferences+7,values,sizeof(values));
+            preferences_loaded=1;
+        }
+        lumen_ready=0;state();return 1;
+    }
     if(in->kind==INPUT_RESUME || in->kind==INPUT_REFRESH){if(view==CONTENTS)contents();else state();return 1;}
     if(in->kind==INPUT_INTENT) {
         char operation[32];
-        if(lumen_string("operation",operation,sizeof(operation)) && !strcmp(operation,"selection-context")){
-            context_open();
+        if(lumen_string("operation",operation,sizeof(operation)) &&
+           (!strcmp(operation,"document-selection") || !strcmp(operation,"selection-context"))) {
+            if(!lumen_string("text",selected_text,sizeof(selected_text)) || !*selected_text)return 1;
+            if(!strcmp(operation,"selection-context"))context_open(selected_text,lumen_number("lookup"));
+            else {view=SELECTION;lumen_back=1;}
             return 1;
         }
         view=BOOK;chrome=0;lumen_back=0;lumen_ready=0;state();return 1;
     }
+    if(in->kind==INPUT_BACK && view==SELECTION){selection_close();return 1;}
     if(in->kind==INPUT_BACK && view!=BOOK){if(confirm>=0)confirm=-1;else show(BOOK);return 1;}
     if(in->kind==INPUT_PAGE) {
-        if(view==CONTEXT)return 1;
+        if(view==CONTEXT || view==SELECTION)return 1;
         if(view==SETTINGS)settings_page=in->x;
         else if(view==CONTENTS){list_page=in->x;contents();}
         else if(total)number("goto",in->x,1);
@@ -267,6 +348,22 @@ static int input(const Input *in) {
     if(in->kind==INPUT_SELECT && view==SETTINGS && in->x>=10 && in->x<20 && in->y>=0)
         setting(in->x-10,in->y);
     if(in->kind==INPUT_SERVICE) {
+        if(in->x==0)return 1;
+        if(in->x==4 || in->x==5) {
+            const char *message=!in->y ? word("Aktion fehlgeschlagen.","Action failed.","Échec de l’action.") :
+                in->x==4 ? word("Kopiert.","Copied.","Copié.") :
+                            word("Markierung gespeichert.","Highlight saved.","Surlignage enregistré.");
+            lumen_request("notify","",message,0);
+            return 1;
+        }
+        if(in->x==6) {
+            char definition[2048];
+            const char *message=in->y && lumen_string("definition",definition,sizeof(definition)) ? definition :
+                word("Kein Eintrag im Offline-Wörterbuch.","No entry in the offline dictionary.","Aucune entrée dans le dictionnaire hors ligne.");
+            lumen_request("notify","",message,0);
+            return 1;
+        }
+
         if(in->x>=100) {
             if(view!=CONTEXT)return 1;
             if(in->x==context_action) {
@@ -294,7 +391,9 @@ static int input(const Input *in) {
         if(in->y) {
             page=lumen_number("page");total=lumen_number("total");
             lumen_string("title",title,sizeof(title));
-            for(int i=0;i<10;i++){char key[24];snprintf(key,sizeof(key),"setting%d",i);preferences[i]=lumen_number(key);}
+            int fields=private_preferences && preferences_loaded ? 7 : 10;
+            for(int i=0;i<fields;i++){char key[24];snprintf(key,sizeof(key),"setting%d",i);preferences[i]=lumen_number(key);}
+            if(private_preferences && !preferences_loaded)import_controls();
             if(in->x==2) {
                 count=lumen_number("count");list_page=lumen_number("list_page");
                 for(int i=0;i<8;i++){
@@ -308,13 +407,14 @@ static int input(const Input *in) {
     if(in->kind==INPUT_COMPONENT) {
         char id[24],gesture[24],value[8];
         if(!lumen_string("id",id,sizeof(id)) || !lumen_string("gesture",gesture,sizeof(gesture)))return 0;
-        if(!strcmp(gesture,"clicked"))return activate(id);
+        if(!strcmp(gesture,"clicked"))return view==SELECTION ? selection_action(id) : activate(id);
         if(view==CONTENTS && confirm<0 && !strcmp(id,"contents") && !strcmp(gesture,"selected") &&
            lumen_string("text",value,sizeof(value)) && strlen(value)==1 && value[0]>='0' && value[0]<='2') {
             category=value[0]-'0';list_page=0;contents();
         }
         return 1;
     }
+    if((in->kind==INPUT_TAP || in->kind==INPUT_SWIPE) && view==SELECTION){selection_close();return 1;}
     if(in->kind==INPUT_SWIPE && view==BOOK && !chrome && total && preferences[7]){
         number("turn",in->dx<0 ? 1 : -1,1);return 1;
     }
