@@ -11,8 +11,6 @@ system/amazon.c
 system/qrcodegen.c
 system/content_service.c
 system/network.c
-apps/games/classic.c
-apps/games/puzzles.c
 apps/news/archive.c
 apps/news/provider.c
 system/services.c

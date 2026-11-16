@@ -92,6 +92,7 @@ typedef struct {
     void *context;
 } AppRuntime;
 const AppDefinition *app_definition(AppId id);
+const char *app_factory_key(AppId id);
 const AppDefinition *app_factory_definition(AppId id);
 AppId app_for_route(int route);
 int app_route_valid(int route);

@@ -1,6 +1,5 @@
 /* The status package selects fields and geometry. LUMEN supplies device state,
  * draws shared symbols, and executes navigation from the declared hit regions. */
-static const char *status_app_id="lumen.status-bar";
 static const char *status_title(void) {
     if(*package_view_title && app_process_owner()==(int)app_for_route(ui_route()))
         return tr(package_view_title);
@@ -37,7 +36,7 @@ static void status_send(void) {
     fputc('}',out);fclose(out);
     if(message && (!alive || strcmp(previous,message))) {
         attempted=now_ms;
-        if(app_overlay_send(APP_OVERLAY_STATUS,status_app_id,message))
+        if(app_overlay_send(APP_OVERLAY_STATUS,app_package_provider(PROVIDER_STATUS),message))
             snprintf(previous,sizeof(previous),"%s",message);
     }
     free(message);

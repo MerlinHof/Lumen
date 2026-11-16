@@ -1,14 +1,28 @@
 {
-  "format": "lumen-app-1",
-  "api": 1,
+  "format": "lumen-app-2",
+  "api": 2,
   "id": "lumen.home",
   "name": "Startseite",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "sources": [
     "app.c"
   ],
   "assets": [
     "scene.pgm",
     "assets/icon.pgm"
-  ]
+  ],
+  "entry": "app",
+  "surfaces": [
+    "foreground"
+  ],
+  "provides": [
+    "startup"
+  ],
+  "legacy": {
+    "slot": "APP_HOME",
+    "entry": 131,
+    "aliases": [
+      131
+    ]
+  }
 }

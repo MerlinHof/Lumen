@@ -1,5 +1,4 @@
 /* Compose the installed Notifications app without blocking the foreground app. */
-static const char notification_app[]="lumen.notifications";
 static int notification_pending,notification_capture,notification_generation;
 static int notification_x,notification_y,notification_w,notification_h;
 
@@ -15,13 +14,13 @@ static int receive_notification(const void *payload,size_t size,int64_t now) {
             notification_generation,request->duration_ms);
     json_escape16(out,request->text);
     fputc('}',out);fclose(out);
-    int sent=app_overlay_send(APP_OVERLAY_NOTIFICATION,notification_app,event);
+    int sent=app_overlay_send(APP_OVERLAY_NOTIFICATION,app_package_provider(PROVIDER_NOTIFICATION),event);
     free(event);
     notification_pending=sent;
     return sent;
 }
 static void notification_dismiss(void) {
-    if(notification_w || notification_pending)app_overlay_send(APP_OVERLAY_NOTIFICATION,notification_app,"{\"event\":\"dismiss\"}");
+    if(notification_w || notification_pending)app_overlay_send(APP_OVERLAY_NOTIFICATION,app_package_provider(PROVIDER_NOTIFICATION),"{\"event\":\"dismiss\"}");
     notification_w=0;
     notification_pending=0;
     notification_generation=(notification_generation+1)%1000000;
@@ -69,7 +68,7 @@ static int notification_input(const Input *in,int visible) {
     if(captured && visible) {
         char event[128];
         snprintf(event,sizeof(event),"{\"event\":\"input\",\"kind\":%d,\"x\":%d,\"y\":%d}",in->kind,in->x,in->y);
-        app_overlay_send(APP_OVERLAY_NOTIFICATION,notification_app,event);
+        app_overlay_send(APP_OVERLAY_NOTIFICATION,app_package_provider(PROVIDER_NOTIFICATION),event);
     }
     return captured;
 }

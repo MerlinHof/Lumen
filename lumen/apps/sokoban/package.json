@@ -1,9 +1,25 @@
 {
-  "format": "lumen-app-1",
-  "api": 1,
+  "format": "lumen-app-2",
+  "api": 2,
   "id": "lumen.sokoban",
   "name": "Sokoban",
-  "version": "1.0.1",
-  "sources": ["app.c"],
-  "assets": ["assets/icon.pgm", "tiles.pgm"]
+  "version": "1.0.2",
+  "sources": [
+    "app.c"
+  ],
+  "assets": [
+    "assets/icon.pgm",
+    "tiles.pgm"
+  ],
+  "entry": "app",
+  "surfaces": [
+    "foreground"
+  ],
+  "legacy": {
+    "slot": "APP_SOKOBAN",
+    "entry": 118,
+    "aliases": [
+      118
+    ]
+  }
 }

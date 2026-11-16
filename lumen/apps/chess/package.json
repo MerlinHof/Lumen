@@ -1,13 +1,25 @@
 {
-  "format": "lumen-app-1",
-  "api": 1,
+  "format": "lumen-app-2",
+  "api": 2,
   "id": "lumen.chess",
   "name": "Schach",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "sources": [
     "app.c"
   ],
   "assets": [
     "assets/icon.pgm"
-  ]
+  ],
+  "entry": "app",
+  "surfaces": [
+    "foreground"
+  ],
+  "legacy": {
+    "slot": "APP_CHESS",
+    "entry": 48,
+    "aliases": [
+      48,
+      50
+    ]
+  }
 }

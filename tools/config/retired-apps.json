@@ -1,0 +1,27 @@
+{
+  "retired.drawing": {
+    "slot": "APP_DRAWING",
+    "entry": -1,
+    "aliases": []
+  },
+  "retired.numscratch": {
+    "slot": "APP_NUMSCRATCH",
+    "entry": -1,
+    "aliases": []
+  },
+  "retired.tabs": {
+    "slot": "APP_RESERVED_36",
+    "entry": -1,
+    "aliases": []
+  },
+  "retired.files": {
+    "slot": "APP_FILES",
+    "entry": -1,
+    "aliases": []
+  },
+  "retired.rpg": {
+    "slot": "APP_RPG",
+    "entry": -1,
+    "aliases": []
+  }
+}

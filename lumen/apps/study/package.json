@@ -1,10 +1,29 @@
 {
-  "format": "lumen-app-1",
-  "api": 1,
+  "format": "lumen-app-2",
+  "api": 2,
   "id": "lumen.study",
   "name": "Lernen",
-  "version": "1.3.0",
-  "operations": ["material_count"],
-  "sources": ["app.c"],
-  "assets": ["assets/icon.pgm"]
+  "version": "1.3.1",
+  "operations": [
+    "material_count"
+  ],
+  "sources": [
+    "app.c"
+  ],
+  "assets": [
+    "assets/icon.pgm"
+  ],
+  "entry": "app",
+  "surfaces": [
+    "foreground",
+    "background"
+  ],
+  "legacy": {
+    "slot": "APP_STUDY",
+    "entry": 111,
+    "aliases": [
+      111,
+      127
+    ]
+  }
 }

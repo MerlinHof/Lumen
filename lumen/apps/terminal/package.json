@@ -1,14 +1,18 @@
 {
-  "format": "lumen-app-1",
-  "api": 1,
+  "format": "lumen-app-2",
+  "api": 2,
   "id": "lumen.terminal",
   "name": "Terminal",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "sources": [
     "app.c",
     "session.c"
   ],
   "assets": [
     "assets/icon.pgm"
+  ],
+  "entry": "app",
+  "surfaces": [
+    "foreground"
   ]
 }

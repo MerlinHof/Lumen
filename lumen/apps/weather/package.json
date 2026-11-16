@@ -1,10 +1,28 @@
 {
-  "format": "lumen-app-1",
-  "api": 1,
+  "format": "lumen-app-2",
+  "api": 2,
   "id": "lumen.weather",
   "name": "Wetter",
-  "version": "1.1.0",
-  "operations": ["refresh_forecast"],
-  "sources": ["app.c"],
-  "assets": ["assets/icon.pgm"]
+  "version": "1.1.1",
+  "operations": [
+    "refresh_forecast"
+  ],
+  "sources": [
+    "app.c"
+  ],
+  "assets": [
+    "assets/icon.pgm"
+  ],
+  "entry": "app",
+  "surfaces": [
+    "foreground",
+    "background"
+  ],
+  "legacy": {
+    "slot": "APP_WEATHER",
+    "entry": 32,
+    "aliases": [
+      32
+    ]
+  }
 }

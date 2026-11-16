@@ -1,14 +1,25 @@
 {
-  "format": "lumen-app-1",
-  "api": 1,
+  "format": "lumen-app-2",
+  "api": 2,
   "id": "lumen.sliding-puzzle",
   "name": "Schiebepuzzle",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "sources": [
     "app.c",
     "engine.c"
   ],
   "assets": [
     "assets/icon.pgm"
-  ]
+  ],
+  "entry": "app",
+  "surfaces": [
+    "foreground"
+  ],
+  "legacy": {
+    "slot": "APP_SIGNAL",
+    "entry": 129,
+    "aliases": [
+      129
+    ]
+  }
 }

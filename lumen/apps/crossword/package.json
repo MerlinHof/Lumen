@@ -1,13 +1,24 @@
 {
-  "format": "lumen-app-1",
-  "api": 1,
+  "format": "lumen-app-2",
+  "api": 2,
   "id": "lumen.crossword",
-  "name": "Kreuzwortr\u00e4tsel",
-  "version": "1.0.0",
+  "name": "Kreuzworträtsel",
+  "version": "1.0.1",
   "sources": [
     "app.c"
   ],
   "assets": [
     "assets/icon.pgm"
-  ]
+  ],
+  "entry": "app",
+  "surfaces": [
+    "foreground"
+  ],
+  "legacy": {
+    "slot": "APP_CROSSWORD",
+    "entry": 120,
+    "aliases": [
+      120
+    ]
+  }
 }

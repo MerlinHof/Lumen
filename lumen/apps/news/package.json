@@ -1,13 +1,30 @@
 {
-  "format": "lumen-app-1",
-  "api": 1,
+  "format": "lumen-app-2",
+  "api": 2,
   "id": "lumen.news",
   "name": "News",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "sources": [
     "app.c"
   ],
   "assets": [
     "assets/icon.pgm"
-  ]
+  ],
+  "entry": "app",
+  "surfaces": [
+    "foreground"
+  ],
+  "legacy": {
+    "slot": "APP_NEWS",
+    "entry": 86,
+    "aliases": [
+      67,
+      68,
+      69,
+      86,
+      95,
+      96,
+      97
+    ]
+  }
 }

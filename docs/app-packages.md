@@ -1,4 +1,4 @@
-# LUMEN app packages · Protocol 1
+# LUMEN app packages · Protocol 2
 
 One catalog and one package identity are used for every app. Packages do not
 carry a “system” or “custom” privilege flag. Installing a new version with an
@@ -24,8 +24,10 @@ LUMEN's executable and its system source are not linked or rebuilt.
 
 ```json
 {
-  "format": "lumen-app-1",
-  "api": 1,
+  "format": "lumen-app-2",
+  "api": 2,
+  "entry": "app",
+  "surfaces": ["foreground"],
   "id": "example.counter",
   "name": "Counter",
   "version": "1.0.0",
@@ -38,6 +40,29 @@ under `payload/`. The manifest lists each file's length and SHA-256. The entry
 point is `app`, a static ARMv7 Linux executable. Optional `assets` in the build
 manifest are relative paths beside the app source. `assets/icon.pgm` is a binary P5
 76×76 grayscale engraved icon; otherwise the existing identity/fallback is used.
+
+`surfaces` declares where the package can run. Use `foreground` for a normal
+app, `overlay` for system overlays and `background` for exported operations.
+LUMEN 6.5 can still install and run Protocol 1 apps. Protocol 2 packages
+require 6.5 or later.
+
+## System providers
+
+A package may declare a role in `provides`. The startup role requires a
+foreground surface. The other four roles require an overlay surface and
+receive their existing role-specific event stream. To override a shipped
+provider, install a package declaring that role and set the respective entry
+in `lumen/data/providers.conf` before restarting LUMEN.
+
+```ini
+startup=lumen.home
+text-input=lumen.keyboard
+status=lumen.status-bar
+notification=lumen.notifications
+sleep=lumen.lock-screen
+```
+
+The runtime uses the shipped provider if an override is unavailable.
 
 ## Install or replace
 
@@ -63,9 +88,13 @@ installs may replace the same version during development. Home removal preserves
 ## System interface
 
 The process receives newline JSON events on stdin and writes newline JSON frames
-or service requests to stdout. Keep diagnostics off stdout. Protocol 1 has open,
-input, pause, resume and text events. The open event supplies language, dimensions
-and the private data directory. SDK Input numeric values are append-only.
+or service requests to stdout. Keep diagnostics off stdout. Protocol 2 has open,
+input, pause, resume and text events. The open event supplies language, dimensions,
+the package protocol number and the private data directory. SDK Input numeric
+values are append-only. Use `lumen_page` with the `lumen_component_*` functions
+for coordinate-free controls and `lumen_dispatch_click` to bind IDs to callbacks
+in the input handler. Use `lumen_storage_checkpoint` from a save handler to
+write changed state and retry failed writes on the next checkpoint.
 
 Use `lumen_run` for a simple Input-driven app or `lumen_next` for a custom event
 loop. `lumen_begin` / `lumen_end` send one complete frame. `ui_paint_*` describe
@@ -97,7 +126,7 @@ Service requests use `lumen_request(kind,title,text,action)`:
 
 - `input`: opens the actual system keyboard; the response is a text event.
 - `reader`: opens Markdown in the shared Reader and retains Back navigation.
-- `notify`: calls the installed `lumen.notifications` app, which owns the banner and its lifetime.
+- `notify`: calls the configured notification provider, which owns the banner and its lifetime.
 
 Drawing packages can use `LUMEN_APP_SURFACES` for transient raw grayscale
 surfaces. `lumen_transient_bitmap` composites the file with white pixels
@@ -139,7 +168,7 @@ All 52 active apps ship as independent packages since LUMEN 6.0. Their build
 manifests are the `lumen/apps/*/package.json` files. A missing package displays a
 missing-app screen. Home also offers access to Settings and File Transfer.
 
-Protocol 1 supports semantic layout through `lumen_page`, `lumen_component_button`,
+Protocol 2 supports semantic layout through `lumen_page`, `lumen_component_button`,
 `lumen_textfield`, `lumen_component_toggle` and `lumen_component_checkbox`.
 A component event includes the stable `id` and a `gesture` of `clicked`,
 `submitted`, `changed` or `long_pressed`. Toggle and checkbox events carry

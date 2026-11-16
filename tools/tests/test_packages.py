@@ -61,6 +61,16 @@ IFS= read -r line
 """
 archive(wire_app,{'app':script},format='lumen-app-1',api=1,id='test.wire',name='Wire fixture',version='1.0.0')
 run('install',wire_app)
+bad=base/'bad-app.zip'
+archive(bad,{'app':script},format='lumen-app-2',api=2,id='test.other',name='Invalid provider',
+        version='1.0.0',entry='app',surfaces=['foreground'],provides=['text-input'])
+run('install',bad,ok=False)
+overlay=base/'overlay-app.zip'
+archive(overlay,{'app':script},format='lumen-app-2',api=2,id='test.overlay',name='Independent provider',
+        version='1.0.0',entry='app',surfaces=['overlay'],provides=['text-input'])
+run('install',overlay)
+(data/'providers.conf').write_text('text-input=test.overlay\nstartup=test.overlay\n')
+run('provider')
 run('wire')
 
 caller_app=base/'caller.lumen-app'
@@ -114,7 +124,7 @@ ids=set()
 for manifest in manifests:
  definition=json.loads(manifest.read_text())
  key=definition['id']
- assert key not in ids and definition['api']==1 and definition['format']=='lumen-app-1',key
+ assert key not in ids and definition['api']==2 and definition['format']=='lumen-app-2',key
  ids.add(key)
  assert 'assets/icon.pgm' in definition['assets'],key
  for source in definition['sources']:

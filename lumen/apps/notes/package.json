@@ -1,10 +1,36 @@
 {
-  "format": "lumen-app-1",
-  "api": 1,
+  "format": "lumen-app-2",
+  "api": 2,
   "id": "lumen.notes",
   "name": "Notizen",
-  "version": "1.5.1",
-  "operations": ["create_learning", "export_list", "export_text", "export_pdf"],
-  "sources": ["app.c"],
-  "assets": ["assets/icon.pgm"]
+  "version": "1.5.2",
+  "operations": [
+    "create_learning",
+    "export_list",
+    "export_text",
+    "export_pdf"
+  ],
+  "sources": [
+    "app.c"
+  ],
+  "assets": [
+    "assets/icon.pgm"
+  ],
+  "entry": "app",
+  "surfaces": [
+    "foreground",
+    "background"
+  ],
+  "legacy": {
+    "slot": "APP_NOTES",
+    "entry": 29,
+    "aliases": [
+      29,
+      30,
+      43,
+      84,
+      85,
+      102
+    ]
+  }
 }

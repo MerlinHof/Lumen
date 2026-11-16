@@ -57,7 +57,7 @@ static const char *sleep_frame(int has_book) {
              options[OPT_LOCK_DATE],options[OPT_LANGUAGE],(long long)(time(NULL)/60));
     if(strcmp(last,message) || app_overlay_fd(APP_OVERLAY_SLEEP)<0) {
         pending_serial=app_overlay_frame_serial(APP_OVERLAY_SLEEP);
-        if(!app_overlay_send(APP_OVERLAY_SLEEP,"lumen.lock-screen",message))return "";
+        if(!app_overlay_send(APP_OVERLAY_SLEEP,app_package_provider(PROVIDER_SLEEP),message))return "";
         snprintf(last,sizeof(last),"%s",message);
     }
     /* The power event is one of the few places where the panel must get a

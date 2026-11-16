@@ -1,9 +1,24 @@
 {
-  "format": "lumen-app-1",
-  "api": 1,
+  "format": "lumen-app-2",
+  "api": 2,
   "id": "lumen.recipes",
   "name": "Rezepte",
-  "version": "1.1.1",
-  "sources": ["app.c"],
-  "assets": ["assets/icon.pgm"]
+  "version": "1.1.2",
+  "sources": [
+    "app.c"
+  ],
+  "assets": [
+    "assets/icon.pgm"
+  ],
+  "entry": "app",
+  "surfaces": [
+    "foreground"
+  ],
+  "legacy": {
+    "slot": "APP_RECIPES",
+    "entry": 114,
+    "aliases": [
+      114
+    ]
+  }
 }

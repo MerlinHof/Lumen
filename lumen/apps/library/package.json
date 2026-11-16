@@ -1,9 +1,28 @@
 {
-  "format": "lumen-app-1",
-  "api": 1,
+  "format": "lumen-app-2",
+  "api": 2,
   "id": "lumen.library",
   "name": "Bibliothek",
-  "version": "1.1.1",
-  "sources": ["app.c"],
-  "assets": ["assets/icon.pgm"]
+  "version": "1.1.2",
+  "sources": [
+    "app.c"
+  ],
+  "assets": [
+    "assets/icon.pgm"
+  ],
+  "entry": "app",
+  "surfaces": [
+    "foreground"
+  ],
+  "legacy": {
+    "slot": "APP_LIBRARY",
+    "entry": 1,
+    "aliases": [
+      0,
+      1,
+      6,
+      7,
+      132
+    ]
+  }
 }

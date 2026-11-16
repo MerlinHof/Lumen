@@ -53,6 +53,26 @@ int package_operation_valid(const char *operation) {
     size_t n=strlen(operation);
     return n>0 && n<48 && strspn(operation,"abcdefghijklmnopqrstuvwxyz0123456789_-")==n;
 }
+const char *const package_provider_names[PROVIDER_COUNT]={
+    "startup", "text-input", "status", "notification", "sleep"
+};
+
+static int package_flags(const Json *json,int array,const char *const *names,
+                         unsigned count,unsigned *flags) {
+    if(array<0 || json->tokens[array].type!='[' || json->tokens[array].count>(int)count)return 0;
+    for(int i=0;i<json->tokens[array].count;i++) {
+        int item=json_at(json,array,i);
+        char name[32];
+        if(item<0 || json->tokens[item].type!='"' || json->tokens[item].end-json->tokens[item].start>32)return 0;
+        json_string(json,item,name,sizeof(name));
+        unsigned bit=0;
+        while(bit<count && strcmp(name,names[bit]))bit++;
+        if(bit==count || (*flags & (1u<<bit)))return 0;
+        *flags|=1u<<bit;
+    }
+    return 1;
+}
+
 int package_manifest(const char *text,Package *p) {
  Json j;JsonToken t[4096];memset(p,0,sizeof(*p));if(!json_parse(&j,text,t,4096))return 0;
  json_string(&j,json_get(&j,0,"format"),p->format,sizeof(p->format));
@@ -60,6 +80,19 @@ int package_manifest(const char *text,Package *p) {
  json_string(&j,json_get(&j,0,"id"),p->id,sizeof(p->id));
  json_string(&j,json_get(&j,0,"name"),p->name,sizeof(p->name));
  p->api=json_number(&j,json_get(&j,0,"api"));int files=json_get(&j,0,"files");
+ if(!strcmp(p->format,"lumen-app-2")) {
+   static const char *const surfaces[]={"foreground","overlay","background"};
+   char entry[16];
+   int provider_list=json_get(&j,0,"provides");
+   json_string(&j,json_get(&j,0,"entry"),entry,sizeof(entry));
+   if(p->api!=2 || strcmp(entry,"app") ||
+      !package_flags(&j,json_get(&j,0,"surfaces"),surfaces,3,&p->surfaces) || !p->surfaces ||
+      (provider_list>=0 && !package_flags(&j,provider_list,package_provider_names,PROVIDER_COUNT,&p->providers)))return 0;
+   if((p->providers & (1u<<PROVIDER_STARTUP)) && !(p->surfaces & PACKAGE_FOREGROUND))return 0;
+   if((p->providers & ~(1u<<PROVIDER_STARTUP)) && !(p->surfaces & PACKAGE_OVERLAY))return 0;
+ } else if(!strcmp(p->format,"lumen-app-1") && p->api==1) {
+   p->surfaces=PACKAGE_FOREGROUND|PACKAGE_OVERLAY|PACKAGE_BACKGROUND;
+ }
  if(files<0 || t[files].type!='[' || t[files].count<1 || t[files].count>PACKAGE_FILES || !*p->version)return 0;
  int operations=json_get(&j,0,"operations");
  if(operations>=0) {
@@ -73,6 +106,7 @@ int package_manifest(const char *text,Package *p) {
      for(int k=0;k<i;k++)if(!strcmp(p->operations[k],p->operations[i]))return 0;
    }
  }
+ if(!strcmp(p->format,"lumen-app-2") && p->operation_count && !(p->surfaces & PACKAGE_BACKGROUND))return 0;
  p->count=t[files].count;size_t total=0;
  for(int i=0;i<p->count;i++) {
    int f=json_at(&j,files,i);PackageFile*r=&p->files[i];

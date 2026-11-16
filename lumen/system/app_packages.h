@@ -1,13 +1,16 @@
 #ifndef LUMEN_APP_PACKAGES_H
 #define LUMEN_APP_PACKAGES_H
 #include "app_runtime.h"
-#define APP_PACKAGE_API 1
+#include "packages.h"
+#define APP_PACKAGE_API 2
 #define APP_FRAME_MAX 262144
 void app_packages_scan(void);
 void app_packages_seed(void);
 const AppDefinition *app_package_definition(AppId id);
 int app_package_installed(AppId id);
 int app_package_find(const char *key);
+const char *app_factory_provider(PackageProvider role);
+const char *app_package_provider(PackageProvider role);
 int app_package_asset(AppId id,const char *name,char *path,size_t size);
 const char *app_package_key(AppId id);
 const char *app_package_version(AppId id);

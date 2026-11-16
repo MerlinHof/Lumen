@@ -2,14 +2,14 @@ Build and install the LUMEN app I describe below. Do not rebuild or replace LUME
 The address/code above belong to this user's Kindle on this LAN. Never commit
 connection codes, addresses, personal content or credentials.
 
-APP PROTOCOL 1 — one package identity and contract for all apps:
+APP PROTOCOL 2 — one package identity and contract for all apps:
 1. Get the SDK from the installed LUMEN release at
 https://github.com/MerlinHof/Lumen. Read tools/sdk/lumen_app.h,
 tools/build-app.py and docs/app-packages.md. Use the matching SDK release.
 No MuPDF build or system compilation is needed. The SDK is a small C client.
 The SDK ZIP release includes a ready-to-use standalone build script and examples.
 2. Make a folder containing your C sources and package.json:
-{"format":"lumen-app-1","api":1,"id":"your.reverse-domain.app",
+{"format":"lumen-app-2","api":2,"entry":"app","surfaces":["foreground"],"id":"your.reverse-domain.app",
  "name":"Your App","version":"1.0.0","sources":["main.c"]}
 Use a stable ID. Updating an existing app uses that SAME ID, never a duplicate.
 Apps shipped with LUMEN have IDs such as lumen.calculator, lumen.notes and

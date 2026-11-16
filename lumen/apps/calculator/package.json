@@ -1,14 +1,29 @@
 {
-  "format": "lumen-app-1",
-  "api": 1,
+  "format": "lumen-app-2",
+  "api": 2,
   "id": "lumen.calculator",
   "name": "Rechner",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "sources": [
     "app.c",
     "evaluate.c"
   ],
   "assets": [
     "assets/icon.pgm"
-  ]
+  ],
+  "entry": "app",
+  "surfaces": [
+    "foreground"
+  ],
+  "legacy": {
+    "slot": "APP_CALCULATOR",
+    "entry": 27,
+    "aliases": [
+      27,
+      42,
+      61,
+      62,
+      100
+    ]
+  }
 }

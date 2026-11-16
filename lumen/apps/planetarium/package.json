@@ -1,14 +1,27 @@
 {
-  "format": "lumen-app-1",
-  "api": 1,
+  "format": "lumen-app-2",
+  "api": 2,
   "id": "lumen.planetarium",
   "name": "Planetarium",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "sources": [
     "app.c",
     "astronomy.c"
   ],
   "assets": [
     "assets/icon.pgm"
-  ]
+  ],
+  "entry": "app",
+  "surfaces": [
+    "foreground"
+  ],
+  "legacy": {
+    "slot": "APP_PLANETARIUM",
+    "entry": 79,
+    "aliases": [
+      79,
+      80,
+      125
+    ]
+  }
 }

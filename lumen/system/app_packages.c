@@ -22,9 +22,8 @@
 #include "host_icons.h"
 #endif
 /* IDs are a package identity, never an origin or privilege class. */
-static const char *keys[APP_COUNT]={
- "lumen.library","lumen.reader","lumen.settings","lumen.store","lumen.transfer","lumen.calendar","lumen.insights","lumen.minesweeper","lumen.hangman","lumen.tetris","lumen.snake","lumen.calculator","lumen.clock","lumen.notes","retired.drawing","lumen.weather","lumen.home-assistant","lumen.wikipedia","lumen.quotes","lumen.chess","lumen.tic-tac-toe","retired.numscratch","lumen.2048","lumen.solitaire","lumen.sudoku","lumen.braintrain","lumen.news","lumen.wordle","lumen.photos","lumen.languages","lumen.todo","lumen.flashcards","lumen.planetarium","lumen.nonograms","lumen.hex","lumen.status-bar","retired.tabs","lumen.lock-screen","lumen.keyboard","lumen.journal","lumen.study","lumen.bingo","lumen.connect-four","lumen.recipes","lumen.periodic-table","retired.files","lumen.knights-tour","lumen.sokoban","lumen.maze","lumen.crossword","retired.rpg","lumen.openai","lumen.sliding-puzzle","lumen.frog-solitaire","lumen.home"};
-static struct {AppDefinition def;char key[64],name[96],version[32];int installed,removed,has_icon;} entries[APP_LIMIT];
+static struct {AppDefinition def;char key[64],name[96],version[32];int installed,removed,has_icon,api;unsigned surfaces,providers;} entries[APP_LIMIT];
+static int provider_ids[PROVIDER_COUNT]={-1,-1,-1,-1,-1};
 enum { APP_REQUEST_MAX=49152, APP_REQUEST_LIMIT=8 };
 typedef struct {
     pid_t child;
@@ -91,21 +90,72 @@ int app_package_asset(AppId id,const char *name,char *path,size_t size) {
  int n=snprintf(path,size,"%s/../apps/%s/%s",data_root,entries[id].key,name);
  return n>0 && (size_t)n<size;
 }
-static int read_manifest(const char*directory,Package*p){char name[2048],text[65537];snprintf(name,sizeof(name),"%s/manifest.json",directory);FILE*f=fopen(name,"rb");if(!f)return 0;size_t n=fread(text,1,65536,f);int ok=n<65536&&!ferror(f);fclose(f);text[n]=0;return ok&&package_manifest(text,p)&&!strcmp(p->format,"lumen-app-1")&&p->api==APP_PACKAGE_API&&valid_id(p->id);}
+static int app_manifest_valid(const Package *p) {
+    return valid_id(p->id) && *p->name &&
+           ((p->api==1 && !strcmp(p->format,"lumen-app-1")) ||
+            (p->api==APP_PACKAGE_API && !strcmp(p->format,"lumen-app-2")));
+}
+const char *app_package_provider(PackageProvider role) {
+    if(role<0 || role>=PROVIDER_COUNT || provider_ids[role]<0)return "";
+    return entries[provider_ids[role]].key;
+}
+static void load_providers(void) {
+    for(int role=0;role<PROVIDER_COUNT;role++) {
+        int primary=identify(app_factory_provider(role));
+        if(app_package_installed(primary) && (entries[primary].providers & (1u<<role))) {
+            provider_ids[role]=primary;
+            continue;
+        }
+        provider_ids[role]=-1;
+        for(int id=0;id<APP_LIMIT;id++) {
+            if(!entries[id].installed || !(entries[id].providers & (1u<<role)))continue;
+            int fallback=provider_ids[role];
+            if(fallback<0 || strcmp(entries[id].key,entries[fallback].key)<0)provider_ids[role]=id;
+        }
+    }
+    char path[2048], line[160];
+    snprintf(path,sizeof(path),"%s/providers.conf",data_root);
+    FILE *file=fopen(path,"r");
+    if(!file)return;
+    while(fgets(line,sizeof(line),file)) {
+        if(!strchr(line,'\n') && !feof(file)) {
+            int ch;
+            do ch=fgetc(file); while(ch!='\n' && ch!=EOF);
+            continue;
+        }
+        char *value=strchr(line,'=');
+        if(!value)continue;
+        *value++=0;
+        value[strcspn(value,"\r\n")]=0;
+        int id=identify(value);
+        if(!app_package_installed(id))continue;
+        for(int role=0;role<PROVIDER_COUNT;role++)
+            if(!strcmp(line,package_provider_names[role]) && (entries[id].providers & (1u<<role)))
+                provider_ids[role]=id;
+    }
+    fclose(file);
+}
+
+static int read_manifest(const char*directory,Package*p){char name[2048],text[65537];snprintf(name,sizeof(name),"%s/manifest.json",directory);FILE*f=fopen(name,"rb");if(!f)return 0;size_t n=fread(text,1,65536,f);int ok=n<65536&&!ferror(f);fclose(f);text[n]=0;return ok&&package_manifest(text,p)&&app_manifest_valid(p);}
 void app_packages_scan(void) {
- for(int i=0;i<APP_LIMIT;i++){entries[i].installed=0;entries[i].has_icon=0;entries[i].def=(AppDefinition){i,entries[i].name,-1};entries[i].name[0]=0;if(i<APP_COUNT)snprintf(entries[i].key,64,"%s",keys[i]);else entries[i].key[0]=0;}
+ for(int i=0;i<APP_LIMIT;i++){entries[i].installed=0;entries[i].has_icon=0;entries[i].def=(AppDefinition){i,entries[i].name,-1};entries[i].name[0]=0;if(i<APP_COUNT)snprintf(entries[i].key,64,"%s",app_factory_key(i));else entries[i].key[0]=0;}
  char file[2048];root(file,"slots.txt");FILE*f=fopen(file,"rb");if(f){int slot;char id[64];while(fscanf(f,"%d %63s",&slot,id)==2)if(slot>=APP_COUNT&&slot<APP_LIMIT&&valid_id(id))snprintf(entries[slot].key,64,"%s",id);fclose(f);}
  for(int i=0;i<APP_LIMIT;i++)entries[i].removed=*entries[i].key && deleted(entries[i].key);
  root(file,"");DIR*recovery=opendir(file);if(recovery){struct dirent*r;while((r=readdir(recovery)))if(!strncmp(r->d_name,".previous-",10)&&valid_id(r->d_name+10)){char previous[2048],target[2048];root(previous,r->d_name);root(target,r->d_name+10);if(access(target,F_OK))rename(previous,target);else package_remove(previous);}closedir(recovery);}
- root(file,"");DIR*d=opendir(file);if(!d)return;struct dirent*e;Package*p=malloc(sizeof(*p));if(!p){closedir(d);return;}
+ root(file,"");DIR*d=opendir(file);if(!d){load_providers();return;}struct dirent*e;Package*p=malloc(sizeof(*p));if(!p){closedir(d);load_providers();return;}
  while((e=readdir(d)))if(valid_id(e->d_name)) {
    char dir[2048];snprintf(dir,sizeof(dir),"%s/%s",file,e->d_name);
    if(!read_manifest(dir,p)||strcmp(p->id,e->d_name)||deleted(p->id))continue;
    int id=identify(p->id);if(id<0)for(int i=APP_COUNT;i<APP_LIMIT;i++)if(!*entries[i].key){id=i;snprintf(entries[i].key,64,"%s",p->id);break;}
-   if(id<0)continue;entries[id].installed=1;snprintf(entries[id].name,96,"%s",p->name);snprintf(entries[id].version,32,"%s",p->version);
+   if(id<0)continue;
+   entries[id].api=p->api;
+   entries[id].surfaces=p->surfaces;
+   entries[id].providers=p->providers;
+   entries[id].installed=1;snprintf(entries[id].name,96,"%s",p->name);snprintf(entries[id].version,32,"%s",p->version);
    entries[id].def=(AppDefinition){id,entries[id].name,id<APP_COUNT ? app_factory_definition(id)->entry : 1000+id-APP_COUNT};
  }
  closedir(d);free(p);
+ load_providers();
  char slots[4096];size_t n=0;for(int i=APP_COUNT;i<APP_LIMIT;i++)if(*entries[i].key)n+=snprintf(slots+n,sizeof(slots)-n,"%d %s\n",i,entries[i].key);
  refresh_process(&foreground);
  for(int i=0;i<KEPT_APP_COUNT;i++)if(kept_apps[i])refresh_process(kept_apps[i]);
@@ -126,7 +176,7 @@ static int executable_valid(const char*file){FILE*f=fopen(file,"rb");if(!f)retur
 int app_package_install(const char*archive) {
  char stage[2048],target[2048],previous[2048],exe[2048];root(stage,".installing");package_remove(stage);
  Package*p=malloc(sizeof(*p));if(!p)return 0;
- int ok=package_extract(archive,stage,p)&&!strcmp(p->format,"lumen-app-1")&&p->api==APP_PACKAGE_API&&valid_id(p->id)&&*p->name;
+ int ok=package_extract(archive,stage,p)&&app_manifest_valid(p);
  snprintf(exe,sizeof(exe),"%s/app",stage);ok=ok&&executable_valid(exe);
  if(ok){app_packages_scan();int id=identify(p->id);if(id<0){for(int i=APP_COUNT;i<APP_LIMIT;i++)if(!*entries[i].key){id=i;break;}}ok=id>=0;}
  if(ok) {
@@ -140,6 +190,8 @@ int app_package_install(const char*archive) {
 }
 int app_package_can_remove(AppId id) {
     if(id<0 || id>=APP_LIMIT || !*entries[id].key || app_package_deleted(id))return 0;
+    for(int role=0;role<PROVIDER_COUNT;role++)
+        if(provider_ids[role]==(int)id)return 0;
     static const char *essential[]={"lumen.home","lumen.settings","lumen.reader",
         "lumen.keyboard","lumen.notifications","lumen.status-bar","lumen.lock-screen","lumen.transfer"};
     for(size_t i=0;i<sizeof(essential)/sizeof(*essential);i++)
@@ -267,6 +319,9 @@ static void close_inherited_fds(void) {
     closedir(directory);
 }
 static int process_open(AppProcess *p,AppId id,const char *role) {
+    unsigned surface=!strcmp(role,"overlay") ? PACKAGE_OVERLAY :
+                     !strcmp(role,"service") ? PACKAGE_BACKGROUND : PACKAGE_FOREGROUND;
+    if(app_package_installed(id) && !(entries[id].surfaces & surface))return 0;
  if(!app_package_installed(id))return 0;
  if(p->active==(int)id && p->child>0 && p->paused)process_poll(p);
  if(p->active==(int)id && p->child>0) {
@@ -324,7 +379,7 @@ static int process_open(AppProcess *p,AppId id,const char *role) {
  if(p==service)return 1;
  char*event=NULL;size_t n=0;FILE*f=open_memstream(&event,&n);
  int background_action=p==&foreground && service_background_owner==(int)id ? service_action : 0;
- fprintf(f,"{\"event\":\"open\",\"api\":1,\"width\":600,\"height\":800,\"content_y\":56,\"language\":%d,\"background_action\":%d,\"data_dir\":",options[OPT_LANGUAGE],background_action);json_text(f,state);fputs(",\"role\":",f);json_text(f,role);fputc('}',f);fclose(f);int ok=process_send(p,event);free(event);return ok;
+ fprintf(f,"{\"event\":\"open\",\"api\":%d,\"width\":600,\"height\":800,\"content_y\":56,\"language\":%d,\"background_action\":%d,\"data_dir\":",entries[id].api,options[OPT_LANGUAGE],background_action);json_text(f,state);fputs(",\"role\":",f);json_text(f,role);fputc('}',f);fclose(f);int ok=process_send(p,event);free(event);return ok;
 }
 static int wire_true(const char *key) {
     const WireField *field=wire_get(key);
@@ -401,7 +456,8 @@ int app_package_export(const char *id,const char *operation,const char *data,
     Package *manifest=malloc(sizeof(*manifest));
     if(!manifest)return 0;
     int declared=0;
-    if(read_manifest(directory,manifest) && !strcmp(id,manifest->id))
+    if(read_manifest(directory,manifest) && !strcmp(id,manifest->id) &&
+       (manifest->surfaces & PACKAGE_BACKGROUND))
         for(int i=0;i<manifest->operation_count;i++)
             if(!strcmp(operation,manifest->operations[i]))declared=1;
     free(manifest);
@@ -685,7 +741,7 @@ void app_packages_seed(void) {
 #ifdef LUMEN_HOST
    struct stat st;if(!stat(archive,&st)&&S_ISDIR(st.st_mode))snprintf(archive,sizeof(archive),"%s/%s/%s.lumen-app",directory,e->d_name,e->d_name);
 #endif
-   if(!package_peek(archive,p)||strcmp(p->format,"lumen-app-1")||deleted(p->id))continue;
+   if(!package_peek(archive,p)||!app_manifest_valid(p)||deleted(p->id))continue;
    int id=identify(p->id);
    if(id<0 || !app_package_installed(id) || version_newer(p->version,entries[id].version))app_package_install(archive);
  }

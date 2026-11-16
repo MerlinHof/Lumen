@@ -54,7 +54,7 @@ static void keyboard_layout18(void) {
     keyboard_previous_layout=layout;
     keyboard_count18=0;
     if(app_overlay_fd(APP_OVERLAY_KEYBOARD)<0) {
-        app_overlay_send(APP_OVERLAY_KEYBOARD,"lumen.keyboard","{\"event\":\"prepare\"}");
+        app_overlay_send(APP_OVERLAY_KEYBOARD,app_package_provider(PROVIDER_TEXT_INPUT),"{\"event\":\"prepare\"}");
         keyboard_previous_layout=-1;
         return;
     }

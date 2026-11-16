@@ -1,5 +1,7 @@
 # Changelog
 
+- [6.5](releases/6.5.md) · Protocol 2, configurable providers, SDK updates and faster parallel app builds.
+
 - [6.4](releases/6.4.md) · App state on return, in-Reader context and Wikipedia, ToDo deadlines, faster Notes drawing, and layout refinements.
 
 - [6.3](releases/6.3.md) · OpenAI chat continuity, Reader startup, Clock dropdown, and shared touch and caret feedback.

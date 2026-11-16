@@ -1,14 +1,25 @@
 {
-  "format": "lumen-app-1",
-  "api": 1,
+  "format": "lumen-app-2",
+  "api": 2,
   "id": "lumen.2048",
   "name": "2048",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "sources": [
     "app.c",
     "../games/puzzles.c"
   ],
   "assets": [
     "assets/icon.pgm"
-  ]
+  ],
+  "entry": "app",
+  "surfaces": [
+    "foreground"
+  ],
+  "legacy": {
+    "slot": "APP_2048",
+    "entry": 63,
+    "aliases": [
+      63
+    ]
+  }
 }

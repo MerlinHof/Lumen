@@ -1,14 +1,31 @@
 {
-  "format": "lumen-app-1",
-  "api": 1,
+  "format": "lumen-app-2",
+  "api": 2,
   "id": "lumen.wikipedia",
   "name": "Wikipedia",
-  "version": "1.2.0",
-  "operations": ["summary"],
+  "version": "1.2.1",
+  "operations": [
+    "summary"
+  ],
   "sources": [
     "app.c"
   ],
   "assets": [
     "assets/icon.pgm"
-  ]
+  ],
+  "entry": "app",
+  "surfaces": [
+    "foreground",
+    "background"
+  ],
+  "legacy": {
+    "slot": "APP_WIKIPEDIA",
+    "entry": 36,
+    "aliases": [
+      15,
+      36,
+      51,
+      94
+    ]
+  }
 }

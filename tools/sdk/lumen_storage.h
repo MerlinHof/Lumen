@@ -59,6 +59,14 @@ static int lumen_storage_write_at(const char *root,const char *name,const void *
 static int lumen_storage_write(const char *name,const void *bytes,size_t size) {
     return lumen_storage_write_at(getenv("LUMEN_APP_DATA"),name,bytes,size);
 }
+/* Initialize dirty to zero. Keep it set after a failed checkpoint so a later
+ * lifecycle event can retry the same write. */
+static inline int lumen_storage_checkpoint(const char *name,const void *bytes,size_t size,int *dirty) {
+    if(!*dirty)return 1;
+    if(!lumen_storage_write(name,bytes,size))return 0;
+    *dirty=0;
+    return 1;
+}
 static int lumen_storage_read_at(const char *root,const char *name,void *bytes,size_t capacity,size_t *actual) {
     char leaf[256];if(actual)*actual=0;
     int parent=lumen_storage_parent_at(root,name,0,leaf);

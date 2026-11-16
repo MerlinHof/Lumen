@@ -31,7 +31,7 @@ try:
  for connection in idle:connection.close()
 
  status,state=req('/api/custom-app/status');assert status==200 and 'version' in json.loads(state)
- status,guide=req('/api/custom-app/guide');assert status==200 and b'lumen-app-1' in guide
+ status,guide=req('/api/custom-app/guide');assert status==200 and b'lumen-app-2' in guide
  app_package=Path('build/apps/host/lumen.sliding-puzzle/lumen.sliding-puzzle.lumen-app').read_bytes()
  assert req('/api/apps/install','PUT',app_package)[0]==201
  status,catalog=req('/api/apps');assert status==200

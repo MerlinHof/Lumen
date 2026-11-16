@@ -1,9 +1,32 @@
 {
-  "format": "lumen-app-1",
-  "api": 1,
+  "format": "lumen-app-2",
+  "api": 2,
   "id": "lumen.settings",
   "name": "Einstellungen",
-  "version": "1.2.1",
-  "sources": ["app.c"],
-  "assets": ["assets/icon.pgm"]
+  "version": "1.2.2",
+  "sources": [
+    "app.c"
+  ],
+  "assets": [
+    "assets/icon.pgm"
+  ],
+  "entry": "app",
+  "surfaces": [
+    "foreground"
+  ],
+  "legacy": {
+    "slot": "APP_SETTINGS",
+    "entry": 13,
+    "aliases": [
+      9,
+      12,
+      13,
+      39,
+      40,
+      41,
+      47,
+      83,
+      105
+    ]
+  }
 }

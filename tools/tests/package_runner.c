@@ -133,6 +133,14 @@ static int test_service(void) {
     return 0;
 }
 int main(int argc,char**argv){assert(argc>=3);data_root=argv[1];const char*op=argv[2];
+ if(!strcmp(op,"provider")) {
+    app_packages_scan();
+    assert(!strcmp(app_package_provider(PROVIDER_TEXT_INPUT),"test.overlay"));
+    assert(!*app_package_provider(PROVIDER_STARTUP));
+    assert(!app_process_open(app_package_find("test.overlay")));
+    puts("PASS independent overlay provider discovered and selected by manifest role.");
+    return 0;
+ }
  if(!strcmp(op,"service"))return test_service();
  if(!strcmp(op,"wire"))return test_wire();
  if(!strcmp(op,"stage"))return system_update_stage(argv[3],argc>4 ? argv[4] : "9.1")?0:2;

@@ -4,7 +4,6 @@
 #include "paint.h"
 #include "../../apps/notifications/api.h"
 #include "../amazon.h"
-#include "../../apps/games/api.h"
 #include "../connect.h"
 #include "../photo_image.h"
 #include "../version.h"
@@ -665,9 +664,16 @@ static void key_outline(int x, int y, int w, int h) {
     widget_shape(x, y, w, h, RADIUS_MEDIUM, 3, 0);
     outline_surface(x, y, w, h, RADIUS_MEDIUM, 48);
 }
+static AppId startup_app(void) {
+    int id=app_package_find(app_package_provider(PROVIDER_STARTUP));
+    return id>=0 ? (AppId)id : APP_HOME;
+}
+static int startup_route(void) {
+    return app_definition(startup_app())->entry;
+}
 static int can_back(void) {
     return (app_package_installed(app_for_route(ui_route())) && app_process_frame_back()) || editor_ui.keyboard || dropdown || confirm_delete || battery_popup ||
-           history_count || ui_route() != 131;
+           history_count || ui_route() != startup_route();
 }
 #include "image_sampling.h"
 #include "cover_cache.h"
@@ -912,7 +918,7 @@ void ui_set_screen(int n) {
 }
 void ui_init(void) {
     app_packages_scan();app_packages_seed();
-    app_overlay_send(APP_OVERLAY_KEYBOARD,"lumen.keyboard","{\"event\":\"prepare\"}");
+    app_overlay_send(APP_OVERLAY_KEYBOARD,app_package_provider(PROVIDER_TEXT_INPUT),"{\"event\":\"prepare\"}");
     app_runtime_init(&runtime, app_leave, NULL);
     register_builtin_views();
     app_endpoint_register("notifications",receive_notification);
@@ -928,7 +934,7 @@ void ui_init(void) {
     settings.filter = 0;
 
     library_ui.query[0] = 0;
-    route_to(131);
+    route_to(startup_route());
     update_view();
     char sourcepath[2048];
     snprintf(sourcepath, sizeof(sourcepath), tr("%s/opds-source.txt"), data_root);
@@ -1245,7 +1251,7 @@ void ui_draw(void) {
         if(editor_ui.keyboard){memcpy(editor_ui.keyboard_background18,ui_pixels,sizeof(ui_pixels));editor_ui.keyboard_background_valid18=1;}
         goto input_overlays18;
     }
-    if(ui_route()==131) {
+    if(ui_route()==startup_route()) {
         heading("Startseite");
         wrapped(28,175,"Startseiten-App fehlt.",ui_font(UI_BODY),544,2);
         button_h(28,280,544,48,"Einstellungen",0);
@@ -1602,7 +1608,7 @@ static int ui_dispatch_input(const Input *in) {
             else library_ui.library_dirty=1;
         }
         app_packages_scan();
-        if(!network_poll && app_for_route(ui_route())==APP_HOME &&
+        if(!network_poll && app_for_route(ui_route())==startup_app() &&
            app_package_installed(app_for_route(ui_route())))app_process_send("{\"event\":\"refresh\"}");
         char restart[2048];
         snprintf(restart,sizeof(restart),"%s/../.update/relaunch",data_root);
@@ -1733,7 +1739,7 @@ static int ui_dispatch_input(const Input *in) {
                 editor_ui.keyboard = dropdown = confirm_delete = 0;
                 return 1;
             }
-            int target = 131;
+            int target = startup_route();
             navigation_rewinds++;
             while (history_count) {
                 int candidate = history[--history_count];
@@ -2062,8 +2068,8 @@ static void register_builtin_views(void) {
 
 
 int ui_prepare_home(void) {
-    if(app_package_deleted(APP_HOME))return 1;
-    if(!app_process_open(APP_HOME))return 0;
+    if(app_package_deleted(startup_app()))return 1;
+    if(!app_process_open(startup_app()))return 0;
     int64_t until=extra_millis()+1800;
     do {
         package_ui_poll();
@@ -2179,7 +2185,7 @@ static void app_render(void) {
     wrapped(28,175,"App-Paket fehlt.",ui_font(UI_BODY),544,2);
 }
 static int app_handle_input(const Input *in) {
-    if(ui_route()==131 && in->kind==INPUT_TAP && in->x>=28 && in->x<572) {
+    if(ui_route()==startup_route() && in->kind==INPUT_TAP && in->x>=28 && in->x<572) {
         if(in->y>=280 && in->y<328) {
             AppIntent intent={.app=APP_SETTINGS,.kind=INTENT_OPEN};
             app_send(&intent);

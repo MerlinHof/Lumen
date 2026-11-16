@@ -1,13 +1,24 @@
 {
-  "format": "lumen-app-1",
-  "api": 1,
+  "format": "lumen-app-2",
+  "api": 2,
   "id": "lumen.transfer",
   "name": "Dateiübertragung",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "sources": [
     "app.c"
   ],
   "assets": [
     "assets/icon.pgm"
-  ]
+  ],
+  "entry": "app",
+  "surfaces": [
+    "foreground"
+  ],
+  "legacy": {
+    "slot": "APP_FILE_TRANSFER",
+    "entry": 8,
+    "aliases": [
+      8
+    ]
+  }
 }

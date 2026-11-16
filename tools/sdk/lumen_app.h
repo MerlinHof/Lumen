@@ -1,6 +1,6 @@
 #ifndef LUMEN_APP_SDK_H
 #define LUMEN_APP_SDK_H
-/* LUMEN App Protocol 1. Header-only client, independent of the system binary.
+/* LUMEN App SDK. Header-only client, independent of the system binary.
  * stdin: newline-delimited events. stdout: frames/requests. stderr: diagnostics.
  * Apps own state in LUMEN_APP_DATA, never in their replaceable package folder. */
 #include <stdio.h>
@@ -10,6 +10,9 @@
 #include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
+#ifndef LUMEN_APP_PROTOCOL
+#define LUMEN_APP_PROTOCOL 2
+#endif
 #include "lumen_input.h"
 #include "lumen_icons.h"
 typedef enum{PAINT_BODY,PAINT_HEADING,PAINT_DISPLAY,PAINT_SECONDARY,PAINT_TITLE}PaintText;
@@ -389,6 +392,23 @@ static inline void lumen_app_service_result(int ok,const char *data) {
  fputs(ok ? "{\"request\":\"service_result\",\"ok\":true,\"data\":" :
             "{\"request\":\"service_result\",\"ok\":false,\"data\":",stdout);
  lumen_json(data);puts("}");fflush(stdout);
+}
+typedef struct {
+ const char *id;
+ void (*clicked)(void);
+} LumenAction;
+
+static inline int lumen_dispatch_click(const Input *input,const LumenAction *actions,size_t count) {
+ char id[96],gesture[16];
+ if(input->kind!=INPUT_COMPONENT || !wire_bounded_string("id",id,sizeof(id)) ||
+    !wire_bounded_string("gesture",gesture,sizeof(gesture)) || strcmp(gesture,"clicked"))return 0;
+ for(size_t i=0;i<count;i++) {
+   if(!strcmp(id,actions[i].id) && actions[i].clicked) {
+     actions[i].clicked();
+     return 1;
+   }
+ }
+ return 0;
 }
 static void lumen_run(void(*draw)(void),int(*input)(const Input*),void(*save)(void)) {
  static char output[65536];setvbuf(stdout,output,_IOFBF,sizeof(output));

@@ -1,9 +1,28 @@
 {
-  "format": "lumen-app-1",
-  "api": 1,
+  "format": "lumen-app-2",
+  "api": 2,
   "id": "lumen.lock-screen",
   "name": "Sperrbildschirm",
-  "version": "1.0.0",
-  "sources": ["app.c"],
-  "assets": ["assets/icon.pgm"]
+  "version": "1.0.1",
+  "sources": [
+    "app.c"
+  ],
+  "assets": [
+    "assets/icon.pgm"
+  ],
+  "entry": "app",
+  "surfaces": [
+    "foreground",
+    "overlay"
+  ],
+  "provides": [
+    "sleep"
+  ],
+  "legacy": {
+    "slot": "APP_LOCK_SCREEN",
+    "entry": 92,
+    "aliases": [
+      92
+    ]
+  }
 }

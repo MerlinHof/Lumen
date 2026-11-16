@@ -37,24 +37,25 @@ def validate_version(version):
         raise RuntimeError('Use one minor digit: 2.9 is followed by 3.0, never 2.10.')
     return version
 
-def validate_app_coverage(mapping,version):
-    """Require packages for active apps, except the two known 5.9 holdouts."""
-    if tuple(map(int,version.split('.'))) < (5,9):
-        return
-    catalog=(ROOT/'lumen/system/app_packages.c').read_text()
-    keys=re.search(r'keys\[APP_COUNT\]\s*=\s*\{([^}]+)\}',catalog)
-    if not keys:
-        raise RuntimeError('Cannot read the active app catalog')
-    active=set(re.findall(r'"(lumen\.[a-z0-9.-]+)"',keys[1]))|{'lumen.notifications'}
-    shipped={Path(path).stem for path in mapping if path.startswith('lumen/app-packages/')}
-    allowed={'lumen.notes','lumen.settings'} if version=='5.9' else set()
-    missing=sorted(active-shipped-allowed)
-    if missing:
-        raise RuntimeError('Standalone app migration incomplete: '+', '.join(missing))
+def validate_app_coverage(mapping):
+    """Guard the release against missing or stale built-in app archives."""
+    apps = {name: path for name, path in mapping.items() if name.startswith('lumen/app-packages/')}
+    if len(apps) != 52:
+        raise RuntimeError(f'Expected 52 shipped apps, found {len(apps)}')
+    for manifest in (ROOT/'lumen/apps').glob('*/package.json'):
+        source = json.loads(manifest.read_text())
+        filename = f"lumen/app-packages/{source['id']}.lumen-app"
+        with zipfile.ZipFile(ROOT/apps[filename]) as archive:
+            built = json.loads(archive.read('manifest.json'))
+        for field in ('id','name','api','format','version','entry','surfaces','provides','operations'):
+            if built.get(field) != source.get(field):
+                raise RuntimeError(f'Stale app archive {filename}: {field}')
+        if built['api'] != 2 or built['format'] != 'lumen-app-2':
+            raise RuntimeError(f'Expected Protocol 2 archive: {filename}')
 
 def package():
     version=validate_version((ROOT/'VERSION').read_text().strip());dist=ROOT/'dist';dist.mkdir(exist_ok=True)
-    mapping=runtime_mapping();validate_runtime_mapping(mapping);validate_app_coverage(mapping,version)
+    mapping=runtime_mapping();validate_runtime_mapping(mapping);validate_app_coverage(mapping)
     bundle=dist/('LUMEN-'+version);payload=bundle/'Kindle'
     if bundle.exists():shutil.rmtree(bundle)
     manifest={}

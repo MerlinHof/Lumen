@@ -1,13 +1,25 @@
 {
-  "format": "lumen-app-1",
-  "api": 1,
+  "format": "lumen-app-2",
+  "api": 2,
   "id": "lumen.languages",
   "name": "Sprachen",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "sources": [
     "app.c"
   ],
   "assets": [
     "assets/icon.pgm"
-  ]
+  ],
+  "entry": "app",
+  "surfaces": [
+    "foreground"
+  ],
+  "legacy": {
+    "slot": "APP_LANGUAGE",
+    "entry": 73,
+    "aliases": [
+      73,
+      99
+    ]
+  }
 }
