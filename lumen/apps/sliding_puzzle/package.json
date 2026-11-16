@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.sliding-puzzle",
   "name": "Schiebepuzzle",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "sources": [
     "app.c",
     "engine.c"
@@ -16,10 +16,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_SIGNAL",
-    "entry": 129,
-    "aliases": [
-      129
-    ]
+    "slot": 52
+  },
+  "launcher": {
+    "order": 53,
+    "visible": true
   }
 }

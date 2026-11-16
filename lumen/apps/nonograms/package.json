@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.nonograms",
   "name": "Nonogramme",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "sources": [
     "app.c"
   ],
@@ -15,10 +15,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_NONOGRAMS",
-    "entry": 81,
-    "aliases": [
-      81
-    ]
+    "slot": 33
+  },
+  "launcher": {
+    "order": 45,
+    "visible": true
   }
 }

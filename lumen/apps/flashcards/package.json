@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.flashcards",
   "name": "Karteikarten",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "sources": [
     "app.c"
   ],
@@ -15,12 +15,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_FLASHCARDS",
-    "entry": 76,
-    "aliases": [
-      76,
-      77,
-      78
-    ]
+    "slot": 31
+  },
+  "launcher": {
+    "order": 21,
+    "visible": true
   }
 }

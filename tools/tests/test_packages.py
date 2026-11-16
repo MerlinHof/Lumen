@@ -544,19 +544,30 @@ assert any(f.get('operation')=='read' and f.get('text')=='1234567890abcdef' for 
 assert any(f.get('operation')=='shelf' and f.get('text')=='1\n' for f in frames)
 print('PASS packaged Library cover grid, book details, Reader intent and pagination.')
 
-frames,_=app_session('lumen.home-assistant',[
-    dict(event='service',action=5,ok=1),
-    dict(event='service',action=1,ok=1,configured=1,count=1,id0='sensor.room',name0='Room',
-         sensor0=1,value0='21.5',unit0='°C',points0='1700000000 21\n1700000050 22\n'),
+home_assistant=base/'home-assistant-legacy'
+home_assistant.mkdir()
+(home_assistant/'ha-url.txt').write_text('http://127.0.0.1:1')
+(home_assistant/'ha-token.txt').write_text('test-token')
+(home_assistant/'ha-favorites.txt').write_text('sensor.room\n')
+(home_assistant/'ha-states.json').write_text(json.dumps([
+    {'entity_id':'sensor.room','state':'21.5','attributes':{'friendly_name':'Küche','unit_of_measurement':'°C'}},
+    {'entity_id':'light.study','state':'off','attributes':{'friendly_name':'Study'}}
+]))
+(home_assistant/'ha-history.json').write_text(json.dumps([[
+    {'entity_id':'sensor.room','state':'21','last_changed':'2026-11-16T08:00:00Z'},
+    {'entity_id':'sensor.room','state':'22','last_changed':'2026-11-16T09:00:00Z'}
+]]))
+frames,private=app_session('lumen.home-assistant',[
     tap(130,178),dict(event='back'),tap(550,94),
-    dict(event='service',action=1,ok=1,configured=1,count=1,id0='sensor.room',name0='Room',sensor0=1),
-    tap(510,275),tap(165,208),dict(event='text',action=1,text='Küche'),dict(event='back')])
-assert any(f.get('operation')=='graph' and f.get('text')=='sensor.room' for f in frames)
-assert any(f.get('operation')=='favorite' and f.get('text')=='sensor.room' for f in frames)
-assert any(f.get('operation')=='devices' and f.get('text')=='0\nKüche' for f in frames)
+    tap(165,208),dict(event='text',action=1,text='KUCHE'),tap(510,275),dict(event='back')
+],legacy=home_assistant)
+assert any(c.get('text')=='Küche' for f in frames for c in f.get('ui',[]))
 assert any(c.get('type')=='line' for f in frames for c in f.get('ui',[]))
+assert (private/'ha-favorites.txt').read_text()==''
+assert (home_assistant/'ha-favorites.txt').read_text()=='sensor.room\n'
+assert not any(f.get('service')=='home_assistant' for f in frames)
 assert not frames[-1]['back']
-print('PASS packaged Home Assistant sensor cards, graph, UTF-8 search, device selection and Back.')
+print('PASS Home Assistant owns device search, graphs, favorites and legacy import.')
 
 (data/'llm-key.txt').write_text('fixture-key')
 (data/'llm-models17.json').write_text('{"data":[{"id":"test-model"}]}')
@@ -577,18 +588,18 @@ assert len(list(folder.glob('*.chat')))==1
 assert (folder/'model.txt').read_text()=='test-model'
 print('PASS packaged OpenAI private chat archive, follow-up context and model selection.')
 
-frames,_=app_session('lumen.photos',[
-    dict(event='service',action=1,ok=1,count=2,folder=0,page=0,duration=10,
-         id0='1234567890abcdef',id1='1234567890abcdea',folder1='Travel'),
-    tap(410,156),dict(event='tick'),tap(240,410),
-    tap(80,235),tap(166,769),tap(236,769),
+frames,photo_state=app_session('lumen.photos',[
+    dict(event='service',action=1,ok=1,ids='1234567890abcdef 1234567890abcdea'),
+    tap(410,156),dict(event='tick'),tap(240,410),tap(430,95),dict(event='text',action=1,text='Travel'),
+    tap(100,156),dict(event='select',action=1,value=0),tap(80,235),tap(166,769),tap(236,769),
     dict(event='select',action=2,value=0),dict(event='back')])
 assert any(f.get('fullscreen') for f in frames)
 assert any(c.get('type')=='photo' and c.get('text')=='1234567890abcdea' and c.get('full')
            for f in frames for c in f.get('ui',[]))
-assert any(f.get('operation')=='rotate' and f.get('text')=='1234567890abcdef' for f in frames)
-assert any(f.get('operation')=='assign' and f.get('text')=='1234567890abcdef 1' for f in frames)
-print('PASS packaged Photos gallery, fullscreen slideshow, rotation and album assignment.')
+assert any(f.get('service')=='media' and f.get('operation')=='rotate' and f.get('text')=='1234567890abcdef' for f in frames)
+assert b'Travel' in (photo_state/'albums.bin').read_bytes()
+assert bytes.fromhex('efcdab9078563412') in (photo_state/'albums.bin').read_bytes()
+print('PASS Photos gallery, fullscreen slideshow, rotation and private album assignment.')
 
 frames,_=app_session('lumen.reader',[
     dict(event='service',action=1,ok=1,title='Sample document',page=0,total=7,setting7=1),

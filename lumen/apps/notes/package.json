@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.notes",
   "name": "Notizen",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "operations": [
     "create_learning",
     "export_list",
@@ -22,15 +22,10 @@
     "background"
   ],
   "legacy": {
-    "slot": "APP_NOTES",
-    "entry": 29,
-    "aliases": [
-      29,
-      30,
-      43,
-      84,
-      85,
-      102
-    ]
+    "slot": 13
+  },
+  "launcher": {
+    "order": 2,
+    "visible": true
   }
 }

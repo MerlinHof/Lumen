@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.2048",
   "name": "2048",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "sources": [
     "app.c",
     "../games/puzzles.c"
@@ -16,10 +16,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_2048",
-    "entry": 63,
-    "aliases": [
-      63
-    ]
+    "slot": 22
+  },
+  "launcher": {
+    "order": 41,
+    "visible": true
   }
 }

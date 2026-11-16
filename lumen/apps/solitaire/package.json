@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.solitaire",
   "name": "Solitaire",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "sources": [
     "app.c",
     "../games/puzzles.c"
@@ -16,10 +16,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_SOLITAIRE",
-    "entry": 64,
-    "aliases": [
-      64
-    ]
+    "slot": 23
+  },
+  "launcher": {
+    "order": 42,
+    "visible": true
   }
 }

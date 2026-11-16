@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.home-assistant",
   "name": "Home Assistant",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "sources": [
     "app.c"
   ],
@@ -15,12 +15,13 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_HOME_ASSISTANT",
-    "entry": 33,
-    "aliases": [
-      33,
-      34,
-      60
-    ]
+    "slot": 16
+  },
+  "configuration": [
+    "connection.json"
+  ],
+  "launcher": {
+    "order": 13,
+    "visible": true
   }
 }

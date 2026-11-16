@@ -43,13 +43,14 @@ manifest are relative paths beside the app source. `assets/icon.pgm` is a binary
 
 `surfaces` declares where the package can run. Use `foreground` for a normal
 app, `overlay` for system overlays and `background` for exported operations.
-LUMEN 6.5 can still install and run Protocol 1 apps. Protocol 2 packages
-require 6.5 or later.
+LUMEN can still install and run Protocol 1 apps. Protocol 2 packages
+require 6.5 or later. From 6.6, packages can declare a `launcher` object with
+`order` and `visible` defaults. Saved launcher preferences use package IDs.
 
 ## System providers
 
 A package may declare a role in `provides`. The startup role requires a
-foreground surface. The other four roles require an overlay surface and
+foreground surface, as does `document`. The other four roles require an overlay surface and
 receive their existing role-specific event stream. To override a shipped
 provider, install a package declaring that role and set the respective entry
 in `lumen/data/providers.conf` before restarting LUMEN.
@@ -60,6 +61,7 @@ text-input=lumen.keyboard
 status=lumen.status-bar
 notification=lumen.notifications
 sleep=lumen.lock-screen
+document=lumen.reader
 ```
 
 The runtime uses the shipped provider if an override is unavailable.
@@ -84,6 +86,24 @@ Installed code/assets are in `lumen/apps/<id>`. Personal state is separate in
 system updates preserve it. Save validated bounded state atomically. Shipped
 package updates are applied only when their app version is newer; explicit web
 installs may replace the same version during development. Home removal preserves app state and prevents automatic reseeding until an explicit reinstall.
+
+## App configuration
+
+Declare up to eight filenames in a Protocol 2 package's `configuration` array
+to let the paired File Transfer page write them. Send up to 2048 bytes in
+`PUT /api/apps/config?id=<package-id>&key=<filename>`. LUMEN checks the
+installed manifest and writes to that package's private state. Each app
+validates the data before using it.
+
+## Overlays
+
+From 6.6, a foreground app can call `lumen_overlay_open` with an installed
+package declaring an overlay surface, a positive caller-supplied handle, a
+presentation policy and an anchor. The overlay receives `overlay_open` and its
+bounds in screen coordinates, followed by pointer events. It can use the shared
+drawing commands. Call `lumen_overlay_close` to close the overlay by handle.
+The runtime closes nonpersistent overlays when their caller leaves. The supported
+presentation policies are `persistent`, `floating`, `modal`, and `fullscreen`.
 
 ## System interface
 

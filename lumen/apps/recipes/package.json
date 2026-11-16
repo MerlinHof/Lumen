@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.recipes",
   "name": "Rezepte",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "sources": [
     "app.c"
   ],
@@ -15,10 +15,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_RECIPES",
-    "entry": 114,
-    "aliases": [
-      114
-    ]
+    "slot": 43
+  },
+  "launcher": {
+    "order": 29,
+    "visible": true
   }
 }

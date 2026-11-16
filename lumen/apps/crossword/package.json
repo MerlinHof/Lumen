@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.crossword",
   "name": "Kreuzworträtsel",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "sources": [
     "app.c"
   ],
@@ -15,10 +15,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_CROSSWORD",
-    "entry": 120,
-    "aliases": [
-      120
-    ]
+    "slot": 49
+  },
+  "launcher": {
+    "order": 52,
+    "visible": true
   }
 }

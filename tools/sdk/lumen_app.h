@@ -388,6 +388,18 @@ static inline void lumen_app_service(const char *app,const char *operation,const
 static inline void lumen_app_service_background(const char *app,const char *operation,const char *data,int action) {
  lumen_app_service_request(app,operation,data,action,1);
 }
+static inline void lumen_overlay_open(const char *app,int handle,const char *presentation,
+                                     const char *anchor,int width,int height,int action) {
+ fputs("{\"request\":\"overlay_open\",\"app\":",stdout);lumen_json(app);
+ fputs(",\"presentation\":",stdout);lumen_json(presentation);
+ fputs(",\"anchor\":",stdout);lumen_json(anchor);
+ printf(",\"handle\":%d,\"width\":%d,\"height\":%d,\"action\":%d}\n",handle,width,height,action);
+ fflush(stdout);
+}
+static inline void lumen_overlay_close(int handle,int action) {
+ printf("{\"request\":\"overlay_close\",\"handle\":%d,\"action\":%d}\n",handle,action);
+ fflush(stdout);
+}
 static inline void lumen_app_service_result(int ok,const char *data) {
  fputs(ok ? "{\"request\":\"service_result\",\"ok\":true,\"data\":" :
             "{\"request\":\"service_result\",\"ok\":false,\"data\":",stdout);

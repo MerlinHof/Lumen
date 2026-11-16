@@ -353,7 +353,8 @@ static int input(const Input *in) {
     if(in->kind==INPUT_OPEN || in->kind==INPUT_REFRESH || in->kind==INPUT_RESUME || in->kind==INPUT_TICK){load();return 1;}
     if(in->kind==INPUT_INTENT) {
         char op[32];lumen_string("operation",op,sizeof(op));
-        if(!strcmp(op,"settings-section")) {
+        if(!strcmp(op,"wifi"))show(WIFI);
+        else if(!strcmp(op,"settings-section")) {
             int dest=lumen_number("section");
             if(dest>=HOME && dest<=SYSTEM)show(dest);
         }

@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.bingo",
   "name": "Bingo",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "sources": [
     "app.c"
   ],
@@ -15,10 +15,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_BINGO",
-    "entry": 112,
-    "aliases": [
-      112
-    ]
+    "slot": 41
+  },
+  "launcher": {
+    "order": 47,
+    "visible": true
   }
 }

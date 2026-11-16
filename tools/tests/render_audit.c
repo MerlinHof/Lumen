@@ -46,17 +46,17 @@ int main(int argc, char **argv) {
     }
     lumen_storage_write_at(data_root,"notes/123.txt",
         "A quiet morning\n\nOne idea worth keeping.",strlen("A quiet morning\n\nOne idea worth keeping."));
-    for (int id = 0; id < APP_COUNT; id++) {
+    for (int id = 0; id < APP_LIMIT; id++) {
         const AppDefinition *a = app_definition(id);
-        if (a->entry < 0 || !app_route_valid(a->entry) || id == APP_DRAWING ||
-            id == APP_NUMSCRATCH || id == APP_READER)
+        if (!a || !app_package_foreground(id) ||
+            id == APP_NUMSCRATCH || id == app_package_find("lumen.reader"))
             continue;
         char name[80];
         snprintf(name, 80, "app-%02d", id);
-        route_to(a->entry);
+        activate_app(id);
         capture(name);
     }
-    route_to(12);
+    activate_app(app_package_find("lumen.settings"));
     wifi_ui.wifi_enabled = 1;
     wifi_count = 3;
     snprintf(wifi_ui.wifi_ssid, sizeof(wifi_ui.wifi_ssid), "Home network");
@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
     capture("wifi");
     for (int lang = 0; lang < 3; lang++) {
         options[OPT_LANGUAGE] = lang;
-        route_to(13);
+        activate_app(app_package_find("lumen.settings"));
         char name[80];
         snprintf(name, 80, "settings-%d", lang);
         capture(name);
@@ -86,8 +86,8 @@ int main(int argc, char **argv) {
         }
     }
     options[OPT_LANGUAGE] = 1;
-    route_to(2);
-    app_process_open(APP_READER);
+    activate_app(app_package_find("lumen.reader"));
+    app_process_open(app_package_find("lumen.reader"));
     app_process_send("{\"event\":\"input\",\"kind\":1,\"x\":300,\"y\":55}");
     app_process_send("{\"event\":\"input\",\"kind\":1,\"x\":550,\"y\":95}");
     for(int i=0;i<30;i++){usleep(5000);package_ui_poll();}
@@ -99,14 +99,14 @@ int main(int argc, char **argv) {
         snprintf(name, 40, "reading-%d", p);
         capture(name);
     }
-    route_to(27);
-    app_process_open(APP_CALCULATOR);
+    activate_app(app_package_find("lumen.calculator"));
+    app_process_open(app_package_find("lumen.calculator"));
     app_process_send("{\"event\":\"text\",\"action\":80,\"text\":\"e^(0.2*sin(pi))+1/3\"}");
     for(int i=0;i<30;i++){usleep(5000);package_ui_poll();}
     capture("calculator");
     for (int p = 0; p < 4; p++) {
-        route_to(21);
-        app_process_open(APP_CALENDAR);
+        activate_app(app_package_find("lumen.calendar"));
+        app_process_open(app_package_find("lumen.calendar"));
         char selection[128];
         snprintf(selection,sizeof(selection),"{\"event\":\"component\",\"id\":\"view\",\"gesture\":\"selected\",\"text\":\"%d\"}",p);
         app_process_send(selection);
@@ -116,7 +116,7 @@ int main(int argc, char **argv) {
         capture(name);
     }
 
-    route_to(94);
+    activate_app(app_package_find("lumen.wikipedia"));
     wiki_entry_count = 3;
     for (int i = 0; i < 3; i++) {
         snprintf(wiki_entries[i].title, 256, "%s",
@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
         wiki_entries[i].seen = time(NULL) - i * 86400;
     }
     capture("filled-wikipedia");
-    route_to(95);
+    activate_app(app_package_find("lumen.news"));
     press_list.count = 5;
     for (int i = 0; i < 5; i++) {
         snprintf(press_list.item[i].title, 256, "%s",
@@ -137,7 +137,7 @@ int main(int argc, char **argv) {
         snprintf(press_list.item[i].category, 48, "Wissenschaft");
     }
     capture("filled-news");
-    route_to(10);
+    activate_app(app_package_find("lumen.store"));
     opds_count = 5;
     for (int i = 0; i < 5; i++) {
         snprintf(opds_items[i].title, 256, "%s",
@@ -146,14 +146,14 @@ int main(int argc, char **argv) {
         snprintf(opds_items[i].author, 160, "Hof, Merlin");
     }
     capture("filled-store");
-    route_to(114);
+    activate_app(app_package_find("lumen.recipes"));
     recipe_recent_count16 = 5;
     for (int i = 0; i < 5; i++)
         snprintf(recipe_recent16[i].title, 160, "%s",
                  i % 2 ? "Kartoffelsuppe"
                        : "Ein ausführlicher Rezepttitel mit frischen Zutaten aus der Region");
     capture("filled-recipes");
-    route_to(33);
+    activate_app(app_package_find("lumen.home-assistant"));
     snprintf(ha_url, sizeof(ha_url), "http://example.invalid");
     snprintf(ha_token, sizeof(ha_token), "demo-only");
     ha_count = ha_favorite_count = 3;
@@ -166,7 +166,7 @@ int main(int argc, char **argv) {
         ha_entities[i].sensor = 1;
         snprintf(ha_favorites[i], 160, "%s", ha_entities[i].id);
     }
-    app_process_open(APP_HOME_ASSISTANT);
+    app_process_open(app_package_find("lumen.home-assistant"));
     for(int i=0;i<20;i++){usleep(5000);app_process_poll();}
     const Input choose_devices={.kind=INPUT_TAP,.x=549,.y=94};
     package_ui_input(&choose_devices);
@@ -175,23 +175,23 @@ int main(int argc, char **argv) {
     app_process_send("{\"event\":\"back\"}");
     for(int i=0;i<20;i++){usleep(5000);package_ui_poll();}
     capture("filled-home-assistant");
-    route_to(83);
+    activate_app(app_package_find("lumen.settings"));
     capture("launcher-management");
     for (int pg = 0; pg < 2; pg++) {
-        route_to(40);
+        activate_app(app_package_find("lumen.settings"));
         char name[40];
         snprintf(name, 40, "system-%d", pg);
         capture(name);
     }
-    route_to(100);
+    activate_app(app_package_find("lumen.calculator"));
     capture("calculator-settings");
-    route_to(28);
-    app_process_open(APP_TIMER);
+    activate_app(app_package_find("lumen.clock"));
+    app_process_open(app_package_find("lumen.clock"));
     app_process_send("{\"event\":\"component\",\"id\":\"mode\",\"text\":\"1\"}");
     for(int i=0;i<30;i++){usleep(5000);package_ui_poll();}
     capture("alarm");
-    route_to(29);
-    app_process_open(APP_NOTES);
+    activate_app(app_package_find("lumen.notes"));
+    app_process_open(app_package_find("lumen.notes"));
     app_process_send("{\"event\":\"component\",\"id\":\"entry-0\",\"gesture\":\"clicked\"}");
     for(int i=0;i<20;i++){usleep(5000);package_ui_poll();}
     capture("empty-folder");

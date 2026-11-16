@@ -90,7 +90,31 @@ static void keyboard_layout18(int language) {
     keyboard_add18(500, 742, 92, 56, KEY_ENTER18, "");
 }
 
-static void layouts(void) {
+enum { EDIT_INSERT, EDIT_ERASE, EDIT_SUBMIT, EDIT_LAYOUT };
+enum { CAP_NUMBER=1, CAP_LETTER=2, CAP_SELECTED=4 };
+static void layout_key(const KeyboardKey18 *key,int language) {
+    int action=EDIT_LAYOUT, icon=-1, style=0;
+    int next=language*6+symbols_page*2+shift;
+    const char *text=key->text;
+    switch(key->action) {
+    case KEY_TEXT18:
+        action=EDIT_INSERT;
+        if(!symbols_page)next-=shift;
+        if(key->y>550)style=CAP_LETTER;
+        break;
+    case KEY_SHIFT18: icon=IC_SHIFT;next^=1;style=shift ? CAP_SELECTED : 0;break;
+    case KEY_DELETE18: action=EDIT_ERASE;icon=IC_DELETE;break;
+    case KEY_SYMBOL18: next=language*6+((symbols_page+1)%3)*2+shift;break;
+    case KEY_LANGUAGE18: next=((language+1)%3)*6+symbols_page*2+shift;break;
+    case KEY_SPACE18: action=EDIT_INSERT;icon=IC_SPACE;text=" ";break;
+    case KEY_ENTER18: action=EDIT_SUBMIT;icon=IC_ENTER;break;
+    }
+    if(key->y==506)style=CAP_NUMBER;
+    printf("[%d,%d,%d,%d,%d,%d,%d,%d,",key->x,key->y,key->w,key->h,action,next,icon,style);
+    lumen_json(text);
+    putchar(']');
+}
+static void legacy_layouts(void) {
     fputs("{\"ui\":[],\"layouts\":[",stdout);
     for(int language=0;language<3;language++) {
         for(symbols_page=0;symbols_page<3;symbols_page++) {
@@ -129,12 +153,71 @@ static void layouts(void) {
     fflush(stdout);
 }
 
+
+static void layouts(void) {
+    fputs("{\"ui\":[],\"keymaps\":[",stdout);
+    for(int language=0;language<3;language++) {
+        for(symbols_page=0;symbols_page<3;symbols_page++) {
+            for(shift=0;shift<2;shift++) {
+                if(language || symbols_page || shift)putchar(',');
+                keyboard_layout18(language);
+                putchar('[');
+                for(int i=0;i<keyboard_count18;i++) {
+                    if(i)putchar(',');
+                    layout_key(&keyboard_keys18[i],language);
+                }
+                putchar(']');
+            }
+        }
+    }
+    fputs("],\"accent_maps\":[",stdout);
+    symbols_page=0;
+    for(shift=0;shift<2;shift++) {
+        if(shift)putchar(',');
+        putchar('[');
+        for(char c='a';c<='z';c++) {
+    const char *variants = c == 'a'   ? "aäàáâãåæ"
+                           : c == 'e' ? "eéèêë"
+                           : c == 'i' ? "iïîíì"
+                           : c == 'o' ? "oöœôóòõø"
+                           : c == 'u' ? "uüûùú"
+                           : c == 'c' ? "cçćč"
+                           : c == 's' ? "sßśš"
+                           : c == 'n' ? "nñń"
+                           : c == 'y' ? "yÿý"
+                           : c == 'z' ? "zžźż"
+                                      : NULL;
+            if(c!='a')putchar(',');
+            char mapped[64]="";
+            size_t used=0;
+            for(const char *p=variants; p && *p;) {
+                size_t width=(unsigned char)*p<128 ? 1 : 2;
+                char rune[8];
+                memcpy(rune,p,width);rune[width]=0;
+                p+=width;
+                keyboard_case18(rune);
+                size_t n=strlen(rune);
+                if(n>=sizeof(mapped)-used)break;
+                memcpy(mapped+used,rune,n+1);
+                used+=n;
+            }
+            lumen_json(mapped);
+        }
+        putchar(']');
+    }
+    fputs("]}\n",stdout);
+    fflush(stdout);
+}
+
 int main(void) {
     while(lumen_next()) {
         if(!lumen_is("open"))continue;
         char role[24];
         lumen_string("role",role,sizeof(role));
-        if(!strcmp(role,"overlay"))layouts();
+        if(!strcmp(role,"overlay")) {
+            if(lumen_number("surface_api")>=2)layouts();
+            else legacy_layouts();
+        }
         else {
             lumen_begin();
             lumen_page(lumen_number("language")==0 ? "Tastatur" :

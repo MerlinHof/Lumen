@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.transfer",
   "name": "Dateiübertragung",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "sources": [
     "app.c"
   ],
@@ -15,10 +15,11 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_FILE_TRANSFER",
-    "entry": 8,
-    "aliases": [
-      8
-    ]
-  }
+    "slot": 4
+  },
+  "launcher": {
+    "order": 7,
+    "visible": true
+  },
+  "required": true
 }

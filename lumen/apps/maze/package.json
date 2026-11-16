@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.maze",
   "name": "Labyrinth",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "sources": [
     "app.c"
   ],
@@ -15,10 +15,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_MAZE",
-    "entry": 119,
-    "aliases": [
-      119
-    ]
+    "slot": 48
+  },
+  "launcher": {
+    "order": 51,
+    "visible": true
   }
 }

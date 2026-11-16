@@ -49,7 +49,7 @@ integration executable. Only the current supported test harnesses are kept in th
 
 ```sh
 build/host/lumen-host --library /path/to/demo-books --data build/preview-data \
-  --screen 1 --preview build/library.pgm
+  --app lumen.library --preview build/library.pgm
 ```
 
 For the public documentation gallery, install Pillow in your own development

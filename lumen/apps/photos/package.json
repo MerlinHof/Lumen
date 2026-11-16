@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.photos",
   "name": "Fotos",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "sources": [
     "app.c"
   ],
@@ -15,11 +15,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_PHOTOS",
-    "entry": 71,
-    "aliases": [
-      71,
-      72
-    ]
+    "slot": 28
+  },
+  "launcher": {
+    "order": 19,
+    "visible": true
   }
 }

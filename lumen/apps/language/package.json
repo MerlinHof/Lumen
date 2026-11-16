@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.languages",
   "name": "Sprachen",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "sources": [
     "app.c"
   ],
@@ -15,11 +15,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_LANGUAGE",
-    "entry": 73,
-    "aliases": [
-      73,
-      99
-    ]
+    "slot": 29
+  },
+  "launcher": {
+    "order": 20,
+    "visible": true
   }
 }

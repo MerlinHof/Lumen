@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.periodic-table",
   "name": "Periodensystem",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "sources": [
     "app.c"
   ],
@@ -15,10 +15,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_PERIODIC",
-    "entry": 115,
-    "aliases": [
-      115
-    ]
+    "slot": 44
+  },
+  "launcher": {
+    "order": 30,
+    "visible": true
   }
 }

@@ -89,7 +89,7 @@ static void document_excerpt_poll(void) {
     }
 }
 static int package_document(const char *operation,const char *data,int action) {
-    if(app_for_route(ui_route())!=APP_READER)return 0;
+    if(active_app()!=document_provider())return 0;
     if(!strcmp(operation,"first_mention"))return document_excerpt_start(data,action);
     if(!strcmp(operation,"setting")) {
         int field,value;char tail;

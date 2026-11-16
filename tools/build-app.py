@@ -32,7 +32,7 @@ def build_app(manifest,target='kindle',output=None):
         surfaces=meta.get('surfaces')
         providers=meta.get('provides',[])
         valid_surfaces={'foreground','overlay','background'}
-        valid_providers={'startup','text-input','status','notification','sleep'}
+        valid_providers={'startup','text-input','status','notification','sleep','document'}
         if meta.get('entry')!='app':
             raise ValueError('Protocol 2 entry must be app')
         if (not isinstance(surfaces,list) or not surfaces or not all(
@@ -43,9 +43,10 @@ def build_app(manifest,target='kindle',output=None):
                 isinstance(item,str) and item in valid_providers for item in providers)
                 or len(providers)!=len(set(providers))):
             raise ValueError('Invalid system provider roles')
-        if 'startup' in providers and 'foreground' not in surfaces:
-            raise ValueError('Startup providers require a foreground surface')
-        if set(providers)-{'startup'} and 'overlay' not in surfaces:
+        foreground_providers={'startup','document'}
+        if set(providers) & foreground_providers and 'foreground' not in surfaces:
+            raise ValueError('Startup and document providers require a foreground surface')
+        if set(providers)-foreground_providers and 'overlay' not in surfaces:
             raise ValueError('System overlays require an overlay surface')
         if meta.get('operations') and 'background' not in surfaces:
             raise ValueError('Exported operations require a background surface')
@@ -60,6 +61,7 @@ def build_app(manifest,target='kindle',output=None):
     env=dict(os.environ,ZIG_GLOBAL_CACHE_DIR=str(ROOT/'.local/cache/zig'),
              ZIG_LOCAL_CACHE_DIR=str(ROOT/'.local/cache/zig-local'))
     meta.pop('legacy',None)
+    meta.pop('required',None)
     source=meta.pop('sources')
     if not source or not all(isinstance(path,str) for path in source):
         raise ValueError('An app needs at least one source file')

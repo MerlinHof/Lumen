@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.settings",
   "name": "Einstellungen",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "sources": [
     "app.c"
   ],
@@ -15,18 +15,11 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_SETTINGS",
-    "entry": 13,
-    "aliases": [
-      9,
-      12,
-      13,
-      39,
-      40,
-      41,
-      47,
-      83,
-      105
-    ]
-  }
+    "slot": 2
+  },
+  "launcher": {
+    "order": 6,
+    "visible": true
+  },
+  "required": true
 }

@@ -138,6 +138,19 @@ int main(int argc,char**argv){assert(argc>=3);data_root=argv[1];const char*op=ar
     assert(!strcmp(app_package_provider(PROVIDER_TEXT_INPUT),"test.overlay"));
     assert(!*app_package_provider(PROVIDER_STARTUP));
     assert(!app_process_open(app_package_find("test.overlay")));
+    assert(app_provider_overlay_send(PROVIDER_TEXT_INPUT,"{}"));
+    int provider=app_provider_overlay_slot(PROVIDER_TEXT_INPUT);
+    int window=app_overlay_open("test.overlay","{}");
+    assert(provider>=0 && window>=0 && provider!=window);
+    assert(app_overlay_role(provider)==PROVIDER_TEXT_INPUT && app_overlay_role(window)==PROVIDER_COUNT);
+    for(int i=0;i<100 && !strstr(app_overlay_frame(window),"still valid");i++) {
+        usleep(10000);
+        app_overlay_poll(window);
+    }
+    assert(strstr(app_overlay_frame(window),"still valid"));
+    app_overlay_close(window);
+    assert(app_overlay_fd(window)<0 && app_overlay_fd(provider)>=0);
+    app_process_close();
     puts("PASS independent overlay provider discovered and selected by manifest role.");
     return 0;
  }
@@ -148,5 +161,5 @@ int main(int argc,char**argv){assert(argc>=3);data_root=argv[1];const char*op=ar
  if(!strcmp(op,"rollback"))return system_update_rollback()?0:2;
  if(!strcmp(op,"keep"))return system_update_keep()?0:2;
  if(!strcmp(op,"install"))return app_package_install(argv[3])?0:2;
- if(!strcmp(op,"launch")){app_packages_scan();assert(app_package_installed(APP_SIGNAL));assert(app_process_open(APP_SIGNAL));for(int i=0;i<100&&!*app_process_frame();i++){usleep(10000);app_process_poll();}assert(strstr(app_process_frame(),"Schiebepuzzle"));assert(strstr(app_process_data_dir(),"/appdata/lumen.sliding-puzzle"));assert(app_process_send("{\"event\":\"component\",\"id\":\"restart\",\"gesture\":\"clicked\"}"));for(int i=0;i<30;i++){usleep(10000);app_process_poll();}assert(!*app_process_error());app_process_close();puts("PASS independent app process renders and handles input");return 0;}
+ if(!strcmp(op,"launch")){app_packages_scan();assert(app_package_installed(app_package_find("lumen.sliding-puzzle")));assert(app_process_open(app_package_find("lumen.sliding-puzzle")));for(int i=0;i<100&&!*app_process_frame();i++){usleep(10000);app_process_poll();}assert(strstr(app_process_frame(),"Schiebepuzzle"));assert(strstr(app_process_data_dir(),"/appdata/lumen.sliding-puzzle"));assert(app_process_send("{\"event\":\"component\",\"id\":\"restart\",\"gesture\":\"clicked\"}"));for(int i=0;i<30;i++){usleep(10000);app_process_poll();}assert(!*app_process_error());app_process_close();puts("PASS independent app process renders and handles input");return 0;}
  return 3;}

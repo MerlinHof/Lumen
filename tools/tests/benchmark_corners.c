@@ -10,9 +10,9 @@ static void pick_scene(int scene) {
     static const char *choices[] = {"Klassisch", "Minimal", "Digital", "Digital · Dunkel",
                                     "Frosch-Solitär", "Slide 3D"};
     dropdown = 0;
-    route_to(scene == 0 ? 27 : 28);
+    activate_app(scene == 0 ? app_package_find("lumen.calculator") : app_package_find("lumen.clock"));
     if(scene==1) {
-    app_process_open(APP_TIMER);
+    app_process_open(app_package_find("lumen.clock"));
     app_process_send("{\"event\":\"component\",\"id\":\"mode\",\"text\":\"1\"}");
     for(int i=0;i<30;i++){usleep(5000);package_ui_poll();}
     }

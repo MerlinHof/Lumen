@@ -1,6 +1,6 @@
 static void input_tests18(void) {
     options[OPT_LANGUAGE]=2;options[OPT_KEYBOARD_LANGUAGE]=0;
-    route_to(1);open_keyboard(0,"Search","abc def");ui_draw();
+    activate_app(app_package_find("lumen.library"));open_keyboard(0,"Search","abc def");ui_draw();
     assert(preferences_keyboard_language()==0);
     keyboard_layout18();assert(!strcmp(keyboard_keys18[15].text,"z"));
     keyboard_place18(28+textwidth_raw("a",&body)+1);assert(editor_ui.note_cursor==1);
@@ -45,7 +45,7 @@ static void input_tests18(void) {
     editor_ui.keyboard=0;options[OPT_LANGUAGE]=0;
     char utf[32]="éöX";int cur=4;text_backspace(utf,&cur);assert(!strcmp(utf,"éX")&&cur==2);
     assert(!text_insert(utf,5,&cur,"too long"));assert(!strcmp(utf,"éX"));
-    route_to(27);settle_app();ui_draw();
+    activate_app(app_package_find("lumen.calculator"));settle_app();ui_draw();
     Input calc_hold={.kind=INPUT_HOLD,.x=70,.y=380};
     ui_input(&calc_hold);settle_app();
     assert(editor_ui.keyboard && editor_ui.keyboard_target==2000);

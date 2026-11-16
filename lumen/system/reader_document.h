@@ -136,14 +136,14 @@ static int article_wiki_open(void) {
         language[(wiki_ui.wiki_article_language < 0 ? options[OPT_LANGUAGE] : wiki_ui.wiki_article_language) % 4],
         discover_lookup_title());
     int ok=document_open(discover_lookup_title(), "Wikipedia", source, discover_lookup_text(),
-                         wiki_image_available() ? image : NULL, 36, 1);
+                         wiki_image_available() ? image : NULL, active_app(), 1);
     if(ok)wiki_article_opened();return ok;
 }
 static int article_news_open(void) {
     char image[2048];
     press_image_path(image, sizeof(image));
     return document_open(press_article.title, press_article.publisher, press_article.url,
-                         press_article.body, image, 86, 0);
+                         press_article.body, image, active_app(), 0);
 }
 
 static void article_wiki_request(void) {
@@ -153,7 +153,7 @@ static void article_wiki_request(void) {
     }
     wiki_reader_pending = 1;
     snprintf(wiki_image_requested, sizeof(wiki_image_requested), "%s", discover_lookup_image());
-    if (!service_busy() && !service_start(SERVICE_WIKI_IMAGE, wiki_image_requested, "", "")) {
+    if (!service_busy() && !service_start(SERVICE_WIKI_IMAGE, wiki_image_requested)) {
         wiki_reader_pending = 0;
         article_wiki_open();
     }

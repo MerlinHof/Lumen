@@ -1,7 +1,9 @@
 #include "lumen_app.h"
+#include "catalog.h"
 
 enum {GALLERY,PHOTO,SETTINGS};
-static char ids[16][17],albums[17][64];
+static char ids[16][17],media_ids[512][17];
+static int media_count,media_api=2;
 static int memberships[16],menu_ids[17];
 static int page,count,folder,view,selected,confirm,fullscreen,slideshow,fill,rotation,seconds=10;
 static int photo_fill,photo_controls;
@@ -9,11 +11,88 @@ static const char *word(const char *de,const char *en,const char *fr) {
     return lumen_language==1 ? en : lumen_language==2 ? fr : de;
 }
 static void load(void) {
-    char value[32];snprintf(value,sizeof(value),"%d %d",folder,page);
-    lumen_service("photos","list",value,1);
+    if(!media_api) {
+        char data[32];
+        snprintf(data,sizeof(data),"%d %d",folder,page);
+        lumen_service("photos","list",data,1);
+        return;
+    }
+    photo_catalog_load();
+    seconds=photo_catalog.seconds;
+    fill=photo_catalog.fill;
+    rotation=photo_catalog.landscape;
+    int visible[512];
+    count=0;
+    for(int i=0;i<media_count;i++) {
+        uint64_t id=strtoull(media_ids[i],NULL,16);
+        PhotoMembership *member=photo_membership(id,0);
+        if(folder && (!member || !(member->folders & (1u<<(folder-1)))))continue;
+        visible[count++]=i;
+    }
+    if(page<0)page=0;
+    if(page*16>=count)page=count ? (count-1)/16 : 0;
+    memset(ids,0,sizeof(ids));
+    memset(memberships,0,sizeof(memberships));
+    for(int i=0;i<16 && page*16+i<count;i++) {
+        const char *key=media_ids[visible[page*16+i]];
+        memcpy(ids[i],key,sizeof(ids[i]));
+        PhotoMembership *member=photo_membership(strtoull(key,NULL,16),0);
+        if(member)memberships[i]=member->folders;
+    }
 }
 static void request(const char *operation,const char *data,int action) {
-    lumen_service("photos",operation,data,action);
+    lumen_service(media_api ? "media" : "photos",operation,data,action);
+}
+static void create_album(const char *label) {
+    if(!media_api){request("album",label,3);return;}
+    int slot=-1;
+    for(int i=0;i<PHOTO_FOLDERS;i++) {
+        if(!strcmp(label,photo_catalog.folders[i]))return;
+        if(slot<0 && !*photo_catalog.folders[i])slot=i;
+    }
+    if(slot<0)return;
+    snprintf(photo_catalog.folders[slot],sizeof(photo_catalog.folders[slot]),"%s",label);
+    if(!photo_catalog_save()){photo_catalog.folders[slot][0]=0;return;}
+    folder=slot+1;
+    page=0;
+    load();
+}
+static void assign_album(int album) {
+    if(album<1 || album>PHOTO_FOLDERS || !*ids[selected])return;
+    if(!media_api) {
+        char data[24];
+        snprintf(data,sizeof(data),"%s %d",ids[selected],album);
+        request("assign",data,2);
+        return;
+    }
+    uint64_t id=strtoull(ids[selected],NULL,16);
+    PhotoMembership *member=photo_membership(id,1);
+    if(!member)return;
+    PhotoMembership previous=*member;
+    member->id=id;
+    member->folders^=1u<<(album-1);
+    if(!member->folders)member->id=0;
+    if(!photo_catalog_save())*member=previous;
+    else if(album==folder && !(member->folders & (1u<<(folder-1)))) {
+        view=GALLERY;
+        lumen_back=0;
+    }
+    load();
+}
+static void apply_setting(int *value,int next) {
+    if(!media_api) {
+        const char *operation=value==&photo_catalog.seconds ? "duration" :
+                              value==&photo_catalog.fill ? "fill" : "landscape";
+        char data[16];
+        snprintf(data,sizeof(data),"%d",next);
+        request(operation,data,2);
+        return;
+    }
+    if(*value==next)return;
+    int previous=*value;
+    *value=next;
+    if(!photo_catalog_save())*value=previous;
+    load();
 }
 static void open_gallery(void) {
     view=GALLERY;fullscreen=slideshow=photo_fill=confirm=lumen_back=0;load();
@@ -22,9 +101,9 @@ static void menu(int assigning) {
     const char *labels[17];char choices[17][80];
     int n=0,chosen=0;
     if(!assigning){labels[n]=word("Alle Fotos","All photos","Toutes les photos");menu_ids[n++]=0;}
-    for(int i=1;i<=16;i++)if(*albums[i]) {
+    for(int i=1;i<=16;i++)if(*photo_catalog.folders[i-1]) {
         if(i==folder)chosen=n;
-        snprintf(choices[n],sizeof(choices[n]),"%s%s",assigning && (memberships[selected]&(1<<(i-1))) ? "✓ " : "",albums[i]);
+        snprintf(choices[n],sizeof(choices[n]),"%s%s",assigning && (memberships[selected]&(1<<(i-1))) ? "✓ " : "",photo_catalog.folders[i-1]);
         labels[n]=choices[n];menu_ids[n++]=i;
     }
     if(n)lumen_select(labels,n,assigning ? -1 : chosen,assigning ? 2 : 1);
@@ -64,7 +143,7 @@ static void draw(void) {
             lumen_select_row(271,word("Bildformat","Image fit","Ajustement"),fill ? word("Ausfüllen","Fill","Remplir") : word("Einpassen","Fit","Ajuster"));
             lumen_select_row(339,word("Bildausrichtung","Orientation","Orientation"),rotation ? word("Querformat","Landscape","Paysage") : word("Hochformat","Portrait","Portrait"));
         } else {
-            lumen_button(28,133,328,44,folder ? albums[folder] : word("Alle Fotos","All photos","Toutes les photos"),0);
+            lumen_button(28,133,328,44,folder ? photo_catalog.folders[folder-1] : word("Alle Fotos","All photos","Toutes les photos"),0);
             if(count)lumen_button(376,133,196,44,word("Diashow","Slideshow","Diaporama"),1);
             for(int i=0;i<16 && *ids[i];i++) {
                 int x=19+i%4*142,y=187+i/4*139;
@@ -85,7 +164,12 @@ static void draw(void) {
 }
 static int input(const Input *in) {
     static const int durations[]={5,10,15,20,30,60,120};
-    if(in->kind==INPUT_OPEN || in->kind==INPUT_RESUME || in->kind==INPUT_REFRESH){load();return 1;}
+    if(in->kind==INPUT_OPEN && lumen_number("api")!=0)media_api=lumen_number("surface_api");
+    if(in->kind==INPUT_OPEN || in->kind==INPUT_RESUME || in->kind==INPUT_REFRESH){
+        load();
+        if(media_api)request("list","",1);
+        return 1;
+    }
     if(in->kind==INPUT_BACK) {
         if(confirm)confirm=0;
         else if(view!=GALLERY)open_gallery();
@@ -95,39 +179,61 @@ static int input(const Input *in) {
     if(in->kind==INPUT_TICK && slideshow){advance(1);return 1;}
     if(in->kind==INPUT_SWIPE && view==PHOTO && !slideshow){advance(in->dx<0 ? 1 : -1);return 1;}
     if(in->kind==INPUT_TEXT && in->x==1) {
-        char value[64];if(lumen_string("text",value,sizeof(value)) && *value)request("album",value,3);
+        char value[64];if(lumen_string("text",value,sizeof(value)) && *value)create_album(value);
         return 1;
     }
     if(in->kind==INPUT_SELECT && in->y>=0) {
         int option=in->y;
         if(in->x==1 && option<17){folder=menu_ids[option];page=0;load();}
         if(in->x==2 && option<17){
-            char data[24];snprintf(data,sizeof(data),"%s %d",ids[selected],menu_ids[option]);
-            request("assign",data,2);
-            if(menu_ids[option]==folder && (memberships[selected]&(1<<(folder-1))))view=GALLERY;
+            assign_album(menu_ids[option]);
         }
         if(in->x==3 && option<2){if(!option)menu(1);else request("lock",ids[selected],2);}
         if(in->x>=4 && in->x<=6) {
-            char value[16];
-            if(in->x==4 && option<7){snprintf(value,sizeof(value),"%d",durations[option]);request("duration",value,2);}
-            if(in->x>4 && option<2){snprintf(value,sizeof(value),"%d",option);request(in->x==5 ? "fill" : "landscape",value,2);}
+            if(in->x==4 && option<7)apply_setting(&photo_catalog.seconds,durations[option]);
+            if(in->x==5 && option<2)apply_setting(&photo_catalog.fill,option);
+            if(in->x==6 && option<2)apply_setting(&photo_catalog.landscape,option);
         }
+        return 1;
+    }
+    if(in->kind==INPUT_SERVICE && !media_api) {
+        if(in->x==1 && in->y) {
+            int value=lumen_number("folder");
+            folder=value>=0 && value<=PHOTO_FOLDERS ? value : 0;
+            page=lumen_number("page");
+            count=lumen_number("count");
+            fill=lumen_number("fill");
+            rotation=lumen_number("landscape");
+            seconds=lumen_number("duration");
+            if(seconds<5 || seconds>120)seconds=10;
+            for(int i=1;i<=PHOTO_FOLDERS;i++) {
+                char key[24];snprintf(key,sizeof(key),"folder%d",i);
+                lumen_string(key,photo_catalog.folders[i-1],sizeof(photo_catalog.folders[i-1]));
+            }
+            for(int i=0;i<16;i++) {
+                char key[24];snprintf(key,sizeof(key),"id%d",i);lumen_string(key,ids[i],sizeof(ids[i]));
+                snprintf(key,sizeof(key),"albums%d",i);memberships[i]=lumen_number(key);
+            }
+        } else if(in->x==3 && in->y) {
+            int value=lumen_number("folder");
+            folder=value>=0 && value<=PHOTO_FOLDERS ? value : 0;
+            page=0;
+            load();
+        } else if(in->x==2)load();
         return 1;
     }
     if(in->kind==INPUT_SERVICE) {
         if(in->x==1 && in->y) {
-            folder=lumen_number("folder");page=lumen_number("page");count=lumen_number("count");
-            fill=lumen_number("fill");rotation=lumen_number("landscape");seconds=lumen_number("duration");
-            if(seconds<5 || seconds>120)seconds=10;
-            for(int i=1;i<=16;i++) {
-                char key[24];snprintf(key,sizeof(key),"folder%d",i);lumen_string(key,albums[i],sizeof(albums[i]));
+            char list[512*17+1];
+            if(wire_bounded_string("ids",list,sizeof(list))) {
+                media_count=0;
+                char *save;
+                for(char *key=strtok_r(list," ",&save);key && media_count<512;key=strtok_r(NULL," ",&save))
+                    if(strlen(key)==16 && strspn(key,"0123456789abcdef")==16)
+                        memcpy(media_ids[media_count++],key,17);
+                load();
             }
-            for(int i=0;i<16;i++){
-                char key[24];snprintf(key,sizeof(key),"id%d",i);lumen_string(key,ids[i],sizeof(ids[i]));
-                snprintf(key,sizeof(key),"albums%d",i);memberships[i]=lumen_number(key);
-            }
-        } else if(in->x==3 && in->y){folder=lumen_number("folder");page=0;load();}
-        else if(in->x==2)load();
+        } else if(in->x==2 && in->y)request("list","",1);
         return 1;
     }
     if(in->kind!=INPUT_TAP && in->kind!=INPUT_HOLD)return 0;

@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.tetris",
   "name": "Tetris",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "sources": [
     "app.c"
   ],
@@ -15,10 +15,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_BLOCKS",
-    "entry": 25,
-    "aliases": [
-      25
-    ]
+    "slot": 9
+  },
+  "launcher": {
+    "order": 37,
+    "visible": true
   }
 }

@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.wikipedia",
   "name": "Wikipedia",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "operations": [
     "summary"
   ],
@@ -19,13 +19,10 @@
     "background"
   ],
   "legacy": {
-    "slot": "APP_WIKIPEDIA",
-    "entry": 36,
-    "aliases": [
-      15,
-      36,
-      51,
-      94
-    ]
+    "slot": 17
+  },
+  "launcher": {
+    "order": 14,
+    "visible": true
   }
 }

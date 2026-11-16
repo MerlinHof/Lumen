@@ -16,7 +16,7 @@ static int v1_tick(void) {
         timer_flash_started = 0;
     static int lastsecond;
     int sec = timer_due ? (timer_due - extra_millis()) / 1000 : 0;
-    if ((ui_route() == 87 || ui_route() == 28) && sec != lastsecond) {
+    if ((active_app()==app_package_find("lumen.clock") || active_app()==app_package_find("lumen.clock")) && sec != lastsecond) {
         lastsecond = sec;
         return 1;
     }
@@ -25,7 +25,7 @@ static int v1_tick(void) {
 static int v1_poll(void) {
     if (alarm_ring && timer_flash_started && extra_millis() - timer_flash_started < 60000)
         return 500;
-    if (ui_route() == 87)
+    if (active_app()==app_package_find("lumen.clock"))
         return 1000;
     return -1;
 }

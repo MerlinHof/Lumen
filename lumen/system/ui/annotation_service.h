@@ -63,7 +63,7 @@ static int annotation_service(const char *operation,const char *data,int action)
         while(b<library_count && library[b].id!=id)b++;
         GlobalQuote quote;
         if(!quote_read(b,(int)index,&quote))return 0;
-        AppIntent intent={.app=APP_READER,.kind=INTENT_BOOK,.object_id=id,
+        AppIntent intent={.app=document_provider(),.kind=INTENT_BOOK,.object_id=id,
                          .has_position=1,.position=quote.position};
         return app_send(&intent);
     }

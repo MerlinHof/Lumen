@@ -1,5 +1,8 @@
-/* App-owned module; assembled by apps/host/compose.h. */
-#include "catalog.h"
+static uint64_t photo_id(const char *name) {
+    uint64_t id = 14695981039346656037ULL;
+    for (; *name; name++) id = (id ^ (unsigned char)*name) * 1099511628211ULL;
+    return id ? id : 1;
+}
 static void photo_seed_default(void) {
     char marker[2048],source[2048],destination[2048];
     local_path(marker,sizeof(marker),"photo-default-seeded");
@@ -21,25 +24,20 @@ static void photo_seed_default(void) {
         atomic_write(marker,"1",1);
     free(data);
 }
-static void v1_photos_scan(void) {
-    photo_catalog_load();
-    photo_loaded[0] = 0;
-    photo_count = 0;
+static void media_scan(void) {
+    photo_loaded[0]=0;
+    photo_count=0;
     char path[2048];
-    local_path(path, sizeof(path), "photos");
-    mkdir(path, 0700);
+    local_path(path,sizeof(path),"photos");
+    mkdir(path,0700);
     photo_seed_default();
-    DIR *d = opendir(path);
-    if (!d)
-        return;
+    DIR *d=opendir(path);
+    if(!d)return;
     struct dirent *e;
-    while ((e = readdir(d)) && photo_count < 512) {
-        size_t n = strlen(e->d_name);
-        if (n <= 4 || strcmp(e->d_name + n - 4, ".pgm") || e->d_name[0] == '.') continue;
-        if (photo_folder) {
-            PhotoMembership *item = photo_membership(photo_id(e->d_name), 0);
-            if (!item || !(item->folders & (1u << (photo_folder - 1)))) continue;
-        }
+    while((e=readdir(d)) && photo_count<512) {
+        size_t n=strlen(e->d_name);
+        if(n<=4 || strcmp(e->d_name+n-4,".pgm") || e->d_name[0]=='.' ||
+           strchr(e->d_name,'\\'))continue;
         snprintf(photo_names[photo_count++], 256, "%s", e->d_name);
     }
     closedir(d);

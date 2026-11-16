@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.status-bar",
   "name": "Statusleiste",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "sources": [
     "app.c"
   ],
@@ -19,10 +19,10 @@
     "status"
   ],
   "legacy": {
-    "slot": "APP_STATUS_BAR",
-    "entry": 90,
-    "aliases": [
-      90
-    ]
+    "slot": 35
+  },
+  "launcher": {
+    "order": 23,
+    "visible": false
   }
 }

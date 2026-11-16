@@ -46,15 +46,15 @@ static int new_apps_tick(void) {
     if (done) {
         news_retry = time(NULL) + 3600;
         if (done > 0) {
-            if (ui_route() == 67 && olddate && olddate != news_date()) {
+            if (active_app()==app_package_find("lumen.news") && olddate && olddate != news_date()) {
                 news_load(olddate);
                 news_page = oldpage;
             } else
                 news_page = 0;
             news_puzzle_revealed = 0;
-            if (ui_route() == 67)
+            if (active_app()==app_package_find("lumen.news"))
                 changed = 1;
-        } else if (ui_route() == 67) {
+        } else if (active_app()==app_package_find("lumen.news")) {
             ui_message("Neue Ausgabe nicht geladen. Gespeicherte Ausgabe bleibt verfügbar.");
             changed = 1;
         }
@@ -68,7 +68,7 @@ static int new_apps_tick(void) {
             news_retry = time(NULL) + 3600;
             int before = newspaper.date;
             news_start(options[OPT_LANGUAGE], news_topics);
-            if (ui_route() == 67 && before != (int)newspaper.date)
+            if (active_app()==app_package_find("lumen.news") && before != (int)newspaper.date)
                 changed = 1;
         }
 #endif

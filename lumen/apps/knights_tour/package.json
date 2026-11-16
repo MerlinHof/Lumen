@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.knights-tour",
   "name": "Springertour",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "sources": [
     "app.c"
   ],
@@ -15,10 +15,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_KNIGHTS",
-    "entry": 117,
-    "aliases": [
-      117
-    ]
+    "slot": 46
+  },
+  "launcher": {
+    "order": 49,
+    "visible": true
   }
 }

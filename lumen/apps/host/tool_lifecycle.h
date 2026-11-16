@@ -17,8 +17,6 @@ static void extra_init(void) {
         fclose(input);
     }
     insights.magic = 0x494e5331;
-    extra_load_text("ha-url.txt", ha_url, sizeof(ha_url));
-    extra_load_text("ha-token.txt", ha_token, sizeof(ha_token));
     char b[1024] = "";
     extra_load_text("tools-settings.txt", b, sizeof(b));
     long long due = 0;
@@ -43,22 +41,11 @@ static void extra_init(void) {
     sscanf(pause_state, "%lld", &pause_ms);
     if (!timer_due && pause_ms > 0 && pause_ms <= 86400000)
         timer_paused = pause_ms;
-    char *favorites = service_read("ha-favorites.txt", 22000);
-    if (favorites) {
-        char *save, *p = strtok_r(favorites, "\n", &save);
-        while (p && ha_favorite_count < 128) {
-            snprintf(ha_favorites[ha_favorite_count++], 160, "%s", p);
-            p = strtok_r(NULL, "\n", &save);
-        }
-        free(favorites);
-    }
     char wiki_path[2048];
     local_path(wiki_path, sizeof(wiki_path), "wiki-last.xml");
     if (!access(wiki_path, R_OK))
         discover_parse_lookup(wiki_path);
     extra_load_text("wiki-query.txt", wiki_query, sizeof(wiki_query));
-    ha_parse();
-
 }
 static void extra_save(void) {
     if (insights_dirty) {
@@ -94,16 +81,16 @@ static void extra_timer_label(char *out, int cap) {
     }
 }
 static int extra_poll(void) {
-    if (ui_route() == 36 && *discover_lookup_image() && !wiki_image_available() &&
+    if (active_app()==app_package_find("lumen.wikipedia") && *discover_lookup_image() && !wiki_image_available() &&
         wiki_image_attempts < 3)
         return 1000;
     if (app_process_pending())return 25;
     if (release_state()==1) return 750;
-    if (service_busy() || service_history_busy() || discover_busy())
+    if (service_busy() || discover_busy())
         return 250;
     if (timer_due || alarm_enabled)
         return 1000;
-    if (ui_route() == 28)
+    if (active_app()==app_package_find("lumen.clock"))
         return 1000;
     int wait = -1;
     if (options[OPT_AUTO_TIME]) {
@@ -114,7 +101,7 @@ static int extra_poll(void) {
             seconds = 86401;
         wait = (int)seconds * 1000;
     }
-    if (options[OPT_CLOCK] && (ui_route() != 2 || reader_ui.reader_chrome)) {
+    if (options[OPT_CLOCK] && (active_app()!=document_provider() || reader_ui.reader_chrome)) {
         time_t now = time(NULL);
         struct tm t;
         localtime_r(&now, &t);
@@ -126,8 +113,8 @@ static int extra_poll(void) {
 }
 static int extra_tick(void) {
     int changed = new_apps_tick() | v1_tick(), done = service_poll();
-    if (release_poll() && ui_route()==40) changed=1;
-    if (ui_route() == 36 && !discover_busy() && !service_busy() && *discover_lookup_image() &&
+    if (release_poll() && active_app()==app_package_find("lumen.settings")) changed=1;
+    if (active_app()==app_package_find("lumen.wikipedia") && !discover_busy() && !service_busy() && *discover_lookup_image() &&
         (strcmp(wiki_image_requested, discover_lookup_image()) ||
          (!wiki_image_available() && wiki_image_attempts < 3 &&
           time(NULL) >= wiki_image_retry_at))) {
@@ -135,7 +122,7 @@ static int extra_tick(void) {
             wiki_image_attempts = 0;
         snprintf(wiki_image_requested, sizeof(wiki_image_requested), "%s", discover_lookup_image());
         if (!wiki_image_available() &&
-            service_start(SERVICE_WIKI_IMAGE, wiki_image_requested, "", "")) {
+            service_start(SERVICE_WIKI_IMAGE, wiki_image_requested)) {
             wiki_image_attempts++;
             wiki_image_retry_at = time(NULL) + 30;
         }
@@ -145,27 +132,19 @@ static int extra_tick(void) {
     if (wiki_reader_pending &&
         (done == SERVICE_WIKI_IMAGE || done == -SERVICE_WIKI_IMAGE || !service_busy())) {
         wiki_reader_pending = 0;
-        if (ui_route() == 36)
+        if (active_app()==app_package_find("lumen.wikipedia"))
             article_wiki_open();
     }
     polish_wiki_archive();
     if (done) {
         changed = 1;
         if (done < 0) {
-            if (done != -SERVICE_WIKI_IMAGE && done != -SERVICE_HA_HISTORY &&
+            if (done != -SERVICE_WIKI_IMAGE &&
                 (done != -SERVICE_TIME || time(NULL)-last_time_success>172800))
                 ui_message(service_error());
             if (done == -SERVICE_TIME)
                 last_sync = time(NULL) - 82800;
-        } else if (done == SERVICE_HA) {
-            ha_parse();
-            if (ha_refresh_at > time(NULL) + 5)
-                ha_refresh_at = time(NULL) + 5;
-        } else if (done == SERVICE_HA_HISTORY)
-            ha_history_parse();
-        else if (done == SERVICE_TOGGLE)
-            service_start(SERVICE_HA, ha_url, ha_token, "");
-        else if (done == SERVICE_TIME) {
+        } else if (done == SERVICE_TIME) {
             last_sync = time(NULL);
             status_ui.status_time = 0;
             last_time_success=last_sync;
@@ -174,10 +153,6 @@ static int extra_tick(void) {
             /* Routine successful sync is deliberately silent. */
         }
     }
-    if((done==SERVICE_HA || done==SERVICE_HA_HISTORY || done==SERVICE_TOGGLE ||
-        done==-SERVICE_HA || done==-SERVICE_HA_HISTORY || done==-SERVICE_TOGGLE) &&
-        app_for_route(ui_route())==APP_HOME_ASSISTANT)
-        app_process_send("{\"event\":\"refresh\"}");
     if (timer_due && extra_millis() >= timer_due) {
         timer_due = 0;
         alarm_ring = 1;
@@ -202,12 +177,12 @@ static int extra_tick(void) {
         device_ip(ip, sizeof(ip));
         if (device_wifi_enabled() && *ip) {
             last_sync = now;
-            service_start(SERVICE_TIME, "", "", "");
+            service_start(SERVICE_TIME, "");
         } else
             last_sync = now - 86340;
     }
     static time_t hud_minute;
-    if (options[OPT_CLOCK] && (ui_route() != 2 || reader_ui.reader_chrome) && now / 60 != hud_minute) {
+    if (options[OPT_CLOCK] && (active_app()!=document_provider() || reader_ui.reader_chrome) && now / 60 != hud_minute) {
         hud_minute = now / 60;
         changed = 1;
     }
@@ -216,14 +191,12 @@ static int extra_tick(void) {
     if (changed)
         return 1;
     if (timer_due || alarm_enabled) {
-        if (ui_route() == 28 || minute != previous_minute) {
+        if (active_app()==app_package_find("lumen.clock") || minute != previous_minute) {
             previous_minute = minute;
-            return ui_route() == 2 && !reader_ui.reader_chrome ? 2 : 1;
+            return active_app()==document_provider() && !reader_ui.reader_chrome ? 2 : 1;
         }
         return 2;
     }
-    if (ui_route() == 33 || ui_route() == 60)
-        return 2;
     return 0;
 }
 static void extra_overlay(void) {

@@ -22,6 +22,7 @@ static time_t ha_timestamp(const char *s) {
     t.tm_min = min;
     t.tm_sec = (int)sec;
     time_t v = timegm(&t);
+    if(strlen(s)<19)return 0;
     const char *p = s + 19;
     if (*p == '.') {
         p++;
@@ -36,12 +37,12 @@ static time_t ha_timestamp(const char *s) {
     return v;
 }
 static void ha_history_parse(void) {
-    char *s = service_read("ha-history.json", 2097152);
+    char *s = ha_read("ha-history.json", 8388608);
     if (!s)
         return;
-    JsonToken *tok = calloc(128000, sizeof(*tok));
+    JsonToken *tok = calloc(500000, sizeof(*tok));
     Json j;
-    if (tok && json_parse(&j, s, tok, 128000) && j.tokens[0].type == '[') {
+    if (tok && json_parse(&j, s, tok, 500000) && j.tokens[0].type == '[') {
         memset(ha_history, 0, sizeof(ha_history));
         for (int a = 0; a < j.tokens[0].count && a < 8; a++) {
             int array = json_at(&j, 0, a), first = json_at(&j, array, 0);
@@ -51,12 +52,11 @@ static void ha_history_parse(void) {
             json_string(&j, json_get(&j, first, "entity_id"), hist->id, sizeof(hist->id));
             int count = j.tokens[array].count,
                 step = count > HA_POINTS ? (count + HA_POINTS - 2) / (HA_POINTS - 1) : 1;
-            for (int k = 0; k < count; k++) {
+            for (int k = 0, obj = first; k < count && obj<j.count; k++, obj=j.tokens[obj].next) {
                 if (k % step && k != count - 1)
                     continue;
                 if (hist->count >= HA_POINTS)
                     break;
-                int obj = json_at(&j, array, k);
                 char state[80], stamp[80];
                 json_string(&j, json_get(&j, obj, "state"), state, sizeof(state));
                 json_string(&j, json_get(&j, obj, "last_changed"), stamp, sizeof(stamp));
@@ -83,14 +83,14 @@ static void ha_history_parse(void) {
 static int ha_visible(int *out,int picking,const char *search) {
     int n = 0;
     char query[128];
-    utf8_fold(search, query, sizeof(query));
+    lumen_utf8_fold(search, query, sizeof(query));
     for (int i = 0; i < ha_count; i++) {
         const HAEntity *e = &ha_entities[i];
         if (!picking && ha_favorite(e->id) < 0) continue;
         if (picking && *query) {
             char name[sizeof(e->name)], id[sizeof(e->id)];
-            utf8_fold(e->name, name, sizeof(name));
-            utf8_fold(e->id, id, sizeof(id));
+            lumen_utf8_fold(e->name, name, sizeof(name));
+            lumen_utf8_fold(e->id, id, sizeof(id));
             if (!strstr(name, query) && !strstr(id, query)) continue;
         }
         out[n++] = i;

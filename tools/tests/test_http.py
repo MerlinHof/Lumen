@@ -46,6 +46,12 @@ try:
  assert req('/api/note?id=123/../../etc/passwd')[0]==400
  assert req('/api/upload?study=1&name=Lesson.txt','PUT',b'Study material')[0]==201
  assert(root/'study/Lesson.txt').read_bytes()==b'Study material'
+ ha=Path('build/apps/host/lumen.home-assistant/lumen.home-assistant.lumen-app').read_bytes()
+ assert req('/api/apps/install','PUT',ha)[0]==201
+ connection=b'{"url":"http://127.0.0.1:1","token":"test"}'
+ assert req('/api/apps/config?id=lumen.home-assistant&key=connection.json','PUT',connection)[0]==200
+ assert req('/api/apps/config?id=lumen.home-assistant&key=other.json','PUT',b'test')[0]==400
+ assert (sandbox/'appdata/lumen.home-assistant/connection.json').read_bytes()==connection
  assert req('/api/setup?key=llm-key.txt','PUT',b'test-key')[0]==200
  assert req('/api/setup?key=../outside','PUT',b'test')[0]==400
  assert req('/api/update','PUT',bytes(4096))[0]==400

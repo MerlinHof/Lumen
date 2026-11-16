@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.reader",
   "name": "Lesen",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "sources": [
     "app.c"
   ],
@@ -15,15 +15,14 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_READER",
-    "entry": 2,
-    "aliases": [
-      2,
-      3,
-      4,
-      5,
-      14,
-      104
-    ]
-  }
+    "slot": 1
+  },
+  "launcher": {
+    "order": 8,
+    "visible": false
+  },
+  "required": true,
+  "provides": [
+    "document"
+  ]
 }

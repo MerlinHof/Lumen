@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.tic-tac-toe",
   "name": "Tic Tac Toe",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "sources": [
     "app.c"
   ],
@@ -15,10 +15,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_TIC_TAC_TOE",
-    "entry": 49,
-    "aliases": [
-      49
-    ]
+    "slot": 20
+  },
+  "launcher": {
+    "order": 40,
+    "visible": true
   }
 }

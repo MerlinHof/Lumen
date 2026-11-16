@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.lock-screen",
   "name": "Sperrbildschirm",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "sources": [
     "app.c"
   ],
@@ -19,10 +19,10 @@
     "sleep"
   ],
   "legacy": {
-    "slot": "APP_LOCK_SCREEN",
-    "entry": 92,
-    "aliases": [
-      92
-    ]
+    "slot": 37
+  },
+  "launcher": {
+    "order": 25,
+    "visible": false
   }
 }

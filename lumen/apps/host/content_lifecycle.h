@@ -3,7 +3,7 @@ static int polish_tick(void) {
     int changed = 0, done = press_poll();
     if (done) {
         if(done<0)press_retry_at=time(NULL)+3600;
-        if(app_for_route(ui_route())==APP_NEWS) {
+        if(active_app()==app_package_find("lumen.news")) {
             if(done==2 && press_open_pending)article_news_open();
             else {
                 if(done<0)ui_message("Nicht geladen. Gespeicherte Inhalte bleiben verfügbar.");
@@ -29,7 +29,7 @@ static int polish_tick(void) {
             free(s);
         }
     }
-    if (press_daily_enabled && !press_busy() && time(NULL) >= press_retry_at && app_for_route(ui_route())!=APP_NEWS) {
+    if (press_daily_enabled && !press_busy() && time(NULL) >= press_retry_at && active_app()!=app_package_find("lumen.news")) {
         press_retry_at = time(NULL) + 60;
         char n[100], p[2048];
         snprintf(n, sizeof(n), "press/edition-%08d.bin", news_date());

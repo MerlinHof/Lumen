@@ -13,7 +13,7 @@ int ui_poll_interval(void);
 int ui_input(const Input *input);
 int ui_open(int index);
 void ui_message(const char *message);
-void ui_set_screen(int screen);
+int ui_select_app(const char *id);
 void ui_save(void);
 void ui_close(void);
 int ui_power_request(void);

@@ -1,12 +1,12 @@
-/* App-owned module; assembled by apps/host/compose.h. */
+
 static void ha_parse(void) {
     ha_count = 0;
-    char *s = service_read("ha-states.json", 2 * 1024 * 1024);
+    char *s = ha_read("ha-states.json", 2 * 1024 * 1024);
     if (!s)
         return;
     JsonToken *tokens = calloc(32000, sizeof(*tokens));
     Json j;
-    if (tokens && json_parse(&j, s, tokens, 32000)) {
+    if (tokens && json_parse(&j, s, tokens, 32000) && j.tokens[0].type=='[') {
         for (int n = 0; n < j.tokens[0].count && ha_count < 512; n++) {
             int obj = json_at(&j, 0, n);
             HAEntity v = {0};

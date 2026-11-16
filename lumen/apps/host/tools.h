@@ -150,12 +150,12 @@ static int u16_jobs_tick(void) {
     job_pid16 = -1;
     if (!WIFEXITED(st) || WEXITSTATUS(st)) {
         ui_message("Anfrage fehlgeschlagen. Verbindung und Einrichtung prüfen.");
-        if ((job_kind16==1 || job_kind16==4) && app_for_route(ui_route())==APP_RECIPES)
+        if ((job_kind16==1 || job_kind16==4) && active_app()==app_package_find("lumen.recipes"))
             app_process_send("{\"event\":\"refresh\"}");
         return 1;
     }
     if (job_kind16 == 1)recipes_parse17();
-    if (job_kind16==1 && app_for_route(ui_route())==APP_RECIPES)
+    if (job_kind16==1 && active_app()==app_package_find("lumen.recipes"))
         app_process_send("{\"event\":\"refresh\"}");
     if (job_kind16 == 4)
         recipes_open_ready17();

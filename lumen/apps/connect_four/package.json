@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.connect-four",
   "name": "Vier gewinnt",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "sources": [
     "app.c"
   ],
@@ -15,10 +15,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_CONNECT4",
-    "entry": 113,
-    "aliases": [
-      113
-    ]
+    "slot": 42
+  },
+  "launcher": {
+    "order": 48,
+    "visible": true
   }
 }

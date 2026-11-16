@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.todo",
   "name": "ToDo",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "sources": [
     "app.c"
   ],
@@ -15,11 +15,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_TASKS",
-    "entry": 74,
-    "aliases": [
-      74,
-      75
-    ]
+    "slot": 30
+  },
+  "launcher": {
+    "order": 5,
+    "visible": true
   }
 }

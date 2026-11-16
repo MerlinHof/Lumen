@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.planetarium",
   "name": "Planetarium",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "sources": [
     "app.c",
     "astronomy.c"
@@ -16,12 +16,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_PLANETARIUM",
-    "entry": 79,
-    "aliases": [
-      79,
-      80,
-      125
-    ]
+    "slot": 32
+  },
+  "launcher": {
+    "order": 22,
+    "visible": true
   }
 }

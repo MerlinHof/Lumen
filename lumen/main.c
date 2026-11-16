@@ -28,7 +28,8 @@ int main(int argc, char **argv) {
     if(argc==2 && !strcmp(argv[1],"--system-maintenance"))return system_update_maintenance()?0:1;
     if(argc==2 && !strcmp(argv[1],"--system-rollback"))return system_update_rollback()?0:1;
     const char *preview = NULL, *inspect = NULL, *render = NULL;
-    int screen = 0, pageno = 0;
+    const char *app=NULL;
+    int pageno=0;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--library") && i + 1 < argc)
             library_root = argv[++i];
@@ -36,8 +37,8 @@ int main(int argc, char **argv) {
             data_root = argv[++i];
         else if (!strcmp(argv[i], "--preview") && i + 1 < argc)
             preview = argv[++i];
-        else if (!strcmp(argv[i], "--screen") && i + 1 < argc)
-            screen = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--app") && i+1<argc)
+            app=argv[++i];
         else if (!strcmp(argv[i], "--inspect") && i + 1 < argc)
             inspect = argv[++i];
         else if (!strcmp(argv[i], "--render") && i + 1 < argc)
@@ -99,16 +100,14 @@ int main(int argc, char **argv) {
     }
     library_scan();
     ui_init();
-    if((!preview || screen==131) && !ui_prepare_home() && !preview && system_update_trial()) {
+    if((!preview || !app) && !ui_prepare_home() && !preview && system_update_trial()) {
         ui_close();
         device_close();
         engine_shutdown();
         return 7;
     }
     if (preview) {
-        ui_set_screen(screen);
-        if (screen == 2 && library_count)
-            ui_open(0);
+        if(app && !ui_select_app(app)) { fprintf(stderr,"Unknown foreground app: %s\n",app); return 1; }
         ui_draw();
         FILE *f = fopen(preview, "wb");
         if (!f) {

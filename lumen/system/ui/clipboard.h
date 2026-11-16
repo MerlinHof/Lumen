@@ -75,7 +75,7 @@ static int clipboard_position(int x, int y) {
     return 0;
 }
 static int clipboard_input(const Input *in) {
-    if (ui_route() == 2 && reader_ui.selecting == 2 && in->kind == INPUT_TAP && selection_menu_action(READER_SELECTION_Y, in->x, in->y) == 0) {
+    if (active_app()==document_provider() && reader_ui.selecting == 2 && in->kind == INPUT_TAP && selection_menu_action(READER_SELECTION_Y, in->x, in->y) == 0) {
         snprintf(clipboard_text, sizeof(clipboard_text), "%s", reader_ui.selection.text);
         reader_ui.selecting = 0;
         ui_message("Kopiert.");
@@ -140,7 +140,7 @@ static int clipboard_input(const Input *in) {
         }
         return 1;
     }
-    if (in->kind != INPUT_HOLD || ui_route() == 2 || !text_editable_hit(in))
+    if (in->kind != INPUT_HOLD || active_app()==document_provider() || !text_editable_hit(in))
         return 0;
     if (editor_ui.keyboard && (text_input_spec(editor_ui.keyboard_target).secret || editor_ui.keyboard_target == 176))
         return 0;

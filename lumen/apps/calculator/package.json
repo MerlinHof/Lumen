@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.calculator",
   "name": "Rechner",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "sources": [
     "app.c",
     "evaluate.c"
@@ -16,14 +16,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_CALCULATOR",
-    "entry": 27,
-    "aliases": [
-      27,
-      42,
-      61,
-      62,
-      100
-    ]
+    "slot": 11
+  },
+  "launcher": {
+    "order": 1,
+    "visible": true
   }
 }

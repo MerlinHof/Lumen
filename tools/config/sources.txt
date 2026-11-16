@@ -21,7 +21,6 @@ system/text_input.c
 system/preferences.c
 system/unicode.c
 system/fonts.c
-apps/catalog.c
 system/dictionary.c
 system/app_storage.c
 

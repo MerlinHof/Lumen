@@ -323,11 +323,11 @@ static int recipes_fetch17(const char *unused) {
 }
 static void recipes_open_ready17(void) {
     recipe_archive16();
-    if (ui_route() != 114)
+    if (active_app()!=app_package_find("lumen.recipes"))
         return;
     char path[4096];
     snprintf(path, sizeof(path), "%s/recipe-archive16/%s.html", data_root, selected_recipe17.id);
-    if (file_open16(path, 114))
+    if (file_open16(path,active_app()))
         snprintf(library[BOOK_LIMIT].title, sizeof(library[BOOK_LIMIT].title), "%s",
                  selected_recipe17.title);
 }

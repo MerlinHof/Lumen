@@ -64,7 +64,7 @@ static int settings_wifi_operation(const char *operation,const char *data,int ac
     package_reply_end(out,&message);return 1;
 }
 static int package_device(const char *operation,const char *data,int action,int legacy) {
-    if(app_process_owner()!=APP_SETTINGS || app_for_route(ui_route())!=APP_SETTINGS)
+    if(app_process_owner()!=app_package_find("lumen.settings") || active_app()!=app_package_find("lumen.settings"))
         return package_acknowledge(action,0);
     if(!strncmp(operation,"wifi_",5))return settings_wifi_operation(operation,data,action);
     if(!strcmp(operation,"preference")) {
@@ -90,7 +90,7 @@ static int package_device(const char *operation,const char *data,int action,int 
             return package_acknowledge(action,0);
         }
         if(option==OPT_ZONE)extra_zone();
-        if(option==OPT_AUTO_TIME && value && !service_busy())service_start(SERVICE_TIME,"","","");
+        if(option==OPT_AUTO_TIME && value && !service_busy())service_start(SERVICE_TIME, "");
         return package_acknowledge(action,1);
     }
     if(!strcmp(operation,"sleep")) {

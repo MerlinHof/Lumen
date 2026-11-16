@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.journal",
   "name": "Journal",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "sources": [
     "app.c"
   ],
@@ -15,11 +15,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_JOURNAL",
-    "entry": 110,
-    "aliases": [
-      110,
-      126
-    ]
+    "slot": 39
+  },
+  "launcher": {
+    "order": 27,
+    "visible": true
   }
 }

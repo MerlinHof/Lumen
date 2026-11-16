@@ -76,8 +76,7 @@ static int transfer_service(const char *operation,const char *data,int action) {
 #include "news_service.h"
 #include "catalog_service.h"
 #include "library_service.h"
-#include "home_assistant_service.h"
-#include "photo_service.h"
+#include "media_service.h"
 #include "document_service.h"
 #include "device_service.h"
 static int package_service_request(const char *name,const char *operation,const char *data,int action) {
@@ -94,8 +93,7 @@ static int package_service_request(const char *name,const char *operation,const 
     if(!strcmp(name,"device"))return package_device(operation,data,action,0);
     if(!strcmp(name,"settings"))return package_device(operation,data,action,1);
     if(!strcmp(name,"document"))return package_document(operation,data,action);
-    if(!strcmp(name,"photos"))return package_photos(operation,data,action);
-    if(!strcmp(name,"home_assistant"))return package_home_assistant(operation,data,action);
+    if(!strcmp(name,"media"))return package_media(operation,data,action);
     if(!strcmp(name,"library"))return package_library(operation,data,action);
     if(!strcmp(name,"store"))return package_store(operation,data,action);
     if(!strcmp(name,"news"))return package_news(operation,data,action);

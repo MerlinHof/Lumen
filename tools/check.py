@@ -14,8 +14,10 @@ def compile_test(name,source,ui=False):
     return binary
 def run(http=False,native_only=False):
     os.chdir(ROOT);OUT.mkdir(parents=True,exist_ok=True)
+    subprocess.run([sys.executable,'tools/check-architecture.py'],check=True)
     shutil.rmtree(OUT/'test-data',ignore_errors=True)
     shutil.rmtree(OUT/'apps',ignore_errors=True)
+    shutil.rmtree(OUT/'appdata',ignore_errors=True)
     binary=compile_test('integration','tools/tests/test_integration.c',True);subprocess.run([str(binary)],check=True)
     binary=compile_test('fresh-settings','tools/tests/test_fresh_settings.c');subprocess.run([str(binary)],check=True)
     sdk=OUT/'sdk'

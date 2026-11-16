@@ -32,7 +32,7 @@ static char checkpoint_text[8192];
 static int64_t package_deadline;
 static int package_timer_owner=-1;
 static int package_clock_wait(void) {
-    if(!package_deadline || package_timer_owner!=(int)app_for_route(ui_route()))return -1;
+    if(!package_deadline || package_timer_owner!=(int)active_app())return -1;
     int64_t delta=package_deadline-extra_millis();
     return delta>0 ? (int)delta : 0;
 }
@@ -46,7 +46,7 @@ static struct { int y,page,count; } package_pager;
 static void package_asset_paint(const char *name,int x,int y,int w,int h) {
     char path[2048];
     if(w<1 || h<1 || w>WIDTH || h>HEIGHT ||
-       !app_package_asset(app_for_route(ui_route()),name,path,sizeof(path)))return;
+       !app_package_asset(active_app(),name,path,sizeof(path)))return;
     FILE *file=fopen(path,"rb");
     if(!file)return;
     int aw,ah,range;
@@ -71,7 +71,7 @@ static void package_sprite(const char *asset,int x,int y,int size,int index,int 
         char path[2048];
         loaded_serial=serial;width=height=0;
         snprintf(previous,sizeof(previous),"%s",asset);
-        if(!app_package_asset(app_for_route(ui_route()),asset,path,sizeof(path)))return;
+        if(!app_package_asset(active_app(),asset,path,sizeof(path)))return;
         FILE *file=fopen(path,"rb");
         if(!file)return;
         int w,h,max;
@@ -151,17 +151,30 @@ static void package_editor_line(int x,int y,int w,int h,const char *text,int cur
         if(editor_ui.cursor_visible)text_caret(caret,baseline,ui_font(UI_BODY));
     }
 }
-static void package_paint_frame_mode(const char *text,int capture) {
+enum { PACKAGE_PAINT_FOREGROUND, PACKAGE_PAINT_CAPTURE, PACKAGE_PAINT_OVERLAY };
+static const char *overlay_live_title;
+static void (*overlay_image)(const char *source,int x,int y,int w,int h);
+static int package_overlay_primitive(const char *type) {
+    static const char *const types[]={
+        "arc","button","checkbox","device_image","display_text","dropdown","ellipse","hud_text","icon",
+        "line","mono","raised","ring","surface","symbol","text","toggle","wrap","wifi_symbol"
+    };
+    for(size_t i=0;i<sizeof(types)/sizeof(*types);i++)
+        if(!strcmp(type,types[i]))return 1;
+    return 0;
+}
+static void package_paint_frame_mode(const char *text,int mode) {
     Json j;if(!json_parse(&j,text,package_tokens,32768))return;
     int commands=json_get(&j,0,"ui");if(commands<0 || j.tokens[commands].type!='[' || j.tokens[commands].count>2048)return;
-    if(!capture)package_fullscreen=!!package_value(&j,0,"fullscreen");
-    if(!capture && package_fullscreen)memset(ui_pixels,255,WIDTH*STATUS_HEIGHT);
+    if(mode==PACKAGE_PAINT_FOREGROUND)package_fullscreen=!!package_value(&j,0,"fullscreen");
+    if(mode==PACKAGE_PAINT_FOREGROUND && package_fullscreen)memset(ui_pixels,255,WIDTH*STATUS_HEIGHT);
     size_t cost=0;
     for(int item=commands+1;item<j.tokens[commands].next;item=j.tokens[item].next) {
         char type[32],label[2048];
         json_string(&j,json_get(&j,item,"type"),type,sizeof(type));json_string(&j,json_get(&j,item,"text"),label,sizeof(label));
         int x=package_value(&j,item,"x"),y=package_value(&j,item,"y"),w=package_value(&j,item,"w"),h=package_value(&j,item,"h");
-        if(capture && strcmp(type,"line") && strcmp(type,"text") && strcmp(type,"bitmap"))continue;
+        if(mode==PACKAGE_PAINT_OVERLAY && !package_overlay_primitive(type))continue;
+        if(mode==PACKAGE_PAINT_CAPTURE && strcmp(type,"line") && strcmp(type,"text") && strcmp(type,"bitmap"))continue;
         if(!strcmp(type,"view_title")) {
             snprintf(package_view_title,sizeof(package_view_title),"%.127s",label);
             continue;
@@ -300,7 +313,7 @@ static void package_paint_frame_mode(const char *text,int capture) {
             package_component_top+=height+12;package_component_count++;continue;
         }
         /* Content coordinates may never paint or intercept the status bar. */
-        if((!package_fullscreen && y<STATUS_HEIGHT && strcmp(type,"asset")) || y<0 || y>800 || x < -600 || x>600 || w<0 || w>1200 || h<0 || h>800)continue;
+        if((mode!=PACKAGE_PAINT_OVERLAY && !package_fullscreen && y<STATUS_HEIGHT && strcmp(type,"asset")) || y<0 || y>800 || x < -600 || x>600 || w<0 || w>1200 || h<0 || h>800)continue;
         size_t estimate=(size_t)w*h;
         if(!strcmp(type,"points")) {
             int points=json_get(&j,item,"points");
@@ -313,7 +326,25 @@ static void package_paint_frame_mode(const char *text,int capture) {
         if(!strcmp(type,"ring") || !strcmp(type,"arc")){int r=package_value(&j,item,"radius");estimate=4u*(unsigned)abs(r)*(unsigned)abs(r);}
         if(!strcmp(type,"line"))estimate=(size_t)(abs(x-package_value(&j,item,"x2"))+32)*(abs(y-package_value(&j,item,"y2"))+32);
         if(estimate>4000000 || cost+estimate>4000000)break;cost+=estimate;
-        if(!strcmp(type,"asset"))package_asset_paint(label,x,y,w,h);
+        if(mode==PACKAGE_PAINT_OVERLAY && !strcmp(type,"device_image")) {
+            if(overlay_image)overlay_image(label,x,y,w,h);
+        } else if(mode==PACKAGE_PAINT_OVERLAY && !strcmp(type,"symbol")) {
+            int id=package_value(&j,item,"icon");
+            if(id>=0 && id<=IC_LAST && w==h && w>=12 && w<=76)icon_sized(x,y,id,w);
+        } else if(mode==PACKAGE_PAINT_OVERLAY && !strcmp(type,"wifi_symbol")) {
+            wifi_symbol(x,y);
+            if(package_value(&j,item,"offline"))aa_stroke(x+2,y+9,x+27,y+32,2);
+        } else if(mode==PACKAGE_PAINT_OVERLAY && !strcmp(type,"hud_text")) {
+            const Font *font=package_value(&j,item,"small") ? &caption : &small;
+            const char *value=package_value(&j,item,"live") && overlay_live_title ? overlay_live_title : label;
+            int shift=0;
+            if(package_value(&j,item,"center")) {
+                int length=textwidth_raw(value,font);
+                if(length<w)shift=(w-length)/2;
+            }
+            label_ellipsis(x+shift,y,w-shift,h,value,font,0);
+        }
+        else if(!strcmp(type,"asset"))package_asset_paint(label,x,y,w,h);
         else if(!strcmp(type,"sprite") && h==w)
             package_sprite(label,x,y,w,package_value(&j,item,"index"),package_value(&j,item,"transparent"));
         else if(!strcmp(type,"qr")) {
@@ -332,7 +363,7 @@ static void package_paint_frame_mode(const char *text,int capture) {
             package_pointer.x=x;package_pointer.y=y;package_pointer.w=w;package_pointer.h=h;
             package_pointer.owner=app_process_owner();
         }
-        else if(!strcmp(type,"document_page") && app_for_route(ui_route())==APP_READER) {
+        else if(!strcmp(type,"document_page") && active_app()==document_provider()) {
             package_document_visible=1;
             reader_ui.reader_chrome=!!package_value(&j,item,"chrome");
             document_surface();
@@ -383,7 +414,7 @@ static void package_paint_frame_mode(const char *text,int capture) {
         }
         else if(!strcmp(type,"app_tile")) {
             int id=app_package_find(label);
-            if(id>=0 && app_definition(id)->entry>=0 && x>=0 && w>=90 && x+w<=WIDTH && y+h<=HEIGHT) {
+            if(app_package_foreground(id) && x>=0 && w>=90 && x+w<=WIDTH && y+h<=HEIGHT) {
                 app_tile(x,y,w,id);
                 if(package_component_count<PACKAGE_COMPONENT_LIMIT) {
                     PackageComponent *component=&package_components[package_component_count];
@@ -531,7 +562,7 @@ static void package_paint_frame_mode(const char *text,int capture) {
                 stroke_color(x+dx[k],y+dy[k],x+dx[n],y+dy[n],2,0);
             }
         }
-        else if(!strcmp(type,"line")){int x2=package_value(&j,item,"x2"),y2=package_value(&j,item,"y2"),weight=package_value(&j,item,"weight");if(y2>=56&&y2<=800&&x2>=-600&&x2<=1200&&weight>0&&weight<=32)ui_paint_line(x,y,x2,y2,weight,package_value(&j,item,"gray"));}
+        else if(!strcmp(type,"line")){int x2=package_value(&j,item,"x2"),y2=package_value(&j,item,"y2"),weight=package_value(&j,item,"weight");if((mode==PACKAGE_PAINT_OVERLAY || y2>=56)&&y2>=0&&y2<=800&&x2>=-600&&x2<=1200&&weight>0&&weight<=32)ui_paint_line(x,y,x2,y2,weight,package_value(&j,item,"gray"));}
         else if(!strcmp(type,"arc")) {
             int r=package_value(&j,item,"radius"),a=package_value(&j,item,"start"),
                 b=package_value(&j,item,"end"),weight=package_value(&j,item,"weight"),
@@ -547,26 +578,27 @@ static void package_paint_frame_mode(const char *text,int capture) {
     }
 
 }
-static void package_paint_frame(const char *text) { package_paint_frame_mode(text,0); }
+static void package_paint_frame(const char *text) { package_paint_frame_mode(text,PACKAGE_PAINT_FOREGROUND); }
+#include "overlay_compositor.h"
 static void package_ui_draw(void) {
     package_fullscreen=package_document_visible=0;
     package_view_title[0]=0;
-    package_fullscreen_owner=app_for_route(ui_route());
+    package_fullscreen_owner=active_app();
     package_pager.count=0;
     package_pointer.w=0;
     package_component_count=package_component_layout=0;
     if(app_process_owner()!=(int)package_fullscreen_owner || !*app_process_error())app_process_open(package_fullscreen_owner);
     const char*text=app_process_frame();
-    if(app_process_frame_loading()) {heading(app_definition(app_for_route(ui_route()))->name);centered(28,340,544,60,*app_process_error()?tr(app_process_error()):tr("App wird geöffnet …"),ui_font(UI_BODY));return;}
+    if(app_process_frame_loading()) {heading(app_definition(active_app())->name);centered(28,340,544,60,*app_process_error()?tr(app_process_error()):tr("App wird geöffnet …"),ui_font(UI_BODY));return;}
     package_paint_frame(text);
-    if(!package_document_visible && app_for_route(ui_route())==APP_READER)reader_ui.reader_chrome=0;
+    if(!package_document_visible && active_app()==document_provider())reader_ui.reader_chrome=0;
 }
 static void package_pointer_reset(void) {
     package_pointer.active=0;
     package_pointer.w=0;
 }
 static int package_pointer_input(const Input *in) {
-    if(package_pointer.owner!=(int)app_for_route(ui_route()))return 0;
+    if(package_pointer.owner!=(int)active_app())return 0;
     int active=package_pointer.active;
     if(in->kind==INPUT_DOWN) {
         active=in->x>=package_pointer.x && in->x<package_pointer.x+package_pointer.w &&
@@ -636,7 +668,7 @@ static int package_ui_input(const Input*in) {
         }
     }
     char event[256];snprintf(event,sizeof(event),"{\"event\":\"input\",\"kind\":%d,\"x\":%d,\"y\":%d,\"dx\":%d,\"dy\":%d}",in->kind,in->x,in->y,in->dx,in->dy);
-    app_process_open(app_for_route(ui_route()));app_process_send(event);return 2;
+    app_process_open(active_app());app_process_send(event);return 2;
 }
 static int package_ui_commit(int target,const char*text) {
     if(target!=2000 && target!=2002 && target!=2003)return 0;
@@ -650,7 +682,7 @@ static int package_ui_commit(int target,const char*text) {
 }
 static void package_input_checkpoint(void) {
     if(!editor_ui.keyboard || !editor_ui.autosave ||
-       app_process_owner()!=(int)app_for_route(ui_route()) ||
+       app_process_owner()!=(int)active_app() ||
        !strcmp(checkpoint_text,editor_ui.edit))return;
     uint64_t serial=app_process_frame_serial();
     if(!package_ui_commit(editor_ui.keyboard_target,editor_ui.edit))return;
@@ -663,7 +695,7 @@ static void package_input_checkpoint(void) {
     }
     if(app_process_frame_serial()!=serial)memcpy(checkpoint_text,editor_ui.edit,sizeof(checkpoint_text));
 }
-typedef struct {int caller_route,callee,request_id,depth;} PackageCall;
+typedef struct {int caller,callee,request_id,depth;} PackageCall;
 static PackageCall package_calls[8];
 static int package_call_count;
 static void package_intent_reply(int request_id,int ok,const char *status,const char *data) {
@@ -676,7 +708,7 @@ static void package_intent_reply(int request_id,int ok,const char *status,const 
     package_reply_end(out,&message);
 }
 static void package_return_result(PackageCall call,int ok,const char *status,const char *data) {
-    if(ui_route()!=call.caller_route || !app_process_open(app_for_route(ui_route())))return;
+    if(active_app()!=call.caller || !app_process_open(active_app()))return;
     package_intent_reply(call.request_id,ok,status,data);
 }
 static void package_back_results(void) {
@@ -686,8 +718,8 @@ static void package_back_results(void) {
     }
 }
 static void package_call_app(int id,const char *operation,const char *data,int request_id) {
-    int route=ui_route(),depth=history_count;
-    if(id<0 || id==(int)app_for_route(route) || !app_package_installed(id) ||
+    int route=active_app(),depth=history_count;
+    if(id<0 || id==(int)route || !app_package_installed(id) ||
        !*operation || strspn(operation,"abcdefghijklmnopqrstuvwxyz0123456789_-")!=strlen(operation) ||
        history_count>=64 || package_call_count>=8) {
         if(request_id>0)package_intent_reply(request_id,0,"unavailable","");
@@ -695,16 +727,16 @@ static void package_call_app(int id,const char *operation,const char *data,int r
     }
     AppIntent intent={.app=id,.kind=INTENT_OPEN};
     if(!app_send(&intent)) {
-        history_count=depth;route_to(route);
-        if(request_id>0 && app_process_open(app_for_route(route)))
+        history_count=depth;activate_app(route);
+        if(request_id>0 && app_process_open(route))
             package_intent_reply(request_id,0,"unavailable","");
         return;
     }
     char *message=NULL;size_t length=0;
     FILE *out=open_memstream(&message,&length);
     if(!out) {
-        history_count=depth;route_to(route);
-        if(request_id>0 && app_process_open(app_for_route(route)))
+        history_count=depth;activate_app(route);
+        if(request_id>0 && app_process_open(route))
             package_intent_reply(request_id,0,"unavailable","");
         return;
     }
@@ -717,7 +749,7 @@ static void package_call_app(int id,const char *operation,const char *data,int r
 #include "../../../tools/sdk/lumen_wire.h"
 static void package_reader_file(Json *json,const char *title) {
     int owner=app_process_owner();
-    if(owner<0 || owner!=(int)app_for_route(ui_route()))return;
+    if(owner<0 || owner!=(int)active_app())return;
     int reference=json_get(json,0,"document");
     if(reference<0 || json->tokens[reference].type!='{')return;
     int format=json_get(json,reference,"type"),file=json_get(json,reference,"path");
@@ -745,7 +777,7 @@ static void package_reader_file(Json *json,const char *title) {
         int exists=!fstatat(parent,leaf,&info,AT_SYMLINK_NOFOLLOW) && S_ISREG(info.st_mode);
         close(parent);
         int n=snprintf(verified,sizeof(verified),"%s/%s",root,path);
-        if(exists && n>0 && (size_t)n<sizeof(verified))file_open16(verified,ui_route());
+        if(exists && n>0 && (size_t)n<sizeof(verified))file_open16(verified,active_app());
         else ui_message("Dokument nicht verfügbar.");
         return;
     }
@@ -754,7 +786,7 @@ static void package_reader_file(Json *json,const char *title) {
     char *bytes=malloc(131073);size_t size;
     if(bytes && lumen_storage_read_at(root,path,bytes,131072,&size) && size && !memchr(bytes,0,size)) {
         bytes[size]=0;
-        reader_markdown17(*title ? title : app_definition(owner)->name,bytes,ui_route());
+        reader_markdown17(*title ? title : app_definition(owner)->name,bytes,active_app());
     } else ui_message("Dokument nicht verfügbar.");
     free(bytes);
 }
@@ -856,15 +888,17 @@ static void package_dispatch_request(const char *message) {
         json_string(&j,json_get(&j,0,"operation"),operation,sizeof(operation));
         package_service_request(service,operation,text,package_value(&j,0,"action"));
     }
+    else if(!strcmp(kind,"overlay_open") || !strcmp(kind,"overlay_close"))
+        package_overlay_request(&j,kind,package_value(&j,0,"action"));
     else if(!strcmp(kind,"notify"))ui_message(text);
-    else if(!strcmp(kind,"reader"))reader_markdown17(title,text,ui_route());
+    else if(!strcmp(kind,"reader"))reader_markdown17(title,text,active_app());
     else if(!strcmp(kind,"intent_return") && package_call_count) {
         PackageCall call=package_calls[package_call_count-1];
-        if(call.callee==(int)app_for_route(ui_route()) &&
+        if(call.callee==(int)active_app() &&
            call.request_id==package_value(&j,0,"request_id")) {
             package_call_count--;
-            history_count=call.depth-1;navigation_rewinds++;
-            route_to(call.caller_route);
+            history_count=call.depth-1;
+            activate_app(call.caller);
             int ok=!!package_value(&j,0,"ok");
             package_return_result(call,ok,ok ? "success" : "error",text);
         }
@@ -876,18 +910,19 @@ static void package_dispatch_request(const char *message) {
         json_string(&j,json_get(&j,0,"object"),object,sizeof(object));
         int id=app_package_find(app);
         int request_id=package_value(&j,0,"request_id");
-        if(id==APP_READER && !strcmp(operation,"open_file"))package_reader_file(&j,title);
-        else if(request_id>0 || (id!=APP_READER && (*text || strcmp(operation,"open"))))
+        int document_intent=!strcmp(app,app_factory_provider(PROVIDER_DOCUMENT)) || (id>=0 && id==document_provider());
+        if(document_intent && !strcmp(operation,"open_file"))package_reader_file(&j,title);
+        else if(request_id>0 || (!document_intent && (*text || strcmp(operation,"open"))))
             package_call_app(id,operation,text,request_id);
         else if(id>=0 && !strcmp(operation,"open")) {
             AppIntent intent={.app=id,.kind=INTENT_OPEN};
             app_send(&intent);
-        } else if(id==APP_READER && !strcmp(operation,"open_book") &&
+        } else if(document_intent && !strcmp(operation,"open_book") &&
                   strlen(object)==16 && strspn(object,"0123456789abcdef")==16) {
-            AppIntent intent={.app=APP_READER,.kind=INTENT_BOOK,.object_id=strtoull(object,NULL,16)};
+            AppIntent intent={.app=document_provider(),.kind=INTENT_BOOK,.object_id=strtoull(object,NULL,16)};
             app_send(&intent);
-        } else if(id==APP_READER && !strcmp(operation,"open_document") && *text)
-            reader_markdown17(title,text,ui_route());
+        } else if(document_intent && !strcmp(operation,"open_document") && *text)
+            reader_markdown17(title,text,active_app());
     }
     else if(!strcmp(kind,"open")){char key[96];json_string(&j,json_get(&j,0,"app"),key,sizeof(key));int id=-1;for(int i=0;i<APP_LIMIT;i++)if(!strcmp(key,app_package_key(i))){id=i;break;}if(id>=0){AppIntent intent={.app=id,.kind=*text?INTENT_SEARCH:INTENT_OPEN};snprintf(intent.text,sizeof(intent.text),"%s",text);app_send(&intent);}}
 }
@@ -895,12 +930,12 @@ static int package_ui_poll(void) {
     int changed=app_process_poll();
     static uint64_t timer_frame;
     uint64_t serial=app_process_frame_serial();
-    if(serial!=timer_frame && app_package_installed(app_for_route(ui_route()))) {
+    if(serial!=timer_frame && app_package_installed(active_app())) {
         if(changed && !editor_ui.keyboard)caret_restart();
         timer_frame=serial;
         int tick=app_process_frame_tick();
         package_deadline=tick>=20 && tick<=60000 ? extra_millis()+tick : 0;
-        package_timer_owner=app_for_route(ui_route());
+        package_timer_owner=active_app();
     }
     if(changed && editor_ui.keyboard && (editor_ui.keyboard_target==2000 || editor_ui.keyboard_target==2002))editor_ui.keyboard_background_valid18=0;
     if(changed && *app_process_error())ui_message(app_process_error());

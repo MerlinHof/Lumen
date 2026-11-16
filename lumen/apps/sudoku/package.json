@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.sudoku",
   "name": "Sudoku",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "sources": [
     "app.c",
     "../games/puzzles.c"
@@ -16,10 +16,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_SUDOKU",
-    "entry": 65,
-    "aliases": [
-      65
-    ]
+    "slot": 24
+  },
+  "launcher": {
+    "order": 43,
+    "visible": true
   }
 }

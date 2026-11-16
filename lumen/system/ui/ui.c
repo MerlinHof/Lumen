@@ -47,13 +47,21 @@ static int ink_color, ui_y_offset;
 #include "../../apps/wikipedia/shell_state.h"
 #include "../../apps/timer/shell_state.h"
 #include "editor_state.h"
-#include "../../apps/status_bar/shell_state.h"
+static struct {
+    char battery[24], wifi[32];
+    time_t status_time, charging_checked;
+    int battery_charging;
+} status_ui;
 #include "../../apps/library/state.h"
 #include "../../apps/reader/state.h"
 static AppRuntime runtime;
-static int ui_route(void) { return runtime.route; }
+static AppId document_provider(void) {
+    return app_package_find(app_package_provider(PROVIDER_DOCUMENT));
+}
+static AppId active_app(void) { return runtime.active; }
 static void app_leave(AppId app, void *ctx);
-static void route_to(int route);
+static int activate_app(AppId app);
+static void show_library_detail(int index);
 static int app_send(const AppIntent *intent);
 static int package_ui_poll(void);
 static int package_exit_requested;
@@ -61,7 +69,7 @@ static void package_ui_draw(void),package_clock_tick(void);
 static int package_clock_wait(void);
 static int package_fullscreen,package_document_visible,package_caret_visible;
 static char package_view_title[128];
-static AppId package_fullscreen_owner=APP_COUNT;
+static AppId package_fullscreen_owner=-1;
 static int package_ui_input(const Input *);
 static int package_pointer_input(const Input *);
 static int package_ui_commit(int target,const char *text);
@@ -148,9 +156,13 @@ static void system_region(int x, int y, int w, int h) {
 static int textwidth(const char *s, const Font *f);
 static void notification_draw(void),notification_dismiss(void);
 static int notification_visible(void),notification_poll(void),notification_input(const Input*,int);
+static int package_overlays_allowed(void);
+static void package_overlays_draw(void),package_overlays_leave(int owner);
+static int package_overlays_input(const Input *input),package_overlay_poll(int slot);
 static int receive_notification(const void*,size_t,int64_t);
 static int notification_visible(void);
 static void overlays(void);
+static void sleep_surface_draw(void);
 void ui_feedback_draw(void);
 static void modal_input(const Input *in);
 static void refresh_library(void);
@@ -162,7 +174,7 @@ static void apps_save(void);
 static void apps_page_turned(void);
 static void store_search(void);
 static void turn(int);
-static void system_loading(int);
+static void system_loading(void);
 static int wiki_refresh_failed(void);
 static void wiki_history_scan(void);
 static void wiki_article_opened(void);
@@ -204,6 +216,7 @@ static void v1_timer_started(void);
 static int v1_sleep_poll(void), v1_sleep_tick(void);
 static void header(void);
 static int status_overlay_poll(void);
+static int status_action(const Input *input);
 static int keyboard_package_poll(void);
 static void package_back_results(void);
 static void launcher_delete_confirm(int);
@@ -215,11 +228,10 @@ static void polish_draw(void), polish_close(void);
 static int polish_tick(void), polish_poll(void),
     polish_power(const Input *);
 static void polish_wiki_archive(void), polish_wiki_saved(void);
-static void register_builtin_views(void);
 #include "keyboard_request.h"
 static void open_keyboard(int target, const char *title, const char *value) {
     const KeyboardRequest request = {target, title, value};
-    app_call("keyboard", &request, sizeof(request), extra_millis());
+    keyboard_receive(&request, sizeof(request), extra_millis());
 }
 static void open_dropdown(int target, const char **labels, int count, int selected, int x, int y,
                           int w) {
@@ -666,14 +678,11 @@ static void key_outline(int x, int y, int w, int h) {
 }
 static AppId startup_app(void) {
     int id=app_package_find(app_package_provider(PROVIDER_STARTUP));
-    return id>=0 ? (AppId)id : APP_HOME;
-}
-static int startup_route(void) {
-    return app_definition(startup_app())->entry;
+    return id;
 }
 static int can_back(void) {
-    return (app_package_installed(app_for_route(ui_route())) && app_process_frame_back()) || editor_ui.keyboard || dropdown || confirm_delete || battery_popup ||
-           history_count || ui_route() != startup_route();
+    return (app_package_installed(active_app()) && app_process_frame_back()) || editor_ui.keyboard || dropdown || confirm_delete || battery_popup ||
+           history_count || active_app() != startup_app();
 }
 #include "image_sampling.h"
 #include "cover_cache.h"
@@ -803,7 +812,7 @@ static void cover_draw(Book *b, int x, int y, int w, int h, int fill) {
 }
 static void cover_size(Book *b, int x, int y, int w, int h) {
     cover_draw(b,x,y,w,h,0);
-    if (ui_route() == 1 || ui_route() == 0)
+    if (active_app() == app_package_find("lumen.library"))
         outline_surface(x,y,w,h,RADIUS_LARGE,198);
 }
 #include "../../apps/library/layout.h"
@@ -878,9 +887,7 @@ static void pager_draw(int x, int y, int w, int page, int pages) {
     snprintf(text,sizeof(text),"%d / %d",page+1,pages);
     centered(x+44,y,w-88,44,text,&caption);
 }
-static void system_loading(int target) {
-    if (target != 2 && target != 79 && target != 40)
-        return;
+static void system_loading(void) {
 #ifndef LUMEN_HOST
     /* Keep the previous page intact while a synchronous load runs. Only the
        small busy indicator reaches the panel until content is ready. */
@@ -902,27 +909,18 @@ static void system_loading(int target) {
 void ui_message(const char *s) {
     NotificationRequest request={.duration_ms=6000};
     snprintf(request.text,sizeof(request.text),"%s",tr(s));
-    app_call("notifications",&request,sizeof(request),extra_millis());
+    receive_notification(&request,sizeof(request),extra_millis());
 }
-void ui_set_screen(int n) {
-    if (n == 0)
-        n = 1;
-    if (n == 104)
-        n = 3;
-    if (n == 6) {
-        route_to(1);
-        open_keyboard(0, "Bibliothek durchsuchen", library_ui.query);
-    } else
-        route_to(n);
-    full = 1;
+int ui_select_app(const char *id) {
+    AppId app=app_package_find(id);
+    if(!app_package_foreground(app))return 0;
+    full=1;
+    return activate_app(app);
 }
 void ui_init(void) {
     app_packages_scan();app_packages_seed();
-    app_overlay_send(APP_OVERLAY_KEYBOARD,app_package_provider(PROVIDER_TEXT_INPUT),"{\"event\":\"prepare\"}");
+    app_provider_overlay_send(PROVIDER_TEXT_INPUT,"{\"event\":\"prepare\"}");
     app_runtime_init(&runtime, app_leave, NULL);
-    register_builtin_views();
-    app_endpoint_register("notifications",receive_notification);
-    app_endpoint_register("keyboard", keyboard_receive);
     library_settings_load();
     apps_init();
     extra_init();
@@ -934,7 +932,7 @@ void ui_init(void) {
     settings.filter = 0;
 
     library_ui.query[0] = 0;
-    route_to(startup_route());
+    activate_app(startup_app());
     update_view();
     char sourcepath[2048];
     snprintf(sourcepath, sizeof(sourcepath), tr("%s/opds-source.txt"), data_root);
@@ -1000,7 +998,6 @@ static int restore_anchor(const Book *book, int fallback, int bookmark) {
 }
 
 void ui_save(void) {
-    app_pages_checkpoint();
     package_input_checkpoint();
     apps_checkpoint();
     apps_save();
@@ -1044,8 +1041,7 @@ int ui_open(int index) {
     notification_dismiss();
     Book *b = &library[index];
     if (!library_supported(b)) {
-        selected = index;
-        route_to(7);
+        show_library_detail(index);
         full = 1;
         ui_message("Dieses Amazon-Format bitte im Original-Reader öffnen.");
         return 0;
@@ -1054,7 +1050,7 @@ int ui_open(int index) {
         library_progress(&library[current], page, engine_count());
         save_anchor(&library[current], page, -1);
     }
-    if (b->size > 128*1024 || (index != BOOK_LIMIT && strcmp(b->format,"txt") && strcmp(b->format,"html"))) system_loading(2);
+    if (b->size > 128*1024 || (index != BOOK_LIMIT && strcmp(b->format,"txt") && strcmp(b->format,"html"))) system_loading();
     engine_close();
     if (index != BOOK_LIMIT)
         reader_ui.reader_document_active = 0;
@@ -1068,8 +1064,7 @@ int ui_open(int index) {
     else if (amazon_can_prepare(b)) {
         if (!amazon_prepare(b, converted, sizeof(converted))) {
             b->protected_format = 1;
-            selected = index;
-            route_to(7);
+            show_library_detail(index);
             ui_message("Dieses Buch im Kindle-Reader öffnen.");
             return 0;
         }
@@ -1106,13 +1101,13 @@ int ui_open(int index) {
     reader_ui.chapterpage = reader_ui.chaptertab = 0;
     zoom = 1;
     panx = pany = 0;
-    route_to(2);
+    activate_app(document_provider());
     reader_ui.reader_chrome = 0;
     full = 1;
     library_progress(b, page, engine_count());
     annotations_load();
     reader_ui.selecting = 0;
-    if(app_process_open(APP_READER))
+    if(app_process_open(document_provider()))
         app_process_send("{\"event\":\"intent\",\"operation\":\"document-opened\"}");
     return 1;
 }
@@ -1176,7 +1171,7 @@ static int centered_lines(int x, int y, int width, const char *text, const Font 
     }
     return row;
 }
-#include "sleep_surface.h"
+
 static const char *update_error;
 void ui_update_progress(int step,int percent,const char *version,const char *error) {
     memset(ui_pixels,255,sizeof(ui_pixels));
@@ -1207,7 +1202,7 @@ int ui_defer_app_frame(void) {
     enum { LOADING_HINT_MS=120 };
     static AppId waiting=-1;
     static int64_t until;
-    AppId owner=app_for_route(ui_route());
+    AppId owner=active_app();
     if(updating || sleeping || editor_ui.keyboard || dropdown || !app_package_installed(owner) ||
        (app_process_owner()==(int)owner && *app_process_error()) || !app_process_open(owner) || !app_process_frame_loading()) {
         waiting=-1;
@@ -1235,8 +1230,8 @@ void ui_draw(void) {
     pagination = (Pagination){0};
     if (editor_ui.keyboard && editor_ui.keyboard_background_valid18 && !sleeping) {
         memcpy(ui_pixels, editor_ui.keyboard_background18, sizeof(ui_pixels));
-        if (ui_route() != 2)
-            app_view_draw(APP_STATUS_BAR);
+        if (active_app()!=document_provider())
+            header();
         goto input_overlays18;
     }
     memset(ui_pixels, 255, sizeof(ui_pixels));
@@ -1244,32 +1239,33 @@ void ui_draw(void) {
         sleep_surface_draw();
         return;
     }
-    if(app_package_installed(app_for_route(ui_route()))) {
+    if(app_package_installed(active_app())) {
         package_ui_draw();
-        if(!package_fullscreen)app_view_draw(APP_STATUS_BAR);
-        if(ui_route()==2 && package_document_visible && reader_ui.selecting==2)selection_overlay();
+        if(!package_fullscreen)header();
+        if(active_app()==document_provider() && package_document_visible && reader_ui.selecting==2)selection_overlay();
         if(editor_ui.keyboard){memcpy(editor_ui.keyboard_background18,ui_pixels,sizeof(ui_pixels));editor_ui.keyboard_background_valid18=1;}
         goto input_overlays18;
     }
-    if(ui_route()==startup_route()) {
+    if(active_app()==startup_app()) {
         heading("Startseite");
         wrapped(28,175,"Startseiten-App fehlt.",ui_font(UI_BODY),544,2);
         button_h(28,280,544,48,"Einstellungen",0);
         button_h(28,345,544,48,"Dateiübertragung",0);
         return;
     }
-    if (ui_route() != 2)
-        app_view_draw(APP_STATUS_BAR);
+    if (active_app()!=document_provider())
+        header();
     app_render();
-    if (ui_route() == 2 && reader_ui.reader_chrome)
-        app_view_draw(APP_STATUS_BAR);
-    if (ui_route() == 2 && reader_ui.selecting == 2)
+    if (active_app()==document_provider() && reader_ui.reader_chrome)
+        header();
+    if (active_app()==document_provider() && reader_ui.selecting == 2)
         selection_overlay();
     if (editor_ui.keyboard) {
         memcpy(editor_ui.keyboard_background18, ui_pixels, sizeof(ui_pixels));
         editor_ui.keyboard_background_valid18 = 1;
     }
 input_overlays18:
+    if(package_overlays_allowed())package_overlays_draw();
     overlays();
     extra_overlay();
     clipboard_draw();
@@ -1330,7 +1326,6 @@ static void toggle_bookmark(void) {
     b->bookmarks[b->bookmark_count++] = page;
     library_save_book(b);
 }
-static unsigned navigation_rewinds;
 static int ui_dispatch_input(const Input *in) {
     if(in->kind==INPUT_APP_SERVICE || in->kind==INPUT_STATUS)app_service_poll();
     if(in->kind==INPUT_STATUS)document_excerpt_poll();
@@ -1338,10 +1333,12 @@ static int ui_dispatch_input(const Input *in) {
     if(in->kind==INPUT_STATUS && app_process_pending())app_process_flush();
     if(in->kind==INPUT_APP && updating){app_process_poll();return 2;}
     if(in->kind==INPUT_OVERLAY) {
-        if(in->x==APP_OVERLAY_SLEEP)return app_overlay_poll(APP_OVERLAY_SLEEP) && sleeping ? 1 : 2;
-        if(in->x==APP_OVERLAY_KEYBOARD)
+        PackageProvider role=app_overlay_role(in->x);
+        if(role==PROVIDER_SLEEP)return app_overlay_poll(in->x) && sleeping ? 1 : 2;
+        if(role==PROVIDER_TEXT_INPUT)
             return keyboard_package_poll() && editor_ui.keyboard && !updating && !sleeping ? 1 : 2;
-        int changed=in->x==APP_OVERLAY_STATUS ? status_overlay_poll() : notification_poll();
+        int changed=role==PROVIDER_STATUS ? status_overlay_poll() :
+                    role==PROVIDER_NOTIFICATION ? notification_poll() : package_overlay_poll(in->x);
         return changed && !updating && !sleeping && !editor_ui.keyboard ? 1 : 2;
     }
     if(updating) {
@@ -1411,6 +1408,7 @@ static int ui_dispatch_input(const Input *in) {
     if (in->kind == INPUT_CANCEL) {
         package_pointer_input(in);
         notification_input(in,0);
+        package_overlays_input(in);
         pressed = -1;
         press_canceled = 0;
         editor_ui.pressed_key = -1;
@@ -1418,6 +1416,8 @@ static int ui_dispatch_input(const Input *in) {
     }
     int visible=notification_visible();
     if(notification_input(in,visible)) { pressed=-1; return 1; }
+    if(package_overlays_allowed() &&
+       package_overlays_input(in)){pressed=-1;return 2;}
     int pm = polish_power(in);
     if (pm)
         return pm == 2 ? 0 : pm == 3 ? 3 : 1;
@@ -1435,11 +1435,11 @@ static int ui_dispatch_input(const Input *in) {
     int back_release = pressed >= 0 && press_bounds.system && press_bounds.x == 0 &&
                        press_bounds.y == 0 && press_bounds.w == 62 && in->y < STATUS_HEIGHT+8 && in->x < 70;
     int status_tap = in->kind == INPUT_TAP && (in->y < STATUS_HEIGHT || back_release) &&
-                     (ui_route() != 2 || reader_ui.reader_chrome || app_package_installed(APP_READER));
+                     (active_app()!=document_provider() || reader_ui.reader_chrome || app_package_installed(document_provider()));
     int system_pager = !sleeping && !editor_ui.keyboard && !dropdown && !confirm_delete &&
                        pagination_hit(in);
     if(!sleeping && !editor_ui.keyboard && !dropdown && !status_tap && !system_pager &&
-       app_package_installed(app_for_route(ui_route())) && package_pointer_input(in)) {
+       app_package_installed(active_app()) && package_pointer_input(in)) {
         pressed=-1;
         return 2;
     }
@@ -1477,7 +1477,7 @@ static int ui_dispatch_input(const Input *in) {
             network_poll = 1;
         } else {
             if(blink)return 1;
-            int needs_status = ui_route() == 12 ||
+            int needs_status = active_app()==app_package_find("lumen.settings") ||
                                package_clock_wait() >= 0;
             if (action && !needs_status)
                 return action;
@@ -1489,7 +1489,7 @@ static int ui_dispatch_input(const Input *in) {
     if (intercepted >= 0)
         return intercepted;
 
-    if (!sleeping && ui_route() == 2 && package_document_visible && in->kind == INPUT_HOLD && !reader_ui.reader_chrome && in->y > 60 &&
+    if (!sleeping && active_app()==document_provider() && package_document_visible && in->kind == INPUT_HOLD && !reader_ui.reader_chrome && in->y > 60 &&
         in->y < 735) {
         reader_ui.selection_last_x = reader_ui.selection_x = in->x;
         reader_ui.selection_last_y = reader_ui.selection_y = in->y;
@@ -1507,7 +1507,7 @@ static int ui_dispatch_input(const Input *in) {
         selection_release = 0;
         return 1;
     }
-    if (ui_route() == 2 && reader_ui.selecting == 1 &&
+    if (active_app()==document_provider() && reader_ui.selecting == 1 &&
         (in->kind == INPUT_MOVE || in->kind == INPUT_TAP || in->kind == INPUT_SWIPE)) {
         if (in->kind == INPUT_MOVE && abs(in->x - reader_ui.selection_last_x) < 7 &&
             abs(in->y - reader_ui.selection_last_y) < 7)
@@ -1564,13 +1564,13 @@ static int ui_dispatch_input(const Input *in) {
         }
     } else if (in->kind == INPUT_SWIPE) {
         pressed = -1;
-        if (ui_route() == 2 ? (down_y < 48 || down_y >= 752) : (down_y < 130 || down_y >= 700))
+        if (active_app()==document_provider() ? (down_y < 48 || down_y >= 752) : (down_y < 130 || down_y >= 700))
             return 1;
     }
     if (!sleeping && !editor_ui.keyboard && !dropdown && !confirm_delete && !battery_popup &&
         pagination.state) {
         if (in->kind == INPUT_SWIPE && abs(in->dx) > abs(in->dy) &&
-            (ui_route() != 2 || (options[OPT_SWIPE] && zoom <= 1))) {
+            (active_app()!=document_provider() || (options[OPT_SWIPE] && zoom <= 1))) {
             pagination_move(in->dx < 0 ? 1 : -1);
             return 1;
         }
@@ -1586,7 +1586,7 @@ static int ui_dispatch_input(const Input *in) {
         caret_restart();
     }
     if (in->kind == INPUT_STATUS) {
-        if (app_for_route(ui_route())==APP_SETTINGS && wifi_ui.wifi_enabled) {
+        if (active_app()==app_package_find("lumen.settings") && wifi_ui.wifi_enabled) {
             char old[128];
             snprintf(old, sizeof(old), "%s", wifi_ui.wifi_ssid);
             network_status(wifi_ui.wifi_ssid, sizeof(wifi_ui.wifi_ssid));
@@ -1595,21 +1595,21 @@ static int ui_dispatch_input(const Input *in) {
             wifi_ui.wifi_scanning = 0;
             app_process_send("{\"event\":\"refresh\"}");
         }
-        return app_for_route(ui_route())==APP_SETTINGS ? 1 : 2;
+        return active_app()==app_package_find("lumen.settings") ? 1 : 2;
     }
     if (in->kind == INPUT_NETWORK) {
         char books[2048];
         snprintf(books,sizeof(books),"%s/books-changed",data_root);
         if (!unlink(books)) {
-            if (app_for_route(ui_route())==APP_LIBRARY) {
+            if (active_app()==app_package_find("lumen.library")) {
                 refresh_library();
                 app_process_send("{\"event\":\"refresh\"}");
             }
             else library_ui.library_dirty=1;
         }
         app_packages_scan();
-        if(!network_poll && app_for_route(ui_route())==startup_app() &&
-           app_package_installed(app_for_route(ui_route())))app_process_send("{\"event\":\"refresh\"}");
+        if(!network_poll && active_app()==startup_app() &&
+           app_package_installed(active_app()))app_process_send("{\"event\":\"refresh\"}");
         char restart[2048];
         snprintf(restart,sizeof(restart),"%s/../.update/relaunch",data_root);
         if (!access(restart,F_OK)) {
@@ -1620,7 +1620,7 @@ static int ui_dispatch_input(const Input *in) {
         int done = discover_complete();
         if (network_poll && !done)
             return 2;
-        if (app_for_route(ui_route())==APP_STORE && store_ui.store_stage && done && done!=3 && done!=2) {
+        if (active_app()==app_package_find("lumen.store") && store_ui.store_stage && done && done!=3 && done!=2) {
             store_complete(done);
             app_process_send("{\"event\":\"refresh\"}");
             return 1;
@@ -1628,28 +1628,28 @@ static int ui_dispatch_input(const Input *in) {
         if (done == 3) {
             polish_wiki_refetched();
             extra_wiki_cache();
-            if (ui_route() == 36)
+            if (active_app()==app_package_find("lumen.wikipedia"))
                 article_wiki_request();
             return 1;
         }
         if (done < 0) {
             char message[256];
             snprintf(message, sizeof(message), "%s", discover_error());
-            if (ui_route() == 36 && wiki_refresh_failed())
+            if (active_app()==app_package_find("lumen.wikipedia") && wiki_refresh_failed())
                 return 1;
-            if (ui_route() == 36) {
+            if (active_app()==app_package_find("lumen.wikipedia")) {
                 extra_wiki_restore();
                 app_process_send("{\"event\":\"refresh\"}");
             }
             ui_message(message);
         } else if (done == 2) {
-            if (ui_route() == 2)
+            if (active_app()==document_provider())
                 library_ui.library_dirty = 1;
             else
                 refresh_library();
             ui_message("Buch zur Bibliothek hinzugefügt.");
         }
-        if(done && app_for_route(ui_route())==APP_STORE)
+        if(done && active_app()==app_package_find("lumen.store"))
             app_process_send("{\"event\":\"refresh\"}");
         return 1;
     }
@@ -1665,7 +1665,7 @@ static int ui_dispatch_input(const Input *in) {
     if (sleeping)
         return 2;
     int x = in->x, y = in->y;
-    if (ui_route() == 2 && reader_ui.selecting == 2 && in->kind == INPUT_TAP) {
+    if (active_app()==document_provider() && reader_ui.selecting == 2 && in->kind == INPUT_TAP) {
         int action = selection_menu_action(READER_SELECTION_Y, x, y);
         if (action > 0 && action < 4) {
             if (action == 3) {
@@ -1706,31 +1706,13 @@ static int ui_dispatch_input(const Input *in) {
         pressed = -1;
         return 1;
     }
-    if(app_package_installed(app_for_route(ui_route())) && !editor_ui.keyboard && !dropdown && !confirm_delete &&
+    if(app_package_installed(active_app()) && !editor_ui.keyboard && !dropdown && !confirm_delete &&
        ((in->kind==INPUT_TAP && (y>=STATUS_HEIGHT ||
-          (package_fullscreen && package_fullscreen_owner==app_for_route(ui_route())))) || in->kind==INPUT_SWIPE || in->kind==INPUT_HOLD))return package_ui_input(in);
-    if (in->kind == INPUT_TAP && y < STATUS_HEIGHT && (ui_route() != 2 || reader_ui.reader_chrome || app_package_installed(APP_READER)) &&
-        !editor_ui.keyboard && !dropdown && !confirm_delete && !battery_popup) {
-        int date = x >= status_ui.status_date_x && x < status_ui.status_date_x + status_ui.status_date_w;
-        int clock = x >= status_ui.status_clock_x && x < status_ui.status_clock_x + status_ui.status_clock_w;
-        if (date || clock) {
-            AppIntent request = {.app = date ? APP_CALENDAR : APP_TIMER, .kind = INTENT_OPEN};
-            if(clock)snprintf(request.text,sizeof(request.text),"clock-face");
-            app_send(&request);
-            return 1;
-        }
-    }
-    if (in->kind == INPUT_TAP && y < STATUS_HEIGHT && (ui_route() != 2 || reader_ui.reader_chrome || app_package_installed(APP_READER)) &&
-        !editor_ui.keyboard && !dropdown && !confirm_delete && !battery_popup && status_ui.status_timer_x >= 0 &&
-        x >= status_ui.status_timer_x && x < status_ui.status_timer_x + status_ui.status_timer_width) {
-        AppIntent request = {.app = APP_TIMER, .kind = INTENT_OPEN, .text="clock-timer"};
-        app_send(&request);
-        return 1;
-    }
-    if (in->kind == INPUT_TAP && y < STATUS_HEIGHT && (ui_route() != 2 || reader_ui.reader_chrome || app_package_installed(APP_READER))) {
-        if (x < 62 && ui_route() == 3 && !editor_ui.keyboard && !dropdown && !confirm_delete)
-            apply_reading_settings();
-        if(x<62 && app_package_installed(app_for_route(ui_route())) && app_process_frame_back() && !editor_ui.keyboard && !dropdown){app_process_send("{\"event\":\"back\"}");return 2;}
+          (package_fullscreen && package_fullscreen_owner==active_app()))) || in->kind==INPUT_SWIPE || in->kind==INPUT_HOLD))return package_ui_input(in);
+    if(in->kind==INPUT_TAP && y<STATUS_HEIGHT && !editor_ui.keyboard &&
+       !dropdown && !confirm_delete && !battery_popup && status_action(in))return 1;
+    if (in->kind == INPUT_TAP && y < STATUS_HEIGHT && (active_app()!=document_provider() || reader_ui.reader_chrome || app_package_installed(document_provider()))) {
+        if(x<62 && app_package_installed(active_app()) && app_process_frame_back() && !editor_ui.keyboard && !dropdown){app_process_send("{\"event\":\"back\"}");return 2;}
         if (x < 62 && can_back()) {
             apps_pause();
             if (editor_ui.keyboard || dropdown || confirm_delete) {
@@ -1739,67 +1721,39 @@ static int ui_dispatch_input(const Input *in) {
                 editor_ui.keyboard = dropdown = confirm_delete = 0;
                 return 1;
             }
-            int target = startup_route();
-            navigation_rewinds++;
+            AppId target=startup_app();
             while (history_count) {
-                int candidate = history[--history_count];
-                if (candidate != ui_route() && app_route_valid(candidate)) {
+                AppId candidate=history[--history_count];
+                if (candidate != active_app() && app_package_foreground(candidate)) {
                     target = candidate;
                     break;
                 }
             }
-            route_to(target);
+            activate_app(target);
             package_back_results();
-            if (ui_route() == 0)
-                route_to(1);
-            if ((ui_route() == 2 || ui_route() == 4 || ui_route() == 5) && current < 0)
-                route_to(1);
-            if (ui_route() == 1) {
+            if (active_app()==document_provider() && current<0 && !app_package_foreground(document_provider()))
+                activate_app(app_package_find("lumen.library"));
+            if (active_app()==app_package_find("lumen.library")) {
                 if (library_ui.library_dirty) refresh_library();
                 else update_view();
             }
             return 1;
         }
-        if (status_ui.status_wifi_x >= 0 && x >= status_ui.status_wifi_x - 5 && x < status_ui.status_wifi_x + 39 &&
-            ui_route() != 12) {
-            if (history_count < 64)
-                history[history_count++] = ui_route();
-            apps_pause();
-            AppIntent wifi={.app=APP_SETTINGS,.kind=INTENT_SETTINGS,.section=12};
-            if(history_count)history_count--;
-            app_send(&wifi);
-            return 1;
-        }
-    }
-    if (in->kind == INPUT_TAP && y < STATUS_HEIGHT && !editor_ui.keyboard && !dropdown && !confirm_delete &&
-        (options[OPT_BATTERY] || options[OPT_BATTERY_PERCENT]) &&
-        status_ui.status_battery_x >= 0 && x >= status_ui.status_battery_x - 6 && x < status_ui.status_battery_right + 6 &&
-        (ui_route() != 2 || reader_ui.reader_chrome || app_package_installed(APP_READER))) {
-        battery_popup = 1;
-        return 1;
     }
     if (editor_ui.keyboard || dropdown || confirm_delete) {
         modal_input(in);
         return 1;
     }
-    if (ui_route() == 0)
-        route_to(1);
     return app_handle_input(in);
 }
 int ui_input(const Input *in) {
-    int from = ui_route(), depth = history_count;
+    AppId from=active_app();
     int package_keyboard=editor_ui.keyboard && editor_ui.keyboard_target==2000;
-    unsigned rewinds = navigation_rewinds;
     int result = ui_dispatch_input(in);
     int attached=editor_ui.keyboard && editor_ui.keyboard_target==2000;
-    if(attached!=package_keyboard && from==ui_route() && app_package_installed(app_for_route(from)))
+    if(attached!=package_keyboard && from==active_app() && app_package_installed(from))
         app_process_send(attached ? "{\"event\":\"viewport\",\"bottom\":395}" :
                                     "{\"event\":\"viewport\",\"bottom\":800}");
-    if (in->kind == INPUT_TAP && from && from != ui_route() &&
-        app_for_route(from) == app_for_route(ui_route()) &&
-        rewinds == navigation_rewinds && depth == history_count && depth < 64 &&
-        (!depth || history[depth-1] != from))
-        history[history_count++] = from;
     return result;
 }
 
@@ -1815,7 +1769,7 @@ static void overlays(void) {
         widget_count = keep;
     }
     if (editor_ui.keyboard) {
-        app_view_draw(APP_KEYBOARD);
+        keyboard_draw18();
     }
     ui_y_offset = 0;
     if (dropdown) {
@@ -1985,7 +1939,7 @@ int ui_poll_interval(void) {
     if(updating)return update_error ? -1 : 400;
     if (sleeping)
         return v1_sleep_poll();
-    int wait = ui_route() == 12 ? 2000 : -1,
+    int wait = active_app()==app_package_find("lumen.settings") ? 2000 : -1,
         other = extra_poll();
     int tick=package_clock_wait();
     if(tick>=0 && (other<0 || tick<other))other=tick;
@@ -2014,6 +1968,7 @@ int ui_poll_interval(void) {
 
 #include "../../apps/reader/annotations_store.h"
 #include "../../apps/host/compose.h"
+#include "sleep_surface.h"
 void ui_paint_heading(const char *text, int actions) { heading_actions(text, actions); }
 void ui_paint_icon_button(int x, int y, int id) { icon_button(x, y, id); }
 void ui_paint_surface(int x,int y,int w,int h,int radius,int gray,int outline) {
@@ -2059,14 +2014,6 @@ void ui_paint_image(int x, int y, int w, int h, const unsigned char *gray) {
         memcpy(ui_pixels+(y+row)*WIDTH+x, gray+row*w, (size_t)w);
 }
 int64_t ui_clock_millis(void) { return extra_millis(); }
-static void register_builtin_views(void) {
-    app_view_register(APP_STATUS_BAR, header, NULL);
-    app_view_register(APP_KEYBOARD, keyboard_draw18, NULL);
-
-
-}
-
-
 int ui_prepare_home(void) {
     if(app_package_deleted(startup_app()))return 1;
     if(!app_process_open(startup_app()))return 0;
@@ -2082,57 +2029,52 @@ int ui_prepare_home(void) {
 }
 
 static void app_leave(AppId app, void *ctx) {
+    package_overlays_leave(app);
     package_input_checkpoint();
     if(editor_ui.autosave)editor_ui.keyboard=0;
     package_pointer_reset();
     app_process_pause();
-    app_page_checkpoint(app);
     (void)ctx;
-    if (app >= APP_2048)
-        new_apps_save();
-    if (app == APP_BLOCKS || app == APP_SNAKE)
-        apps_pause();
-    if (app == APP_READER) {
+    if (app == document_provider()) {
         document_excerpt_close();
         apps_checkpoint();
         ui_save();
     }
-    if (app == APP_READER && ui_route() == 3)
-        apply_reading_settings();
 }
-static void route_to(int route) {
-    if (!app_route_valid(route))
-        return;
-    if (reader_ui.reader_document_active && current == BOOK_LIMIT && route != 2 && route != 3 && route != 4 &&
-        route != 14 && route != 104) {
-        library_progress(&library[current], page, engine_count());
-        save_anchor(&library[current], page, -1);
+static int activate_app(AppId app) {
+    if(app!=startup_app() && !app_package_foreground(app))return 0;
+    if(reader_ui.reader_document_active && current==BOOK_LIMIT && app!=document_provider()) {
+        library_progress(&library[current],page,engine_count());
+        save_anchor(&library[current],page,-1);
         engine_close();
-        current = selected = -1;
-        reader_ui.reader_document_active = 0;
+        current=selected=-1;
+        reader_ui.reader_document_active=0;
     }
-    if (route != 2 && app_for_route(route) != app_for_route(ui_route()))
-        system_loading(route);
-    /* Legacy route IDs remain stable for persisted navigation and native tests. */
-    app_runtime_route(&runtime, route);
-    if(route==7 && selected>=0 && selected<library_count && app_process_open(APP_LIBRARY)) {
+    app_runtime_activate(&runtime,app);
+    return 1;
+}
+static void show_library_detail(int index) {
+    if(index<0 || index>=library_count)return;
+    selected=index;
+    if(activate_app(app_package_find("lumen.library")) && app_process_open(app_package_find("lumen.library"))) {
         char event[128];
-        snprintf(event,sizeof(event),"{\"event\":\"intent\",\"operation\":\"book-detail\",\"text\":\"%016llx\"}",
-                 (unsigned long long)library[selected].id);
+        snprintf(event,sizeof(event),
+                 "{\"event\":\"intent\",\"operation\":\"book-detail\",\"text\":\"%016llx\"}",
+                 (unsigned long long)library[index].id);
         app_process_send(event);
     }
 }
 static int app_send(const AppIntent *intent) {
-    if (!intent || !app_definition(intent->app) || intent->kind < INTENT_OPEN ||
+    if (!intent || intent->app<0 || intent->kind < INTENT_OPEN ||
         intent->kind > INTENT_SETTINGS)
         return 0;
-    if (intent->kind == INTENT_BOOK && intent->app != APP_READER)
+    if (intent->kind == INTENT_BOOK && intent->app != document_provider())
         return 0;
-    if (intent->app == APP_READER && intent->kind == INTENT_OPEN && !app_package_installed(APP_READER)) {
+    if (intent->app == document_provider() && intent->kind == INTENT_OPEN && !app_package_installed(document_provider())) {
         int i = current >= 0 ? current : featured();
         if (i >= 0)
             return app_read_book(i);
-        AppIntent fallback = {.app = APP_LIBRARY, .kind = INTENT_OPEN};
+        AppIntent fallback = {.app = app_package_find("lumen.library"), .kind = INTENT_OPEN};
         return app_send(&fallback);
     }
     AppIntent owned = *intent;
@@ -2142,10 +2084,10 @@ static int app_send(const AppIntent *intent) {
     if (intent->kind == INTENT_BOOK) {
         for (int i = 0; i < library_count; i++)
             if (library[i].id == intent->object_id) {
-                int old = ui_route();
+                int old = active_app();
                 if (!ui_open(i))
                     return 0;
-                if (old != 2 && history_count < 64)
+                if (old != document_provider() && history_count < 64)
                     history[history_count++] = old;
                 if (intent->has_position)
                     page = engine_restore(&intent->position);
@@ -2156,41 +2098,37 @@ static int app_send(const AppIntent *intent) {
         ui_message("Buch nicht mehr in der Bibliothek.");
         return 0;
     }
-    if ((intent->app == APP_NUMSCRATCH || intent->app == APP_DRAWING))
-        return 0;
-    if (intent->app != app_for_route(ui_route()))
-        if (intent->app != APP_READER) system_loading(app_definition(intent->app)->entry);
-    AppId previous = app_for_route(ui_route());
-    int old = ui_route();
-    if (!app_runtime_deliver(&runtime, intent))
-        return 0;
+    if (intent->app != active_app())
+        if (intent->app == app_package_find("lumen.planetarium") || intent->kind==INTENT_SETTINGS) system_loading();
+    AppId previous = active_app();
+    int old = active_app();
+    if(!activate_app(intent->app))return 0;
+    runtime.intent=*intent;
     if (previous != intent->app && history_count < 64)
         history[history_count++] = old;
     if(app_package_installed(intent->app)){
         int ok=app_process_open(intent->app);char*event=NULL;size_t n=0;FILE*f=open_memstream(&event,&n);
-        fprintf(f,"{\"event\":\"intent\",\"kind\":%d,\"object\":%llu,\"text\":",intent->kind,(unsigned long long)intent->object_id);json_escape16(f,intent->text);if(intent->kind==INTENT_SEARCH)fputs(",\"operation\":\"search\"",f);else if(intent->app==APP_SETTINGS && intent->kind==INTENT_SETTINGS) {
-            int section=intent->section==12 ? 1 : intent->section==9 ? 2 : intent->section==39 ? 3 :
-                intent->section==83 ? 4 : intent->section==40 ? 5 : 0;
-            fprintf(f,",\"operation\":\"settings-section\",\"section\":%d",section);
-        } else if(intent->app==APP_NOTES && intent->object_id && intent->object_id<=INT_MAX) {
+        fprintf(f,"{\"event\":\"intent\",\"kind\":%d,\"object\":%llu,\"text\":",intent->kind,(unsigned long long)intent->object_id);json_escape16(f,intent->text);if(intent->kind==INTENT_SEARCH)fputs(",\"operation\":\"search\"",f);else if(intent->app==app_package_find("lumen.settings") && intent->kind==INTENT_SETTINGS) {
+            fprintf(f,",\"operation\":\"settings-section\",\"section\":%d",intent->section);
+        } else if(intent->app==app_package_find("lumen.notes") && intent->object_id && intent->object_id<=INT_MAX) {
             fprintf(f,",\"operation\":\"note-open\",\"note_id\":%d",(int)intent->object_id);
-        } else if(intent->app==APP_TIMER && *intent->text){fputs(",\"operation\":",f);json_escape16(f,intent->text);}fputc('}',f);fclose(f);if(ok)app_process_send(event);free(event);return ok;
+        } else if(*intent->text){fputs(",\"operation\":",f);json_escape16(f,intent->text);}fputc('}',f);fclose(f);if(ok)app_process_send(event);free(event);return ok;
     }
     app_process_pause();
     return 0;
 }
 
 static void app_render(void) {
-    heading(app_definition(app_for_route(ui_route()))->name);
+    heading("Apps");
     wrapped(28,175,"App-Paket fehlt.",ui_font(UI_BODY),544,2);
 }
 static int app_handle_input(const Input *in) {
-    if(ui_route()==startup_route() && in->kind==INPUT_TAP && in->x>=28 && in->x<572) {
+    if(active_app()==startup_app() && in->kind==INPUT_TAP && in->x>=28 && in->x<572) {
         if(in->y>=280 && in->y<328) {
-            AppIntent intent={.app=APP_SETTINGS,.kind=INTENT_OPEN};
+            AppIntent intent={.app=app_package_find("lumen.settings"),.kind=INTENT_OPEN};
             app_send(&intent);
         } else if(in->y>=345 && in->y<393) {
-            AppIntent intent={.app=APP_FILE_TRANSFER,.kind=INTENT_OPEN};
+            AppIntent intent={.app=app_package_find("lumen.transfer"),.kind=INTENT_OPEN};
             app_send(&intent);
         }
     }
@@ -2232,7 +2170,7 @@ void ui_feedback_draw(void) {
 static int app_read_book(int index) {
     if (index < 0 || index >= library_count)
         return 0;
-    AppIntent request = {.app = APP_READER, .kind = INTENT_BOOK, .object_id = library[index].id};
+    AppIntent request = {.app = document_provider(), .kind = INTENT_BOOK, .object_id = library[index].id};
     return app_send(&request);
 }
 void ui_close(void) {

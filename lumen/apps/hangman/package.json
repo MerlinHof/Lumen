@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.hangman",
   "name": "Wortraten",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "sources": [
     "app.c"
   ],
@@ -15,10 +15,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_WORDS",
-    "entry": 24,
-    "aliases": [
-      24
-    ]
+    "slot": 8
+  },
+  "launcher": {
+    "order": 36,
+    "visible": true
   }
 }

@@ -17,7 +17,7 @@ static int package_recipes(const char *operation,const char *data,int action) {
             char path[4096];
             snprintf(path,sizeof(path),"%s/recipe-archive16/%s.html",data_root,item->id);
             if(!access(path,R_OK)) {
-                int ok=file_open16(path,ui_route());
+                int ok=file_open16(path,active_app());
                 if(ok)snprintf(library[BOOK_LIMIT].title,sizeof(library[BOOK_LIMIT].title),"%s",item->title);
                 return ok;
             }
@@ -25,7 +25,7 @@ static int package_recipes(const char *operation,const char *data,int action) {
             char *text=service_read(path,65536);
             if(text) {
                 char *line=strchr(text,'\n');
-                reader16(item->title,line ? line+1 : text,ui_route());
+                reader16(item->title,line ? line+1 : text,active_app());
                 free(text);
                 return 1;
             }

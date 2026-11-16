@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.wordle",
   "name": "Wordle",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "sources": [
     "app.c"
   ],
@@ -15,10 +15,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_WORDLE",
-    "entry": 70,
-    "aliases": [
-      70
-    ]
+    "slot": 27
+  },
+  "launcher": {
+    "order": 44,
+    "visible": true
   }
 }

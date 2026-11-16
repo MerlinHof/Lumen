@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.chess",
   "name": "Schach",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "sources": [
     "app.c"
   ],
@@ -15,11 +15,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_CHESS",
-    "entry": 48,
-    "aliases": [
-      48,
-      50
-    ]
+    "slot": 19
+  },
+  "launcher": {
+    "order": 39,
+    "visible": true
   }
 }

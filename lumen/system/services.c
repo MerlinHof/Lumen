@@ -21,16 +21,13 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
-static pid_t worker = -1, history_worker = -1;
-static int history_child;
+static pid_t worker = -1;
 static int job;
 static char error[120];
 int service_busy(void) { return worker > 0; }
-int service_history_busy(void) { return !history_child && history_worker > 0; }
 const char *service_error(void) { return error; }
 static void path(char *out, size_t n, const char *name) {
-    snprintf(out, n, "%s/%s%s", data_root,
-             history_child && !strncmp(name, "service-", 8) ? "history-" : "", name);
+    snprintf(out,n,"%s/%s",data_root,name);
 }
 char *service_read(const char *name, size_t max) {
     char p[2048];
@@ -52,15 +49,7 @@ char *service_read(const char *name, size_t max) {
     fclose(f);
     return s;
 }
-int service_url_valid(const char *s) {
-    if (strncmp(s, "http://", 7) && strncmp(s, "https://", 8))
-        return 0;
-    const char *host = strstr(s, "://") + 3;
-    if (!*host || *host == '/' || strpbrk(s, "\r\n\"\\@?# ") || strlen(s) > 500)
-        return 0;
-    return 1;
-}
-static int fetch(const char *url, const char *out, const char *auth, const char *body) {
+static int fetch(const char *url, const char *out) {
     char cfg[2048], ca[2048];
     path(cfg, sizeof(cfg), "service-private.tmp");
     FILE *f = fopen(cfg, "w");
@@ -68,20 +57,6 @@ static int fetch(const char *url, const char *out, const char *auth, const char 
         return 0;
     chmod(cfg, 0600);
     fprintf(f, "url = \"%s\"\noutput = \"%s\"\n", url, out);
-    if (auth && *auth) {
-        if (strpbrk(auth, "\r\n\"\\")) {
-            fclose(f);
-            unlink(cfg);
-            return 0;
-        }
-        fprintf(f, "header = \"Authorization: Bearer %s\"\n", auth);
-    }
-    if (body) {
-        fprintf(f,
-                "header = \"Content-Type: application/json\"\nrequest = \"POST\"\ndata = "
-                "\"{\\\"entity_id\\\":\\\"%s\\\"}\"\n",
-                body);
-    }
     fclose(f);
     pid_t p = fork();
     if (p == 0) {
@@ -95,10 +70,7 @@ static int fetch(const char *url, const char *out, const char *auth, const char 
         execlp("curl", "curl", "--config", cfg, "--location", "--max-redirs", "5", "--proto-redir",
                "=https", "--user-agent", "LUMEN/0.12 (personal Kindle reader)", "--fail",
                "--silent", "--connect-timeout", "5", "--max-time",
-               history_child       ? "30"
-               : job == SERVICE_HA ? "8"
-                                   : "25",
-               "--max-filesize", history_child ? "8388608" : "2097152", "--proto", "=http,https",
+               "25", "--max-filesize", "2097152", "--proto", "=https",
                NULL);
         _exit(127);
     }
@@ -196,14 +168,6 @@ int system_set_time(int y, int m, int d, int h, int min) {
     return set_clock(t);
 }
 void service_cancel(void) {
-    if (!history_child && history_worker > 0) {
-        kill(-history_worker, SIGTERM);
-        kill(history_worker, SIGTERM);
-        while (waitpid(history_worker, NULL, 0) < 0 && errno == EINTR) {
-        }
-        history_worker = -1;
-    }
-
     if (worker > 0) {
         kill(-worker, SIGTERM);
         while (waitpid(worker, NULL, 0) < 0 && errno == EINTR) {
@@ -213,110 +177,9 @@ void service_cancel(void) {
     char cfg[2048];
     path(cfg, sizeof(cfg), "service-private.tmp");
     unlink(cfg);
-    if (!history_child) {
-        snprintf(cfg, sizeof(cfg), "%s/history-service-private.tmp", data_root);
-        unlink(cfg);
-    }
 }
-static int history_compact(Json *j, const char *out) {
-    char *result = calloc(262144, 1);
-    if (!result)
-        return 0;
-    size_t n = 0;
-    result[n++] = '[';
-    for (int a = 0; a < j->tokens[0].count && a < 6; a++) {
-        int array = json_at(j, 0, a), obj = json_at(j, array, 0);
-        if (obj < 0)
-            continue;
-        char id[160];
-        json_string(j, json_get(j, obj, "entity_id"), id, sizeof(id));
-        if (!*id ||
-            strspn(id, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.") !=
-                strlen(id))
-            continue;
-        if (n > 1)
-            result[n++] = ',';
-        result[n++] = '[';
-        int emitted = 0, count = j->tokens[array].count,
-            step = count > 128 ? (count + 126) / 127 : 1;
-        for (int k = 0; k < count && obj >= 0 && obj < j->count; k++) {
-            int current = obj;
-            obj = j->tokens[obj].next;
-            if (k % step && k != count - 1)
-                continue;
-            char state[80], stamp[80];
-            json_string(j, json_get(j, current, "state"), state, sizeof(state));
-            json_string(j, json_get(j, current, "last_changed"), stamp, sizeof(stamp));
-            char *end;
-            double v = strtod(state, &end);
-            if (!strcmp(state, "on"))
-                v = 1;
-            else if (!strcmp(state, "off"))
-                v = 0;
-            else if (end == state || *end || !isfinite(v))
-                continue;
-            if (!*stamp || strspn(stamp, "0123456789-T:+.Z") != strlen(stamp))
-                continue;
-            if (emitted++)
-                result[n++] = ',';
-            int wrote = snprintf(
-                result + n, 262144 - n,
-                "{\"entity_id\":\"%s\",\"state\":\"%.12g\",\"last_changed\":\"%s\"}", id, v, stamp);
-            if (wrote < 0 || (size_t)wrote >= 262144 - n) {
-                free(result);
-                return 0;
-            }
-            n += wrote;
-        }
-        result[n++] = ']';
-    }
-    result[n++] = ']';
-    int ok = atomic_write(out, result, n);
-    free(result);
-    return ok;
-}
-int service_start(int kind, const char *arg, const char *auth, const char *entity) {
-    if (kind == SERVICE_HA_HISTORY && !history_child) {
-        if (history_worker > 0 || !service_url_valid(arg) || !auth || !*auth || !entity ||
-            !*entity || strlen(entity) > 1500 ||
-            strspn(entity, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.,") !=
-                strlen(entity))
-            return 0;
-        history_worker = fork();
-        if (history_worker < 0)
-            return 0;
-        if (!history_worker) {
-            setpgid(0, 0);
-            signal(SIGTERM, SIG_DFL);
-            history_child = 1;
-            worker = -1;
-            if (!service_start(kind, arg, auth, entity))
-                _exit(1);
-            int done = 0;
-            while (!done) {
-                usleep(50000);
-                done = service_poll();
-            }
-            _exit(done == SERVICE_HA_HISTORY ? 0 : 1);
-        }
-        setpgid(history_worker, history_worker);
-        return 1;
-    }
-    if (worker > 0 || kind < SERVICE_HA || kind > SERVICE_HA_HISTORY)
-        return 0;
-    if ((kind == SERVICE_HA || kind == SERVICE_TOGGLE || kind == SERVICE_HA_HISTORY) &&
-        (!service_url_valid(arg) || !auth || !*auth))
-        return 0;
-    if (entity && *entity &&
-        strspn(entity, kind == SERVICE_HA_HISTORY
-                           ? "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.,"
-                           : "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.") !=
-            strlen(entity))
-        return 0;
-    if (kind == SERVICE_HA_HISTORY && (!entity || !*entity || strlen(entity) > 1500))
-        return 0;
-    if (kind == SERVICE_TOGGLE && (!entity || !strchr(entity, '.')))
-        return 0;
+int service_start(int kind,const char *arg) {
+    if(worker>0 || (kind!=SERVICE_TIME && kind!=SERVICE_WIKI_IMAGE))return 0;
     if (kind == SERVICE_WIKI_IMAGE && (!arg || (strncmp(arg, "https://upload.wikimedia.org/", 29) &&
                                                 strncmp(arg, "https://thumb.wikimedia.org/", 28))))
         return 0;
@@ -329,19 +192,17 @@ int service_start(int kind, const char *arg, const char *auth, const char *entit
     if (worker < 0)
         return 0;
     if (!worker) {
-        if (!history_child)
-            setpgid(0, 0);
+        setpgid(0,0);
         signal(SIGTERM, SIG_DFL);
-        struct rlimit r = {history_child ? 12 * 1024 * 1024 : 3 * 1024 * 1024,
-                           history_child ? 12 * 1024 * 1024 : 3 * 1024 * 1024};
+        struct rlimit r={3*1024*1024,3*1024*1024};
         setrlimit(RLIMIT_FSIZE, &r);
-        char out[2048], url[4096];
+        char out[2048];
         path(out, sizeof(out), "service-result.tmp");
         int ok = 0;
         if (kind == SERVICE_TIME)
             ok = ntp();
         else if (kind == SERVICE_WIKI_IMAGE) {
-            if (fetch(arg, out, NULL, NULL)) {
+            if (fetch(arg,out)) {
                 char pgm[2048], final[2048], key[2048];
                 path(pgm, sizeof(pgm), "wiki-image.pending");
                 path(final, sizeof(final), "wiki-image.pgm");
@@ -350,81 +211,20 @@ int service_start(int kind, const char *arg, const char *auth, const char *entit
                      atomic_write(key, arg, strlen(arg));
                 unlink(pgm);
             }
-        } else {
-            char base[512];
-            snprintf(base, sizeof(base), "%s", arg);
-            size_t n = strlen(base);
-            while (n && base[n - 1] == '/')
-                base[--n] = 0;
-            if (kind == SERVICE_HA_HISTORY) {
-                time_t start = time(NULL) - 86400;
-                struct tm t;
-                gmtime_r(&start, &t);
-                char stamp[64];
-                strftime(stamp, sizeof(stamp), "%Y-%m-%dT%H:%M:%SZ", &t);
-                snprintf(url, sizeof(url),
-                         "%s/api/history/period/"
-                         "%s?filter_entity_id=%s&minimal_response&no_attributes&significant_"
-                         "changes_only=0",
-                         base, stamp, entity);
-            } else if (kind == SERVICE_HA)
-                snprintf(url, sizeof(url), "%s/api/states", base);
-            else {
-                char domain[64];
-                snprintf(domain, sizeof(domain), "%.*s", (int)(strchr(entity, '.') - entity),
-                         entity);
-                if (strcmp(domain, "light") && strcmp(domain, "switch") && strcmp(domain, "fan") &&
-                    strcmp(domain, "input_boolean"))
-                    _exit(1);
-                snprintf(url, sizeof(url), "%s/api/services/%s/toggle", base, domain);
-            }
-            ok = fetch(url, out, auth, kind == SERVICE_TOGGLE ? entity : NULL);
-        }
-        if (ok && kind != SERVICE_TIME && kind != SERVICE_WIKI_IMAGE) {
-            char *body = service_read("service-result.tmp", history_child ? 8388608 : 2097152);
-            int cap = kind == SERVICE_HA_HISTORY ? 500000 : 32000;
-            JsonToken *tokens = calloc(cap, sizeof(*tokens));
-            Json parsed;
-            ok = body && tokens && json_parse(&parsed, body, tokens, cap);
-            if (ok)
-                ok = parsed.tokens[0].type == '[';
-            if (ok && kind == SERVICE_HA_HISTORY)
-                ok = history_compact(&parsed, out);
-            free(tokens);
-            free(body);
-        }
-        if (ok && kind != SERVICE_TIME && kind != SERVICE_WIKI_IMAGE) {
-            char target[2048];
-            path(target, sizeof(target),
-                 kind == SERVICE_HA           ? "ha-states.json"
-                 : kind == SERVICE_HA_HISTORY ? "ha-history.json"
-                                              : "ha-action.json");
-            ok = !rename(out, target);
         }
         unlink(out);
         _exit(ok ? 0 : 1);
     }
-    if (!history_child)
-        setpgid(worker, worker);
+    setpgid(worker,worker);
     return 1;
-}
-static int history_poll(void) {
-    if (history_child || history_worker <= 0)
-        return 0;
-    int st;
-    pid_t p = waitpid(history_worker, &st, WNOHANG);
-    if (!p)
-        return 0;
-    history_worker = -1;
-    return p > 0 && WIFEXITED(st) && !WEXITSTATUS(st) ? SERVICE_HA_HISTORY : -SERVICE_HA_HISTORY;
 }
 int service_poll(void) {
     if (worker <= 0)
-        return history_poll();
+        return 0;
     int st;
     pid_t p = waitpid(worker, &st, WNOHANG);
     if (!p)
-        return history_poll();
+        return 0;
     worker = -1;
     int ok = p > 0 && WIFEXITED(st) && WEXITSTATUS(st) == 0;
     if (!ok) {

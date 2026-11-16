@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.store",
   "name": "Store",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "sources": [
     "app.c"
   ],
@@ -15,12 +15,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_STORE",
-    "entry": 10,
-    "aliases": [
-      10,
-      11,
-      101
-    ]
+    "slot": 3
+  },
+  "launcher": {
+    "order": 9,
+    "visible": true
   }
 }

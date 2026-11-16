@@ -1,5 +1,10 @@
 #include "lumen_app.h"
 #include <math.h>
+#include <ctype.h>
+#include "lumen_http.h"
+#include "lumen_text.h"
+#define LUMEN_JSON_IMPLEMENTATION
+#include "lumen_json.h"
 
 enum {DASHBOARD, DEVICES, CONFIG, GRAPH};
 typedef struct {
@@ -9,16 +14,41 @@ typedef struct {
 } Device;
 static Device devices[8];
 static int view,page,count,busy,configured,token_set,trace=-1,hours=24;
-static char search[128],url[512],graph_id[160];
+static char search[128],graph_id[160];
+#include "controller.h"
 static const char *word(const char *de,const char *en,const char *fr) {
     return lumen_language==1 ? en : lumen_language==2 ? fr : de;
 }
-static void request(const char *op,const char *data,int action){lumen_service("home_assistant",op,data,action);}
 static void list(void) {
-    if(view==CONFIG){request("config","",3);return;}
-    if(view==GRAPH){request("graph",graph_id,4);return;}
-    char data[145];snprintf(data,sizeof(data),"%d\n%s",page,view==DEVICES ? search : "");
-    request(view==DEVICES ? "devices" : "dashboard",data,1);
+    ha_update();
+    configured=*ha_url && *ha_token;
+    token_set=!!*ha_token;
+    busy=states_worker!=0;
+    if(view==CONFIG)return;
+    if(view==GRAPH) {
+        for(int i=0;i<ha_count;i++)if(!strcmp(ha_entities[i].id,graph_id)) {
+            ha_device(&devices[0],&ha_entities[i]);
+            break;
+        }
+        ha_fetch_history(graph_id);
+        busy=history_worker!=0;
+        return;
+    }
+    int visible[512],per=view==DEVICES ? 6 : 8;
+    count=ha_visible(visible,view==DEVICES,search);
+    if(page<0)page=0;
+    if(page*per>=count)page=count ? (count-1)/per : 0;
+    memset(devices,0,sizeof(devices));
+    char ids[1500]="";
+    for(int i=0;i<per && page*per+i<count;i++) {
+        ha_device(&devices[i],&ha_entities[visible[page*per+i]]);
+        if(view==DASHBOARD && devices[i].sensor) {
+            size_t used=strlen(ids);
+            if(used+strlen(devices[i].id)+2<sizeof(ids))
+                snprintf(ids+used,sizeof(ids)-used,"%s%s",used ? "," : "",devices[i].id);
+        }
+    }
+    if(view==DASHBOARD)ha_fetch_history(ids);
 }
 static void show(int next) {
     view=next;page=count=0;trace=-1;lumen_back=view!=DASHBOARD;list();
@@ -79,7 +109,7 @@ static void draw(void) {
     ui_paint_heading("Home Assistant",view==DASHBOARD || view==DEVICES ? 2 : 0);
     if(view==CONFIG) {
         lumen_text(30,143,540,35,word("Serveradresse","Server address","Adresse du serveur"),PAINT_BODY,0,1);
-        lumen_button(28,188,544,52,*url ? url : "http://homeassistant.local:8123",0);
+        lumen_button(28,188,544,52,*ha_url ? ha_url : "http://homeassistant.local:8123",0);
         lumen_text(30,281,540,35,word("Zugriffstoken","Access token","Jeton d’accès"),PAINT_BODY,0,1);
         lumen_button(28,327,544,52,token_set ? "••••••••" : word("Token eingeben","Enter token","Saisir le jeton"),0);
         lumen_wrapped(30,414,540,132,word("Adresse und Token lassen sich auch über Dateiübertragung im Browser einrichten.",
@@ -136,25 +166,9 @@ static void draw(void) {
         word("Keine Geräte gefunden.","No devices found.","Aucun appareil trouvé."),PAINT_HEADING,3);
     lumen_pager(745,page,(count+per-1)/per);
 }
-static void row(int i) {
-    Device *d=&devices[i];char key[24],points[4200];
-    snprintf(key,sizeof(key),"id%d",i);lumen_string(key,d->id,sizeof(d->id));
-    snprintf(key,sizeof(key),"name%d",i);lumen_string(key,d->name,sizeof(d->name));
-    snprintf(key,sizeof(key),"value%d",i);lumen_string(key,d->value,sizeof(d->value));
-    snprintf(key,sizeof(key),"unit%d",i);lumen_string(key,d->unit,sizeof(d->unit));
-    snprintf(key,sizeof(key),"sensor%d",i);d->sensor=lumen_number(key);
-    snprintf(key,sizeof(key),"saved%d",i);d->saved=lumen_number(key);
-    snprintf(key,sizeof(key),"points%d",i);lumen_string(key,points,sizeof(points));
-    d->count=0;
-    const char *at=points;
-    while(*at && d->count<128) {
-        int len=0;double time,value;
-        if(sscanf(at,"%lf %lf\n%n",&time,&value,&len)!=2 || len<1 || !isfinite(time) || !isfinite(value))break;
-        d->t[d->count]=time;d->v[d->count++]=value;at+=len;
-    }
-}
 static int input(const Input *in) {
-    if(in->kind==INPUT_OPEN){request("refresh","",5);return 1;}
+    if(in->kind==INPUT_OPEN){ha_init();list();return 1;}
+    if(in->kind==INPUT_RESUME || in->kind==INPUT_REFRESH)ha_configure();
     if(in->kind==INPUT_RESUME || in->kind==INPUT_REFRESH || in->kind==INPUT_TICK){list();return 1;}
     if(in->kind==INPUT_BACK && view!=DASHBOARD){show(DASHBOARD);return 1;}
     if(in->kind==INPUT_PAGE){page=in->x;list();return 1;}
@@ -166,26 +180,24 @@ static int input(const Input *in) {
     if(in->kind==INPUT_TEXT) {
         char text[512];if(!lumen_string("text",text,sizeof(text)))return 0;
         if(in->x==1){snprintf(search,sizeof(search),"%.*s",(int)sizeof(search)-1,text);page=0;list();}
-        else if(in->x==2 || in->x==3)request(in->x==2 ? "url" : "token",text,2);
-        return 1;
-    }
-    if(in->kind==INPUT_SERVICE) {
-        if(in->x==1 && in->y && (view==DASHBOARD || view==DEVICES)) {
-            page=lumen_number("page");count=lumen_number("count");
-            busy=lumen_number("busy");configured=lumen_number("configured");
-            for(int i=0;i<8;i++)row(i);
-        } else if(in->x==3 && in->y && view==CONFIG) {
-            lumen_string("url",url,sizeof(url));token_set=lumen_number("token_set");
-        } else if(in->x==4 && in->y && view==GRAPH){row(0);busy=lumen_number("busy");}
-        else if(in->x==2 || in->x==5)list();
+        else if(in->x==2 || in->x==3) {
+            int address=in->x==2;
+            if((address ? ha_url_valid(text) : ha_token_valid(text)) &&
+               ha_set_connection(address ? text : ha_url,address ? ha_token : text)) {
+                snprintf(address ? ha_url : ha_token,sizeof(ha_url),"%s",text);
+                ha_refresh_at=0;
+                ha_history_at=0;
+            }
+            list();
+        }
         return 1;
     }
     if(in->kind!=INPUT_TAP)return 0;
     int x=in->x,y=in->y;
     if(view==CONFIG) {
-        if(y>=188 && y<240)lumen_request("input","Home Assistant URL",url,2);
+        if(y>=188 && y<240)lumen_request("input","Home Assistant URL",ha_url,2);
         else if(y>=327 && y<379)lumen_request("secret",word("Zugriffstoken","Access token","Jeton d’accès"),"",3);
-        else if(y>=607 && y<659){view=DEVICES;lumen_back=1;page=count=0;request("refresh","",5);}
+        else if(y>=607 && y<659){ha_configure();ha_refresh_at=0;show(DEVICES);}
         return 1;
     }
     if(view==GRAPH) {
@@ -197,18 +209,19 @@ static int input(const Input *in) {
     else if(view==DEVICES && y>=186 && y<234)
         lumen_request("input",word("Geräte suchen","Search devices","Rechercher des appareils"),search,1);
     else if(view==DEVICES && y>=250 && y<658) {
-        int i=(y-250)/68;if(*devices[i].id)request("favorite",devices[i].id,2);
+        int i=(y-250)/68;if(*devices[i].id){ha_toggle_favorite(devices[i].id);list();}
     } else if(view==DASHBOARD && x>=28 && x<572 && y>=148 && y<708 && (y-148)%140<126) {
         int i=(y-148)/140*2+(x>=310);
         if(*devices[i].id) {
             if(devices[i].sensor){snprintf(graph_id,sizeof(graph_id),"%s",devices[i].id);show(GRAPH);}
-            else request("toggle",devices[i].id,2);
+            else ha_toggle_device(&devices[i]);
         }
     }
     return 1;
 }
 static void draw_scheduled(void) {
     draw();
-    if(view==DASHBOARD || view==GRAPH)lumen_schedule(5000);
+    if(states_worker || history_worker)lumen_schedule(250);
+    else if(view==DASHBOARD || view==GRAPH)lumen_schedule(5000);
 }
 int main(void){lumen_run(draw_scheduled,input,NULL);return 0;}

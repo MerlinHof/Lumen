@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.snake",
   "name": "Snake",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "sources": [
     "app.c"
   ],
@@ -15,10 +15,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_SNAKE",
-    "entry": 26,
-    "aliases": [
-      26
-    ]
+    "slot": 10
+  },
+  "launcher": {
+    "order": 38,
+    "visible": true
   }
 }

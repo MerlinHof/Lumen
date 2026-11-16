@@ -1,11 +1,20 @@
 #define _GNU_SOURCE
 #include "../../lumen/system/ui/ui.c"
 #include <assert.h>
+static int action_x(const char *app,const char *intent) {
+    for(int i=0;i<status_action_count;i++) {
+        OverlayAction *action=&status_actions[i];
+        if(!strcmp(action->app,app) && !strcmp(action->intent,intent) &&
+           (*app || !strcmp(action->command,"battery")))
+            return action->bounds.x+action->bounds.w/2;
+    }
+    return -1;
+}
 static void settle_app(void) {
-    if(!app_package_installed(app_for_route(ui_route())))return;
-    app_process_open(app_for_route(ui_route()));
+    if(!app_package_installed(active_app()))return;
+    app_process_open(active_app());
     for(int i=0;i<200 && (i<30 || !*app_process_frame());i++) {
-        if(!app_package_installed(app_for_route(ui_route())))break;
+        if(!app_package_installed(active_app()))break;
         usleep(5000);
         package_ui_poll();
     }
@@ -81,7 +90,7 @@ int main(int argc, char **argv) {
     ui_init();
     for(int i=0;i<200 && !keyboard_layout_serial;i++){usleep(3000);keyboard_package_poll();}
     assert(keyboard_layout_serial);
-    assert(!app_route_valid(124));
+    assert(!app_package_foreground(app_package_find("retired.rpg")));
     if (argc > 1) {
         selected_recipe17.meal = 0;
         strcpy(selected_recipe17.lang, "de");
@@ -102,8 +111,8 @@ int main(int argc, char **argv) {
              "Reader");
         return 0;
     }
-    route_to(29);settle_app();ui_draw();
-    tap17(550,95);assert(ui_route()==29 && editor_ui.keyboard);
+    activate_app(app_package_find("lumen.notes"));settle_app();ui_draw();
+    tap17(550,95);assert(active_app()==app_package_find("lumen.notes") && editor_ui.keyboard);
     strcpy(editor_ui.edit,"Title\nSome text to edit.");commit_keyboard();settle_app();ui_draw();
     assert(strstr(app_process_frame(),"Some text to edit."));
     tap17(490,78);
@@ -143,21 +152,21 @@ int main(int argc, char **argv) {
     ui_save();settle_app();
     assert(strstr(app_process_frame(),"Edited during an autosave."));
     commit_keyboard();settle_app();ui_draw();
-    tap17(553,77);assert(ui_route()==2);
+    tap17(553,77);assert(active_app()==app_package_find("lumen.reader"));
     settle_app();ui_draw();
     if(!reader_ui.reader_chrome)tap17(300,70);
     tap17(20,20);
-    assert(ui_route()==29 && strstr(app_process_frame(),"Edited during an autosave."));
+    assert(active_app()==app_package_find("lumen.notes") && strstr(app_process_frame(),"Edited during an autosave."));
     tap17(20,20);
-    assert(ui_route()==29 && strstr(app_process_frame(),"Title"));
+    assert(active_app()==app_package_find("lumen.notes") && strstr(app_process_frame(),"Title"));
     shot17("notes");
-    route_to(13);settle_app();ui_draw();
+    activate_app(app_package_find("lumen.settings"));settle_app();ui_draw();
     tap17(300,240); /* Appearance */
     tap17(543,361); /* Inverted display */
     assert(options[OPT_INVERT]==1);
     tap17(543,361);
     assert(options[OPT_INVERT]==0);
-    route_to(74);
+    activate_app(app_package_find("lumen.todo"));
     settle_app();
     ui_draw();
     tap17(550,92);
@@ -176,7 +185,7 @@ int main(int argc, char **argv) {
     tap17(42,171);
     assert(strstr(app_process_frame(),"checked\":1"));
     shot17("todo");
-    route_to(27);
+    activate_app(app_package_find("lumen.calculator"));
     settle_app();
     ui_draw();
     assert(ui_pixels[245*WIDTH+28]==105 && ui_pixels[245*WIDTH+33]==255);
@@ -186,14 +195,14 @@ int main(int argc, char **argv) {
     assert(dropdown && drop_target == 2001);
     tap17(drop_x + 80, drop_y + 5 + 48 + 15);
     assert(strstr(app_process_frame(),"RAD"));
-    route_to(13);settle_app();ui_draw();
+    activate_app(app_package_find("lumen.settings"));settle_app();ui_draw();
     if(app_process_frame_back())tap17(20,20);
     tap17(530,235);tap17(490,150);tap17(450,525);
     assert(dropdown && drop_target==2001);
     dropdown=0;
-    route_to(29);settle_app();ui_draw();
+    activate_app(app_package_find("lumen.notes"));settle_app();ui_draw();
     Input hold = {.kind = INPUT_HOLD, .x = 300, .y = 600};
-    route_to(27);
+    activate_app(app_package_find("lumen.calculator"));
     ui_draw();
     ui_input(&hold);
     assert(!editor_ui.clip_active);
@@ -204,21 +213,21 @@ int main(int argc, char **argv) {
     ui_input(&hold);
     assert(!editor_ui.clip_active);
     editor_ui.keyboard = 0;
-    route_to(118);
+    activate_app(app_package_find("lumen.sokoban"));
     settle_app();
     assert(strstr(app_process_frame(),"Sokoban"));
     ui_draw();
     shot17("sokoban");
-    route_to(119);
+    activate_app(app_package_find("lumen.maze"));
     settle_app();
     assert(strstr(app_process_frame(),"Maze") || strstr(app_process_frame(),"Labyrinth"));
     ui_draw();
     shot17("maze");
-    route_to(120);
+    activate_app(app_package_find("lumen.crossword"));
     settle_app();
     ui_draw();
     shot17("crossword");
-    route_to(110);
+    activate_app(app_package_find("lumen.journal"));
     settle_app();
     ui_draw();
     shot17("journal-list");
@@ -236,17 +245,16 @@ int main(int argc, char **argv) {
     assert(!mkdir(study_folder,0700) || errno==EEXIST);
     const char *study_html="<html><body><p>Study fixture</p></body></html>";
     assert(atomic_write(study_document,study_html,strlen(study_html)));
-    int study_route=app_factory_definition(APP_STUDY)->entry;
-    route_to(study_route);
+    activate_app(app_package_find("lumen.study"));
     settle_app();
     assert(strstr(app_process_frame(),"scope-test.html"));
     assert(app_process_send("{\"event\":\"component\",\"id\":\"material-0\",\"gesture\":\"clicked\"}"));
     settle_app();
-    assert(ui_route()==2 && reader_ui.reader_document_active && engine_count()>0);
+    assert(active_app()==app_package_find("lumen.reader") && reader_ui.reader_document_active && engine_count()>0);
     unlink(study_document);
     extra_write_text("llm-models17.json", "{\"data\":[{\"id\":\"model-b\"},{\"id\":\"model-a\"}]}");
     extra_write_text("llm-key.txt", "dummy-visible-key");
-    route_to(122);settle_app();
+    activate_app(app_package_find("lumen.openai"));settle_app();
     tap17(550,95);shot17("llm-settings");
     tap17(20,20);
     shot17("llm");
@@ -255,7 +263,7 @@ int main(int argc, char **argv) {
     assert(engine_first_mention("Darcy",0,mention_fixture,sizeof(mention_fixture))==0);
     assert(!strcmp(mention_fixture,"Mr. Darcy arrived silently."));
     assert(engine_first_mention("Head",0,mention_fixture,sizeof(mention_fixture))<0);
-    assert(ui_route() == 2 && reader_ui.reader_document_active);
+    assert(active_app()==app_package_find("lumen.reader") && reader_ui.reader_document_active);
     settle_app();ui_draw();
     assert(app_process_send("{\"event\":\"intent\",\"operation\":\"selection-context\",\"text\":\"Darcy\"}"));
     settle_app();
@@ -273,13 +281,13 @@ int main(int argc, char **argv) {
     tap17(300,300);
     assert(!reader_ui.reader_chrome && page==page_before);
     tap17(300,70);assert(reader_ui.reader_chrome);
-    tap17(550,95);assert(ui_route()==2 && strstr(app_process_frame(),"Schriftfamilie"));
+    tap17(550,95);assert(active_app()==app_package_find("lumen.reader") && strstr(app_process_frame(),"Schriftfamilie"));
     tap17(314,766);
     assert(strstr(app_process_frame(),"Lesefortschritt"));
     tap17(480,245);
     assert(dropdown && drop_target==2001);
     dropdown = 0;
-    route_to(21);
+    activate_app(app_package_find("lumen.calendar"));
     settle_app();
     ui_draw();
     tap17(181,92);
@@ -288,7 +296,7 @@ int main(int argc, char **argv) {
     tap17(200,350);
     assert(strstr(app_process_frame(),"selected\":0"));
     shot17("calendar-day");
-    route_to(79);
+    activate_app(app_package_find("lumen.planetarium"));
     settle_app();
     ui_draw();
     assert(strstr(app_process_frame(),"Sonnensystem"));
@@ -298,7 +306,7 @@ int main(int argc, char **argv) {
     shot17("solar");
     for (int lang = 0; lang < 3; lang++) {
         options[OPT_LANGUAGE] = lang;
-        route_to(123);
+        activate_app(app_package_find("lumen.openai"));
         ui_draw();
         shot17(lang == 0 ? "de" : lang == 1 ? "en" : "fr");
         assert(strcmp(tr_language("Dieser Ordner ist leer.", lang),
@@ -308,7 +316,7 @@ int main(int argc, char **argv) {
     input_tests18();
     improvements_tests();
     quality_tests();
-    route_to(130);
+    activate_app(app_package_find("lumen.frog-solitaire"));
     ui_draw();
     for(int i=0;i<100&&!*app_process_frame();i++){usleep(10000);package_ui_poll();}
     ui_draw();
@@ -319,7 +327,7 @@ int main(int argc, char **argv) {
     assert(memcmp(frog_preview, ui_pixels + 135 * WIDTH, sizeof(frog_preview)));
     tap17(490, 96);
     assert(!memcmp(frog_preview, ui_pixels + 135 * WIDTH, sizeof(frog_preview)));
-    route_to(28);
+    activate_app(app_package_find("lumen.clock"));
     settle_app();
     ui_draw();
     tap17(550, 159);
@@ -345,62 +353,64 @@ int main(int argc, char **argv) {
         assert(fwrite(raster, 1, sizeof(raster), photo) == sizeof(raster));
         fclose(photo);
     }
-    assert(app_send(&(AppIntent){.app=app_for_route(71),.kind=INTENT_OPEN}));
+    assert(app_send(&(AppIntent){.app=app_package_find("lumen.photos"),.kind=INTENT_OPEN}));
     notification_dismiss();settle_app();ui_draw();
     assert(photo_count==2);
     tap17(549,96);assert(strstr(app_process_frame(),"Dauer pro Foto"));
-    tap17(20,20);assert(ui_route()==71 && !strstr(app_process_frame(),"Dauer pro Foto"));
+    tap17(20,20);assert(active_app()==app_package_find("lumen.photos") && !strstr(app_process_frame(),"Dauer pro Foto"));
     tap17(430,96);
     assert(editor_ui.keyboard && editor_ui.keyboard_target==2000);
     strcpy(editor_ui.edit,"Test folder");commit_keyboard();settle_app();ui_draw();
-    assert(photo_folder==1 && !photo_count);
+    assert(strstr(app_process_frame(),"Test folder") && !strstr(app_process_frame(),"\"type\":\"photo\""));
     tap17(100,156);tap17(drop_x+85,drop_y+25);
-    assert(!photo_folder && photo_count==2);
+    assert(photo_count==2 && strstr(app_process_frame(),"Alle Fotos"));
     Input photo_hold={.kind=INPUT_HOLD,.x=80,.y=240};
     ui_input(&photo_hold);settle_app();ui_draw();
     assert(dropdown && drop_target==2001);
     tap17(drop_x+85,drop_y+25);assert(dropdown && drop_target==2001);
     tap17(drop_x+85,drop_y+25);assert(!dropdown && photo_count==2);
     tap17(100,156);tap17(drop_x+85,drop_y+73);
-    assert(photo_folder==1 && photo_count==1);
-    tap17(450,156);assert(ui_route()==71 && package_fullscreen);
+    assert(strstr(app_process_frame(),"Test folder") && strstr(app_process_frame(),"\"type\":\"photo\""));
+    tap17(450,156);assert(active_app()==app_package_find("lumen.photos") && package_fullscreen);
     app_process_send("{\"event\":\"tick\"}");settle_app();
-    tap17(300,300);assert(ui_route()==71 && !package_fullscreen && photo_folder==1);
-    route_to(22);settle_app();ui_draw();
+    tap17(300,300);assert(active_app()==app_package_find("lumen.photos") && !package_fullscreen && strstr(app_process_frame(),"Test folder"));
+    activate_app(app_package_find("lumen.insights"));settle_app();ui_draw();
     assert(ui_pixels[250*WIDTH+28]==115 && ui_pixels[250*WIDTH+34]==255);
-    route_to(71);settle_app();
+    activate_app(app_package_find("lumen.photos"));settle_app();
     options[OPT_DATE] = options[OPT_CLOCK] = 1;
     ui_draw();
-    for(int i=0;i<100 && !status_ui.status_date_w;i++){usleep(3000);status_overlay_poll();ui_draw();}
-    assert(status_ui.status_date_w && status_ui.status_clock_w);
-    tap17(status_ui.status_clock_x + 10, 20);
-    assert(ui_route() == 28 && strstr(app_process_frame(),"selected\":0"));
+    for(int i=0;i<100 && action_x("lumen.calendar","")<0;i++){usleep(3000);status_overlay_poll();ui_draw();}
+    assert(action_x("lumen.calendar","")>=0 && action_x("lumen.clock","clock-face")>=0);
+    tap17(action_x("lumen.clock","clock-face"), 20);
+    assert(active_app()==app_package_find("lumen.clock") && strstr(app_process_frame(),"selected\":0"));
     tap17(480,95);
     assert(strstr(app_process_frame(),"\"selected\":2") &&
            ui_pixels[400*WIDTH+28]==105 && ui_pixels[400*WIDTH+34]==255);
     tap17(20, 20);
-    assert(ui_route() == 71);
-    tap17(status_ui.status_date_x + 10, 20);
-    assert(ui_route() == 21);
+    assert(active_app()==app_package_find("lumen.photos"));
+    tap17(action_x("lumen.calendar",""), 20);
+    assert(active_app()==app_package_find("lumen.calendar"));
     tap17(20, 20);
-    assert(ui_route() == 71);
+    assert(active_app()==app_package_find("lumen.photos"));
 
-    assert(app_send(&(AppIntent){.app=app_for_route(33),.kind=INTENT_OPEN}));
+    assert(app_send(&(AppIntent){.app=app_package_find("lumen.home-assistant"),.kind=INTENT_OPEN}));
     settle_app();
     tap17(550,95);
     int ha_depth = history_count;
     ui_draw();
     tap17(20, 20);
-    assert(ui_route() == 33 && !strstr(app_process_frame(),"back\":true") && history_count == ha_depth);
+    assert(active_app()==app_package_find("lumen.home-assistant") && !strstr(app_process_frame(),"back\":true") && history_count == ha_depth);
     tap17(20, 20);
-    assert(ui_route() == 71);
+    assert(active_app()==app_package_find("lumen.photos"));
 
     options[OPT_BATTERY] = 1;
     ui_draw();
-    tap17(status_ui.status_battery_x + 10, 20);
+    for(int i=0;i<100 && action_x("","")<0;i++){usleep(3000);status_overlay_poll();ui_draw();}
+    assert(action_x("","")>=0);
+    tap17(action_x("",""),20);
     assert(battery_popup);
     tap17(549, 96);
-    assert(!battery_popup && ui_route()==71 && !strstr(app_process_frame(),"Dauer pro Foto"));
+    assert(!battery_popup && active_app()==app_package_find("lumen.photos") && !strstr(app_process_frame(),"Dauer pro Foto"));
 
     memset(ui_pixels, 255, sizeof(ui_pixels));
     options[OPT_ROUNDING] = 1;
@@ -420,23 +430,13 @@ int main(int argc, char **argv) {
     control_surface(20, 20, 48, 48, 16, 0);
     assert(ui_pixels[20*WIDTH+20] == 0);
     options[OPT_ROUNDING] = 1;
-    route_to(33);
-    ha_count = 2;
-    strcpy(ha_entities[0].name, "Küche");
-    strcpy(ha_entities[0].id, "light.kitchen");
-    strcpy(ha_entities[1].name, "Salon");
-    strcpy(ha_entities[1].id, "sensor.living_room");
-    int matches[512];
-    assert(ha_visible(matches,1,"KUCHE")==1 && matches[0]==0);
-    assert(ha_visible(matches,1,"missing")==0);
-
-    route_to(131);
+    activate_app(app_package_find("lumen.home"));
     options[OPT_DATE] = options[OPT_CLOCK] = options[OPT_WIFI] = 1;
     assert(ui_prepare_home());
     ui_draw();
-    for(int i=0;i<100 && !status_ui.status_date_w;i++){usleep(3000);status_overlay_poll();ui_draw();}
-    assert(status_ui.status_date_x < status_ui.status_clock_x &&
-           status_ui.status_clock_x < status_ui.status_wifi_x);
+    for(int i=0;i<100 && action_x("lumen.calendar","")<0;i++){usleep(3000);status_overlay_poll();ui_draw();}
+    assert(action_x("lumen.calendar","") < action_x("lumen.clock","clock-face") &&
+           action_x("lumen.clock","clock-face") < action_x("lumen.settings","wifi"));
     assert(package_pager.count>1 && package_pager.page==0);
     int home_dots = pager_dot_start(PAGER_X,PAGER_W,package_pager.count);
     tap17(home_dots+45, 764);
@@ -444,33 +444,36 @@ int main(int argc, char **argv) {
     tap17(home_dots+15, 764);
     assert(package_pager.page==0);
     tap17(300,300);
-    assert(ui_route() == 131 && package_pager.page==0);
+    assert(active_app()==app_package_find("lumen.home") && package_pager.page==0);
     int home_ids[APP_LIMIT];
     int visible=v1_visible(home_ids);
     assert(visible>8);
-    assert(!memcmp(home_ids, launcher_first, sizeof(launcher_first)));
+    static const char *const first[]={"lumen.library","lumen.calculator","lumen.notes","lumen.calendar",
+        "lumen.clock","lumen.todo","lumen.settings","lumen.transfer"};
+    for(size_t i=0;i<sizeof(first)/sizeof(*first);i++)
+        assert(!strcmp(app_package_key(home_ids[i]),first[i]));
     int notifications=app_package_find("lumen.notifications");
     assert(notifications>=0 && !launcher_visible[notifications]);
-    assert(app_package_installed(APP_HOME) && app_package_installed(APP_FILE_TRANSFER));
+    assert(app_package_installed(app_package_find("lumen.home")) && app_package_installed(app_package_find("lumen.transfer")));
     assert(options[OPT_APP_ICON_STYLE] == 1);
     shot17("home-engraved");
     tap17(500, 606);
-    assert(app_for_route(ui_route()) == APP_FILE_TRANSFER);
+    assert(active_app() == app_package_find("lumen.transfer"));
     tap17(300,765);
-    assert(ui_route() == 8);
+    assert(active_app()==app_package_find("lumen.transfer"));
     tap17(550, 96);
-    assert(ui_route()==8 && strstr(app_process_frame(),"\"back\":true"));
+    assert(active_app()==app_package_find("lumen.transfer") && strstr(app_process_frame(),"\"back\":true"));
     tap17(20, 20);
-    assert(ui_route()==8 && strstr(app_process_frame(),"\"back\":false"));
+    assert(active_app()==app_package_find("lumen.transfer") && strstr(app_process_frame(),"\"back\":false"));
     tap17(20, 20);
-    assert(ui_route()==131);
+    assert(active_app()==app_package_find("lumen.home"));
     tap17(80,482);
-    assert(ui_route() == app_definition(home_ids[0])->entry);
+    assert(active_app() == home_ids[0]);
     tap17(20,52);
-    assert(ui_route() == 131);
-    route_to(13);settle_app();ui_draw();
+    assert(active_app()==app_package_find("lumen.home"));
+    activate_app(app_package_find("lumen.settings"));settle_app();ui_draw();
     tap17(530,134+3*72+30);
-    assert(ui_route()==13 && strstr(app_process_frame(),"Apps verwalten"));
+    assert(active_app()==app_package_find("lumen.settings") && strstr(app_process_frame(),"Apps verwalten"));
     tap17(20,20);assert(strstr(app_process_frame(),"Einstellungen"));
     tap17(530,235);tap17(490,150);
     assert(strstr(app_process_frame(),"Automatisch sperren"));
@@ -481,10 +484,10 @@ int main(int argc, char **argv) {
     memset(ui_pixels,255,WIDTH*HEIGHT);
     dropdown_button(360,203,210,48,"Example");
     assert(ui_pixels[230*WIDTH+549]<100); /* shared selector chevron */
-    route_to(1);
+    activate_app(app_package_find("lumen.library"));
     settle_app();ui_draw();
     tap17(550,83);
-    assert(ui_route() == 1 && strstr(app_process_frame(),"Sortierung"));
+    assert(active_app()==app_package_find("lumen.library") && strstr(app_process_frame(),"Sortierung"));
 
     Input sleep_fixture={.kind=INPUT_SLEEP},wake_fixture={.kind=INPUT_WAKE};
     Input release_fixture={.kind=INPUT_POWER};
@@ -494,7 +497,7 @@ int main(int argc, char **argv) {
     assert(ui_input(&wake_fixture)==1 && !sleeping);
     assert(ui_input(&sleep_fixture)==1 && ui_input(&wake_fixture)==1 && !sleeping);
 
-    route_to(1);
+    activate_app(app_package_find("lumen.library"));
     char photo_file[2048];
     snprintf(photo_file,sizeof(photo_file),"%s/rotation-test.pgm",data_root);
     unsigned char *source=malloc(480000), *result=malloc(480000);
@@ -538,21 +541,21 @@ int main(int argc, char **argv) {
     assert(!math_bad && mb[math_root].up>0 && mb[math_root].down>0);
     rect(0,0,600,800,255);math_paint(math_root,28,300,0);
     assert(ui_pixels[300*600+32]==0); /* first fraction bar */
-    route_to(131);
+    activate_app(app_package_find("lumen.home"));
     settle_app();
     int call_depth=history_count;
-    package_call_app(APP_MAZE,"show_help","",27);
-    assert(ui_route()==119 && package_call_count==1 && history_count==call_depth+1);
+    package_call_app(app_package_find("lumen.maze"),"show_help","",27);
+    assert(active_app()==app_package_find("lumen.maze") && package_call_count==1 && history_count==call_depth+1);
     settle_app();
     tap17(20,20);
-    assert(ui_route()==131 && !package_call_count && history_count==call_depth);
-    route_to(66);
+    assert(active_app()==app_package_find("lumen.home") && !package_call_count && history_count==call_depth);
+    activate_app(app_package_find("lumen.braintrain"));
     settle_app();
     ui_draw();
     assert(strstr(app_process_frame(),"exercise1"));
     tap17(400,275);
     assert(!strstr(app_process_frame(),"exercise1") && strstr(app_process_frame(),"back\":true"));
-    route_to(73);
+    activate_app(app_package_find("lumen.languages"));
     settle_app();
     ui_draw();
     tap17(310,150);
@@ -560,13 +563,13 @@ int main(int argc, char **argv) {
     int old_lock=options[OPT_LOCK],old_date=options[OPT_LOCK_DATE];
     options[OPT_LOCK]=2;options[OPT_LOCK_DATE]=1;
     sleeping=1;ui_draw();
-    for(int i=0;i<200 && !*app_overlay_frame(APP_OVERLAY_SLEEP);i++) {
+    for(int i=0;i<200 && !*app_overlay_frame(app_provider_overlay_slot(PROVIDER_SLEEP));i++) {
         usleep(5000);
-        app_overlay_poll(APP_OVERLAY_SLEEP);
+        app_overlay_poll(app_provider_overlay_slot(PROVIDER_SLEEP));
     }
-    assert(app_package_installed(APP_LOCK_SCREEN));
-    assert(strstr(app_overlay_frame(APP_OVERLAY_SLEEP),"clock_y\":285"));
-    assert(strstr(app_overlay_frame(APP_OVERLAY_SLEEP),"date_y\":418"));
+    assert(app_package_installed(app_package_find("lumen.lock-screen")));
+    assert(strstr(app_overlay_frame(app_provider_overlay_slot(PROVIDER_SLEEP)),"display_text\",\"x\":20,\"y\":285"));
+    assert(strstr(app_overlay_frame(app_provider_overlay_slot(PROVIDER_SLEEP)),"display_text\",\"x\":20,\"y\":418"));
     sleeping=0;options[OPT_LOCK]=old_lock;options[OPT_LOCK_DATE]=old_date;
     char restart_dir[2048], restart_path[2048];
     snprintf(restart_dir,sizeof(restart_dir),"%s/../.update",data_root);

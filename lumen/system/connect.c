@@ -595,7 +595,7 @@ static void handle(int fd,const char *initial,size_t initial_size) {
     if(!strcmp(method,"GET") && !strcmp(url,"/api/apps")) {
         app_packages_scan();char*body=NULL;size_t size=0;FILE*f=open_memstream(&body,&size);fputs("{\"apps\":[",f);int first=1;
         for(int i=0;i<APP_LIMIT;i++) {
-            const AppDefinition*a=app_definition(i);if(!a||a->entry<0)continue;
+            const AppDefinition*a=app_definition(i);if(!a)continue;
             if(!first)fputc(',',f);first=0;fputs("{\"id\":",f);json(f,app_package_key(i));fputs(",\"name\":",f);json(f,a->name);fputs(",\"names\":[",f);for(int l=0;l<3;l++){if(l)fputc(',',f);json(f,tr_language(a->name,l));}fputs("],\"version\":",f);json(f,app_package_version(i));fputc('}',f);
         }
         fputs("]}",f);fclose(f);response(fd,200,"application/json",body);free(body);return;
@@ -686,48 +686,23 @@ static void handle(int fd,const char *initial,size_t initial_size) {
         web_setup16(fd, query, length, body, bodyn);
         return;
     }
-    if (!strcmp(url, "/api/home-assistant") && !strcmp(method, "PUT")) {
-        if (!haslength || length == 0 || length > 2048) {
-            response(fd, 400, "text/plain", "Invalid setup length");
+    if (!strcmp(url,"/api/apps/config") && !strcmp(method,"PUT")) {
+        char id[64],key[64],payload[2048];
+        if(!arg(query,"id",id,sizeof(id)) || !arg(query,"key",key,sizeof(key)) ||
+           !haslength || !length || length>sizeof(payload)) {
+            response(fd,400,"text/plain","Invalid app configuration");
             return;
         }
-        char payload[2049];
-        size_t n = bodyn > length ? (size_t)length : bodyn;
-        memcpy(payload, body, n);
-        while (n < length) {
-            ssize_t got = recv(fd, payload + n, (size_t)length - n, 0);
-            if (got <= 0)
-                return;
-            n += got;
+        size_t n=bodyn>length ? (size_t)length : bodyn;
+        memcpy(payload,body,n);
+        while(n<length) {
+            ssize_t got=recv(fd,payload+n,(size_t)length-n,0);
+            if(got<=0)return;
+            n+=got;
         }
-        payload[n] = 0;
-        Json j;
-        JsonToken tok[32];
-        char address[512], secret[512];
-        if (!json_parse(&j, payload, tok, 32)) {
-            response(fd, 400, "text/plain", "Invalid setup");
-            return;
-        }
-        int u = json_get(&j, 0, "url"), t = json_get(&j, 0, "token");
-        if (u < 0 || t < 0 || j.tokens[u].end - j.tokens[u].start >= 510 ||
-            j.tokens[t].end - j.tokens[t].start >= 510) {
-            response(fd, 400, "text/plain", "Setup too long");
-            return;
-        }
-        json_string(&j, u, address, sizeof(address));
-        json_string(&j, t, secret, sizeof(secret));
-        if (!service_url_valid(address) || !*secret || strpbrk(secret, "\r\n\"\\")) {
-            response(fd, 400, "text/plain", "Check address and token");
-            return;
-        }
-        char a[2048], b[2048];
-        snprintf(a, sizeof(a), "%s/ha-url.txt", data_root);
-        snprintf(b, sizeof(b), "%s/ha-token.txt", data_root);
-        int ok =
-            atomic_write(b, secret, strlen(secret)) && atomic_write(a, address, strlen(address));
-        memset(payload, 0, sizeof(payload));
-        memset(secret, 0, sizeof(secret));
-        response(fd, ok ? 200 : 500, "application/json", ok ? "{\"ok\":true}" : "{\"ok\":false}");
+        int ok=app_package_configure(id,key,payload,n);
+        memset(payload,0,sizeof(payload));
+        response(fd,ok ? 200 : 400,"application/json",ok ? "{\"ok\":true}" : "{\"ok\":false}");
         return;
     }
     if (!strcmp(url, "/api/photos")) {

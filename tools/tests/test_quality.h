@@ -84,31 +84,31 @@ static void quality_tests(void) {
     assert(memcmp(cached, ui_pixels, sizeof(cached)));
     unlink(path);
     cover_tiles_clear();
-    assert(app_package_installed(APP_2048));
-    assert(app_package_installed(APP_SOLITAIRE));
-    route_to(119);
+    assert(app_package_installed(app_package_find("lumen.2048")));
+    assert(app_package_installed(app_package_find("lumen.solitaire")));
+    activate_app(app_package_find("lumen.maze"));
     settle_app();
     assert(strstr(app_process_frame(),"\"id\":\"help\""));
     /* Weather imports the existing cache directly. */
     extra_write_text("weather.json",
                      "{\"current\":{\"temperature_2m\":18,\"weather_code\":0,\"apparent_"
                      "temperature\":17,\"wind_speed_10m\":4,\"is_day\":1},\"daily\":{\"time\":[\"2026-11-12\"]}}");
-    route_to(32);
+    activate_app(app_package_find("lumen.weather"));
     settle_app();
     assert(strstr(app_process_frame(),"18 °C"));
     ui_draw();
-    route_to(27);editor_ui.keyboard=0;alarm_ring=power_menu=0;
+    activate_app(app_package_find("lumen.calculator"));editor_ui.keyboard=0;alarm_ring=power_menu=0;
     ui_message("Notification test");
     for(int i=0;i<100 && !notification_visible();i++){usleep(5000);notification_poll();}
     assert(notification_visible());ui_draw();
     Input down={.kind=INPUT_DOWN,.x=550,.y=95},up=down;up.kind=INPUT_TAP;
     ui_input(&down);ui_input(&up);
     for(int i=0;i<100 && notification_visible();i++){usleep(5000);notification_poll();}
-    assert(ui_route()==27 && !notification_visible());
+    assert(active_app()==app_package_find("lumen.calculator") && !notification_visible());
     ui_message("Capture test");
     for(int i=0;i<100 && !notification_visible();i++){usleep(5000);notification_poll();}
     assert(notification_visible());ui_draw();ui_input(&down);
-    notification_dismiss();up.x=300;up.y=600;ui_input(&up);assert(ui_route()==27);
+    notification_dismiss();up.x=300;up.y=600;ui_input(&up);assert(active_app()==app_package_find("lumen.calculator"));
     assert(image_contrast(128)==128 && image_contrast(80)<80 && image_contrast(180)>180);
     /* Cached compact icons must never damage the framebuffer scratch area. */
     memset(ui_pixels,237,sizeof(ui_pixels));

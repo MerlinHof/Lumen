@@ -6,8 +6,8 @@
 #include <sys/wait.h>
 static int v1_ready, v1_dirty;
 #include "../nonograms/shared_board_state.h"
-#include "../photos/state.h"
+#include "../../system/ui/media_state.h"
 #include "../news/archive_state.h"
 #include "../launcher/state.h"
 #include "../timer/presentation_state.h"
-static void v1_photos_scan(void), v1_archive_scan(void);
+static void media_scan(void), v1_archive_scan(void);

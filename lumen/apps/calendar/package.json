@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.calendar",
   "name": "Kalender",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "sources": [
     "app.c"
   ],
@@ -15,11 +15,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_CALENDAR",
-    "entry": 21,
-    "aliases": [
-      21,
-      45
-    ]
+    "slot": 5
+  },
+  "launcher": {
+    "order": 3,
+    "visible": true
   }
 }

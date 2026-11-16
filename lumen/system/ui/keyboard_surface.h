@@ -15,34 +15,27 @@ static void keyboard_backspace(void) {
 /* System keyboard: one geometry for drawing, touch feedback and text dispatch.
  * Independent layout preference; all applications share UTF-8 caret editing. */
 typedef struct {
-    int x, y, w, h, action;
+    int x, y, w, h, action, next, icon, style;
     char text[8];
 } KeyboardKey18;
-enum {
-    KEY_TEXT18,
-    KEY_SHIFT18,
-    KEY_DELETE18,
-    KEY_SYMBOL18,
-    KEY_LANGUAGE18,
-    KEY_SPACE18,
-    KEY_ENTER18
-};
-
+enum { EDIT_INSERT, EDIT_ERASE, EDIT_SUBMIT, EDIT_LAYOUT };
+enum { CAP_NUMBER=1, CAP_LETTER=2, CAP_SELECTED=4 };
+static int keyboard_accent_next;
 static KeyboardKey18 keyboard_keys18[56];
 static int keyboard_count18;
 static int keyboard_frame18 = -1;
 static unsigned char keyboard_keybed18[600 * 298];
 static Json keyboard_package;
-static JsonToken keyboard_tokens[8400];
+static JsonToken keyboard_tokens[14000];
 static uint64_t keyboard_layout_serial;
 static int keyboard_previous_layout=-1,keyboard_layout_valid;
 static int keyboard_package_poll(void) {
-    int changed=app_overlay_poll(APP_OVERLAY_KEYBOARD);
-    uint64_t serial=app_overlay_frame_serial(APP_OVERLAY_KEYBOARD);
+    int changed=app_overlay_poll(app_provider_overlay_slot(PROVIDER_TEXT_INPUT));
+    uint64_t serial=app_overlay_frame_serial(app_provider_overlay_slot(PROVIDER_TEXT_INPUT));
     if(!serial || serial==keyboard_layout_serial)return 0;
     keyboard_layout_serial=serial;
     if(changed) {
-        keyboard_layout_valid=json_parse(&keyboard_package,app_overlay_frame(APP_OVERLAY_KEYBOARD),
+        keyboard_layout_valid=json_parse(&keyboard_package,app_overlay_frame(app_provider_overlay_slot(PROVIDER_TEXT_INPUT)),
                    keyboard_tokens,sizeof(keyboard_tokens)/sizeof(*keyboard_tokens));
         keyboard_previous_layout=keyboard_frame18=-1;
     }
@@ -50,50 +43,44 @@ static int keyboard_package_poll(void) {
 }
 static void keyboard_layout18(void) {
     int layout=preferences_keyboard_language()*6+editor_ui.keyboard_symbols*2+editor_ui.keyboard_shift;
-    if(layout==keyboard_previous_layout && app_overlay_fd(APP_OVERLAY_KEYBOARD)>=0)return;
+    if(layout==keyboard_previous_layout && app_overlay_fd(app_provider_overlay_slot(PROVIDER_TEXT_INPUT))>=0)return;
     keyboard_previous_layout=layout;
     keyboard_count18=0;
-    if(app_overlay_fd(APP_OVERLAY_KEYBOARD)<0) {
-        app_overlay_send(APP_OVERLAY_KEYBOARD,app_package_provider(PROVIDER_TEXT_INPUT),"{\"event\":\"prepare\"}");
+    if(app_overlay_fd(app_provider_overlay_slot(PROVIDER_TEXT_INPUT))<0) {
+        app_provider_overlay_send(PROVIDER_TEXT_INPUT,"{\"event\":\"prepare\"}");
         keyboard_previous_layout=-1;
         return;
     }
     if(!keyboard_layout_valid)return;
-    int rows=json_get(&keyboard_package,0,"layouts");
+    int rows=json_get(&keyboard_package,0,"keymaps");
     int keys=json_at(&keyboard_package,rows,layout);
     for(int i=0;i<56;i++) {
         int item=json_at(&keyboard_package,keys,i);
         if(item<0)break;
         KeyboardKey18 k={0};
         char value[24];
-        int geometry[5];
-        for(int field=0;field<5;field++) {
+        int geometry[8];
+        for(int field=0;field<8;field++) {
             json_string(&keyboard_package,json_at(&keyboard_package,item,field),value,sizeof(value));
             geometry[field]=atoi(value);
         }
         k.x=geometry[0];k.y=geometry[1];k.w=geometry[2];k.h=geometry[3];k.action=geometry[4];
-        json_string(&keyboard_package,json_at(&keyboard_package,item,5),k.text,sizeof(k.text));
+        k.next=geometry[5];k.icon=geometry[6];k.style=geometry[7];
+        json_string(&keyboard_package,json_at(&keyboard_package,item,8),k.text,sizeof(k.text));
         if(k.x<0 || k.y<502 || k.w<=0 || k.h<=0 || k.x>600-k.w || k.y>800-k.h ||
-           k.action<KEY_TEXT18 || k.action>KEY_ENTER18)continue;
+           k.action<EDIT_INSERT || k.action>EDIT_LAYOUT || k.next<0 || k.next>=18 ||
+           k.icon< -1 || k.icon>IC_LAST || k.style<0 || k.style>7)continue;
         keyboard_keys18[keyboard_count18++]=k;
     }
 }
-static void keyboard_case18(char *key) {
-    if (!editor_ui.keyboard_shift || editor_ui.keyboard_symbols)
-        return;
-    const char *p = key;
-    unsigned c = utf8_next(&p);
-    if (c >= 'a' && c <= 'z')
-        key[0] -= 32;
-    else if (c >= 0xe0 && c <= 0xfe && c != 0xf7) {
-        c -= 32;
-        key[0] = (char)(0xc0 | (c >> 6));
-        key[1] = (char)(0x80 | (c & 63));
-        key[2] = 0;
-    } else if (c == 0x153)
-        snprintf(key, 8, "Œ");
-    else if (c == 0xdf)
-        snprintf(key, 8, "ẞ");
+static void keyboard_select_layout(int layout) {
+    int language=layout/6;
+    editor_ui.keyboard_symbols=(layout%6)/2;
+    editor_ui.keyboard_shift=layout%2;
+    if(language!=preferences_keyboard_language()) {
+        options[OPT_KEYBOARD_LANGUAGE]=language;
+        library_options_save();
+    }
 }
 static int keyboard_hit18(int x, int y) {
     keyboard_layout18();
@@ -175,23 +162,17 @@ static void keyboard_draw18(void) {
     } else {
         for (int i = 0; i < keyboard_count18; i++) {
             KeyboardKey18 *k = &keyboard_keys18[i];
-            if(k->y==506) {
+            if(k->style & CAP_NUMBER) {
                 region(k->x,k->y,k->w,k->h);
                 widget_shape(k->x,k->y,k->w,k->h,RADIUS_MEDIUM,3,0);
                 control_surface(k->x,k->y,k->w,k->h,RADIUS_MEDIUM,155);
                 control_surface(k->x+1,k->y+1,k->w-2,k->h-2,RADIUS_MEDIUM-1,255);
-            } else button_h(k->x, k->y, k->w, k->h, "", k->action == KEY_SHIFT18 && editor_ui.keyboard_shift);
-            if(k->y==506)ink_color=112;
+            } else button_h(k->x, k->y, k->w, k->h, "", (k->style & CAP_SELECTED)!=0);
+            if(k->style & CAP_NUMBER)ink_color=112;
             centered(k->x, k->y, k->w, k->h, k->text,
-                     k->action == KEY_TEXT18 && k->y > 550 ? &body : &small);
+                     (k->style & CAP_LETTER)!=0 ? &body : &small);
             ink_color=0;
-            int kind = k->action == KEY_SHIFT18    ? IC_SHIFT
-                       : k->action == KEY_DELETE18 ? IC_DELETE
-                       : k->action == KEY_SPACE18  ? IC_SPACE
-                       : k->action == KEY_ENTER18  ? IC_ENTER
-                                                   : -1;
-            if (kind >= 0)
-                icon(k->x + (k->w - 44) / 2, k->y + (k->h - 44) / 2, kind);
+            if(k->icon>=0)icon(k->x+(k->w-44)/2,k->y+(k->h-44)/2,k->icon);
         }
         memcpy(keyboard_keybed18, ui_pixels + 502 * WIDTH, sizeof(keyboard_keybed18));
         keyboard_frame18 = frame;
@@ -207,24 +188,25 @@ static int keyboard_accents18(int key) {
     if (key < 0 || editor_ui.keyboard_symbols)
         return 0;
     KeyboardKey18 *k = &keyboard_keys18[key];
-    if (k->action != KEY_TEXT18)
+    if (k->action != EDIT_INSERT)
         return 0;
     char c = (char)tolower((unsigned char)k->text[0]);
     char variants_text[64];
     if(!keyboard_layout_valid || c<'a' || c>'z')return 0;
-    json_string(&keyboard_package,json_at(&keyboard_package,json_get(&keyboard_package,0,"accents"),c-'a'),
+    json_string(&keyboard_package,json_at(&keyboard_package,json_at(&keyboard_package,
+                json_get(&keyboard_package,0,"accent_maps"),editor_ui.keyboard_shift),c-'a'),
                 variants_text,sizeof(variants_text));
     const char *variants=variants_text;
     if (!*variants)
         return 0;
     editor_ui.accent_count18 = 0;
+    keyboard_accent_next=k->next;
     while (*variants && editor_ui.accent_count18 < 10) {
         const char *p = variants;
         utf8_next(&variants);
         int n = variants - p;
         memcpy(editor_ui.accent_keys18[editor_ui.accent_count18], p, n);
         editor_ui.accent_keys18[editor_ui.accent_count18][n] = 0;
-        keyboard_case18(editor_ui.accent_keys18[editor_ui.accent_count18]);
         editor_ui.accent_count18++;
     }
     editor_ui.accent_x18 = k->x - 54;
@@ -241,7 +223,7 @@ static void keyboard_tap18(int x, int y) {
             x < editor_ui.accent_x18 + 6 + editor_ui.accent_count18 * 54) {
             keyboard_insert(editor_ui.accent_keys18[(x - editor_ui.accent_x18 - 6) / 54]);
             editor_ui.accent_count18 = 0;
-            editor_ui.keyboard_shift = 0;
+            keyboard_select_layout(keyboard_accent_next);
         } else
             editor_ui.accent_count18 = 0;
         return;
@@ -269,36 +251,16 @@ static void keyboard_tap18(int x, int y) {
     if (i < 0)
         return;
     KeyboardKey18 k = keyboard_keys18[i];
-    switch (k.action) {
-    case KEY_TEXT18:
-        keyboard_insert(k.text);
-        if (!editor_ui.keyboard_symbols)
-            editor_ui.keyboard_shift = 0;
+    switch(k.action) {
+    case EDIT_INSERT:keyboard_insert(k.text);break;
+    case EDIT_ERASE:keyboard_backspace();break;
+    case EDIT_SUBMIT:
+        if(keyboard_multiline())keyboard_insert("\n");
+        else commit_keyboard();
         break;
-    case KEY_SHIFT18:
-        editor_ui.keyboard_shift = !editor_ui.keyboard_shift;
-        break;
-    case KEY_DELETE18:
-        keyboard_backspace();
-        break;
-    case KEY_SYMBOL18:
-        editor_ui.keyboard_symbols = (editor_ui.keyboard_symbols + 1) % 3;
-        editor_ui.accent_count18 = 0;
-        break;
-    case KEY_LANGUAGE18:
-        options[OPT_KEYBOARD_LANGUAGE] = (preferences_keyboard_language() + 1) % 3;
-        library_options_save();
-        break;
-    case KEY_SPACE18:
-        keyboard_insert(" ");
-        break;
-    case KEY_ENTER18:
-        if (keyboard_multiline())
-            keyboard_insert("\n");
-        else
-            commit_keyboard();
-        break;
+    case EDIT_LAYOUT:editor_ui.accent_count18=0;break;
     }
+    keyboard_select_layout(k.next);
 }
 static int keyboard_intercept18(const Input *in) {
     if (!editor_ui.keyboard || sleeping || dropdown || editor_ui.clip_active)

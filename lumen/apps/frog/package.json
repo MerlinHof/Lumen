@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.frog-solitaire",
   "name": "Frosch-Solitär",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "sources": [
     "app.c"
   ],
@@ -15,10 +15,10 @@
     "foreground"
   ],
   "legacy": {
-    "slot": "APP_FROG",
-    "entry": 130,
-    "aliases": [
-      130
-    ]
+    "slot": 53
+  },
+  "launcher": {
+    "order": 54,
+    "visible": true
   }
 }
