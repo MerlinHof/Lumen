@@ -36,16 +36,9 @@ static void extra_overlay(void) {
 static int extra_intercept(const Input *in) {
     if(!alarm_ring)return -1;
     int inside=in->x>=80 && in->x<520 && in->y>=620 && in->y<668;
-    OverlayAction action[4];
-    int count=overlay_actions(app_overlay_frame(app_provider_overlay_slot(PROVIDER_ALARM)),action,4);
-    if(count) {
-        inside=0;
-        for(int i=0;i<count;i++) {
-            OverlayBounds r=action[i].bounds;
-            if(!strcmp(action[i].command,"dismiss") &&
-               in->x>=r.x && in->x<r.x+r.w && in->y>=r.y && in->y<r.y+r.h)inside=1;
-        }
-    }
+    int count,slot=app_provider_overlay_slot(PROVIDER_ALARM);
+    overlay_slot_actions(slot,&count);
+    if(count)inside=overlay_hit_action(slot,(OverlayBounds){0,0,WIDTH,HEIGHT},in->x,in->y,"dismiss")!=NULL;
     if(in->kind==INPUT_TAP && inside) {
         alarm_ring=alarm_surface_started=alarm_surface_pressed=0;
         app_overlay_close(app_provider_overlay_slot(PROVIDER_ALARM));

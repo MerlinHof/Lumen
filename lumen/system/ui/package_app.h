@@ -103,6 +103,19 @@ typedef struct {
 enum { PACKAGE_COMPONENT_LIMIT=144 };
 static PackageComponent package_components[PACKAGE_COMPONENT_LIMIT];
 static int package_component_count,package_component_layout,package_component_top;
+static struct {
+    int active,index,page,pages,owner;
+    char title[128];
+} package_form={.owner=-1};
+static int package_form_row(int height) {
+    if(package_form.active && package_component_top+height>729) {
+        package_form.index++;
+        package_component_top=141;
+    }
+    int top=package_component_top;
+    package_component_top+=height+12;
+    return (!package_form.active || package_form.index==package_form.page) && top+height<=HEIGHT-8 ? top : -1;
+}
 static char package_focused_component[64];
 enum { COMPONENT_BUTTON, COMPONENT_FIELD, COMPONENT_TOGGLE, COMPONENT_CHECKBOX, COMPONENT_SEGMENTS, COMPONENT_FLOW, COMPONENT_EDITOR_LINE };
 static void package_component_event(const char *id,const char *gesture,const char *text) {
@@ -153,6 +166,7 @@ static void package_editor_line(int x,int y,int w,int h,const char *text,int cur
 }
 enum { PACKAGE_PAINT_FOREGROUND, PACKAGE_PAINT_CAPTURE, PACKAGE_PAINT_OVERLAY };
 static const char *overlay_live_title;
+static int overlay_title_x,overlay_title_width;
 static void (*overlay_image)(const char *source,int x,int y,int w,int h);
 static int package_overlay_primitive(const char *type) {
     static const char *const types[]={
@@ -162,6 +176,39 @@ static int package_overlay_primitive(const char *type) {
     for(size_t i=0;i<sizeof(types)/sizeof(*types);i++)
         if(!strcmp(type,types[i]))return 1;
     return 0;
+
+}
+static void package_text_span(Json *json,int item,const char *text,int *offset,int *length) {
+    *offset=package_value(json,item,"match_offset");
+    *length=package_value(json,item,"match_length");
+    size_t bytes=strlen(text);
+    if(*offset<0 || *length<0 || (size_t)*offset>bytes || (size_t)*length>bytes-(size_t)*offset ||
+       ((unsigned char)text[*offset]&192)==128 ||
+       ((unsigned char)text[*offset+*length]&192)==128)*offset=*length=0;
+}
+static void package_form_paragraph(const char *text,const Font *font,int offset,int length) {
+    const char *remaining=text,*end=text+strlen(text);
+    int line_height=font->h-4;
+    while(*remaining) {
+        int available=(729-package_component_top-8)/line_height;
+        if(available<1) {
+            package_form.index++;
+            package_component_top=141;
+            continue;
+        }
+        if(available>16)available=16;
+        const char *next;
+        int lines=wrapped_emphasis(-1,0,remaining,font,544,available,0,0,&next);
+        int top=package_form_row(lines*line_height+8);
+        if(top>=0) {
+            int skipped=(int)(remaining-text);
+            int left=offset>skipped ? offset-skipped : 0;
+            int right=offset+length-skipped;
+            if(right<=left || remaining+left>end)left=right=0;
+            wrapped_emphasis(28,top,remaining,font,544,lines,left,right-left,NULL);
+        }
+        remaining=next;
+    }
 }
 static void package_paint_frame_mode(const char *text,int mode) {
     Json j;if(!json_parse(&j,text,package_tokens,32768))return;
@@ -169,6 +216,7 @@ static void package_paint_frame_mode(const char *text,int mode) {
     if(mode==PACKAGE_PAINT_FOREGROUND)package_fullscreen=!!package_value(&j,0,"fullscreen");
     if(mode==PACKAGE_PAINT_FOREGROUND && package_fullscreen)memset(ui_pixels,255,WIDTH*STATUS_HEIGHT);
     size_t cost=0;
+    Widget last_surface={0};
     for(int item=commands+1;item<j.tokens[commands].next;item=j.tokens[item].next) {
         char type[32],label[2048];
         json_string(&j,json_get(&j,item,"type"),type,sizeof(type));json_string(&j,json_get(&j,item,"text"),label,sizeof(label));
@@ -181,6 +229,14 @@ static void package_paint_frame_mode(const char *text,int mode) {
         }
         if(!strcmp(type,"page_layout")) {
             package_component_layout=1;package_component_top=141;
+            package_form.active=!!package_value(&j,item,"scroll");
+            package_form.index=0;
+            if(package_form.active && (package_form.owner!=active_app() ||
+               strncmp(package_form.title,label,sizeof(package_form.title)-1))) {
+                package_form.owner=active_app();
+                snprintf(package_form.title,sizeof(package_form.title),"%.127s",label);
+                package_form.page=0;
+            }
             if(!*package_view_title)snprintf(package_view_title,sizeof(package_view_title),"%.127s",label);
             heading_actions(label,0);continue;
         }
@@ -216,7 +272,13 @@ static void package_paint_frame_mode(const char *text,int mode) {
                 json_string(&j,json_get(&j,item,"value"),value,sizeof(value));
                 select_row17(y,label,value);
             } else if(!strcmp(type,"dropdown_action"))dropdown_button(x,y,w,h,label);
-            else region(x,y,w,h);
+            else {
+                region(x,y,w,h);
+                int radius=package_value(&j,item,"radius");
+                if(json_get(&j,item,"radius")>=0)widget_shape(x,y,w,h,radius,3,0);
+                else if(last_surface.x==x && last_surface.y==y && last_surface.w==w && last_surface.h==h)
+                    widget_shape(x,y,w,h,last_surface.radius,3,0);
+            }
             continue;
         }
         if(!strcmp(type,"icon_action") || !strcmp(type,"button_action") || !strcmp(type,"toggle_action") || !strcmp(type,"icon_control")) {
@@ -287,22 +349,37 @@ static void package_paint_frame_mode(const char *text,int mode) {
             package_component_count++;
             continue;
         }
+        if(!strcmp(type,"form_text") && package_form.active) {
+            int role=package_value(&j,item,"role");
+            const Font *font=ui_font(role==PAINT_HEADING ? UI_HEADING : role==4 ? UI_TITLE :
+                                      role==PAINT_SECONDARY ? UI_SECONDARY : UI_BODY);
+            int offset,length;
+            package_text_span(&j,item,label,&offset,&length);
+            package_form_paragraph(label,font,offset,length);
+            continue;
+        }
         int component_kind=!strcmp(type,"component_field") ? COMPONENT_FIELD :
             !strcmp(type,"component_toggle") ? COMPONENT_TOGGLE :
             !strcmp(type,"component_checkbox") ? COMPONENT_CHECKBOX : COMPONENT_BUTTON;
-        if(component_kind || !strcmp(type,"component_button")) {
+        int choice=!strcmp(type,"form_choice");
+        if(component_kind || choice || !strcmp(type,"component_button")) {
             int field=component_kind==COMPONENT_FIELD;
             int height=field ? 70 : 50;
-            if(!package_component_layout || package_component_count>=PACKAGE_COMPONENT_LIMIT ||
-               package_component_top+height>HEIGHT-8)continue;
+            if(!package_component_layout || (choice && !package_form.active))continue;
+            int top=package_form_row(height);
+            if(top<0 || package_component_count>=PACKAGE_COMPONENT_LIMIT)continue;
             PackageComponent *component=&package_components[package_component_count];
             json_string(&j,json_get(&j,item,"id"),component->id,sizeof(component->id));
             if(!*component->id)continue;
             component->left=28;component->width=544;
-            component->top=package_component_top;component->height=height;component->kind=component_kind;
+            component->top=top;component->height=height;component->kind=component_kind;
             component->checked=!!package_value(&j,item,"checked");
             snprintf(component->label,sizeof(component->label),"%.*s",(int)sizeof(component->label)-1,label);
-            if(field) {
+            if(choice) {
+                char value[256];
+                json_string(&j,json_get(&j,item,"value"),value,sizeof(value));
+                select_row17(top,label,value);
+            } else if(field) {
                 json_string(&j,json_get(&j,item,"value"),component->value,sizeof(component->value));
                 type_label(28,component->top,544,22,label,UI_SECONDARY);
                 control_surface(28,component->top+22,544,44,RADIUS_SMALL,236);
@@ -315,7 +392,7 @@ static void package_paint_frame_mode(const char *text,int mode) {
                 else checkbox(536,y+10,component->checked);
                 region(28,y,544,height);
             } else button_h(28,component->top,544,height,label,package_value(&j,item,"primary"));
-            package_component_top+=height+12;package_component_count++;continue;
+            package_component_count++;continue;
         }
         /* Content coordinates may never paint or intercept the status bar. */
         if((mode!=PACKAGE_PAINT_OVERLAY && !package_fullscreen && y<STATUS_HEIGHT && strcmp(type,"asset")) || y<0 || y>800 || x < -600 || x>600 || w<0 || w>1200 || h<0 || h>800)continue;
@@ -335,13 +412,19 @@ static void package_paint_frame_mode(const char *text,int mode) {
             if(overlay_image)overlay_image(label,x,y,w,h);
         } else if(mode==PACKAGE_PAINT_OVERLAY && !strcmp(type,"symbol")) {
             int id=package_value(&j,item,"icon");
+            if(overlay_live_title && id==IC_BACK && y<STATUS_HEIGHT)continue;
             if(id>=0 && id<=IC_LAST && w==h && w>=12 && w<=76)icon_sized(x,y,id,w);
         } else if(mode==PACKAGE_PAINT_OVERLAY && !strcmp(type,"wifi_symbol")) {
             wifi_symbol(x,y);
             if(package_value(&j,item,"offline"))aa_stroke(x+2,y+9,x+27,y+32,2);
         } else if(mode==PACKAGE_PAINT_OVERLAY && !strcmp(type,"hud_text")) {
             const Font *font=package_value(&j,item,"small") ? &caption : &small;
-            const char *value=package_value(&j,item,"live") && overlay_live_title ? overlay_live_title : label;
+            if(overlay_live_title && package_value(&j,item,"live")) {
+                overlay_title_x=x;
+                overlay_title_width=w;
+                continue;
+            }
+            const char *value=label;
             int shift=0;
             if(package_value(&j,item,"center")) {
                 int length=textwidth_raw(value,font);
@@ -453,7 +536,13 @@ static void package_paint_frame_mode(const char *text,int mode) {
             int lines=package_value(&j,item,"lines");
             int role=package_value(&j,item,"role");
             const Font *font=ui_font(role==4 ? UI_TITLE : role==1 ? UI_HEADING : UI_BODY);
-            if(lines>0 && lines<=12)wrapped_raw(x,y,label,font,w,lines);
+            int offset,length;
+            package_text_span(&j,item,label,&offset,&length);
+            if(json_get(&j,item,"match_offset")>=0 && h>0) {
+                int fit=h>=font->h ? 1+(h-font->h)/(font->h-4) : 1;
+                if(lines>fit)lines=fit;
+            }
+            if(lines>0 && lines<=16)wrapped_emphasis(x,y,label,font,w,lines,offset,length,NULL);
         }
         else if(!strcmp(type,"heading")) {
             if(!*package_view_title)snprintf(package_view_title,sizeof(package_view_title),"%.127s",label);
@@ -534,7 +623,14 @@ static void package_paint_frame_mode(const char *text,int mode) {
         else if(!strcmp(type,"select")){char value[256];json_string(&j,json_get(&j,item,"value"),value,sizeof(value));select_row17(y,label,value);}
         else if(!strcmp(type,"icon"))icon_button(x,y,package_value(&j,item,"icon"));
         else if(!strcmp(type,"hit"))region(x,y,w,h);
-        else if(!strcmp(type,"surface"))ui_paint_surface(x,y,w,h,package_value(&j,item,"radius"),package_value(&j,item,"gray"),package_value(&j,item,"outline"));
+        else if(!strcmp(type,"surface")) {
+            int radius=package_value(&j,item,"radius");
+            ui_paint_surface(x,y,w,h,radius,package_value(&j,item,"gray"),package_value(&j,item,"outline"));
+            if(mode==PACKAGE_PAINT_FOREGROUND) {
+                last_surface=(Widget){.x=x,.y=y,.w=w,.h=h,.radius=radius};
+                widget_shape(x,y,w,h,radius,3,0);
+            }
+        }
         else if(!strcmp(type,"points")) {
             int points=json_get(&j,item,"points");
             int tone=package_value(&j,item,"gray");
@@ -577,6 +673,20 @@ static void package_paint_frame_mode(const char *text,int mode) {
         else if(!strcmp(type,"ring")){int r=package_value(&j,item,"radius"),weight=package_value(&j,item,"weight");if(r>0&&r<=300&&weight>0&&weight<=24)ui_paint_ring(x,y,r,weight);}
     }
 
+    if(mode==PACKAGE_PAINT_FOREGROUND && package_form.active) {
+        package_form.pages=package_form.index+1;
+        if(package_form.page>=package_form.pages) {
+            package_form.page=package_form.pages-1;
+            package_component_count=0;
+            package_component_layout=0;
+            widget_count=0;
+            rect(0,STATUS_HEIGHT,WIDTH,HEIGHT-STATUS_HEIGHT,255);
+            package_paint_frame_mode(text,mode);
+            return;
+        }
+        if(package_form.pages>1)pager_draw(PAGER_X,746,PAGER_W,package_form.page,package_form.pages);
+    }
+
 }
 static void package_paint_frame(const char *text) { package_paint_frame_mode(text,PACKAGE_PAINT_FOREGROUND); }
 #include "overlay_compositor.h"
@@ -587,6 +697,7 @@ static void package_ui_draw(void) {
     package_pager.count=0;
     package_pointer.w=0;
     package_component_count=package_component_layout=0;
+    package_form.active=0;
     if(app_process_owner()!=(int)package_fullscreen_owner || !*app_process_error())app_process_open(package_fullscreen_owner);
     const char*text=app_process_frame();
     if(app_process_frame_loading()) {heading(app_definition(active_app())->name);centered(28,340,544,60,*app_process_error()?tr(app_process_error()):tr("App wird geöffnet …"),ui_font(UI_BODY));return;}
@@ -654,6 +765,17 @@ static int package_ui_input(const Input*in) {
                 package_component_event(component->id,"changed",component->checked ? "0" : "1");
             else package_component_event(component->id,"clicked",NULL);
             return 2;
+        }
+    }
+    if(package_form.active && package_form.pages>1) {
+        int next=-1;
+        if(in->kind==INPUT_SWIPE && abs(in->dx)+abs(in->dy)>0)
+            next=package_form.page+((abs(in->dx)>=abs(in->dy) ? in->dx : in->dy)<0 ? 1 : -1);
+        if(in->kind==INPUT_TAP && in->y>=746 && in->y<790)
+            next=pager_target(in->x,PAGER_X,PAGER_W,package_form.page,package_form.pages);
+        if(next>=0 && next<package_form.pages) {
+            package_form.page=next;
+            return 1;
         }
     }
     if(package_pager.count>1) {

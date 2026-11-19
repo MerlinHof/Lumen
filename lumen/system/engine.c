@@ -547,10 +547,14 @@ static const char *match_term(const char *text,const char *term,const char **end
     return NULL;
 }
 static int sentence_boundary(const char *start,const char *at) {
-    if(*at=='\n')return 1;
     if(*at!='.' && *at!='!' && *at!='?')return 0;
     const char *after=at+1;
-    while(*after && strchr("\"'",*after))after++;
+    while(*after) {
+        if(strchr("\"')]",*after))after++;
+        else if(!strncmp(after,"”",3) || !strncmp(after,"’",3) || !strncmp(after,"»",2))
+            after+=*after==(char)0xc2 ? 2 : 3;
+        else break;
+    }
     if(*after && *after!=' ' && *after!='\n')return 0;
     if(*at!='.')return 1;
     const char *word=at;
@@ -562,76 +566,117 @@ static int sentence_boundary(const char *start,const char *at) {
         if(size==strlen(titles[i]) && !strncmp(word,titles[i],size))return 0;
     return 1;
 }
-static void collapse_spaces(unsigned char *text,size_t size) {
-    size_t out=0;
-    for(size_t i=0;i<size;) {
-        unsigned char value=text[i++];
-        if(!value || isspace(value)) {
-            int breaks=value=='\n';
-            while(i<size && (!text[i] || isspace(text[i])))breaks+=text[i++]=='\n';
-            if(out && i<size)text[out++]=breaks>1 ? '\n' : ' ';
-        } else text[out++]=value;
+static char *mention_page_text(int number) {
+    if(number<0 || number>=count)return NULL;
+    char *text=NULL;
+    fz_buffer *buffer=NULL;
+    fz_var(text);fz_var(buffer);
+    fz_try(ctx) {
+        fz_stext_options options={.flags=FZ_STEXT_DEHYPHENATE};
+        buffer=fz_new_buffer_from_page_number(ctx,doc,number,&options);
+        unsigned char *bytes=NULL;
+        size_t size=fz_buffer_storage(ctx,buffer,&bytes);
+        if(size<2u*1024*1024 && (text=malloc(size+1))) {
+            size_t used=0;
+            int space=0;
+            for(size_t i=0;i<size;i++) {
+                unsigned char c=bytes[i];
+                if(!c || isspace(c)){space=used!=0;continue;}
+                if(space)text[used++]=' ';
+                text[used++]=(char)c;
+                space=0;
+            }
+            text[used]=0;
+        }
     }
-    text[out]=0;
+    fz_always(ctx) {fz_drop_buffer(ctx,buffer);}
+    fz_catch(ctx) {free(text);text=NULL;}
+    return text;
 }
-/* The caller runs this bounded search outside the input and rendering loop. */
-int engine_first_mention(const char *term,int through,char *excerpt,size_t capacity) {
-    if(!doc || !*term || through<0 || capacity<32)return -1;
-    *excerpt=0;
+static const char *context_before(const char *text,const char *at) {
+    for(int n=0;at>text && n<5;n++) {
+        while(at>text && at[-1]==' ')at--;
+        while(at>text && at[-1]!=' ')at--;
+    }
+    return at;
+}
+static const char *context_after(const char *at) {
+    for(int n=0;*at && n<5;n++) {
+        while(*at==' ')at++;
+        while(*at && *at!=' ')at++;
+    }
+    return at;
+}
+static void mention_excerpt(const char *text,const char *match,const char *term_end,
+                            char *excerpt,size_t capacity,int *offset,int *length) {
+    const char *start=text,*end=term_end;
+    for(const char *p=text;p<match;p++)if(sentence_boundary(text,p))start=p+1;
+    while(*end && !sentence_boundary(text,end))end++;
+    if(*end)end++;
+    start=context_before(text,start);
+    end=context_after(end);
+    while(start<match && *start==' ')start++;
+    while(end>term_end && end[-1]==' ')end--;
+    size_t room=capacity-7,term_size=(size_t)(term_end-match);
+    if(term_size>room)term_size=room;
+    if((size_t)(end-start)>room) {
+        if((size_t)(match-start)>room/3)start=match-room/3;
+        while(((unsigned char)*start&192)==128)start++;
+        if((size_t)(end-start)>room)end=start+room;
+        while(end>start && ((unsigned char)*end&192)==128)end--;
+    }
+    while(term_size && ((unsigned char)match[term_size]&192)==128)term_size--;
+    memcpy(excerpt,"…",3);
+    size_t bytes=(size_t)(end-start);
+    memcpy(excerpt+3,start,bytes);
+    memcpy(excerpt+3+bytes,"…",4);
+    *offset=(int)(match-start)+3;
+    *length=(int)term_size;
+}
+/* The caller runs the bounded search outside the input and rendering loop. */
+int engine_first_mention(const char *term,int through,char *excerpt,size_t capacity,
+                         int *offset,int *length) {
+    if(!doc || !*term || through<0 || capacity<strlen(term)+16)return -1;
+    *excerpt=0;*offset=*length=0;
     if(through>=count)through=count-1;
     struct timespec started;
     clock_gettime(CLOCK_MONOTONIC,&started);
+    char *previous=NULL;
     for(int page=0;page<=through;page++) {
         struct timespec now;
         clock_gettime(CLOCK_MONOTONIC,&now);
         if(now.tv_sec-started.tv_sec>7)break;
-        fz_buffer *buffer=NULL;
-        int found=0;
-        fz_var(buffer);fz_var(found);
-        fz_try(ctx) {
-            fz_stext_options options={0};
-            buffer=fz_new_buffer_from_page_number(ctx,doc,page,&options);
-            fz_terminate_buffer(ctx,buffer);
-            unsigned char *bytes=NULL;
-            size_t size=fz_buffer_storage(ctx,buffer,&bytes);
-            if(size<2*1024*1024) {
-                collapse_spaces(bytes,size);
-                const char *text=(char *)bytes,*end=NULL,*match,*cursor=text;
-                while((match=match_term(cursor,term,&end))!=NULL) {
-                    const char *start=text,*term_end=end;
-                    for(const char *p=text;p<match;p++)if(sentence_boundary(text,p))start=p+1;
-                    while(*start && (isspace((unsigned char)*start) || *start=='"' || *start=='\''))start++;
-                    while(*end && !sentence_boundary(text,end))end++;
-                    if(start==match && term_end==end && (!*end || *end=='\n')) {
-                        cursor=term_end;
-                        continue;
-                    }
-                    if(*end && *end!='\n') {
-                        end++;
-                        while(*end && strchr("\"'",*end))end++;
-                    }
-                    int cropped=(size_t)(end-start)>=capacity;
-                    if(cropped) {
-                        size_t before=(size_t)(match-start);
-                        if(before>capacity/2) {
-                            start=match-capacity/3;
-                            while(((unsigned char)*start&192)==128)start++;
-                        }
-                        if((size_t)(end-start)>=capacity-4)end=start+capacity-4;
-                    }
-                    while(end>start && ((unsigned char)*end&192)==128)end--;
-                    size_t length=(size_t)(end-start);
-                    memcpy(excerpt,start,length);
-                    strcpy(excerpt+length,cropped ? "…" : "");
-                    found=1;
-                    break;
-                }
-            }
+        char *text=mention_page_text(page);
+        if(!text)continue;
+        const char *term_end=NULL,*match=match_term(text,term,&term_end);
+        if(match) {
+            char *next=mention_page_text(page+1);
+            const char *tail=previous ? previous : "";
+            size_t before=strlen(tail),current_size=strlen(text);
+            if(before>4096)tail+=before-4096;
+            while(((unsigned char)*tail&192)==128)tail++;
+            before=strlen(tail);
+            size_t after=next ? strnlen(next,4096) : 0;
+            while(after && ((unsigned char)next[after]&192)==128)after--;
+            char *joined=malloc(before+current_size+after+3);
+            if(joined) {
+                memcpy(joined,tail,before);
+                joined[before]=' ';
+                memcpy(joined+before+1,text,current_size);
+                joined[before+1+current_size]=' ';
+                if(after)memcpy(joined+before+2+current_size,next,after);
+                joined[before+2+current_size+after]=0;
+                const char *base=joined+before+1;
+                mention_excerpt(joined,base+(match-text),base+(term_end-text),
+                                excerpt,capacity,offset,length);
+                free(joined);
+            } else mention_excerpt(text,match,term_end,excerpt,capacity,offset,length);
+            free(previous);free(text);free(next);
+            return page;
         }
-        fz_always(ctx) {fz_drop_buffer(ctx,buffer);}
-        fz_catch(ctx) {}
-        if(found)return page;
+        free(previous);previous=text;
     }
+    free(previous);
     return -1;
 }
 

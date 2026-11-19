@@ -1,7 +1,7 @@
 #include "lumen_game.h"
 #include "data.h"
 
-static int selected=6,element_grid16[9][18],dirty;
+static int selected=6,element_grid16[9][18];
 #include "model.h"
 #include "labels.h"
 
@@ -41,12 +41,11 @@ static int input(const Input *in) {
     char id[64];
     if(!lumen_action(in,id,"clicked"))return 0;
     int number=lumen_action_index(id,"element",118)+1;
-    if(number && number!=selected){selected=number;dirty=1;}
+    if(number && number!=selected){selected=number;lumen_state_dirty();}
     return 1;
 }
-static void save(void){if(dirty && app_state_save("selected.bin",&selected,sizeof(selected)))dirty=0;}
 int main(void) {
-    app_state_load("selected.bin",&selected,sizeof(selected));
+    lumen_state_register("selected.bin",0,&selected,sizeof(selected));
     if(selected<1 || selected>118)selected=6;
-    elements_init16();lumen_run(draw,input,save);return 0;
+    elements_init16();lumen_run(draw,input,NULL);return 0;
 }

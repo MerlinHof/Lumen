@@ -652,15 +652,16 @@ home_assistant.mkdir()
     {'entity_id':'light.study','state':'off','attributes':{'friendly_name':'Study'}}
 ]))
 (home_assistant/'ha-history.json').write_text(json.dumps([[
-    {'entity_id':'sensor.room','state':'21','last_changed':'2026-11-16T08:00:00Z'},
-    {'entity_id':'sensor.room','state':'22','last_changed':'2026-11-16T09:00:00Z'}
+    {'entity_id':'sensor.room','state':'21','last_changed':datetime.datetime.fromtimestamp(time.time()-3600,datetime.timezone.utc).isoformat()},
+    {'s':'22','lu':datetime.datetime.fromtimestamp(time.time()-1800,datetime.timezone.utc).isoformat()}
 ]]))
 frames,private=app_session('lumen.home-assistant',[
     component('device:0'),dict(event='back'),component('devices'),
     component('search'),dict(event='text',action=1,text='KUCHE'),component('favorite:0'),dict(event='back')
 ],legacy=home_assistant)
 assert any(c.get('text')=='Küche' for f in frames for c in f.get('ui',[]))
-assert any(c.get('type')=='line' for f in frames for c in f.get('ui',[]))
+assert any(c.get('type')=='line' and c.get('weight')==2 and c.get('x2',0)>c.get('x',0)
+           for f in frames for c in f.get('ui',[]))
 assert (private/'ha-favorites.txt').read_text()==''
 assert (home_assistant/'ha-favorites.txt').read_text()=='sensor.room\n'
 assert not any(f.get('service')=='home_assistant' for f in frames)

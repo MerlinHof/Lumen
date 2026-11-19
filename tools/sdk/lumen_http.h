@@ -11,8 +11,8 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#ifdef __linux__
 #include <signal.h>
+#ifdef __linux__
 #include <sys/prctl.h>
 #endif
 
@@ -127,23 +127,38 @@ static inline pid_t lumen_http_start(LumenHttpRequest request,int output,size_t 
     return child;
 }
 
-static inline int lumen_http_wait(pid_t child) {
-    if(child<=0)return 0;
+typedef enum {
+    LUMEN_HTTP_OK, LUMEN_HTTP_INVALID, LUMEN_HTTP_TRANSPORT,
+    LUMEN_HTTP_TIMEOUT, LUMEN_HTTP_REDIRECT_LIMIT, LUMEN_HTTP_TOO_LARGE,
+    LUMEN_HTTP_INTERRUPTED, LUMEN_HTTP_BAD_TEXT, LUMEN_HTTP_IO
+} LumenHttpResult;
+
+static inline LumenHttpResult lumen_http_finish(pid_t child) {
+    if(child<=0)return LUMEN_HTTP_INVALID;
     int status;
     pid_t waited;
     do waited=waitpid(child,&status,0);while(waited<0 && errno==EINTR);
-    return waited==child && WIFEXITED(status) && WEXITSTATUS(status)==0;
+    if(waited!=child)return LUMEN_HTTP_IO;
+    if(WIFSIGNALED(status))return WTERMSIG(status)==SIGXFSZ ? LUMEN_HTTP_TOO_LARGE : LUMEN_HTTP_INTERRUPTED;
+    if(!WIFEXITED(status))return LUMEN_HTTP_INTERRUPTED;
+    switch(WEXITSTATUS(status)) {
+    case 0:return LUMEN_HTTP_OK;
+    case 18:return LUMEN_HTTP_INTERRUPTED;
+    case 28:return LUMEN_HTTP_TIMEOUT;
+    case 47:return LUMEN_HTTP_REDIRECT_LIMIT;
+    case 63:return LUMEN_HTTP_TOO_LARGE;
+    default:return LUMEN_HTTP_TRANSPORT;
+    }
 }
-
 /* Blocking calls for app workers. Capacity includes the NUL terminator. */
-static inline int lumen_http_text(LumenHttpRequest request,char *body,size_t capacity) {
-    if(!body || capacity<2)return 0;
+static inline LumenHttpResult lumen_http_text_result(LumenHttpRequest request,char *body,size_t capacity) {
+    if(!body || capacity<2)return LUMEN_HTTP_INVALID;
     body[0]=0;
     int channel[2];
-    if(pipe(channel))return 0;
+    if(pipe(channel))return LUMEN_HTTP_IO;
     if(fcntl(channel[0],F_SETFD,FD_CLOEXEC)<0) {
         close(channel[0]);close(channel[1]);
-        return 0;
+        return LUMEN_HTTP_IO;
     }
     pid_t child=lumen_http_start(request,channel[1],capacity-1,0);
     close(channel[1]);
@@ -156,19 +171,32 @@ static inline int lumen_http_text(LumenHttpRequest request,char *body,size_t cap
         used+=(size_t)got;
     }
     close(channel[0]);
-    int ok=lumen_http_wait(child) && got==0 && used<capacity && !memchr(body,0,used);
-    body[ok ? used : 0]=0;
-    return ok;
+    LumenHttpResult result=lumen_http_finish(child);
+    if(used>=capacity)result=LUMEN_HTTP_TOO_LARGE;
+    else if(got<0)result=LUMEN_HTTP_IO;
+    else if(result==LUMEN_HTTP_OK && memchr(body,0,used))result=LUMEN_HTTP_BAD_TEXT;
+    body[result==LUMEN_HTTP_OK ? used : 0]=0;
+    return result;
+}
+static inline int lumen_http_text(LumenHttpRequest request,char *body,size_t capacity) {
+    return lumen_http_text_result(request,body,capacity)==LUMEN_HTTP_OK;
 }
 
-/* The caller supplies an empty private file, and commits it only on success. */
-static inline int lumen_http_download(LumenHttpRequest request,int fd,size_t limit) {
+/* The caller supplies an empty private file. Partial data is discarded. */
+static inline LumenHttpResult lumen_http_download_result(LumenHttpRequest request,int fd,size_t limit) {
     struct stat info;
     if(fd<0 || fstat(fd,&info) || !S_ISREG(info.st_mode) || info.st_size ||
-       lseek(fd,0,SEEK_SET)!=0)return 0;
-    if(!lumen_http_wait(lumen_http_start(request,fd,limit,1)) ||
-       fstat(fd,&info) || info.st_size<=0 || (uintmax_t)info.st_size>limit)return 0;
-    return lseek(fd,0,SEEK_SET)==0;
+       lseek(fd,0,SEEK_SET)!=0)return LUMEN_HTTP_INVALID;
+    LumenHttpResult result=lumen_http_finish(lumen_http_start(request,fd,limit,1));
+    if(result==LUMEN_HTTP_OK) {
+        if(fstat(fd,&info) || info.st_size<=0 || lseek(fd,0,SEEK_SET)!=0)result=LUMEN_HTTP_IO;
+        else if((uintmax_t)info.st_size>limit)result=LUMEN_HTTP_TOO_LARGE;
+    }
+    if(result!=LUMEN_HTTP_OK && (ftruncate(fd,0) || lseek(fd,0,SEEK_SET)!=0))return LUMEN_HTTP_IO;
+    return result;
+}
+static inline int lumen_http_download(LumenHttpRequest request,int fd,size_t limit) {
+    return lumen_http_download_result(request,fd,limit)==LUMEN_HTTP_OK;
 }
 
 static inline int lumen_https_get(const char *url,char *body,size_t capacity) {
@@ -177,6 +205,6 @@ static inline int lumen_https_get(const char *url,char *body,size_t capacity) {
 static inline int lumen_http_bearer(const char *url,const char *token,const char *payload,
                                    char *body,size_t capacity,int timeout) {
     return lumen_http_text((LumenHttpRequest){.url=url,.bearer=token,.json=payload,
-        .timeout=timeout,.connect_timeout=5,.allow_http=1},body,capacity);
+        .timeout=timeout,.connect_timeout=5},body,capacity);
 }
 #endif

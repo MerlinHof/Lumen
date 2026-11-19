@@ -61,16 +61,25 @@ static const char *state_label(const Device *d) {
         return word("Nicht verfügbar","Unavailable","Indisponible");
     return d->value;
 }
+static void open_history(const Device *device) {
+    snprintf(graph_id,sizeof(graph_id),"%s",device->id);
+    show(GRAPH);
+}
 static void plot(const Device *d,int x,int y,int w,int h,int detail) {
     double now=time(NULL),start=detail ? now-hours*3600 : d->count ? d->t[0] : now;
     double end=detail ? now : d->count ? d->t[d->count-1] : now;
     if(end<=start)end=start+1;
-    double lo=INFINITY,hi=-INFINITY;
+    int carry=-1;
+    for(int i=0;i<d->count && d->t[i]<start;i++)carry=i;
+    double lo=carry>=0 ? d->v[carry] : INFINITY;
+    double hi=carry>=0 ? d->v[carry] : -INFINITY;
     for(int i=0;i<d->count;i++)if(d->t[i]>=start && d->t[i]<=end) {
         lo=fmin(lo,d->v[i]);hi=fmax(hi,d->v[i]);
     }
     if(!isfinite(lo) || !isfinite(hi)) {
         if(detail)ui_paint_text(x,y,w,h,busy ? word("Verlauf lädt …","Loading history…","Chargement…") :
+            ha_history_retry>time(NULL) ? word("Verlauf nicht geladen · erneut tippen",
+                "Could not load history · tap to retry","Échec du chargement · touchez pour réessayer") :
             word("Kein Verlauf","No history","Aucun historique"),PAINT_BODY);
         return;
     }
@@ -88,16 +97,21 @@ static void plot(const Device *d,int x,int y,int w,int h,int detail) {
         }
     }
     int previous=-1,last_x=0,last_y=0,nearest=-1,dist=w+1;
-    for(int i=0;i<d->count;i++) {
-        if(d->t[i]<start || d->t[i]>end)continue;
-        int px=x+3+(int)((d->t[i]-start)/(end-start)*(w-6));
+    for(int i=carry>=0 ? carry : 0;i<d->count;i++) {
+        if(d->t[i]<start && i!=carry)continue;
+        if(d->t[i]>end)break;
+        int px=x+3+(int)((fmax(d->t[i],start)-start)/(end-start)*(w-6));
         int py=y+h-7-(int)((d->v[i]-lo)/(hi-lo)*(h-14));
         if(previous>=0)ui_paint_line(last_x,last_y,px,py,detail ? 2 : 1,detail ? 35 : 144);
         last_x=px;last_y=py;previous=i;
         if(trace>=0 && abs(px-trace)<dist){nearest=i;dist=abs(px-trace);}
     }
+    if(previous>=0) {
+        if(detail)ui_paint_line(last_x,last_y,x+w-3,last_y,2,35);
+        else ui_paint_ellipse(last_x,last_y,2,2,144);
+    }
     if(detail && nearest>=0) {
-        int px=x+3+(int)((d->t[nearest]-start)/(end-start)*(w-6));
+        int px=x+3+(int)((fmax(d->t[nearest],start)-start)/(end-start)*(w-6));
         ui_paint_line(px,y+1,px,y+h-2,2,0);
         time_t t=(time_t)d->t[nearest];struct tm local;localtime_r(&t,&local);
         char value[80],stamp[32];strftime(stamp,sizeof(stamp),"%d.%m. %H:%M",&local);
@@ -189,17 +203,27 @@ static int input(const Input *in) {
                ha_set_connection(address ? text : ha_url,address ? ha_token : text)) {
                 snprintf(address ? ha_url : ha_token,sizeof(ha_url),"%s",text);
                 ha_refresh_at=0;
-                ha_history_at=0;
+                lumen_worker_cancel(&history_worker);
+                ha_history_at=ha_history_retry=0;
+                ha_history_key[0]=ha_history_pending[0]=0;
             }
             list();
         }
         return 1;
     }
     if(view==GRAPH && in->kind==INPUT_TAP) {
-        if(in->y>=229 && in->y<642 && in->x>=66 && in->x<558)trace=in->x;
+        if(in->y>=229 && in->y<642 && in->x>=66 && in->x<558) {
+            if(ha_history_retry && !history_worker){ha_history_retry=0;list();}
+            else trace=in->x;
+        }
         return 1;
     }
     char id[64];
+    if(view==DASHBOARD && lumen_action(in,id,"long_pressed")) {
+        int i=lumen_action_index(id,"device",8);
+        if(i>=0 && *devices[i].id)open_history(&devices[i]);
+        return 1;
+    }
     if(!lumen_action(in,id,"clicked"))return 0;
     if(view==CONFIG) {
         if(!strcmp(id,"address"))lumen_request("input","Home Assistant URL",ha_url,2);
@@ -217,7 +241,7 @@ static int input(const Input *in) {
     } else if(view==DASHBOARD) {
         int i=lumen_action_index(id,"device",8);
         if(i>=0 && *devices[i].id) {
-            if(devices[i].sensor){snprintf(graph_id,sizeof(graph_id),"%s",devices[i].id);show(GRAPH);}
+            if(devices[i].sensor)open_history(&devices[i]);
             else ha_toggle_device(&devices[i]);
         }
     }

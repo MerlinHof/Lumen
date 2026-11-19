@@ -14,6 +14,7 @@
 #define LUMEN_APP_PROTOCOL 2
 #endif
 #include "lumen_input.h"
+#include "lumen_state.h"
 #include "lumen_icons.h"
 typedef enum{PAINT_BODY,PAINT_HEADING,PAINT_DISPLAY,PAINT_SECONDARY,PAINT_TITLE}PaintText;
 static char lumen_event[65536];static int lumen_first,lumen_language,lumen_back,lumen_frame_tick,lumen_fullscreen,lumen_ready=1;
@@ -46,7 +47,7 @@ static int lumen_is(const char *event) {
  char name[48];return lumen_string("event",name,sizeof(name)) && !strcmp(name,event);
 }
 static void lumen_begin(void){lumen_first=1;lumen_frame_tick=0;printf("{\"back\":%s,\"ui\":[",lumen_back?"true":"false");}
-static void lumen_end(void){printf("],\"tick\":%d,\"fullscreen\":%d,\"ready\":%s}\n",lumen_frame_tick,lumen_fullscreen,lumen_ready ? "true" : "false");fflush(stdout);}
+static void lumen_end(void){int idle=lumen_state_wait();if(idle && (!lumen_frame_tick || idle<lumen_frame_tick))lumen_frame_tick=idle;printf("],\"tick\":%d,\"fullscreen\":%d,\"ready\":%s}\n",lumen_frame_tick,lumen_fullscreen,lumen_ready ? "true" : "false");fflush(stdout);}
 static void lumen_schedule(int milliseconds){lumen_frame_tick=milliseconds;}
 static void lumen_cmd(const char*type,int x,int y,int w,int h){if(!lumen_first)putchar(',');lumen_first=0;fputs("{\"type\":",stdout);lumen_json(type);printf(",\"x\":%d,\"y\":%d,\"w\":%d,\"h\":%d",x,y,w,h);}
 static void ui_paint_heading(const char*s,int actions){lumen_cmd("heading",28,74,544,44);fputs(",\"text\":",stdout);lumen_json(s);printf(",\"actions\":%d}",actions);}
@@ -260,6 +261,25 @@ static void lumen_page(const char *title) {
  lumen_cmd("page_layout",28,74,544,44);
  fputs(",\"text\":",stdout);lumen_json(title);putchar('}');
 }
+/* A form uses shared sizing, wrapping and paging. Add the existing form
+   controls after the page declaration. */
+static inline void lumen_form(const char *title) {
+ lumen_cmd("page_layout",28,74,544,44);
+ fputs(",\"text\":",stdout);lumen_json(title);fputs(",\"scroll\":1}",stdout);
+}
+static inline void lumen_form_text(const char *text,PaintText role) {
+ lumen_cmd("form_text",0,0,0,0);fputs(",\"text\":",stdout);lumen_json(text);
+ printf(",\"role\":%d}",role);
+}
+static inline void lumen_form_excerpt(const char *text,int offset,int length) {
+ lumen_cmd("form_text",0,0,0,0);fputs(",\"text\":",stdout);lumen_json(text);
+ printf(",\"role\":%d,\"match_offset\":%d,\"match_length\":%d}",PAINT_BODY,offset,length);
+}
+static inline void lumen_form_choice(const char *id,const char *label,const char *value) {
+ lumen_cmd("form_choice",0,0,0,0);fputs(",\"id\":",stdout);lumen_json(id);
+ fputs(",\"text\":",stdout);lumen_json(label);
+ fputs(",\"value\":",stdout);lumen_json(value);putchar('}');
+}
 static void lumen_component_button(const char *id,const char *label,int primary) {
  lumen_cmd("component_button",28,0,544,50);
  fputs(",\"id\":",stdout);lumen_json(id);
@@ -283,6 +303,10 @@ static inline void lumen_custom_action(const char *id,int x,int y,int w,int h) {
 }
 /* Semantic targets for dense grids and repeated rows. IDs are stable
    within the view and independent of the current screen coordinates. */
+static inline void lumen_rounded_action(const char *id,int x,int y,int w,int h,int radius) {
+ lumen_cmd("custom_action",x,y,w,h);
+ fputs(",\"id\":",stdout);lumen_json(id);printf(",\"radius\":%d}",radius);
+}
 static inline void lumen_index_action(const char *group,int index,int x,int y,int w,int h) {
  char id[64];
  int length=snprintf(id,sizeof(id),"%s:%d",group,index);
@@ -345,6 +369,10 @@ static void lumen_qr(int x,int y,int side,const char *value) {
 enum { LUMEN_LIST_DIVIDER=232 };
 static inline void lumen_list_divider(int left,int y,int right) {
  ui_paint_line(left,y,right,y,1,LUMEN_LIST_DIVIDER);
+}
+static inline void lumen_excerpt(int x,int y,int w,int h,const char *text,int lines,int offset,int length) {
+ lumen_cmd("wrap",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(text);
+ printf(",\"lines\":%d,\"match_offset\":%d,\"match_length\":%d}",lines,offset,length);
 }
 static void lumen_pager(int y,int page,int count) {
  lumen_cmd("pager",205,y,189,44);printf(",\"page\":%d,\"count\":%d}",page,count);
@@ -472,7 +500,7 @@ static void lumen_run(void(*draw)(void),int(*input)(const Input*),void(*save)(vo
       else lumen_app_service_result(0,"");
       continue;
    }
-   if(lumen_is("pause")){Input in={.kind=INPUT_PAUSE};input(&in);if(save)save();continue;}
+   if(lumen_is("pause")){Input in={.kind=INPUT_PAUSE};input(&in);if(save)save();lumen_state_checkpoint();continue;}
    if(lumen_is("open")) {
       lumen_language=lumen_number("language");
       Input in={.kind=INPUT_OPEN};input(&in);
@@ -492,6 +520,7 @@ static void lumen_run(void(*draw)(void),int(*input)(const Input*),void(*save)(vo
    }
    if(lumen_is("refresh")){Input in={.kind=INPUT_REFRESH};input(&in);}
    if(lumen_is("tick")){Input in={.kind=INPUT_TICK};input(&in);}
+   lumen_state_idle();
    if(lumen_is("page")){Input in={.kind=INPUT_PAGE,.x=lumen_number("page")};input(&in);if(save)save();}
    if(lumen_is("viewport")){Input in={.kind=INPUT_VIEWPORT,.y=lumen_number("bottom")};input(&in);}
    if(lumen_is("back")){Input in={.kind=INPUT_BACK};input(&in);if(save)save();}
@@ -505,5 +534,7 @@ static void lumen_run(void(*draw)(void),int(*input)(const Input*),void(*save)(vo
    if(lumen_is("open")||lumen_is("resume")||lumen_is("input")||lumen_is("back")||lumen_is("text")||lumen_is("select")||lumen_is("viewport")||lumen_is("service")||lumen_is("page")||lumen_is("tick")||lumen_is("refresh")||lumen_is("component")||named_intent||lumen_is("intent_result")){lumen_begin();draw();lumen_end();}
  }
  if(save)save();
+ lumen_state_checkpoint();
+ lumen_state_release();
 }
 #endif

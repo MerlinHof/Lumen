@@ -20,6 +20,9 @@ static void check_http(const char *directory) {
           "for argument do url=$argument; done\n"
           "case \"$url\" in\n"
           " */exact) printf %s 12345678;;\n"
+          " */timeout) exit 28;;\n"
+          " */redirect) exit 47;;\n"
+          " */partial) printf %s partial; exit 18;;\n"
           " */large) printf %s 123456789;;\n"
           " */binary) printf 'A\\000Z';;\n"
           " */json) cfg=$(/bin/cat); case \"$cfg\" in *'Authorization: Bearer fixture-bearer'*) printf %s '{}' ;; *) exit 3;; esac;;\n"
@@ -32,6 +35,13 @@ static void check_http(const char *directory) {
     assert(lumen_https_get("https://fixture.invalid/exact",text,sizeof(text)) && !strcmp(text,"12345678"));
     assert(!lumen_https_get("https://fixture.invalid/large",text,sizeof(text)) && !*text);
     assert(!lumen_https_get("https://fixture.invalid/binary",text,sizeof(text)) && !*text);
+    assert(lumen_http_text_result((LumenHttpRequest){.url="https://fixture.invalid/timeout"},text,sizeof(text))==LUMEN_HTTP_TIMEOUT);
+    assert(lumen_http_text_result((LumenHttpRequest){.url="https://fixture.invalid/redirect",.redirects=1},text,sizeof(text))==LUMEN_HTTP_REDIRECT_LIMIT);
+    FILE *partial=tmpfile();
+    assert(partial && lumen_http_download_result((LumenHttpRequest){.url="https://fixture.invalid/partial"},
+        fileno(partial),16)==LUMEN_HTTP_INTERRUPTED && fgetc(partial)==EOF);
+    fclose(partial);
+    assert(!lumen_http_bearer("http://fixture.invalid/json","fixture-bearer",NULL,text,sizeof(text),1));
     assert(!lumen_https_get("http://fixture.invalid/exact",text,sizeof(text)));
     LumenHttpRequest post={.url="https://fixture.invalid/json",.bearer="fixture-bearer",.json="{\"v\":1}"};
     assert(lumen_http_text(post,text,sizeof(text)) && !strcmp(text,"{}"));
@@ -47,6 +57,25 @@ static void check_http(const char *directory) {
     char encoded[32];
     assert(lumen_url_encode("Ä &",encoded,sizeof(encoded)) && !strcmp(encoded,"%C3%84%20%26"));
     puts("PASS SDK HTTP limits, binary files, URL encoding, and bearer isolation.");
+}
+
+static void check_registered_state(void) {
+    int value=7;
+    assert(lumen_state_register("state.bin",2,&value,sizeof(value))==0);
+    assert(lumen_state_checkpoint() && !lumen_storage_exists("state.bin"));
+    lumen_state_dirty();
+    assert(lumen_state_checkpoint() && !lumen_storage_exists("state.bin"));
+    value=9;
+    lumen_state_dirty();
+    lumen_state.due=lumen_state_now()-1;
+    lumen_state_idle();
+    assert(!lumen_state.dirty && lumen_storage_exists("state.bin"));
+    lumen_state_release();
+    value=0;
+    assert(lumen_state_register("state.bin",3,&value,sizeof(value))==-1 && value==0);
+    assert(lumen_state_register("state.bin",2,&value,sizeof(value))==1 && value==9);
+    lumen_state_release();
+    puts("PASS SDK versioned state, idle checkpoints and unchanged-write suppression.");
 }
 
 int main(int argc,char **argv) {
@@ -77,5 +106,6 @@ int main(int argc,char **argv) {
     assert(!lumen_storage_exists("documents/notes/one.txt"));
     assert(lumen_storage_list("documents/notes",check_entry,&count) && count==1);
     check_http(argv[1]);
+    check_registered_state();
     puts("PASS SDK JSON structure, Unicode, nested storage and traversal rejection.");
 }

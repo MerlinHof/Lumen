@@ -1,9 +1,9 @@
 #include "lumen_app.h"
 
 enum {BOOK,CONTENTS,SETTINGS,CONTEXT,SELECTION};
-static int context_action=100,mention_state,wiki_state,mention_page;
+static int context_action=100,mention_state,wiki_state,mention_page,mention_offset,mention_length,mention_expanded;
 static char selected_text[2048];
-static char context_term[129],mention_quote[480],wiki_title[180],wiki_extract[2600];
+static char context_term[129],mention_quote[1200],wiki_title[180],wiki_extract[2600];
 static int private_preferences=1,preferences_loaded;
 static int view,chrome,page,total,preferences[10],settings_page,category,list_page,count,confirm=-1;
 static char title[384],labels[8][768];
@@ -124,6 +124,7 @@ static void context_open(const char *text,int lookup) {
     if(!size)return;
     context_action=context_action>=99000 ? 100 : context_action+2;
     mention_state=1;wiki_state=mention_page=0;
+    mention_expanded=0;
     mention_quote[0]=wiki_title[0]=wiki_extract[0]=0;
     view=CONTEXT;lumen_back=1;
     request("first_mention",context_term,context_action);
@@ -133,8 +134,17 @@ static void context_open(const char *text,int lookup) {
     }
 }
 static void context_draw(void) {
+    if(mention_expanded) {
+        lumen_form(word("Erste Erwähnung","First mention","Première mention"));
+        char page_label[48];
+        snprintf(page_label,sizeof(page_label),"%s %d",word("Seite","Page","Page"),mention_page);
+        lumen_form_text(page_label,PAINT_SECONDARY);
+        lumen_form_excerpt(mention_quote,mention_offset,mention_length);
+        lumen_component_button("context-passage",word("Zurück zur Suche","Back to lookup","Retour à la recherche"),0);
+        return;
+    }
     lumen_document_page(0);
-    ui_paint_surface(20,145,560,560,16,255,105);
+    ui_paint_surface(20,124,560,616,16,255,105);
     lumen_text(40,165,470,50,context_term,PAINT_HEADING,0,1);
     lumen_icon_action("context-close",515,159,IC_CLOSE);
     lumen_list_divider(40,222,560);
@@ -142,25 +152,26 @@ static void context_draw(void) {
     snprintf(label,sizeof(label),"%s",word("Erste Erwähnung","First mention","Première mention"));
     lumen_text(40,235,520,31,label,PAINT_SECONDARY,-1,1);
     if(mention_state==2) {
-        lumen_wrapped(40,273,515,123,mention_quote,PAINT_BODY,4);
+        lumen_excerpt(40,273,515,235,mention_quote,9,mention_offset,mention_length);
         snprintf(label,sizeof(label),"%s %d",word("Seite","Page","Page"),mention_page);
-        lumen_text_right(335,235,225,31,label,PAINT_SECONDARY);
+        snprintf(label+strlen(label),sizeof(label)-strlen(label),"  ›");
+        lumen_button_action("context-passage",402,229,156,36,label,0);
     } else lumen_wrapped(40,273,515,95,mention_state==1 ?
         word("Buch wird durchsucht …","Searching the book…","Recherche dans le livre…") :
         word("Keine passende Textstelle gefunden.","No matching passage found.","Aucun passage correspondant."),
         PAINT_BODY,3);
-    lumen_list_divider(40,415,560);
-    lumen_text(40,426,520,33,"Wikipedia",PAINT_SECONDARY,-1,1);
+    lumen_list_divider(40,511,560);
+    lumen_text(40,522,520,33,"Wikipedia",PAINT_SECONDARY,-1,1);
     if(wiki_state==2) {
-        lumen_text(40,463,520,36,wiki_title,PAINT_HEADING,0,1);
-        lumen_wrapped(40,505,515,172,wiki_extract,PAINT_BODY,5);
-        lumen_text(40,669,520,22,"Wikipedia · CC BY-SA",PAINT_SECONDARY,-1,1);
-    } else if(wiki_state==1)lumen_wrapped(40,479,515,92,
+        lumen_text(40,553,520,36,wiki_title,PAINT_HEADING,0,1);
+        lumen_wrapped(40,592,515,109,wiki_extract,PAINT_BODY,4);
+        lumen_text(40,708,520,22,"Wikipedia · CC BY-SA",PAINT_SECONDARY,-1,1);
+    } else if(wiki_state==1)lumen_wrapped(40,574,515,92,
         word("Artikel wird geladen …","Looking up the article…","Recherche de l’article…"),PAINT_BODY,3);
     else {
-        if(wiki_state==3)lumen_text(40,472,520,32,word("Kein Artikel verfügbar.",
+        if(wiki_state==3)lumen_text(40,566,520,32,word("Kein Artikel verfügbar.",
             "No article available.","Aucun article disponible."),PAINT_SECONDARY,-1,1);
-        lumen_button_action("context-wiki",40,516,250,48,word("Artikel suchen","Look up article",
+        lumen_button_action("context-wiki",40,610,250,48,word("Artikel suchen","Look up article",
             "Rechercher l’article"),0);
     }
 }
@@ -265,6 +276,7 @@ static int index_for(const char *id,const char *prefix) {
 static int activate(const char *id) {
     if(view==CONTEXT) {
         if(!strcmp(id,"context-close"))show(BOOK);
+        else if(!strcmp(id,"context-passage") && mention_state==2)mention_expanded=!mention_expanded;
         else if(!strcmp(id,"context-wiki") && wiki_state!=1) {
             wiki_state=1;
             lumen_app_service("lumen.wikipedia","summary",context_term,context_action+1);
@@ -337,6 +349,7 @@ static int input(const Input *in) {
         view=BOOK;chrome=0;lumen_back=0;lumen_ready=0;state();return 1;
     }
     if(in->kind==INPUT_BACK && view==SELECTION){selection_close();return 1;}
+    if(in->kind==INPUT_BACK && view==CONTEXT && mention_expanded){mention_expanded=0;return 1;}
     if(in->kind==INPUT_BACK && view!=BOOK){if(confirm>=0)confirm=-1;else show(BOOK);return 1;}
     if(in->kind==INPUT_PAGE) {
         if(view==CONTEXT || view==SELECTION)return 1;
@@ -370,6 +383,8 @@ static int input(const Input *in) {
                 mention_state=3;
                 if(in->y && wire_bounded_string("quote",mention_quote,sizeof(mention_quote))) {
                     mention_page=lumen_number("mention_page");
+                    mention_offset=lumen_number("match_offset");
+                    mention_length=lumen_number("match_length");
                     mention_state=2;
                 }
             } else if(in->x==context_action+1) {

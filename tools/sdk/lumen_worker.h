@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <time.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #ifdef __linux__
@@ -36,8 +37,16 @@ static inline int lumen_worker_poll(pid_t *worker) {
 }
 static inline void lumen_worker_cancel(pid_t *worker) {
     if(*worker<=0)return;
-    kill(*worker,SIGTERM);
-    while(waitpid(*worker,NULL,0)<0 && errno==EINTR){}
+    pid_t child=*worker;
     *worker=0;
+    kill(child,SIGTERM);
+    for(int attempt=0;attempt<8;attempt++) {
+        pid_t result=waitpid(child,NULL,WNOHANG);
+        if(result==child || (result<0 && errno!=EINTR))return;
+        struct timespec delay={.tv_nsec=5000000};
+        nanosleep(&delay,NULL);
+    }
+    kill(child,SIGKILL);
+    while(waitpid(child,NULL,0)<0 && errno==EINTR){}
 }
 #endif

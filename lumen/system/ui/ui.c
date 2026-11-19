@@ -143,6 +143,7 @@ static void system_region(int x, int y, int w, int h) {
         widgets[count].system = 1;
 }
 static int textwidth(const char *s, const Font *f);
+static int textwidth_raw(const char *s,const Font *f);
 static void notification_draw(void),notification_dismiss(void);
 static int notification_visible(void),notification_poll(void),notification_input(const Input*,int);
 static int package_overlays_allowed(void);
@@ -401,7 +402,10 @@ static int drawtext_raw(int x, int y, const char *s, const Font *f, int maxw) {
 static int drawtext(int x, int y, const char *s, const Font *f, int maxw) {
     return drawtext_raw(x, y, tr(s), f, maxw);
 }
-static int wrapped_raw(int x, int y, const char *s, const Font *f, int width, int lines) {
+static int wrapped_emphasis(int x,int y,const char *s,const Font *f,int width,int lines,
+                            int offset,int length,const char **remaining) {
+    const char *text=s;
+    const char *first=text+offset,*last=first+length;
     int lh = f->h - 4;
     int row = 0;
     for (; row < lines && *s; row++) {
@@ -427,12 +431,26 @@ static int wrapped_raw(int x, int y, const char *s, const Font *f, int width, in
             n = sizeof(buf) - 1;
         memcpy(buf, start, n);
         buf[n] = 0;
-        drawtext_raw(x, y + row * lh, buf, f, width);
+        if(x>=0) {
+            if(length>0 && start<last && start+n>first) {
+                int lo=first>start ? (int)(first-start) : 0;
+                int hi=last<start+n ? (int)(last-start) : (int)n;
+                char saved=buf[lo];
+                buf[lo]=0;int left=textwidth_raw(buf,f);buf[lo]=saved;
+                saved=buf[hi];buf[hi]=0;int right=textwidth_raw(buf,f);buf[hi]=saved;
+                rect(x+left,y+row*lh+4,right-left,lh-3,208);
+            }
+            drawtext_raw(x,y+row*lh,buf,f,width);
+        }
         s = p;
         while (*s == ' ' || *s == '\n')
             s++;
     }
+    if(remaining)*remaining=s;
     return row;
+}
+static int wrapped_raw(int x,int y,const char *s,const Font *f,int width,int lines) {
+    return wrapped_emphasis(x,y,s,f,width,lines,0,0,NULL);
 }
 static void wrapped(int x, int y, const char *s, const Font *f, int width, int lines) {
     wrapped_raw(x, y, tr(s), f, width, lines);
@@ -1967,23 +1985,25 @@ int ui_feedback_active(void) {
 }
 void ui_feedback_draw(void) {
     if(!ui_feedback_active())return;
-    Widget r=widgets[pressed];
+    Widget r=press_bounds;
     /* Invert solid pixels in the filled control. Keeping grayscale pixels
      * stable allows the sparse feedback frame to use the fast waveform. */
     int inset=4,w=r.w-2*inset,h=r.h-2*inset;
     if(w<8 || h<8)return;
-    int radius=r.radius-inset,profile=rounding_profile();
+    int radius=r.radius,profile=rounding_profile();
     if(radius>MAX_CORNER_RADIUS)radius=MAX_CORNER_RADIUS;
-    if(radius>w/2)radius=w/2;
-    if(radius>h/2)radius=h/2;
+    if(radius>r.w/2)radius=r.w/2;
+    if(radius>r.h/2)radius=r.h/2;
+    if(profile && radius*2>=(r.w<r.h ? r.w : r.h)-1)profile=CORNER_CIRCLE;
     const unsigned char *mask=profile && radius>0 ? corner_mask(radius,profile) : NULL;
     int x0=r.x+inset,y0=r.y+inset;
     for(int y=0;y<h;y++) {
         if((unsigned)(y+y0)>=HEIGHT)continue;
-        int corner_y=y<h/2 ? y : h-1-y;
+        int corner_y=(y<h/2 ? y : h-1-y)+inset;
         int cut=0;
         if(mask && corner_y<radius)
             while(cut<radius && mask[corner_y*radius+cut]<CORNER_ALPHA/2)cut++;
+        cut=cut>inset ? cut-inset : 0;
         int left=r.sides&1 ? cut : 0,right=w-(r.sides&2 ? cut : 0);
         if(left+x0<0)left=-x0;
         if(right+x0>WIDTH)right=WIDTH-x0;

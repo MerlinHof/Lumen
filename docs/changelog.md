@@ -1,5 +1,7 @@
 # Changelog
 
+- [7.0](releases/7.0.md) · Reader context, synchronous status titles, Home Assistant history, OpenAI polish, and simpler SDK forms and state.
+
 - [6.9](releases/6.9.md) · Semantic app controls, indexed grids, and shared HTTP and worker APIs.
 
 - [6.8](releases/6.8.md) · Standalone News, Recipes and Store providers, package-rendered alarms, and removal of the legacy app host.

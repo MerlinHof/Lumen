@@ -30,15 +30,15 @@ static int reader_set_value(int id,int value) {
     apply_reading_settings();
     return 1;
 }
-typedef struct {int page;char quote[480];} DocumentExcerpt;
-static struct {pid_t child;int fd,action;int64_t due;} document_excerpt={.fd=-1};
+typedef struct {int page,offset,length;char quote[1200];} DocumentExcerpt;
+static struct {pid_t child;int fd,action;int64_t due;size_t received;DocumentExcerpt result;} document_excerpt={.fd=-1};
 static void document_excerpt_close(void) {
     if(document_excerpt.fd>=0)close(document_excerpt.fd);
     if(document_excerpt.child>0) {
         kill(document_excerpt.child,SIGKILL);
         while(waitpid(document_excerpt.child,NULL,0)<0 && errno==EINTR){}
     }
-    document_excerpt.fd=-1;document_excerpt.child=0;
+    document_excerpt.fd=-1;document_excerpt.child=0;document_excerpt.received=0;
 }
 static int document_excerpt_start(const char *term,int action) {
     document_excerpt_close();
@@ -50,7 +50,7 @@ static int document_excerpt_start(const char *term,int action) {
         close(out[0]);
         app_process_detach_inherited();
         DocumentExcerpt result={0};
-        result.page=engine_first_mention(term,page,result.quote,sizeof(result.quote));
+        result.page=engine_first_mention(term,page,result.quote,sizeof(result.quote),&result.offset,&result.length);
         ssize_t written=write(out[1],&result,sizeof(result));
         _exit(written==(ssize_t)sizeof(result) ? 0 : 1);
     }
@@ -64,17 +64,23 @@ static int document_excerpt_start(const char *term,int action) {
 static int document_excerpt_wait(void) {return document_excerpt.child>0 ? 100 : -1;}
 static void document_excerpt_poll(void) {
     if(document_excerpt.child<=0)return;
-    DocumentExcerpt result;
-    ssize_t got=read(document_excerpt.fd,&result,sizeof(result));
-    if(got<0 && (errno==EAGAIN || errno==EINTR) && extra_millis()<document_excerpt.due)return;
-    int ok=got==(ssize_t)sizeof(result) && result.page>=0;
+    DocumentExcerpt *pending=&document_excerpt.result;
+    size_t offset=document_excerpt.received;
+    ssize_t got=read(document_excerpt.fd,(char *)pending+offset,sizeof(*pending)-offset);
+    if(got>0)document_excerpt.received+=(size_t)got;
+    if(document_excerpt.received<sizeof(*pending) &&
+       (got>0 || (got<0 && (errno==EAGAIN || errno==EINTR))) &&
+       extra_millis()<document_excerpt.due)return;
+    DocumentExcerpt result=*pending;
+    int ok=document_excerpt.received==sizeof(result) && result.page>=0;
     int action=document_excerpt.action;
     document_excerpt_close();
     if(!ok){package_acknowledge(action,0);return;}
     char *message=NULL;size_t length=0;
     FILE *out=package_reply(&message,&length,action,1);
     if(out) {
-        fprintf(out,",\"mention_page\":%d",result.page+1);
+        fprintf(out,",\"mention_page\":%d,\"match_offset\":%d,\"match_length\":%d",
+                result.page+1,result.offset,result.length);
         package_field(out,"quote",result.quote);
         package_reply_end(out,&message);
     }

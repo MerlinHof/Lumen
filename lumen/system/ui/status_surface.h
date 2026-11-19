@@ -48,24 +48,27 @@ static int status_action_count;
 static void header(void) {
     refresh_status(0);
     status_send();
+    status_overlay_poll();
     rect(0,0,WIDTH,STATUS_HEIGHT,255);
     const char *frame=app_overlay_frame(app_provider_overlay_slot(PROVIDER_STATUS));
-    status_action_count=overlay_actions(frame,status_actions,12);
-    if(*frame) {
-        overlay_paint(frame,(OverlayBounds){0,0,WIDTH,STATUS_HEIGHT},status_title());
-    } else {
-        int left=can_back() ? 68 : 24;
-        label_ellipsis(left,0,195,STATUS_HEIGHT,status_title(),&small,0);
-    }
-    int back=0;
+    const OverlayAction *actions=overlay_slot_actions(app_provider_overlay_slot(PROVIDER_STATUS),&status_action_count);
+    if(status_action_count>12)status_action_count=12;
+    if(status_action_count)memcpy(status_actions,actions,(size_t)status_action_count*sizeof(*actions));
+    const char *title=status_title();
+    overlay_title_x=overlay_title_width=0;
+    if(*frame)overlay_paint(frame,(OverlayBounds){0,0,WIDTH,STATUS_HEIGHT},title);
+    int back=can_back();
+    int left=back ? 68 : 24;
+    int width=overlay_title_width>0 ? overlay_title_x+overlay_title_width-left : 195;
+    if(width>195)width=195;
+    if(width>0)label_ellipsis(left,0,width,STATUS_HEIGHT,title,&small,0);
     for(int i=0;i<status_action_count;i++) {
         OverlayAction *action=&status_actions[i];
         OverlayBounds box=action->bounds;
-        if(box.y+box.h>STATUS_HEIGHT)continue;
-        if(!strcmp(action->command,"back"))back=1;
+        if(box.y+box.h>STATUS_HEIGHT || !strcmp(action->command,"back"))continue;
         system_region(box.x,box.y,box.w,box.h);
     }
-    if(can_back() && !back) {
+    if(back) {
         system_region(0,0,62,STATUS_HEIGHT);
         icon_sized(9,6,IC_BACK,44);
     }

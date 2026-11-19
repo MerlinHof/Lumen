@@ -68,17 +68,8 @@ static int notification_input(const Input *in,int visible) {
     notification_capture=0;
     if(captured && visible && in->kind==INPUT_TAP) {
         int slot=app_provider_overlay_slot(PROVIDER_NOTIFICATION);
-        OverlayAction actions[8];
-        int count=overlay_actions(app_overlay_frame(slot),actions,8);
-        for(int i=0;i<count;i++) {
-            OverlayBounds bounds=actions[i].bounds;
-            if(!strcmp(actions[i].command,"dismiss") &&
-               in->x>=bounds.x && in->x<bounds.x+bounds.w &&
-               in->y>=bounds.y && in->y<bounds.y+bounds.h) {
-                notification_dismiss();
-                break;
-            }
-        }
+        OverlayBounds bounds={notification_x,notification_y,notification_w,notification_h};
+        if(overlay_hit_action(slot,bounds,in->x,in->y,"dismiss"))notification_dismiss();
     }
     return captured;
 }

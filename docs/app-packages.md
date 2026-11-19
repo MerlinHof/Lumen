@@ -367,3 +367,26 @@ descriptor. The caller owns the file and commits it only on success.
 For longer jobs, use an exported app service or the local worker helpers
 in `lumen_worker.h`. The local helpers separate worker I/O from the app
 protocol and provide nonblocking polling and cancellation.
+
+
+### Forms and state checkpoints
+
+Use `lumen_form(title)` for a standard vertical form. Add `lumen_form_text`,
+`lumen_form_choice`, or the existing button, field, checkbox and toggle
+components. LUMEN sets spacing, wraps text and paginates when the controls
+fill the screen. Selected values still flow through named component events.
+
+Call `lumen_state_register(name, version, &state, sizeof(state))` once before
+`lumen_run`. Registration loads a matching record into the supplied state.
+Use version zero to retain an existing raw storage format. Mark mutations with
+`lumen_state_dirty()`. The SDK checks the dirty state after 750 ms of idle
+time and flushes it on Pause and graceful exit. Calling
+`lumen_state_checkpoint()` is useful when an operation needs a saved record
+immediately. Identical bytes never cause a write.
+
+For network operations that need precise diagnostics, use
+`lumen_http_text_result` or `lumen_http_download_result`. They distinguish
+timeouts, redirect limits, size limits, interrupted transfers, and local I/O
+errors. A failed download clears the partial file. The bearer convenience
+helper uses HTTPS. Set `.allow_http=1` on a specific request only when using
+an explicitly configured plain-HTTP service.

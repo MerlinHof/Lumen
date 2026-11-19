@@ -124,16 +124,19 @@ static void layout(void) {
     }
 }
 static void draw(void) {
-    ui_paint_heading(view==ARCHIVE ? "Chats" : "OpenAI",3);
     if(view==SETUP || view==MODELS) {
         if(view==SETUP) {
-            lumen_icon_action("refresh-models",528,74,IC_RESTART);
-            lumen_select_action("models",155,word("Modell","Model","Modèle"),model);
-            lumen_button_action("key",28,282,544,54,key_set ? word("API-Schlüssel ändern","Change API key","Modifier la clé API") : "API key",0);
-            lumen_wrapped(30,380,540,130,word("API-Schlüssel und Modell für dieses Konto wählen.",
-                "Set the API key and choose a model for this account.","Définissez la clé API et choisissez un modèle."),PAINT_BODY,4);
-            if(models_busy)lumen_text(30,522,540,45,word("Modelle werden geladen …","Loading models…","Chargement…"),PAINT_SECONDARY,-1,1);
+            lumen_form(word("OpenAI · Einstellungen","OpenAI · Settings","OpenAI · Réglages"));
+            lumen_form_choice("models",word("Modell","Model","Modèle"),model);
+            lumen_component_button("key",key_set ?
+                word("API-Schlüssel ändern","Change API key","Modifier la clé API") :
+                word("API-Schlüssel eingeben","Enter API key","Saisir la clé API"),0);
+            if(models_busy)
+                lumen_form_text(word("Modelle werden geladen …","Loading models…","Chargement des modèles…"),PAINT_SECONDARY);
+            else lumen_component_button("refresh-models",
+                word("Modellliste aktualisieren","Refresh model list","Actualiser les modèles"),0);
         } else {
+            ui_paint_heading(word("Modelle","Models","Modèles"),0);
             int current=model_count-model_page*24;if(current>24)current=24;
             for(int i=0;i<current;i++) {
                 int x=28+i%2*274,y=139+i/2*48;
@@ -145,30 +148,29 @@ static void draw(void) {
         return;
     }
     if(view==ARCHIVE) {
+        ui_paint_heading("Chats",1);
         lumen_icon_action("new",528,74,IC_PLUS);
         for(int i=0;i<7 && chat_archive_page*7+i<chat_archive_count;i++) {
             int index=chat_archive_page*7+i,y=149+i*76;
             char action[24];snprintf(action,sizeof(action),"chat-%d",i);
-            lumen_custom_action(action,28,y,544,76);
-            lumen_text(30,y+7,540,34,chat_archive[index].title,PAINT_BODY,0,1);
             char date[50];struct tm local;localtime_r(&chat_archive[index].modified,&local);
             strftime(date,sizeof(date),"%d.%m.%Y · %H:%M",&local);
-            lumen_text(30,y+42,540,23,date,PAINT_SECONDARY,-1,1);
-            lumen_list_divider(28,y+75,572);
+            lumen_list_action(action,y,76,chat_archive[index].title,date,IC_NEXT);
         }
         lumen_pager(745,chat_archive_page,(chat_archive_count+6)/7);
         return;
     }
+    ui_paint_heading("OpenAI",3);
     lumen_icon_action("new",408,74,IC_PLUS);
     lumen_icon_action("archive",468,74,IC_CHAT);
     lumen_icon_action("settings",528,74,IC_SETTINGS);
-    if(!chat_count)lumen_wrapped(44,315,512,148,word("Was möchtest du verstehen?",
+    if(!chat_count)lumen_wrapped(38,292,500,148,word("Was möchtest du verstehen?",
         "What would you like to understand?","Que souhaitez-vous comprendre ?"),PAINT_TITLE,4);
     layout();
     for(int r=0;r<row_count;r++) {
         int i=message_rows[r],y=message_y[r],bot=chat_messages[i].role,x=bot ? 28 : 92;
         int clipped=0,lines=estimate_lines(chat_messages[i].text,bot ? 5 : 3,&clipped);
-        ui_paint_surface(x,y,480,44+lines*26,16,255,bot ? 160 : 112);
+        ui_paint_surface(x,y,480,44+lines*26,16,bot ? 255 : 245,bot ? 170 : 145);
         lumen_text(x+13,y+6,409,26,bot ? "OpenAI" : word("Du","You","Vous"),PAINT_SECONDARY,-1,1);
         char preview[512];const char *p=chat_messages[i].text;
         size_t count=strlen(p);if(count>460){count=460;clipped=1;}
@@ -177,17 +179,23 @@ static void draw(void) {
         lumen_wrapped(x+13,y+34,454,lines*26,preview,PAINT_BODY,lines);
         if(clipped || message_clipped[r]) {
             char action[24];snprintf(action,sizeof(action),"read-%d",r);
-            lumen_icon_action(action,x+426,y,IC_BOOK);
+            ui_paint_icon_button(x+426,y,IC_BOOK);
+            lumen_rounded_action(action,x,y,480,44+lines*26,16);
         }
     }
     lumen_pager(686,chat_page,pages);
+    lumen_list_divider(28,732,572);
     if(busy) {
-        ui_paint_surface(28,738,544,50,12,235,170);
-        lumen_text(44,738,512,50,word("Antwort wird geschrieben …","Generating reply…","Réponse en cours…"),PAINT_BODY,0,0);
+        ui_paint_surface(28,743,544,44,12,245,175);
+        lumen_text(44,743,512,44,
+            word("Antwort wird geschrieben …","Generating reply…","Réponse en cours…"),PAINT_BODY,0,1);
     } else {
-        lumen_button_action("prompt",28,738,480,50,*llm_prompt16 ? llm_prompt16 :
-            word("Nachricht schreiben …","Write a message…","Écrire un message…"),0);
-        lumen_icon_action("send",525,741,IC_SEND);
+        int width=*llm_prompt16 ? 480 : 544;
+        ui_paint_surface(28,742,width,46,12,255,125);
+        lumen_text(44,742,width-30,46,*llm_prompt16 ? llm_prompt16 :
+            word("Nachricht schreiben …","Write a message…","Écrire un message…"),PAINT_BODY,*llm_prompt16 ? 0 : 95,1);
+        lumen_rounded_action("prompt",28,742,width,46,12);
+        if(*llm_prompt16)lumen_icon_action("send",525,743,IC_SEND);
     }
 }
 static int action_index(const char *action,const char *prefix,int limit) {

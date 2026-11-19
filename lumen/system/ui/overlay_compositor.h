@@ -21,11 +21,14 @@ static int overlay_capture=-1;
 static void overlay_paint(const char *frame,OverlayBounds bounds,const char *title) {
     static unsigned char previous[WIDTH*HEIGHT];
     int widgets=widget_count;
-    memcpy(previous,ui_pixels,sizeof(ui_pixels));
+    if(!*frame || bounds.x<0 || bounds.y<0 || bounds.w<=0 || bounds.h<=0 ||
+       bounds.w>WIDTH-bounds.x || bounds.h>HEIGHT-bounds.y)return;
+    int full_surface=!bounds.x && !bounds.y && bounds.w==WIDTH && bounds.h==HEIGHT;
+    if(!full_surface)memcpy(previous,ui_pixels,sizeof(ui_pixels));
     overlay_live_title=title;
     package_paint_frame_mode(frame,PACKAGE_PAINT_OVERLAY);
     overlay_live_title=NULL;
-    for(int y=0;y<HEIGHT;y++) {
+    for(int y=0;!full_surface && y<HEIGHT;y++) {
         size_t offset=(size_t)y*WIDTH;
         if(y<bounds.y || y>=bounds.y+bounds.h) {
             memcpy(ui_pixels+offset,previous+offset,WIDTH);
@@ -63,6 +66,32 @@ static int overlay_actions(const char *frame,OverlayAction *actions,int capacity
         json_string(&json,json_get(&json,item,"intent"),action->intent,sizeof(action->intent));
     }
     return count;
+}
+static const OverlayAction *overlay_slot_actions(int slot,int *count) {
+    static struct {uint64_t serial;int count;OverlayAction actions[16];} cache[APP_OVERLAY_COUNT];
+    *count=0;
+    if(slot<0 || slot>=APP_OVERLAY_COUNT || app_overlay_fd(slot)<0)return NULL;
+    uint64_t serial=app_overlay_frame_serial(slot);
+    if(cache[slot].serial!=serial) {
+        cache[slot].serial=serial;
+        cache[slot].count=overlay_actions(app_overlay_frame(slot),cache[slot].actions,16);
+    }
+    *count=cache[slot].count;
+    return cache[slot].actions;
+}
+static int overlay_contains(OverlayBounds box,int x,int y) {
+    return x>=box.x && x<box.x+box.w && y>=box.y && y<box.y+box.h;
+}
+static const OverlayAction *overlay_hit_action(int slot,OverlayBounds layer,int x,int y,const char *command) {
+    int count;
+    const OverlayAction *actions=overlay_slot_actions(slot,&count);
+    if(!overlay_contains(layer,x,y))return NULL;
+    while(count>0) {
+        const OverlayAction *action=&actions[--count];
+        if((!command || !strcmp(action->command,command)) && overlay_contains(action->bounds,x,y))
+            return action;
+    }
+    return NULL;
 }
 static void package_overlay_close(int index) {
     app_overlay_close(package_overlays[index].process);
@@ -159,8 +188,7 @@ static int package_overlays_input(const Input *input) {
         if(index<0)return 0;
         PackageOverlay *layer=&package_overlays[index];
         OverlayBounds box=layer->bounds;
-        int inside=input->x>=box.x && input->y>=box.y &&
-                   input->x<box.x+box.w && input->y<box.y+box.h;
+        int inside=overlay_contains(box,input->x,input->y);
         if(overlay_capture>=0 || inside || layer->policy>=OVERLAY_MODAL) {
             if(input->kind==INPUT_DOWN)overlay_capture=index;
             if(input->kind==INPUT_TAP || input->kind==INPUT_SWIPE)overlay_capture=-1;

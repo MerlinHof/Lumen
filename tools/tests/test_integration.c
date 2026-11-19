@@ -76,6 +76,26 @@ static void test_package_surfaces(void) {
     assert(ui_pixels[125*WIDTH+30]==105 && ui_pixels[125*WIDTH+32]==255);
     assert(ui_pixels[125*WIDTH+120]==theme_gray(215) && ui_pixels[125*WIDTH+150]==theme_gray(215));
     assert(ui_pixels[125*WIDTH+210]==0 && ui_pixels[125*WIDTH+212]==255);
+    widget_count=0;
+    package_component_count=0;
+    package_paint_frame("{\"ui\":[{\"type\":\"surface\",\"x\":30,\"y\":100,\"w\":84,\"h\":64,"
+        "\"radius\":26,\"gray\":255},{\"type\":\"custom_action\",\"id\":\"card\",\"x\":30,\"y\":100,\"w\":84,\"h\":64}]}");
+    assert(widget_count==1 && widgets[0].radius==26);
+    char form[4096]="{\"ui\":[{\"type\":\"page_layout\",\"text\":\"Example\",\"scroll\":1}";
+    for(int i=0;i<20;i++) {
+        size_t used=strlen(form);
+        snprintf(form+used,sizeof(form)-used,
+            ",{\"type\":\"component_button\",\"id\":\"row-%d\",\"text\":\"Row\"}",i);
+    }
+    strcat(form,"]}");
+    package_paint_frame(form);
+    assert(package_form.pages>=3 && package_form.page==0);
+    package_form.page=2;
+    package_component_count=widget_count=0;
+    package_paint_frame(form);
+    assert(package_component_count>0 && !strcmp(package_components[0].id,"row-18"));
+    package_form.active=0;
+
 }
 int main(int argc, char **argv) {
     (void)argv;
@@ -244,15 +264,17 @@ int main(int argc, char **argv) {
     unlink(study_document);
     extra_write_text("llm-models17.json", "{\"data\":[{\"id\":\"model-b\"},{\"id\":\"model-a\"}]}");
     extra_write_text("llm-key.txt", "dummy-visible-key");
-    activate_app(app_package_find("lumen.openai"));settle_app();
-    tap17(550,95);shot17("llm-settings");
+    activate_app(app_package_find("lumen.openai"));settle_app();ui_draw();
+    tap17(550,95);assert(strstr(app_process_frame(),"form_choice"));shot17("llm-settings");
     tap17(20,20);
     shot17("llm");
     reader_markdown17("Markdown test", "# Heading\n\nDarcyville thrived. Mr. Darcy arrived silently. A **bold** paragraph.\n\n- One\n- Two\n", active_app());
-    char mention_fixture[480];
-    assert(engine_first_mention("Darcy",0,mention_fixture,sizeof(mention_fixture))==0);
-    assert(!strcmp(mention_fixture,"Mr. Darcy arrived silently."));
-    assert(engine_first_mention("Head",0,mention_fixture,sizeof(mention_fixture))<0);
+    char mention_fixture[1200];int mention_offset,mention_length;
+    assert(engine_first_mention("Darcy",0,mention_fixture,sizeof(mention_fixture),&mention_offset,&mention_length)==0);
+    assert(strstr(mention_fixture,"Darcyville thrived. Mr. Darcy arrived silently. A bold paragraph."));
+    assert(mention_length==5 && !strncmp(mention_fixture+mention_offset,"Darcy",5));
+    assert(!strncmp(mention_fixture,"…",3) && !strcmp(mention_fixture+strlen(mention_fixture)-3,"…"));
+    assert(engine_first_mention("Head",0,mention_fixture,sizeof(mention_fixture),&mention_offset,&mention_length)<0);
     assert(active_app()==app_package_find("lumen.reader") && reader_ui.reader_document_active);
     settle_app();ui_draw();
     snprintf(reader_ui.selection.text,sizeof(reader_ui.selection.text),"Darcy");
@@ -416,6 +438,7 @@ int main(int argc, char **argv) {
     button_h(20, 20, 100, 48, "", 0);
     unsigned char rim = ui_pixels[22*WIDTH+22];
     pressed = 0;
+    press_bounds=widgets[pressed];
     ui_feedback_draw();
     assert(ui_pixels[22*WIDTH+22]==rim && ui_pixels[24*WIDTH+70]==0);
     assert(ui_pixels[42*WIDTH+24]==0 && ui_pixels[42*WIDTH+115]==0);

@@ -779,6 +779,18 @@ void app_service_poll(void) {
 
 static void dispose_foreground(AppProcess *process) {
     if(!process)return;
+    if(process->child>0 && process->write_fd>=0) {
+        process_pause(process);
+        close(process->write_fd);
+        process->write_fd=-1;
+        const int64_t end=service_now()+80;
+        do {
+            pid_t result=waitpid(process->child,NULL,WNOHANG);
+            if(result==process->child || (result<0 && errno==ECHILD)){process->child=0;break;}
+            struct timespec delay={.tv_nsec=3000000};
+            nanosleep(&delay,NULL);
+        } while(service_now()<end);
+    }
     process_close(process);
     if(process!=&initial_foreground)free(process);
 }
@@ -803,7 +815,7 @@ void app_process_close(void) {
 /* A forked system worker must close its inherited pipe ends without
  * signalling the parent's children or removing their transient surfaces. */
 void app_process_detach_inherited(void) {
-    AppProcess *processes[]={active_foreground,service,
+    AppProcess *processes[]={active_foreground,service,periodic_process,system_query,
         kept_apps[0],kept_apps[1],kept_apps[2]};
     for(size_t i=0;i<sizeof(processes)/sizeof(processes[0]);i++) {
         if(!processes[i])continue;

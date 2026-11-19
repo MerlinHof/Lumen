@@ -7,8 +7,8 @@ typedef struct {
     int count;
 } HAHistory;
 static HAHistory ha_history[8];
-static char ha_history_key[1500];
-static time_t ha_history_at, ha_refresh_at;
+static char ha_history_key[1500],ha_history_pending[1500];
+static time_t ha_history_at,ha_history_retry,ha_refresh_at;
 static time_t ha_timestamp(const char *s) {
     struct tm t = {0};
     int y, m, d, h, min;
@@ -58,8 +58,14 @@ static void ha_history_parse(void) {
                 if (hist->count >= HA_POINTS)
                     break;
                 char state[80], stamp[80];
-                json_string(&j, json_get(&j, obj, "state"), state, sizeof(state));
-                json_string(&j, json_get(&j, obj, "last_changed"), stamp, sizeof(stamp));
+                int state_field=json_get(&j,obj,"state");
+                if(state_field<0)state_field=json_get(&j,obj,"s");
+                int timestamp=json_get(&j,obj,"last_changed");
+                if(timestamp<0)timestamp=json_get(&j,obj,"last_updated");
+                if(timestamp<0)timestamp=json_get(&j,obj,"lu");
+                if(timestamp<0)timestamp=json_get(&j,obj,"lc");
+                json_string(&j,state_field,state,sizeof(state));
+                json_string(&j,timestamp,stamp,sizeof(stamp));
                 char *end;
                 double v = strtod(state, &end);
                 if (!strcmp(state, "on"))
