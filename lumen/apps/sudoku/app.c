@@ -64,9 +64,9 @@ static int input(const Input *in) {
     }
     return 1;
 }
-static void save(void){if(dirty && app_state_save("game.bin",&game,sizeof(game)))dirty=0;}
+static void save(void){if(dirty && lumen_state_queue("game.bin",&game,sizeof(game)))dirty=0;}
 int main(void) {
-    int valid=app_state_load("game.bin",&game,sizeof(game)) ||
+    int valid=(lumen_state_register("game.bin",0,&game,sizeof(game))==1) ||
               lumen_legacy_state("sudoku-v1.bin",&game,sizeof(game));
     for(int i=0;i<81;i++)
         if(game.board.cell[i]>9 || game.solution[i]<1 || game.solution[i]>9 || game.given[i]>9)valid=0;

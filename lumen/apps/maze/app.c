@@ -40,10 +40,10 @@ static int valid_maze(void) {
         !maze.wall[maze.y*COLS+maze.x] && !maze.wall[COLS*(ROWS-2)+COLS-2];
 }
 static void save(void) {
-    if(dirty && app_state_save("maze.bin",&maze,sizeof(maze)))dirty=0;
+    if(dirty && lumen_state_queue("maze.bin",&maze,sizeof(maze)))dirty=0;
 }
 static void load(void) {
-    if(app_state_load("maze.bin",&maze,sizeof(maze)) && valid_maze())return;
+    if((lumen_state_register("maze.bin",0,&maze,sizeof(maze))==1) && valid_maze())return;
     unsigned char old[8+COLS*ROWS+12],trail[8+COLS*ROWS];
     uint32_t header[2];int location[3];
     if(lumen_legacy_state("maze17.bin",old,sizeof(old))) {

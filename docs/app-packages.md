@@ -343,6 +343,16 @@ fetching and sanitizing its HTML before calling the renderer. The
 `lumen_http_page` helper also returns the final URL after redirects so callers
 can resolve relative links against the displayed page.
 
+For an automatically sized navigation row inside a form, use
+`lumen_form_link(id, label, detail)`. The row shows a forward arrow and
+emits a named click using the same component handling as other form controls.
+When a toggle sits inside another touch target, use `lumen_nested_toggle` so
+the switch receives its own taps before the surrounding card.
+
+The Browser declares its pinned QuickJS build dependency in its manifest. The
+package links QuickJS directly, and its JavaScript bindings live inside the app.
+Neither the shared renderer nor the LUMEN host interprets page scripts.
+
 A Protocol 2 package can declare `periodic` with an exported background
 `operation` and an `interval` of 900–86,400 seconds. LUMEN starts at most one
 scheduled worker at a time while awake and connected. Workers get a standard

@@ -436,11 +436,11 @@ int main(int argc, char **argv) {
     options[OPT_ROUNDING] = 1;
     widget_count = 0;
     button_h(20, 20, 100, 48, "", 0);
-    unsigned char rim = ui_pixels[22*WIDTH+22];
+    unsigned char rim = ui_pixels[21*WIDTH+21];
     pressed = 0;
     press_bounds=widgets[pressed];
     ui_feedback_draw();
-    assert(ui_pixels[22*WIDTH+22]==rim && ui_pixels[24*WIDTH+70]==0);
+    assert(ui_pixels[21*WIDTH+21]==rim && ui_pixels[24*WIDTH+70]==0);
     assert(ui_pixels[42*WIDTH+24]==0 && ui_pixels[42*WIDTH+115]==0);
     assert(ui_pixels[42*WIDTH+70]==0);
     pressed = -1;
@@ -454,7 +454,7 @@ int main(int argc, char **argv) {
     pressed = 0;
     press_bounds = widgets[pressed];
     ui_feedback_draw();
-    assert(ui_pixels[64*WIDTH+24] == 255 && ui_pixels[64*WIDTH+70] == 0);
+    assert(ui_pixels[62*WIDTH+22] == 255 && ui_pixels[62*WIDTH+70] == 0);
     pressed = -1;
     control_surface(20, 20, 48, 48, 16, 0);
     assert(ui_pixels[20*WIDTH+20] == 0);

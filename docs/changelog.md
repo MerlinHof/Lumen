@@ -1,5 +1,7 @@
 # Changelog
 
+- [7.2](releases/7.2.md) · Browser JavaScript and responsive columns, Library shelf, fast rounded touch feedback, and Home Assistant history.
+
 - [7.1](releases/7.1.md) · Standalone Browser, Home Assistant graph history, rounded touch feedback, Reader lookup, and status bar timer spacing.
 
 - [7.0](releases/7.0.md) · Reader context, synchronous status titles, Home Assistant history, OpenAI polish, and simpler SDK forms and state.

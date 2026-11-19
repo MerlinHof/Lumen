@@ -15,6 +15,7 @@ import zlib
 
 ROOT = Path(__file__).resolve().parents[2]
 requests = queue.Queue()
+toggles = queue.Queue()
 
 
 def png_chunk(tag, data):
@@ -31,6 +32,15 @@ class Fixture(BaseHTTPRequestHandler):
     def log_message(self, *_):
         pass
 
+    def do_POST(self):
+        assert self.path=='/api/services/switch/toggle'
+        assert self.headers.get('Authorization')=='Bearer fixture-token'
+        body=self.rfile.read(int(self.headers['Content-Length']))
+        toggles.put(json.loads(body))
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b'[]')
+
     def do_GET(self):
         request = urlsplit(self.path)
         if request.path == '/go':
@@ -41,21 +51,50 @@ class Fixture(BaseHTTPRequestHandler):
         pages = {
             '/article/start': ('text/html', b'''<!doctype html><html><head>
                 <title>Browser fixture</title><link rel="stylesheet" href="base.css">
-                <style>.story {font-style:italic}</style></head>
-                <body><p class="story" style="padding:7px">Reading on Kindle</p>
-                <img src="picture.png" alt="Photo"><a href="next">Next page</a><script>hidden script</script></body></html>'''),
+                <style>.story {font-style:italic}
+                .cards {display:block} @media screen and (max-width: 600px) {
+                .cards {display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+                .story {background-color:#ddd;width:80vw}}
+                @media (min-width: 900px) {.story {color:#008}}</style></head>
+                <body><p id="headline" class="story" style="padding:7px">Reading on Kindle</p>
+                <img src="picture.png" alt="Photo"><a href="next">Next page</a>
+                <div class="cards"><section>Left column</section><section>Right column</section></div>
+                <button id="count">Count</button><div id="result"></div><p id="async"></p>
+                <script src="fixture.js"></script>
+                <script>let count=0; document.querySelector('#headline').textContent='JavaScript ran';
+                document.getElementById('count').addEventListener('click',()=>{
+                    document.querySelector('#result').innerHTML='<strong>Count '+(++count)+'</strong>';
+                });</script><script>while(true){}</script></body></html>'''),
             '/article/picture.png': ('image/png', fixture_image()),
+            '/article/fixture.js': ('application/javascript', b'''
+                document.addEventListener('DOMContentLoaded',()=>setTimeout(async()=>{
+                    const response=await fetch('message.json');
+                    document.querySelector('body #async').textContent=(await response.json()).message;
+                },0));'''),
+            '/article/message.json': ('application/json', b'{"message":"Async update"}'),
             '/article/base.css': ('text/css', b'.story { color:#555; margin:20px; }'),
             '/article/next': ('text/html', b'<title>Next fixture</title><p>A second page.</p>'),
             '/api/states': ('application/json', json.dumps([
-                dict(entity_id='sensor.room', state='23', attributes=dict(unit_of_measurement='C'))
+                dict(entity_id='sensor.room', state='23', attributes=dict(unit_of_measurement='C')),
+                dict(entity_id='sensor.mode', state='idle', attributes={}),
+                dict(entity_id='switch.office', state='off', attributes={}),
             ]).encode())
         }
         if request.path.startswith('/api/history/period/'):
+            if self.headers.get('Authorization') != 'Bearer fixture-token':
+                self.send_error(401)
+                return
             params = parse_qs(request.query, keep_blank_values=True)
             requests.put((request.path, params))
             now = time.time()
-            response = [[dict(s='20', lu=now-1200), dict(s='23', lu=now-60)]]
+            if params['filter_entity_id']==['sensor.mode']:
+                if 'minimal_response' in params:
+                    self.send_error(400)
+                    return
+                response=[[dict(entity_id='sensor.mode',state='heating',last_updated=now-1200),
+                           dict(state='idle',last_changed=now-60)]]
+            else:
+                response=[[dict(s='20',lu=(now-1200)*1000),dict(s='23',lu=now-60)]]
             page = ('application/json', json.dumps(response).encode())
         else:
             page = pages.get(request.path)
@@ -134,23 +173,34 @@ with ThreadingHTTPServer(('127.0.0.1',0),Fixture) as server, TemporaryDirectory(
         assert any(c.get('id')=='link:0' for c in commands), commands
         clean=(browser/'browser-0.html').read_text()
         assert 'color:#555;' in clean and 'font-style:italic;' in clean
-        assert 'padding:7px;' in clean and 'hidden script' not in clean
+        assert 'padding:7px;' in clean and 'while(true)' not in clean
+        assert 'Async update' in clean
+        assert 'JavaScript ran' in clean and 'Reading on Kindle' not in clean
+        assert 'width:435.2px;' in clean and 'background-color:#ddd;' in clean and 'color:#008;' not in clean
+        assert 'Left column</section></td><td' in clean and 'padding:5px;' in clean
+        assert 'lumen-control:' in clean
         assert 'data:image/png;base64,' in clean
         assert f'href="{origin}/article/next"' in clean
         pixels=(browser/'browser-raster-0').read_bytes()
         assert len(pixels)==544*560 and min(pixels)<128 and max(pixels)==255
+        app.click('link:1')
+        app.wait(lambda ui: any(c.get('text')=='browser-raster-1' for c in ui))
+        assert '<strong>Count 1</strong>' in (browser/'browser-1.html').read_text()
+        app.click('link:1')
+        app.wait(lambda ui: any(c.get('text')=='browser-raster-0' for c in ui))
+        assert '<strong>Count 2</strong>' in (browser/'browser-0.html').read_text()
         app.click('link:0')
         app.wait(lambda ui: label(ui,'Next fixture'))
         app.click('previous')
         app.wait(lambda ui: label(ui,'Browser fixture'))
     finally:
         app.close()
-    print('PASS standalone Browser renders HTML and CSS, follows redirects and links, and preserves navigation history.')
+    print('PASS standalone Browser renders HTML and CSS, runs JavaScript and responsive layout, follows redirects and keeps navigation history.')
 
     assistant=base/'home-assistant'
     assistant.mkdir()
     (assistant/'connection.json').write_text(json.dumps(dict(url=origin,token='fixture-token')))
-    (assistant/'ha-favorites.txt').write_text('sensor.room\n')
+    (assistant/'ha-favorites.txt').write_text('sensor.room\nsensor.mode\nswitch.office\n')
     app=App('lumen.home-assistant',assistant)
     try:
         app.wait(lambda ui: any(c.get('id')=='device:0' for c in ui))
@@ -164,13 +214,30 @@ with ThreadingHTTPServer(('127.0.0.1',0),Fixture) as server, TemporaryDirectory(
         spans=set()
         while 1 not in spans and time.monotonic()<end:
             path,params=requests.get(timeout=2)
-            assert params['filter_entity_id']==['sensor.room']
-            assert 'significant_changes_only' not in params
+            if params['filter_entity_id']!=['sensor.room'] or params.get('significant_changes_only')!=['0']:
+                continue
             start=path.rsplit('/',1)[1]
             fmt='%Y-%m-%dT%H:%M:%SZ'
             duration=datetime.strptime(params['end_time'][0],fmt)-datetime.strptime(start,fmt)
             spans.add(duration.total_seconds()/3600)
         assert {1,24}<=spans
+        app.send('back')
+        app.wait(lambda ui: any(c.get('id')=='power:2' for c in ui))
+        app.click('device:1')
+        app.wait(lambda ui: label(ui,'heating'))
+        app.send('back')
+        app.wait(lambda ui: any(c.get('id')=='power:2' for c in ui))
+        app.click('device:2')
+        app.wait(lambda ui: any(c.get('id')=='span' for c in ui))
+        while True:
+            _,params=requests.get(timeout=3)
+            if params['filter_entity_id']==['switch.office']:
+                break
+        app.send('back')
+        commands=app.wait(lambda ui: any(c.get('id')=='power:2' for c in ui))
+        assert any(c.get('id')=='power:2' and c.get('nested') for c in commands)
+        app.send('component',id='power:2',gesture='changed',changed=1,text='1')
+        assert toggles.get(timeout=3)=={'entity_id':'switch.office'}
     finally:
         app.close()
     print('PASS Home Assistant draws fullscreen compact numeric history and fetches the selected time range.')

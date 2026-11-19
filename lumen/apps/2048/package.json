@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.2048",
   "name": "2048",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "sources": [
     "app.c",
     "engine.c"

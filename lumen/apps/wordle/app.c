@@ -117,9 +117,9 @@ static int input(const Input *in) {
     else if(wordle_game.row==6)wordle_game.over=2;
     dirty=1;return 1;
 }
-static void save(void){if(dirty && app_state_save("game.bin",&wordle_game,sizeof(wordle_game)))dirty=0;}
+static void save(void){if(dirty && lumen_state_queue("game.bin",&wordle_game,sizeof(wordle_game)))dirty=0;}
 int main(void) {
-    if(!app_state_load("game.bin",&wordle_game,sizeof(wordle_game))) {
+    if(!(lumen_state_register("game.bin",0,&wordle_game,sizeof(wordle_game))==1)) {
         lumen_legacy_state("wordle-1.bin",&wordle_game,sizeof(wordle_game));
         dirty=1;
     }

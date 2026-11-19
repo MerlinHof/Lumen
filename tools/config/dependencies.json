@@ -1,4 +1,5 @@
 {
+  "quickjs": { "version": "2026-06-04", "url": "https://bellard.org/quickjs/quickjs-2026-06-04.tar.xz", "sha256": "b376e839b322978313d929fd20663b11ba58b75df5a46c126dd19ea2fa70ad2a" },
   "mupdf": {
     "version": "1.28.5",
     "url": "https://github.com/ArtifexSoftware/mupdf-downloads/releases/download/1.28.5/mupdf-1.28.5-source.tar.gz",

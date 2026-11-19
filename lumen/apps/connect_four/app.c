@@ -52,9 +52,9 @@ static int input(const Input *in) {
     }
     return 1;
 }
-static void save(void){if(dirty && app_state_save("game.bin",&game,sizeof(game)))dirty=0;}
+static void save(void){if(dirty && lumen_state_queue("game.bin",&game,sizeof(game)))dirty=0;}
 int main(void) {
-    if(!app_state_load("game.bin",&game,sizeof(game))) {
+    if(!(lumen_state_register("game.bin",0,&game,sizeof(game))==1)) {
         int old[152];
         if(lumen_legacy_state("game16-113.bin",old,sizeof(old)) &&
            old[144]>=1 && old[144]<=2 && old[145]>=0 && old[145]<=3 && old[146]>=0 && old[146]<=42) {

@@ -280,6 +280,11 @@ static inline void lumen_form_choice(const char *id,const char *label,const char
  fputs(",\"text\":",stdout);lumen_json(label);
  fputs(",\"value\":",stdout);lumen_json(value);putchar('}');
 }
+static inline void lumen_form_link(const char *id,const char *label,const char *detail) {
+ lumen_cmd("form_link",0,0,0,0);fputs(",\"id\":",stdout);lumen_json(id);
+ fputs(",\"text\":",stdout);lumen_json(label);
+ fputs(",\"detail\":",stdout);lumen_json(detail);putchar('}');
+}
 static void lumen_component_button(const char *id,const char *label,int primary) {
  lumen_cmd("component_button",28,0,544,50);
  fputs(",\"id\":",stdout);lumen_json(id);
@@ -329,10 +334,16 @@ static inline int lumen_action_index(const char *id,const char *group,int count)
  long index=strtol(id+length+1,&end,10);
  return *end || index<0 || index>=count ? -1 : (int)index;
 }
-static inline void lumen_toggle_action(const char *id,int x,int y,int checked) {
+static inline void lumen_toggle_control(const char *id,int x,int y,int checked,int nested) {
  lumen_cmd("toggle_action",x,y,64,44);
  fputs(",\"id\":",stdout);lumen_json(id);
- printf(",\"checked\":%d}",!!checked);
+ printf(",\"checked\":%d,\"nested\":%d}",!!checked,!!nested);
+}
+static inline void lumen_toggle_action(const char *id,int x,int y,int checked) {
+ lumen_toggle_control(id,x,y,checked,0);
+}
+static inline void lumen_nested_toggle(const char *id,int x,int y,int checked) {
+ lumen_toggle_control(id,x,y,checked,1);
 }
 static inline void lumen_dropdown_action(const char *id,int x,int y,int w,int h,const char *value) {
  lumen_cmd("dropdown_action",x,y,w,h);

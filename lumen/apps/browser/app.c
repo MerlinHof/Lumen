@@ -6,7 +6,7 @@
 #include <strings.h>
 #include "markup.h"
 
-enum { WEB_X=28, WEB_Y=181, WEB_W=544, WEB_H=560, WEB_LINKS=64, WEB_HISTORY=32 };
+enum { WEB_X=28, WEB_Y=181, WEB_W=WEB_VIEW_WIDTH, WEB_H=WEB_VIEW_HEIGHT, WEB_LINKS=64, WEB_HISTORY=32, WEB_ACTIONS=96 };
 typedef struct {
     int x,y,w,h;
     char url[WEB_URL];
@@ -20,7 +20,9 @@ static WebPage displayed;
 static char history[WEB_HISTORY][WEB_URL],requested[WEB_URL];
 static int history_count,history_at=-1,history_target;
 static int document_slot=-1,raster_slot=1,work_document,work_raster,work_page;
-static int navigating,error;
+enum {WEB_PAGE, WEB_NAVIGATE, WEB_SCRIPT};
+static int operation,error,source_slot=-1,work_source;
+static int actions[WEB_ACTIONS],action_count,work_action;
 static pid_t worker;
 
 static const char *word(const char *de,const char *en,const char *fr) {
@@ -34,6 +36,10 @@ static int cache_path(char out[4096],const char *leaf) {
     if(!root || !*root)return 0;
     int n=snprintf(out,4096,"%s/%s",root,leaf);
     return n>0 && n<4096;
+}
+static int compare_link(const void *left,const void *right) {
+    const WebLink *a=left,*b=right;
+    return a->y!=b->y ? a->y-b->y : a->x-b->x;
 }
 static int render(const char *html,const char *raster,int page,WebPage *result) {
     const char *tool=getenv("LUMEN_DOCUMENT_TOOL");
@@ -65,48 +71,56 @@ static int render(const char *html,const char *raster,int page,WebPage *result) 
            x<0 || y<0 || right>WEB_W || bottom>WEB_H || right<=x || bottom<=y)continue;
         char *target=line+offset;
         target[strcspn(target,"\r\n")]=0;
-        if(*target!='#' && !url_valid(target))continue;
+        if(*target!='#' && strncmp(target,"lumen-control:",14) && !url_valid(target))continue;
         WebLink *link=&result->link[result->links++];
         *link=(WebLink){x,y,right-x,bottom-y,""};
         snprintf(link->url,sizeof(link->url),"%s",target);
     }
     fclose(metadata);
+    qsort(result->link,(size_t)result->links,sizeof(result->link[0]),compare_link);
     return wait_success(child) && valid;
 }
-static int prepare(const char *url,const char *html,WebPage *result) {
+static int download_page(const char *url,const char *name,WebPage *result) {
     char *body=malloc(WEB_BODY+WEB_URL+48);
     if(!body)return 0;
     int ok=lumen_http_page((LumenHttpRequest){.url=url,.redirects=5,.timeout=18,.compressed=1,
         .allow_http=!strncmp(url,"http://",7)},body,WEB_BODY+WEB_URL+48,result->url,sizeof(result->url))==LUMEN_HTTP_OK &&
         url_valid(result->url) && *body && strlen(body)<=WEB_BODY &&
-        lumen_storage_write("browser-source.tmp",body,strlen(body));
+        lumen_storage_write(name,body,strlen(body));
     free(body);
-    char path[4096];
-    if(ok)ok=cache_path(path,"browser-source.tmp") && web_document(path,html,result->url,result->title);
-    if(ok && !*result->title)snprintf(result->title,sizeof(result->title),"%.127s",result->url);
-    lumen_storage_delete("browser-source.tmp");
     return ok;
 }
-static int begin(int navigate,int page,const char *url,int target) {
-    if(worker>0 || (navigate ? !url_valid(url) : document_slot<0 || page<0 || page>=displayed.pages))return 0;
-    work_document=navigate ? (document_slot==0 ? 1 : 0) : document_slot;
-    work_raster=1-raster_slot;
-    work_page=page;navigating=navigate;error=0;history_target=target;
-    if(navigate)snprintf(requested,sizeof(requested),"%s",url);
+static int begin(int kind,int page,const char *url,int target) {
+    if(worker>0)return 0;
+    if(kind==WEB_NAVIGATE ? !url_valid(url) : document_slot<0 || page<0 || page>=displayed.pages)return 0;
+    if(kind==WEB_SCRIPT && (target<1 || target>=SCRIPT_NODES || action_count==WEB_ACTIONS))return 0;
+    work_document=kind==WEB_PAGE ? document_slot : document_slot==0 ? 1 : 0;
+    work_source=kind==WEB_NAVIGATE ? (source_slot==0 ? 1 : 0) : source_slot;
+    work_raster=1-raster_slot;work_page=page;operation=kind;error=0;
+    history_target=target;work_action=target;
+    if(kind==WEB_NAVIGATE)snprintf(requested,sizeof(requested),"%s",url);
     worker=lumen_worker_start();
     if(worker<0){worker=0;error=1;return 0;}
     if(!worker) {
-        char html_name[24],raster_name[24],html[4096],raster[4096];
+        char html_name[24],raster_name[24],source_name[24],html[4096],raster[4096],source[4096];
         snprintf(html_name,sizeof(html_name),"browser-%d.html",work_document);
         cache_name(raster_name,"raster",work_raster);
-        int ok=cache_path(raster,raster_name) && cache_path(html,html_name);
+        cache_name(source_name,"source",work_source);
+        int ok=cache_path(raster,raster_name) && cache_path(html,html_name) && cache_path(source,source_name);
         WebPage *result=calloc(1,sizeof(*result));
         if(!result)_exit(1);
         result->page=work_page;
-        if(navigate)ok=ok && prepare(requested,html,result);
+        if(kind==WEB_NAVIGATE)ok=ok && download_page(requested,source_name,result);
         else {
             snprintf(result->title,sizeof(result->title),"%s",displayed.title);
             snprintf(result->url,sizeof(result->url),"%s",displayed.url);
+        }
+        if(kind!=WEB_PAGE) {
+            int replay=0;
+            if(kind==WEB_SCRIPT){actions[action_count]=work_action;replay=action_count+1;}
+            *result->title=0;
+            ok=ok && web_document(source,html,result->url,result->title,actions,replay);
+            if(!*result->title)snprintf(result->title,sizeof(result->title),"%.127s",result->url);
         }
         ok=ok && render(html,raster,work_page,result) &&
             lumen_storage_write("browser-result.bin",result,sizeof(*result));
@@ -137,7 +151,10 @@ static void poll_worker(void) {
     if(ok) {
         displayed=*next;
         document_slot=work_document;raster_slot=work_raster;
-        if(navigating)commit_navigation();
+        if(operation==WEB_NAVIGATE) {
+            source_slot=work_source;action_count=0;
+            commit_navigation();
+        } else if(operation==WEB_SCRIPT)actions[action_count++]=work_action;
     } else error=1;
     free(next);
     lumen_storage_delete("browser-result.bin");
@@ -184,28 +201,30 @@ static void address_input(void) {
     size_t n=strlen(value);
     while(n && isspace((unsigned char)value[n-1]))value[--n]=0;
     int size=snprintf(url,sizeof(url),"%s%s",strstr(value,"://") ? "" : "https://",value);
-    if(size<0 || size>=sizeof(url) || !begin(1,0,url,-1))error=1;
+    if(size<0 || size>=sizeof(url) || !begin(WEB_NAVIGATE,0,url,-1))error=1;
 }
 static int input(const Input *in) {
     if(in->kind==INPUT_TICK || in->kind==INPUT_RESUME || in->kind==INPUT_REFRESH) {
         poll_worker();return 1;
     }
     if(in->kind==INPUT_TEXT && in->x==1){address_input();return 1;}
-    if(in->kind==INPUT_PAGE){begin(0,in->x,NULL,-1);return 1;}
+    if(in->kind==INPUT_PAGE){begin(WEB_PAGE,in->x,NULL,-1);return 1;}
     char action[64];
     if(!lumen_action(in,action,"clicked"))return 0;
     if(!strcmp(action,"stop"))lumen_worker_cancel(&worker);
     else if(!strcmp(action,"address") && !worker)
         lumen_request("input",word("Webadresse","Web address","Adresse web"),*displayed.url ? displayed.url : requested,1);
-    else if(!strcmp(action,"reload") && document_slot>=0)begin(1,0,displayed.url,history_at);
-    else if(!strcmp(action,"previous") && history_at>0)begin(1,0,history[history_at-1],history_at-1);
-    else if(!strcmp(action,"forward") && history_at+1<history_count)begin(1,0,history[history_at+1],history_at+1);
+    else if(!strcmp(action,"reload") && document_slot>=0)begin(WEB_NAVIGATE,0,displayed.url,history_at);
+    else if(!strcmp(action,"previous") && history_at>0)begin(WEB_NAVIGATE,0,history[history_at-1],history_at-1);
+    else if(!strcmp(action,"forward") && history_at+1<history_count)begin(WEB_NAVIGATE,0,history[history_at+1],history_at+1);
     else {
         int link=lumen_action_index(action,"link",displayed.links);
         if(link>=0) {
             const char *url=displayed.link[link].url;
-            if(*url=='#')begin(0,atoi(url+1),NULL,-1);
-            else begin(1,0,url,-1);
+            if(*url=='#')begin(WEB_PAGE,atoi(url+1),NULL,-1);
+            else if(!strncmp(url,"lumen-control:",14)) {
+                if(!begin(WEB_SCRIPT,displayed.page,NULL,atoi(url+14)))error=1;
+            } else begin(WEB_NAVIGATE,0,url,-1);
         }
     }
     return 1;

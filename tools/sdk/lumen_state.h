@@ -46,6 +46,16 @@ static inline void lumen_state_dirty(void) {
     lumen_state.dirty=1;
     lumen_state.due=lumen_state_now()+LUMEN_STATE_IDLE_MS;
 }
+/* Queue updates to an existing raw or versioned record. Callers can keep
+   their existing file name and fall back to a direct write after import errors. */
+static inline int lumen_state_queue(const char *name,const void *data,size_t size) {
+    if(lumen_state.saved && lumen_state.data==data && lumen_state.size==size &&
+       !strcmp(lumen_state.name,name)) {
+        lumen_state_dirty();
+        return 1;
+    }
+    return lumen_storage_write(name,data,size);
+}
 static inline int lumen_state_checkpoint(void) {
     if(!lumen_state.dirty)return 1;
     size_t header=lumen_state.version ? sizeof(uint32_t)*2 : 0;
@@ -69,7 +79,7 @@ static inline int lumen_state_checkpoint(void) {
 static inline int lumen_state_wait(void) {
     if(!lumen_state.dirty)return 0;
     int64_t remain=lumen_state.due-lumen_state_now();
-    return remain>0 ? (int)remain : 1;
+    return remain>=20 ? (int)remain : 20;
 }
 static inline void lumen_state_idle(void) {
     if(lumen_state.dirty && lumen_state_now()>=lumen_state.due && !lumen_state_checkpoint())

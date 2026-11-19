@@ -30,25 +30,30 @@ static void action(const char *operation,const char *value) {
 }
 static void cover(int x,int y,int w,int h,const char *id){lumen_book_cover_outline(x,y,w,h,id,198);}
 static void shelf(void) {
-    int featured=*books[6].id,top=featured ? 429 : 115;
-    lumen_text(28,featured ? 376 : 66,420,44,*query ? query :
-        word("M E I N E  B Ü C H E R","M Y  B O O K S","M E S  L I V R E S"),PAINT_SECONDARY,-1,1);
-    lumen_icon_action("search",468,60,IC_SEARCH);
-    lumen_icon_action("preferences",528,60,IC_SETTINGS);
+    const int featured=*books[6].id!=0;
+    ui_paint_heading(word("Bibliothek","Library","Bibliothèque"),2);
+    lumen_icon_action("search",468,74,IC_SEARCH);
+    lumen_icon_action("preferences",528,74,IC_SETTINGS);
     if(featured) {
-        cover(28,109,152,208,books[6].id);
-        lumen_custom_action("book-6",28,109,544,218);
-        lumen_text(204,111,366,30,word("W E I T E R L E S E N","C O N T I N U E  R E A D I N G","R E P R E N D R E"),PAINT_SECONDARY,-1,1);
-        lumen_book_progress(204,150,366,books[6].title,books[6].author,books[6].progress);
+        ui_paint_surface(28,139,544,216,14,255,213);
+        cover(44,155,132,184,books[6].id);
+        lumen_text(199,156,348,27,word("Weiterlesen","Continue reading","Reprendre la lecture"),PAINT_SECONDARY,-1,1);
+        lumen_book_progress(199,208,348,books[6].title,books[6].author,books[6].progress);
+        lumen_rounded_action("book-6",28,139,544,216,14);
+        lumen_text(28,372,544,31,word("Meine Bücher","My books","Mes livres"),PAINT_HEADING,-1,1);
+        lumen_list_divider(28,407,572);
+    } else if(*query) {
+        lumen_text(28,125,544,26,query,PAINT_SECONDARY,-1,1);
     }
+    int top=featured ? 425 : *query ? 166 : 140;
     for(int i=0;i<(featured ? 3 : 6);i++)if(*books[i].id) {
-        int x=28+i%3*188,y=top+i/3*304;
-        cover(x,y,164,224,books[i].id);
-        if(books[i].pin)ui_paint_icon_button(x+113,y+4,IC_PIN);
-        lumen_wrapped(x+8,y+229,156,48,books[i].title,PAINT_BODY,2);
-        lumen_text(x+8,y+273,156,25,books[i].author,PAINT_SECONDARY,-1,1);
+        int x=28+i%3*186,y=top+i/3*284;
+        cover(x+5,y,162,220,books[i].id);
+        if(books[i].pin)ui_paint_icon_button(x+116,y+3,IC_PIN);
+        lumen_wrapped(x+5,y+225,162,47,books[i].title,PAINT_BODY,2);
+        lumen_text(x+5,y+269,162,24,books[i].author,PAINT_SECONDARY,-1,1);
         char id[16];snprintf(id,sizeof(id),"book-%d",i);
-        lumen_custom_action(id,x,y,168,300);
+        lumen_rounded_action(id,x+5,y,162,295,18);
     }
     if(!featured && !*books[0].id)lumen_wrapped(28,180,544,115,
         word("Deine Bücher erscheinen hier.","Your books will appear here.","Vos livres apparaîtront ici."),
@@ -60,8 +65,8 @@ static void draw(void) {
         const char *modes[]={word("Titel","Title","Titre"),word("Autor","Author","Auteur"),
             word("Zuletzt gelesen","Last read","Dernière lecture"),word("Zuletzt hinzugefügt","Recently added","Ajout récent"),
             word("Dateigröße","Size","Taille"),word("Fortschritt","Progress","Progression")};
-        ui_paint_heading(word("Bibliothek","Library","Bibliothèque"),0);
-        lumen_select_action("sort",203,word("Sortierung","Sort by","Trier par"),modes[sort<0 ? 0 : sort]);
+        lumen_form(word("Bibliothek","Library","Bibliothèque"));
+        lumen_form_choice("sort",word("Sortierung","Sort by","Trier par"),modes[sort<0 ? 0 : sort]);
     } else if(view==DETAIL) {
         ui_paint_heading(word("Buchdetails","Book details","Détails du livre"),0);
         cover(28,145,120,164,selected);
@@ -98,9 +103,9 @@ static void read_row(int row,int field) {
 }
 static int input(const Input *in) {
     if(in->kind==INPUT_OPEN) {
-        int saved;
         if(lumen_number("api"))query_api=!!lumen_number("catalog_query");
-        if(query_api && app_state_load("shelf-sort",&saved,sizeof(saved)) && saved>=0 && saved<6)sort=saved;
+        if(query_api)lumen_state_register("shelf-sort",0,&sort,sizeof(sort));
+        if(sort<-1 || sort>=6)sort=-1;
     }
     if(in->kind==INPUT_OPEN || in->kind==INPUT_RESUME || in->kind==INPUT_REFRESH){load();return 1;}
     if(in->kind==INPUT_INTENT) {
@@ -124,8 +129,9 @@ static int input(const Input *in) {
     if(in->kind==INPUT_SELECT) {
         if(in->x==2 && in->y>=0 && in->y<6) {
             if(query_api) {
-                int value=in->y;
-                if(app_state_save("shelf-sort",&value,sizeof(value))){sort=value;page=0;load();}
+                sort=in->y;
+                lumen_state_queue("shelf-sort",&sort,sizeof(sort));
+                page=0;load();
             } else {
                 char value[2]={(char)('0'+in->y),0};lumen_service("library","sort",value,3);
             }
@@ -176,10 +182,10 @@ static int input(const Input *in) {
         }
         return 1;
     }
-    char id[32],gesture[24];
-    if(in->kind!=INPUT_COMPONENT || !wire_bounded_string("id",id,sizeof(id)) ||
-       !wire_bounded_string("gesture",gesture,sizeof(gesture)))return 0;
-    int clicked=!strcmp(gesture,"clicked"),held=!strcmp(gesture,"long_pressed");
+    char id[64];
+    int clicked=lumen_action(in,id,"clicked");
+    int held=!clicked && lumen_action(in,id,"long_pressed");
+    if(!clicked && !held)return 0;
     if(confirm) {
         if(clicked && !strcmp(id,"confirm")){action("delete",NULL);view=SHELF;}
         else if(!clicked || strcmp(id,"cancel"))return 0;

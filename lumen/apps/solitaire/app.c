@@ -166,9 +166,9 @@ static int valid_patience(void) {
             return 0;
     return 1;
 }
-static void save(void){if(dirty && app_state_save("game.bin",&solitaire,sizeof(solitaire)))dirty=0;}
+static void save(void){if(dirty && lumen_state_queue("game.bin",&solitaire,sizeof(solitaire)))dirty=0;}
 int main(void) {
-    if(!(app_state_load("game.bin",&solitaire,sizeof(solitaire)) ||
+    if(!((lumen_state_register("game.bin",0,&solitaire,sizeof(solitaire))==1) ||
          lumen_legacy_state("solitaire-v1.bin",&solitaire,sizeof(solitaire))) || !valid_patience())
         patience_new(&solitaire,(uint32_t)ui_clock_millis());
     dirty=1;lumen_run(draw,input,save);return 0;

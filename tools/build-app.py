@@ -74,6 +74,16 @@ def build_app(manifest,target='kindle',output=None):
     source=meta.pop('sources')
     if not source or not all(isinstance(path,str) for path in source):
         raise ValueError('An app needs at least one source file')
+    native=meta.pop('native_dependencies',[])
+    if native:
+        if native!=['quickjs']:
+            raise ValueError('Unknown native app dependency')
+        quickjs=ROOT/'.local/deps/quickjs'
+        if not (quickjs/'VERSION').is_file():
+            raise RuntimeError('QuickJS missing. Run python3 tools/setup.py '+target)
+        version=(quickjs/'VERSION').read_text().strip()
+        flags+=['-I'+str(quickjs),'-D_GNU_SOURCE',f'-DCONFIG_VERSION="{version}"']
+        source.extend(str(quickjs/name) for name in ('quickjs.c','dtoa.c','libregexp.c','libunicode.c','cutils.c'))
     cache=out/'.objects';cache.mkdir(exist_ok=True)
     binary=out/'app'
     objects=[]

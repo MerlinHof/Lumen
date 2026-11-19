@@ -1,6 +1,6 @@
 /* Translate web documents to a static HTML subset with bounded local resources. */
 enum { WEB_URL=1024, WEB_BODY=2<<20, WEB_CSS=64<<10, WEB_IMAGE=256<<10 };
-static const char *const attributes[]={"href","rel","class","id","style","alt","src"};
+static const char *const attributes[]={"href","rel","class","id","style","alt","src","onclick","type","hidden","value","media"};
 #define WEB_ATTRIBUTES (sizeof(attributes)/sizeof(attributes[0]))
 static int url_valid(const char *url) {
     if(strncmp(url,"http://",7) && strncmp(url,"https://",8))return 0;
@@ -37,6 +37,10 @@ static int same_origin(const char *one,const char *two) {
     a+=strcspn(one+a,"/?#");b+=strcspn(two+b,"/?#");
     return a==b && !strncasecmp(one,two,a);
 }
+static int web_resource_url(const char *base,const char *reference,char out[WEB_URL]) {
+    return url_join(base,reference,out) &&
+        (strncmp(base,"https://",8) || !strncmp(out,"https://",8));
+}
 static void web_escape(FILE *out,const char *text) {
     for(const unsigned char *p=(const unsigned char *)text;*p;p++) {
         if(*p=='&')fputs("&amp;",out);
@@ -55,14 +59,17 @@ static int css_chars(const char *start,const char *end,const char *extra) {
                            !strchr(extra,*start))return 0;
     return 1;
 }
+#include "responsive.h"
+#include "script.h"
+
 static void css_declarations(FILE *out,const char *p,const char *end) {
     static const char *const names[]={
-        "color","background-color","font-family","font-size","font-style","font-weight",
+        "color","background","background-color","font-family","font-size","font-style","font-weight",
         "line-height","letter-spacing","text-align","text-decoration","white-space",
         "margin","margin-top","margin-bottom","margin-left","margin-right","padding",
         "padding-top","padding-bottom","padding-left","padding-right","display",
         "list-style-type","border","border-top","border-bottom","border-color","border-width",
-        "width","max-width","height","vertical-align"
+        "width","max-width","min-width","height","max-height","vertical-align","overflow-wrap"
     };
     while(p<end) {
         while(p<end && (isspace((unsigned char)*p) || *p==';'))p++;
@@ -78,13 +85,54 @@ static void css_declarations(FILE *out,const char *p,const char *end) {
                permitted(p,(size_t)(name_end-p),names,sizeof(names)/sizeof(*names)) &&
                css_chars(value,value_end,"#%.,-")) {
                 for(const char *q=p;q<name_end;q++)fputc(tolower((unsigned char)*q),out);
-                fprintf(out,":%.*s;",(int)(value_end-value),value);
+                fputc(':',out);
+                size_t length=(size_t)(value_end-value);
+                if(permitted(p,(size_t)(name_end-p),(const char *const[]){"display"},1) &&
+                   (layout_value(value,value_end,"flex") || layout_value(value,value_end,"grid") ||
+                    layout_value(value,value_end,"inline-flex") || layout_value(value,value_end,"inline-grid")))
+                    fputs("block",out);
+                else if(length>=3 && !memcmp(value_end-2,"vw",2)) {
+                    char *unit;
+                    double width=strtod(value,&unit);
+                    if(unit==value_end-2 && width>=0 && width<=200)fprintf(out,"%.1fpx",width*WEB_VIEW_WIDTH/100);
+                    else fprintf(out,"%.*s",(int)length,value);
+                } else fprintf(out,"%.*s",(int)length,value);
+                fputc(';',out);
             }
         }
         p=stop<end ? stop+1 : end;
     }
 }
-static void css_sheet(FILE *out,const char *css) {
+static void css_rules(FILE *out,WebLayout *layout,const char *p,const char *end,int level) {
+    if(level>5)return;
+    while(p<end) {
+        while(p<end && isspace((unsigned char)*p))p++;
+        if(p==end)break;
+        const char *open=memchr(p,'{',(size_t)(end-p)),*semicolon=memchr(p,';',(size_t)(end-p));
+        if(!open)break;
+        if(*p=='@' && semicolon && semicolon<open){p=semicolon+1;continue;}
+        const char *close=open+1;
+        int depth=1;
+        while(close<end && depth) {
+            if(*close=='{')depth++;
+            else if(*close=='}')depth--;
+            if(depth)close++;
+        }
+        if(depth)break;
+        if(!strncmp(p,"@media",6) && media_matches(p+6,open))
+            css_rules(out,layout,open+1,close,level+1);
+        else if(!strncmp(p,"@layer",6))
+            css_rules(out,layout,open+1,close,level+1);
+        else if(*p!='@' && open>p && open-p<180 && css_chars(p,open,"#.*,_->+:()[]=")) {
+            fprintf(out,"%.*s{",(int)(open-p),p);
+            css_declarations(out,open+1,close);
+            fputs("}\n",out);
+            layout_record(layout,p,open,close);
+        }
+        p=close+1;
+    }
+}
+static void css_sheet(FILE *out,WebLayout *layout,const char *css) {
     size_t length=strlen(css);
     if(length>WEB_CSS)return;
     char *clean=malloc(length+1);
@@ -98,30 +146,10 @@ static void css_sheet(FILE *out,const char *css) {
         } else clean[used++]=css[i];
     }
     clean[used]=0;
-    const char *p=clean;
-    while(*p) {
-        while(isspace((unsigned char)*p))p++;
-        const char *open=strchr(p,'{'),*semicolon=strchr(p,';');
-        if(!open)break;
-        if(*p=='@' && semicolon && semicolon<open){p=semicolon+1;continue;}
-        const char *close=open+1;
-        int depth=1;
-        while(*close && depth) {
-            if(*close=='{')depth++;
-            else if(*close=='}')depth--;
-            if(depth)close++;
-        }
-        if(depth)break;
-        if(*p!='@' && open>p && open-p<180 && css_chars(p,open,"#.*,_->+")) {
-            fprintf(out,"%.*s{",(int)(open-p),p);
-            css_declarations(out,open+1,close);
-            fputs("}\n",out);
-        }
-        p=close+1;
-    }
+    css_rules(out,layout,clean,clean+used,0);
     free(clean);
 }
-static void web_styles(FILE *out,MarkupNode *node,const char *base,char title[128],int *requests) {
+static void web_styles(FILE *out,WebLayout *layout,MarkupNode *node,const char *base,char title[128],int *requests,int64_t network_end) {
     for(;node;node=node->next) {
         if(!node->tag)continue;
         if(!strcmp(node->tag,"title") && node->child && node->child->text && !*title) {
@@ -130,22 +158,24 @@ static void web_styles(FILE *out,MarkupNode *node,const char *base,char title[12
             while(length && ((unsigned char)node->child->text[length]&192)==128)length--;
             snprintf(title,128,"%.*s",(int)length,node->child->text);
             for(char *p=title;*p;p++)if((unsigned char)*p<32)*p=' ';
-        } else if(!strcmp(node->tag,"style")) {
+        } else if(!strcmp(node->tag,"style") && (!node->attribute[11] ||
+                  media_matches(node->attribute[11],node->attribute[11]+strlen(node->attribute[11])))) {
             for(MarkupNode *child=node->child;child;child=child->next)
-                if(child->text)css_sheet(out,child->text);
+                if(child->text)css_sheet(out,layout,child->text);
         } else if(!strcmp(node->tag,"link") && node->attribute[1] &&
-                  !strcasecmp(node->attribute[1],"stylesheet") && *requests<3) {
+                  !strcasecmp(node->attribute[1],"stylesheet") && *requests<6 &&
+                  (!node->attribute[11] || media_matches(node->attribute[11],node->attribute[11]+strlen(node->attribute[11])))) {
             char url[WEB_URL];
-            if(url_join(base,node->attribute[0],url) && same_origin(base,url)) {
+            if(web_resource_url(base,node->attribute[0],url) && script_time()<network_end) {
                 (*requests)++;
                 char *css=malloc(WEB_CSS+1);
-                if(css && lumen_http_text((LumenHttpRequest){.url=url,.timeout=5,
+                if(css && lumen_http_text((LumenHttpRequest){.url=url,.timeout=4,.redirects=3,
                     .allow_http=!strncmp(url,"http://",7),.compressed=1},css,WEB_CSS+1))
-                    css_sheet(out,css);
+                    css_sheet(out,layout,css);
                 free(css);
             }
         }
-        web_styles(out,node->child,base,title,requests);
+        web_styles(out,layout,node->child,base,title,requests,network_end);
     }
 }
 static const char *image_type(const unsigned char *data,size_t length,int *width,int *height) {
@@ -172,15 +202,15 @@ static const char *image_type(const unsigned char *data,size_t length,int *width
     }
     return NULL;
 }
-static int web_image(FILE *out,const char *base,const char *src,const char *alt,int *remaining) {
+static int web_image(FILE *out,const char *base,const char *src,const char *alt,int *remaining,int64_t network_end) {
     char url[WEB_URL];
-    if(!*remaining || !url_join(base,src,url) || !same_origin(base,url))return 0;
+    if(!*remaining || script_time()>=network_end || !web_resource_url(base,src,url))return 0;
     --*remaining;
     FILE *file=tmpfile();
     if(!file)return 0;
     unsigned char *data=malloc(WEB_IMAGE);
     size_t length=0;
-    if(data && lumen_http_download((LumenHttpRequest){.url=url,.timeout=4,
+    if(data && lumen_http_download((LumenHttpRequest){.url=url,.timeout=4,.redirects=3,
        .allow_http=!strncmp(url,"http://",7)},fileno(file),WEB_IMAGE))
         length=fread(data,1,WEB_IMAGE,file);
     fclose(file);
@@ -203,31 +233,64 @@ static int web_image(FILE *out,const char *base,const char *src,const char *alt,
     free(data);
     return valid;
 }
-static void web_content(FILE *out,MarkupNode *node,const char *base,int *images) {
-    static const char *const allowed[]={"a","article","aside","b","blockquote","br","code","dd","div","dl","dt",
+static void web_content(FILE *out,MarkupNode *node,const char *base,int *images,
+                        const WebLayout *layout,const WebScript *script,int single);
+static void web_children(FILE *out,MarkupNode *node,const char *base,int *images,
+                         const WebLayout *layout,const WebScript *script) {
+    const WebLayoutRule *rule=layout_for(layout,node);
+    int children=0;
+    for(MarkupNode *p=node->child;p;p=p->next)
+        if(p->tag && !p->attribute[9] && strcmp(p->tag,"script") && strcmp(p->tag,"style"))children++;
+    int columns=rule ? rule->columns : 0;
+    if(columns<0)columns=children>4 ? 2 : children;
+    if(columns<2 || children<2) {
+        web_content(out,node->child,base,images,layout,script,0);
+        return;
+    }
+    if(columns>children)columns=children;
+    fprintf(out,"<table style=\"width:100%%\"><tbody><tr>");
+    int index=0;
+    for(MarkupNode *p=node->child;p;p=p->next) {
+        if(!p->tag || p->attribute[9] || !strcmp(p->tag,"script") || !strcmp(p->tag,"style"))continue;
+        if(index && index%columns==0)fputs("</tr><tr>",out);
+        fprintf(out,"<td style=\"width:%d%%;padding:%dpx;vertical-align:top\">",100/columns,rule->gap/2);
+        web_content(out,p,base,images,layout,script,1);
+        fputs("</td>",out);
+        index++;
+    }
+    fputs("</tr></tbody></table>",out);
+}
+static void web_content(FILE *out,MarkupNode *node,const char *base,int *images,
+                        const WebLayout *layout,const WebScript *script,int single) {
+    static const char *const allowed[]={"a","body","article","aside","b","blockquote","br","code","dd","div","dl","dt",
         "em","footer","h1","h2","h3","h4","h5","h6","header","hr","i","li","main","nav","ol","p","pre",
         "section","small","span","strong","sub","sup","table","tbody","td","th","thead","tr","u","ul"};
     static const char *const omit[]={"head","script","style","template","svg","math","iframe","video",
         "audio","noscript","select","textarea"};
-    for(;node;node=node->next) {
+    for(;node;node=single ? NULL : node->next) {
         if(node->text){web_escape(out,node->text);continue;}
         const char *tag=node->tag;
-        if(!tag || permitted(tag,strlen(tag),omit,sizeof(omit)/sizeof(*omit)))continue;
+        if(!tag || node->attribute[9] || permitted(tag,strlen(tag),omit,sizeof(omit)/sizeof(*omit)))continue;
         if(!strcmp(tag,"img")) {
-            if(!web_image(out,base,node->attribute[6],node->attribute[5],images) &&
+            if(!web_image(out,base,node->attribute[6],node->attribute[5],images,script ? script->network_end : 0) &&
                node->attribute[5] && *node->attribute[5]) {
                 fputs("<span>[",out);web_escape(out,node->attribute[5]);fputs("]</span>",out);
             }
             continue;
         }
+        int control=script_action(script,node);
+        const char *original=tag;
+        if(!strcmp(tag,"button"))tag="a";
         int present=permitted(tag,strlen(tag),allowed,sizeof(allowed)/sizeof(*allowed));
-        int single=present && (!strcmp(tag,"br") || !strcmp(tag,"hr"));
+        int self_closing=present && (!strcmp(tag,"br") || !strcmp(tag,"hr"));
+        if(control && strcmp(tag,"a"))fprintf(out,"<a href=\"lumen-control:%d\">",control);
         if(present) {
             fprintf(out,"<%s",tag);
             if(!strcmp(tag,"a")) {
                 char url[WEB_URL];
                 const char *ref=node->attribute[0];
-                if(url_join(base,ref,url)) {
+                if(control)fprintf(out," href=\"lumen-control:%d\"",control);
+                else if(url_join(base,ref,url)) {
                     fputs(" href=\"",out);web_escape(out,*ref=='#' ? ref : url);fputc('"',out);
                 }
             }
@@ -238,29 +301,37 @@ static void web_content(FILE *out,MarkupNode *node,const char *base,int *images)
                 const char *style=node->attribute[4];
                 fputs(" style=\"",out);css_declarations(out,style,style+strlen(style));fputc('"',out);
             }
+            if(!strcmp(original,"button") && !node->attribute[2])fputs(" class=\"lumen-button\"",out);
             fputc('>',out);
         }
-        web_content(out,node->child,base,images);
-        if(present && !single)fprintf(out,"</%s>",tag);
+        web_children(out,node,base,images,layout,script);
+        if(present && !self_closing)fprintf(out,"</%s>",tag);
+        if(control && strcmp(tag,"a"))fputs("</a>",out);
     }
 }
-static int web_document(const char *source,const char *clean,const char *url,char title[128]) {
+static int web_document(const char *source,const char *clean,const char *url,char title[128],const int *actions,int count) {
     MarkupNode *root=markup_load(source,1,attributes,WEB_ATTRIBUTES);
     if(!root)return 0;
     FILE *out=fopen(clean,"wb");
-    if(!out){markup_free(root);return 0;}
+    WebLayout *layout=calloc(1,sizeof(*layout));
+    if(!out || !layout){if(out)fclose(out);free(layout);markup_free(root);return 0;}
+    const int64_t network_end=script_time()+7500;
+    WebScript *script=script_run(root,url,actions,count,network_end);
     fputs("<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><style>"
           "@page{margin:12px 6px;}body{font-family:sans-serif;line-height:1.35;color:#111;}"
           "a{color:#222;text-decoration:underline;}pre{white-space:pre-wrap;}"
-          "h1,h2,h3{line-height:1.18;}td,th{padding:4px;}",out);
+          "html,body{margin:0;}p,ul,ol{margin:0.65em 0;}h1,h2,h3{line-height:1.18;}"
+          "td,th{padding:4px;} .lumen-button{background-color:#e8e8e8;padding:6px 12px;}",out);
     int requests=0;
-    web_styles(out,root,url,title,&requests);
-    fputs("</style></head><body>",out);
-    int images=3;
-    web_content(out,root,url,&images);
-    fputs("</body></html>",out);
+    web_styles(out,layout,root,url,title,&requests,network_end);
+    fputs("</style></head>",out);
+    int images=6;
+    web_content(out,root,url,&images,layout,script,0);
+    fputs("</html>",out);
     int ok=!ferror(out);
     if(fclose(out))ok=0;
+    script_release(script);
+    free(layout);
     markup_free(root);
     return ok;
 }

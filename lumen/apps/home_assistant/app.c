@@ -10,12 +10,14 @@
 enum {DASHBOARD, DEVICES, CONFIG, GRAPH};
 typedef struct {
     char id[160],name[192],value[64],unit[32];
-    int sensor,saved,count;
+    int sensor,saved,count,categories;
+    char category[8][48];
     double t[128],v[128];
 } Device;
 static Device devices[8];
 static int view,page,count,busy,configured,token_set,trace=-1,hours=24;
 static char search[128],graph_id[160];
+static Device graph_device;
 #include "controller.h"
 static const char *word(const char *de,const char *en,const char *fr) {
     return lumen_language==1 ? en : lumen_language==2 ? fr : de;
@@ -28,7 +30,7 @@ static void list(void) {
     if(view==CONFIG)return;
     if(view==GRAPH) {
         for(int i=0;i<ha_count;i++)if(!strcmp(ha_entities[i].id,graph_id)) {
-            ha_device(&devices[0],&ha_entities[i]);
+            ha_device(&graph_device,&ha_entities[i],1);
             break;
         }
         ha_fetch_history(graph_id,hours);
@@ -42,7 +44,7 @@ static void list(void) {
     memset(devices,0,sizeof(devices));
     char ids[1500]="";
     for(int i=0;i<per && page*per+i<count;i++) {
-        ha_device(&devices[i],&ha_entities[visible[page*per+i]]);
+        ha_device(&devices[i],&ha_entities[visible[page*per+i]],0);
         if(view==DASHBOARD && devices[i].sensor) {
             size_t used=strlen(ids);
             if(used+strlen(devices[i].id)+2<sizeof(ids))
@@ -62,6 +64,7 @@ static const char *state_label(const Device *d) {
     return d->value;
 }
 static void open_history(const Device *device) {
+    graph_device=*device;
     snprintf(graph_id,sizeof(graph_id),"%s",device->id);
     show(GRAPH);
 }
@@ -86,11 +89,21 @@ static void plot(const Device *d,int x,int y,int w,int h,int detail) {
     double pad=fmax(.01,(hi-lo)*.08);lo-=pad;hi+=pad;
     if(detail) {
         ui_paint_surface(x,y,w,h,10,255,140);
-        for(int i=0;i<5;i++) {
-            int py=y+8+i*(h-16)/4;
-            char label[32];snprintf(label,sizeof(label),"%.4g",hi-(hi-lo)*i/4);
+        int rows=d->categories ? d->categories : 5;
+        for(int i=0;i<rows;i++) {
+            int py=y+8+i*(h-16)/(rows>1 ? rows-1 : 2);
+            char label[48];
+            if(d->categories) {
+                int category=d->categories-1-i;
+                py=y+h-7-(int)((category-lo)/(hi-lo)*(h-14));
+                if(py<y || py>y+h)continue;
+                snprintf(label,sizeof(label),"%s",d->category[category]);
+            } else snprintf(label,sizeof(label),"%.4g",hi-(hi-lo)*i/4);
             lumen_text(8,py-12,x-12,24,label,PAINT_SECONDARY,-1,1);
             ui_paint_line(x+2,py,x+w-2,py,1,205);
+        }
+        for(int i=0;i<5;i++) {
+            char label[32];
             time_t t=(time_t)(start+(end-start)*i/4);struct tm local;localtime_r(&t,&local);
             strftime(label,sizeof(label),"%H:%M",&local);
             ui_paint_text(x+i*(w-58)/4,y+h+6,58,30,label,PAINT_SECONDARY);
@@ -102,7 +115,12 @@ static void plot(const Device *d,int x,int y,int w,int h,int detail) {
         if(d->t[i]>end)break;
         int px=x+3+(int)((fmax(d->t[i],start)-start)/(end-start)*(w-6));
         int py=y+h-7-(int)((d->v[i]-lo)/(hi-lo)*(h-14));
-        if(previous>=0)ui_paint_line(last_x,last_y,px,py,detail ? 2 : 1,detail ? 35 : 144);
+        if(previous>=0) {
+            if(d->categories) {
+                ui_paint_line(last_x,last_y,px,last_y,detail ? 2 : 1,detail ? 35 : 144);
+                ui_paint_line(px,last_y,px,py,detail ? 2 : 1,detail ? 35 : 144);
+            } else ui_paint_line(last_x,last_y,px,py,detail ? 2 : 1,detail ? 35 : 144);
+        }
         last_x=px;last_y=py;previous=i;
         if(trace>=0 && abs(px-trace)<dist){nearest=i;dist=abs(px-trace);}
     }
@@ -115,30 +133,33 @@ static void plot(const Device *d,int x,int y,int w,int h,int detail) {
         ui_paint_line(px,y+1,px,y+h-2,2,0);
         time_t t=(time_t)d->t[nearest];struct tm local;localtime_r(&t,&local);
         char value[80],stamp[32];strftime(stamp,sizeof(stamp),"%d.%m. %H:%M",&local);
-        snprintf(value,sizeof(value),"%s  ·  %.6g %s",stamp,d->v[nearest],d->unit);
+        if(d->categories)snprintf(value,sizeof(value),"%s  ·  %s",stamp,d->category[(int)d->v[nearest]]);
+        else snprintf(value,sizeof(value),"%s  ·  %.6g %s",stamp,d->v[nearest],d->unit);
         ui_paint_surface(x+12,y+12,w-24,40,9,255,150);
         ui_paint_text(x+12,y+12,w-24,40,value,PAINT_BODY);
     }
 }
 static void draw(void) {
-    ui_paint_heading("Home Assistant",view==DASHBOARD || view==DEVICES ? 2 : 0);
     if(view==CONFIG) {
-        lumen_text(30,143,540,35,word("Serveradresse","Server address","Adresse du serveur"),PAINT_BODY,0,1);
-        lumen_button_action("address",28,188,544,52,*ha_url ? ha_url : "http://homeassistant.local:8123",0);
-        lumen_text(30,281,540,35,word("Zugriffstoken","Access token","Jeton d’accès"),PAINT_BODY,0,1);
-        lumen_button_action("token",28,327,544,52,token_set ? "••••••••" : word("Token eingeben","Enter token","Saisir le jeton"),0);
-        lumen_wrapped(30,414,540,132,word("Adresse und Token lassen sich auch über Dateiübertragung im Browser einrichten.",
-            "Set the address and token here or in the File Transfer web interface.",
-            "Configurez l’adresse et le jeton ici ou via l’interface web de transfert."),PAINT_BODY,4);
-        lumen_button_action("connect",28,607,544,52,word("Verbinden","Connect","Connecter"),1);
+        lumen_form("Home Assistant");
+        lumen_form_choice("address",word("Serveradresse","Server address","Adresse du serveur"),*ha_url ? ha_url : "homeassistant.local");
+        lumen_form_choice("token",word("Zugriffstoken","Access token","Jeton d’accès"),
+                          token_set ? "••••••••" : word("Eingeben","Enter","Saisir"));
+        lumen_form_text(word("Adresse und Token können auch über die Dateiübertragung eingerichtet werden.",
+            "You can also configure the address and token through File Transfer.",
+            "La configuration est aussi possible via le transfert de fichiers."),PAINT_BODY);
+        lumen_component_button("connect",word("Verbinden","Connect","Connecter"),1);
         return;
     }
+    ui_paint_heading("Home Assistant",view==GRAPH ? 1 : 2);
     if(view==GRAPH) {
-        Device *d=&devices[0];char label[112];
+        lumen_icon_action("history-refresh",528,74,IC_RESTART);
+        Device *d=&graph_device;char label[112];
         snprintf(label,sizeof(label),"%s %s",state_label(d),d->unit);
         lumen_text(30,131,540,40,d->name,PAINT_BODY,0,1);
         lumen_text(30,171,540,42,label,PAINT_TITLE,0,1);
-        plot(d,66,229,492,413,1);
+        int left=d->categories ? 108 : 66;
+        plot(d,left,229,558-left,413,1);
         const char *spans[]={"1 h","6 h","24 h"};
         lumen_segments("span",28,716,544,48,spans,3,hours==1 ? 0 : hours==6 ? 1 : 2);
         return;
@@ -174,8 +195,11 @@ static void draw(void) {
             if(d->sensor)plot(d,x+5,y+7,252,110,0);
             lumen_text(x+13,y+8,236,31,d->name,PAINT_BODY,0,1);
             lumen_text(x+13,y+41,d->sensor ? 236 : 146,51,value,d->sensor ? PAINT_TITLE : PAINT_BODY,0,1);
-            if(!d->sensor)lumen_toggle(x+175,y+51,!strcmp(d->value,"on"));
             lumen_index_action("device",i,x,y,262,126);
+            if(!d->sensor) {
+                char id[24];snprintf(id,sizeof(id),"power:%d",i);
+                lumen_nested_toggle(id,x+175,y+51,!strcmp(d->value,"on"));
+            }
         }
     }
     if(!count)lumen_wrapped(30,view==DEVICES ? 265 : 220,540,105,
@@ -190,8 +214,14 @@ static int input(const Input *in) {
     if(in->kind==INPUT_BACK && view!=DASHBOARD){show(DASHBOARD);return 1;}
     if(in->kind==INPUT_PAGE){page=in->x;list();return 1;}
     if(in->kind==INPUT_COMPONENT && view==GRAPH) {
-        char value[8];lumen_string("text",value,sizeof(value));
-        if(value[0]>='0' && value[0]<='2'){hours=(int[]){1,6,24}[value[0]-'0'];trace=-1;list();}
+        char value[8],id[32];
+        lumen_string("text",value,sizeof(value));
+        lumen_string("id",id,sizeof(id));
+        if(!strcmp(id,"span") && value[0]>='0' && value[0]<='2'){hours=(int[]){1,6,24}[value[0]-'0'];trace=-1;list();}
+        else if(!strcmp(id,"history-refresh") && !history_worker) {
+            ha_history_at=ha_history_retry=0;
+            list();
+        }
         return 1;
     }
     if(in->kind==INPUT_TEXT) {
@@ -224,7 +254,7 @@ static int input(const Input *in) {
         if(i>=0 && *devices[i].id)open_history(&devices[i]);
         return 1;
     }
-    if(!lumen_action(in,id,"clicked"))return 0;
+    if(!lumen_action(in,id,"clicked") && !lumen_action(in,id,"changed"))return 0;
     if(view==CONFIG) {
         if(!strcmp(id,"address"))lumen_request("input","Home Assistant URL",ha_url,2);
         else if(!strcmp(id,"token"))lumen_request("secret",word("Zugriffstoken","Access token","Jeton d’accès"),"",3);
@@ -240,10 +270,9 @@ static int input(const Input *in) {
         if(i>=0 && *devices[i].id){ha_toggle_favorite(devices[i].id);list();}
     } else if(view==DASHBOARD) {
         int i=lumen_action_index(id,"device",8);
-        if(i>=0 && *devices[i].id) {
-            if(devices[i].sensor)open_history(&devices[i]);
-            else ha_toggle_device(&devices[i]);
-        }
+        if(i>=0 && *devices[i].id)open_history(&devices[i]);
+        i=lumen_action_index(id,"power",8);
+        if(i>=0 && *devices[i].id)ha_toggle_device(&devices[i]);
     }
     return 1;
 }
@@ -252,4 +281,4 @@ static void draw_scheduled(void) {
     if(states_worker || history_worker)lumen_schedule(250);
     else if(view==DASHBOARD || view==GRAPH)lumen_schedule(5000);
 }
-int main(void){lumen_run(draw_scheduled,input,NULL);return 0;}
+int main(void){lumen_run(draw_scheduled,input,NULL);lumen_worker_cancel(&history_worker);lumen_worker_cancel(&states_worker);return 0;}

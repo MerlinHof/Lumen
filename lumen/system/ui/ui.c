@@ -106,6 +106,7 @@ static int document_excerpt_wait(void);
 
 typedef struct {
     int x, y, w, h, system, radius, sides, quiet;
+    int paint_x,paint_y,paint_w,paint_h;
 } Widget;
 static Widget widgets[1024], press_bounds;
 static int widget_count, pressed = -1, press_canceled, down_y, history[64], history_count;
@@ -1986,11 +1987,15 @@ int ui_feedback_active(void) {
 void ui_feedback_draw(void) {
     if(!ui_feedback_active())return;
     Widget r=press_bounds;
-    int inset=4,w=r.w-2*inset,h=r.h-2*inset;
+    if(r.paint_w>0 && r.paint_h>0) {
+        r.x=r.paint_x;r.y=r.paint_y;r.w=r.paint_w;r.h=r.paint_h;
+    }
+    int inset=r.w<28 || r.h<28 ? 1 : 2;
+    int w=r.w-2*inset,h=r.h-2*inset;
     if(w<8 || h<8)return;
     /* Keep a rounded fallback even when square surfaces are selected. */
     int radius=r.radius-inset;
-    if(radius<RADIUS_MEDIUM)radius=RADIUS_MEDIUM;
+    if(radius<4)radius=4;
     int profile=rounding_profile();
     if(!profile)profile=CORNER_SUPERELLIPSE;
     if(radius>MAX_CORNER_RADIUS)radius=MAX_CORNER_RADIUS;
@@ -2010,7 +2015,8 @@ void ui_feedback_draw(void) {
         if(right+x0>WIDTH)right=WIDTH-x0;
         for(int x=left;x<right;x++) {
             unsigned char *pixel=&ui_pixels[(y+y0)*WIDTH+x+x0];
-            *pixel=*pixel<128 ? 255 : 0;
+            /* Leave gray edges and artwork intact so touch-down stays binary. */
+            if(*pixel==0 || *pixel==255)*pixel=255-*pixel;
         }
     }
 }

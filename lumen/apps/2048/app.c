@@ -51,9 +51,9 @@ static int input(const Input *in) {
     }
     return 1;
 }
-static void save(void) {if(dirty && app_state_save("game.bin",&game,sizeof(game)))dirty=0;}
+static void save(void) {if(dirty && lumen_state_queue("game.bin",&game,sizeof(game)))dirty=0;}
 int main(void) {
-    int valid=app_state_load("game.bin",&game,sizeof(game)) ||
+    int valid=(lumen_state_register("game.bin",0,&game,sizeof(game))==1) ||
               lumen_legacy_state("2048-v1.bin",&game,sizeof(game));
     for(int i=0;i<16;i++)if(game.state.cell[i]>30 || game.undo.cell[i]>30)valid=0;
     if(!valid)tiles_new(&game,(uint32_t)time(NULL));

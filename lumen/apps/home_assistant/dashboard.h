@@ -1,12 +1,14 @@
 /* Read-only sensor history; actuator actions remain in the existing input path. */
 #define HA_POINTS 128
+#define HA_CATEGORIES 8
 typedef struct {
     char id[160];
     double value[HA_POINTS];
     time_t time[HA_POINTS];
-    int count;
+    int count,categories;
+    char category[HA_CATEGORIES][48];
 } HAHistory;
-static HAHistory ha_history[8];
+static HAHistory ha_history[8],ha_preview[8];
 static char ha_history_key[1500],ha_history_pending[1500];
 static int ha_history_span,ha_pending_span;
 static time_t ha_history_at,ha_history_retry,ha_refresh_at;
@@ -14,7 +16,10 @@ static time_t ha_timestamp(const char *s) {
     struct tm t = {0};
     int y, m, d, h, min;
     double sec;
-    if (sscanf(s, "%d-%d-%dT%d:%d:%lf", &y, &m, &d, &h, &min, &sec) != 6)
+    char separator;
+    if(sscanf(s,"%d-%d-%d%c%d:%d:%lf",&y,&m,&d,&separator,&h,&min,&sec)!=7 ||
+       (separator!='T' && separator!=' ') || y<1970 || y>2100 || m<1 || m>12 ||
+       d<1 || d>31 || h<0 || h>23 || min<0 || min>59 || !isfinite(sec) || sec<0 || sec>=61)
         return 0;
     t.tm_year = y - 1900;
     t.tm_mon = m - 1;
@@ -37,66 +42,88 @@ static time_t ha_timestamp(const char *s) {
     }
     return v;
 }
-static void ha_history_parse(const char *requested) {
-    char *s = ha_read("ha-history.json", 8388608);
-    if (!s)
-        return;
-    JsonToken *tok = calloc(500000, sizeof(*tok));
-    Json j;
-    if (tok && json_parse(&j, s, tok, 500000) && j.tokens[0].type == '[') {
-        memset(ha_history, 0, sizeof(ha_history));
-        for (int a = 0; a < j.tokens[0].count && a < 8; a++) {
-            int array = json_at(&j, 0, a), first = json_at(&j, array, 0);
-            if (first < 0)
-                continue;
-            HAHistory *hist = &ha_history[a];
-            json_string(&j, json_get(&j, first, "entity_id"), hist->id, sizeof(hist->id));
-            if(!*hist->id && requested && j.tokens[0].count==1 && !strchr(requested,','))
-                snprintf(hist->id,sizeof(hist->id),"%.159s",requested);
-            int count = j.tokens[array].count,
-                step = count > HA_POINTS ? (count + HA_POINTS - 2) / (HA_POINTS - 1) : 1;
-            for (int k = 0, obj = first; k < count && obj<j.count; k++, obj=j.tokens[obj].next) {
-                if (k % step && k != count - 1)
-                    continue;
-                if (hist->count >= HA_POINTS)
-                    break;
-                char state[80], stamp[80];
-                int state_field=json_get(&j,obj,"state");
-                if(state_field<0)state_field=json_get(&j,obj,"s");
-                int timestamp=json_get(&j,obj,"last_changed");
-                int updated=json_get(&j,obj,"last_updated");
-                if(timestamp<0)timestamp=updated;
-                if(timestamp<0)timestamp=json_get(&j,obj,"lu");
-                if(timestamp<0)timestamp=json_get(&j,obj,"lc");
-                json_string(&j,state_field,state,sizeof(state));
-                json_string(&j,timestamp,stamp,sizeof(stamp));
-                char *end;
-                double v = strtod(state, &end);
-                if (!strcmp(state, "on"))
-                    v = 1;
-                else if (!strcmp(state, "off"))
-                    v = 0;
-                else if (end == state || *end || !isfinite(v))
-                    continue;
-                time_t t=ha_timestamp(stamp);
-                if(!t && timestamp>=0 && j.tokens[timestamp].type!='"') {
-                    double value=json_number(&j,timestamp);
-                    if(isfinite(value) && value>0 && value<4102444800.0)t=(time_t)value;
+static time_t ha_sample_time(const Json *j,int object) {
+    const char *const keys[]={"last_changed","last_updated","lc","lu"};
+    for(size_t i=0;i<sizeof(keys)/sizeof(*keys);i++) {
+        int field=json_get(j,object,keys[i]);
+        if(field<0)continue;
+        char stamp[80];
+        json_string(j,field,stamp,sizeof(stamp));
+        time_t t=ha_timestamp(stamp);
+        if(t>0)return t;
+        char *end;
+        double number=strtod(stamp,&end);
+        if(end==stamp || *end || !isfinite(number))continue;
+        if(number>4102444800.0)number/=1000;
+        if(number>0 && number<2147483647.0)return (time_t)number;
+    }
+    return 0;
+}
+static int ha_sample_value(HAHistory *history,const char *state,double *value) {
+    if(!*state || !strcmp(state,"unknown") || !strcmp(state,"unavailable"))return 0;
+    if(!strcmp(state,"on")){*value=1;return !history->categories;}
+    if(!strcmp(state,"off")){*value=0;return !history->categories;}
+    char *end;
+    double number=strtod(state,&end);
+    if(end!=state && !*end && isfinite(number)) {
+        *value=number;
+        return !history->categories;
+    }
+    if(history->count && !history->categories)return 0;
+    for(int i=0;i<history->categories;i++)if(!strcmp(state,history->category[i])){
+        *value=i;
+        return 1;
+    }
+    if(history->categories==HA_CATEGORIES || strlen(state)>=sizeof(history->category[0]))return 0;
+    *value=history->categories;
+    snprintf(history->category[history->categories++],sizeof(history->category[0]),"%s",state);
+    return 1;
+}
+static int ha_history_decode(const char *body,const char *requested,HAHistory out[8]) {
+    size_t length=strlen(body);
+    int capacity=length/4+32>700000 ? 700000 : (int)(length/4+32);
+    JsonToken *tokens=malloc((size_t)capacity*sizeof(*tokens));
+    Json json;
+    int valid=tokens && json_parse(&json,body,tokens,capacity) &&
+        (json.tokens[0].type=='[' || json.tokens[0].type=='{');
+    if(valid) {
+        memset(out,0,8*sizeof(*out));
+        int groups=json.tokens[0].type=='[' ? json.tokens[0].count : 1;
+        for(int a=0;a<groups && a<8;a++) {
+            int array=json.tokens[0].type=='[' ? json_at(&json,0,a) : json_get(&json,0,requested ? requested : "");
+            int first=json_at(&json,array,0);
+            if(first<0)continue;
+            HAHistory *history=&out[a];
+            json_string(&json,json_get(&json,first,"entity_id"),history->id,sizeof(history->id));
+            if(!*history->id && requested && groups==1 && !strchr(requested,','))
+                snprintf(history->id,sizeof(history->id),"%.159s",requested);
+            int count=json.tokens[array].count;
+            int stride=count>HA_POINTS ? (count+HA_POINTS-3)/(HA_POINTS-2) : 1;
+            for(int k=0,object=first;k<count && object<json.count;object=json.tokens[object].next,k++) {
+                if(k%stride && k!=count-1)continue;
+                int field=json_get(&json,object,"state");
+                if(field<0)field=json_get(&json,object,"s");
+                char state[80];
+                json_string(&json,field,state,sizeof(state));
+                time_t t=ha_sample_time(&json,object);
+                double value;
+                if(!t || history->count>=HA_POINTS || !ha_sample_value(history,state,&value))continue;
+                int i=history->count++;
+                while(i>0 && history->time[i-1]>t) {
+                    history->time[i]=history->time[i-1];
+                    history->value[i]=history->value[i-1];
+                    i--;
                 }
-                if(!t && updated>=0 && updated!=timestamp) {
-                    json_string(&j,updated,stamp,sizeof(stamp));
-                    t=ha_timestamp(stamp);
-                }
-                if (!t)
-                    continue;
-                int at = hist->count++;
-                hist->value[at] = v;
-                hist->time[at] = t;
+                history->time[i]=t;history->value[i]=value;
             }
         }
     }
-    free(tok);
-    free(s);
+    free(tokens);
+    return valid;
+}
+static void ha_history_import(void) {
+    char *body=ha_read("ha-history.json",8388608);
+    if(body){ha_history_decode(body,NULL,ha_preview);free(body);}
 }
 static int ha_visible(int *out,int picking,const char *search) {
     int n = 0;

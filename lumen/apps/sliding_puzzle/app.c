@@ -6,13 +6,13 @@ static SignalGame signal_game;
 static int signal_ready, signal_dirty;
 
 static void signal_save(void) {
-    if (signal_dirty && app_state_save("slide3d-v1.bin", &signal_game, sizeof(signal_game)))
+    if (signal_dirty && lumen_state_queue("slide3d-v1.bin", &signal_game, sizeof(signal_game)))
         signal_dirty = 0;
 }
 static void signal_open(void) {
     if (signal_ready) return;
     signal_ready = 1;
-    int loaded=app_state_load("slide3d-v1.bin", &signal_game, sizeof(signal_game));
+    int loaded=(lumen_state_register("slide3d-v1.bin",0,&signal_game,sizeof(signal_game))==1);
     if (!loaded) {
         struct { uint32_t magic,size; SignalGame game; } legacy;
         if (lumen_legacy_state("slide3d-v1.bin",&legacy,sizeof(legacy)) &&

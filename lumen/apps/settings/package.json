@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.settings",
   "name": "Einstellungen",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "sources": [
     "app.c"
   ],

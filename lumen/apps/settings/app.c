@@ -218,16 +218,19 @@ static void draw_system(void) {
     }
 }
 static void draw_content(void) {
-    ui_paint_heading(name(screen),0);
     if(screen==HOME) {
+        lumen_form(name(screen));
         const char *hints[]={word("Netzwerke und Verbindung","Networks and connection","Réseaux et connexion"),
             word("Sprache, Sperrbild und Statusleiste","Language, lock screen and status bar","Langue, veille et barre d’état"),
             word("Zeit, Zeitzone und WLAN-Abgleich","Time, time zone and synchronization","Heure, fuseau et synchronisation"),
             word("Sichtbarkeit & Reihenfolge","Visibility and order","Visibilité et ordre"),
             word("Speicher, Version und Konfiguration","Storage, updates and configuration","Stockage, mises à jour et configuration")};
         const char *sections[]={"wifi","appearance","date-time","manage","system"};
-        for(int i=1;i<=5;i++)lumen_list_action(sections[i-1],134+(i-1)*72,72,name(i),hints[i-1],IC_NEXT);
-    } else if(screen==WIFI)draw_wifi();
+        for(int i=1;i<=5;i++)lumen_form_link(sections[i-1],name(i),hints[i-1]);
+        return;
+    }
+    ui_paint_heading(name(screen),0);
+    if(screen==WIFI)draw_wifi();
     else if(screen==APPEARANCE)draw_appearance();
     else if(screen==TIME)draw_time();
     else if(screen==APPS)draw_apps();

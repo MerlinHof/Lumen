@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.library",
   "name": "Bibliothek",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "sources": [
     "app.c"
   ],

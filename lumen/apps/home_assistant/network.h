@@ -76,7 +76,7 @@ static pid_t ha_worker(const char *endpoint,const char *payload,const char *cach
         .timeout=timeout,.connect_timeout=5,.allow_http=!strncmp(ha_url,"http://",7)},body,limit);
     if(ok && cache) {
         Json json;
-        int count=!strcmp(cache,"ha-history.json") ? 500000 : 32000;
+        int count=128000;
         JsonToken *tokens=malloc((size_t)count*sizeof(*tokens));
         ok=tokens && json_parse(&json,body,tokens,count) && json.tokens[0].type=='[' &&
            lumen_storage_write(cache,body,strlen(body));

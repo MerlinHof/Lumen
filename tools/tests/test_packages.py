@@ -120,6 +120,11 @@ def app_session(key,events,legacy=None):
 # Launch every package from its own executable with fresh private storage.
 manifests=sorted((ROOT/'lumen/apps').glob('*/package.json'))
 assert len(manifests)==53
+default_launcher=sorted((definition['launcher']['order'],definition['id'])
+                        for path in manifests for definition in [json.loads(path.read_text())]
+                        if definition.get('launcher',{}).get('visible'))
+default_ids=[key for _,key in default_launcher]
+assert default_ids[default_ids.index('lumen.openai')+1]=='lumen.browser'
 ids=set()
 for manifest in manifests:
  definition=json.loads(manifest.read_text())

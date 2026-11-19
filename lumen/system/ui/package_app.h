@@ -117,7 +117,7 @@ static int package_form_row(int height) {
     return (!package_form.active || package_form.index==package_form.page) && top+height<=HEIGHT-8 ? top : -1;
 }
 static char package_focused_component[64];
-enum { COMPONENT_BUTTON, COMPONENT_FIELD, COMPONENT_TOGGLE, COMPONENT_CHECKBOX, COMPONENT_SEGMENTS, COMPONENT_FLOW, COMPONENT_EDITOR_LINE };
+enum { COMPONENT_BUTTON, COMPONENT_FIELD, COMPONENT_TOGGLE, COMPONENT_CHECKBOX, COMPONENT_SEGMENTS, COMPONENT_FLOW, COMPONENT_EDITOR_LINE, COMPONENT_NESTED_TOGGLE };
 static void package_component_event(const char *id,const char *gesture,const char *text) {
     char *message=NULL;size_t length=0;
     FILE *out=open_memstream(&message,&length);
@@ -218,6 +218,18 @@ static void package_paint_frame_mode(const char *text,int mode) {
     size_t cost=0;
     Widget surfaces[192];
     int surface_count=0;
+    if(mode==PACKAGE_PAINT_FOREGROUND) {
+        for(int item=commands+1;item<j.tokens[commands].next && surface_count<192;item=j.tokens[item].next) {
+            char type[16];
+            json_string(&j,json_get(&j,item,"type"),type,sizeof(type));
+            int raised=!strcmp(type,"raised");
+            if(!raised && strcmp(type,"surface"))continue;
+            surfaces[surface_count++]=(Widget){
+                .x=package_value(&j,item,"x"),.y=package_value(&j,item,"y"),
+                .w=package_value(&j,item,"w"),.h=package_value(&j,item,"h"),
+                .radius=raised ? 15 : package_value(&j,item,"radius")};
+        }
+    }
     for(int item=commands+1;item<j.tokens[commands].next;item=j.tokens[item].next) {
         char type[32],label[2048];
         json_string(&j,json_get(&j,item,"type"),type,sizeof(type));json_string(&j,json_get(&j,item,"text"),label,sizeof(label));
@@ -277,11 +289,23 @@ static void package_paint_frame_mode(const char *text,int mode) {
                 region(x,y,w,h);
                 int radius=package_value(&j,item,"radius");
                 if(json_get(&j,item,"radius")>=0)widget_shape(x,y,w,h,radius,3,0);
-                else for(int k=surface_count-1;k>=0;k--) {
-                    Widget shape=surfaces[k];
-                    if(shape.x==x && shape.y==y && shape.w==w && shape.h==h) {
-                        widget_shape(x,y,w,h,shape.radius,3,0);
-                        break;
+                else if(widget_count && widgets[widget_count-1].x==x &&
+                        widgets[widget_count-1].y==y+ui_y_offset &&
+                        widgets[widget_count-1].w==w && widgets[widget_count-1].h==h) {
+                    Widget *target=&widgets[widget_count-1];
+                    int best=17;
+                    for(int k=surface_count-1;k>=0;k--) {
+                        Widget shape=surfaces[k];
+                        int left=shape.x-x,top=shape.y-y;
+                        int right=w-left-shape.w,bottom=h-top-shape.h;
+                        if(left<0 || top<0 || right<0 || bottom<0 || shape.w<8 || shape.h<8)continue;
+                        int distance=left+top+right+bottom;
+                        if(distance>=best)continue;
+                        best=distance;
+                        target->paint_x=shape.x;target->paint_y=shape.y+ui_y_offset;
+                        target->paint_w=shape.w;target->paint_h=shape.h;
+                        target->radius=shape.radius;
+                        if(!best)break;
                     }
                 }
             }
@@ -305,7 +329,7 @@ static void package_paint_frame_mode(const char *text,int mode) {
                 button_h(x,y,w,h,"",0);
                 icon(x+(w-44)/2,y+(h-44)/2,id);
             } else if(is_toggle) {
-                component->kind=COMPONENT_TOGGLE;
+                component->kind=package_value(&j,item,"nested") ? COMPONENT_NESTED_TOGGLE : COMPONENT_TOGGLE;
                 component->checked=!!package_value(&j,item,"checked");
                 toggle(x,y,component->checked);
                 component->left=x-10;
@@ -367,11 +391,11 @@ static void package_paint_frame_mode(const char *text,int mode) {
         int component_kind=!strcmp(type,"component_field") ? COMPONENT_FIELD :
             !strcmp(type,"component_toggle") ? COMPONENT_TOGGLE :
             !strcmp(type,"component_checkbox") ? COMPONENT_CHECKBOX : COMPONENT_BUTTON;
-        int choice=!strcmp(type,"form_choice");
-        if(component_kind || choice || !strcmp(type,"component_button")) {
+        int choice=!strcmp(type,"form_choice"),link=!strcmp(type,"form_link");
+        if(component_kind || choice || link || !strcmp(type,"component_button")) {
             int field=component_kind==COMPONENT_FIELD;
-            int height=field ? 70 : 50;
-            if(!package_component_layout || (choice && !package_form.active))continue;
+            int height=field ? 70 : link ? 64 : 50;
+            if(!package_component_layout || ((choice || link) && !package_form.active))continue;
             int top=package_form_row(height);
             if(top<0 || package_component_count>=PACKAGE_COMPONENT_LIMIT)continue;
             PackageComponent *component=&package_components[package_component_count];
@@ -385,6 +409,11 @@ static void package_paint_frame_mode(const char *text,int mode) {
                 char value[256];
                 json_string(&j,json_get(&j,item,"value"),value,sizeof(value));
                 select_row17(top,label,value);
+            } else if(link) {
+                char detail[256];
+                json_string(&j,json_get(&j,item,"detail"),detail,sizeof(detail));
+                ListLayout row=list_row(28,top,544,height,-1,62,label,detail,ui_font(UI_PRIMARY),1);
+                icon(526,row.action_y,IC_NEXT);
             } else if(field) {
                 json_string(&j,json_get(&j,item,"value"),component->value,sizeof(component->value));
                 type_label(28,component->top,544,22,label,UI_SECONDARY);
@@ -632,11 +661,7 @@ static void package_paint_frame_mode(const char *text,int mode) {
         else if(!strcmp(type,"surface")) {
             int radius=package_value(&j,item,"radius");
             ui_paint_surface(x,y,w,h,radius,package_value(&j,item,"gray"),package_value(&j,item,"outline"));
-            if(mode==PACKAGE_PAINT_FOREGROUND) {
-                if(surface_count<(int)(sizeof(surfaces)/sizeof(*surfaces)))
-                    surfaces[surface_count++]=(Widget){.x=x,.y=y,.w=w,.h=h,.radius=radius};
-                widget_shape(x,y,w,h,radius,3,0);
-            }
+
         }
         else if(!strcmp(type,"points")) {
             int points=json_get(&j,item,"points");
@@ -739,10 +764,15 @@ static int package_ui_input(const Input*in) {
     if(app_process_frame_loading())return 2;
     if(in->kind!=INPUT_TAP && in->kind!=INPUT_SWIPE && in->kind!=INPUT_HOLD)return 2;
     if(in->kind==INPUT_TAP || in->kind==INPUT_HOLD) {
+        PackageComponent *component=NULL;
         for(int i=0;i<package_component_count;i++) {
-            PackageComponent *component=&package_components[i];
-            if(in->x<component->left || in->x>=component->left+component->width ||
-               in->y<component->top || in->y>=component->top+component->height)continue;
+            PackageComponent *candidate=&package_components[i];
+            if(in->x<candidate->left || in->x>=candidate->left+candidate->width ||
+               in->y<candidate->top || in->y>=candidate->top+candidate->height)continue;
+            if(!component)component=candidate;
+            if(candidate->kind==COMPONENT_NESTED_TOGGLE){component=candidate;break;}
+        }
+        if(component) {
             if(component->kind==COMPONENT_FLOW) {
                 const char *actions[]={"clicked","toggled","pinned","deleted","deadline"};
                 if(in->kind==INPUT_TAP)package_component_event(component->id,actions[component->checked],NULL);
@@ -768,7 +798,7 @@ static int package_ui_input(const Input*in) {
                 int selected=(in->x-component->left)*component->count/component->width;
                 char number[2]={(char)('0'+selected),0};
                 package_component_event(component->id,"selected",number);
-            } else if(component->kind==COMPONENT_TOGGLE || component->kind==COMPONENT_CHECKBOX)
+            } else if(component->kind==COMPONENT_TOGGLE || component->kind==COMPONENT_NESTED_TOGGLE || component->kind==COMPONENT_CHECKBOX)
                 package_component_event(component->id,"changed",component->checked ? "0" : "1");
             else package_component_event(component->id,"clicked",NULL);
             return 2;
