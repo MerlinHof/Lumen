@@ -3,12 +3,14 @@
   "api": 2,
   "id": "lumen.chess",
   "name": "Schach",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "sources": [
     "app.c"
   ],
   "assets": [
-    "assets/icon.pgm"
+    "assets/icon.pgm",
+    "assets/pieces.pgm",
+    "assets/pieces-rotated.pgm"
   ],
   "entry": "app",
   "surfaces": [

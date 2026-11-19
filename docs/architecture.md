@@ -88,3 +88,15 @@ SDK and app assets. Each finished update publishes as the next stable version.
 Existing releases are never overwritten. Version digits roll
 from x.9 to (x+1).0. See [wireless updates](wireless-updates.md) and
 [app packages](app-packages.md) for the operational contracts.
+
+
+## Package boundary in 6.8
+
+The runtime builds without a legacy app host. News, Recipes, and Store own
+their providers, saved content, and catalog presentation. Shared document
+parsing, scoped Reader and Library operations, device alarms, and background
+scheduling live in the runtime. The installed alarm overlay renders its
+screen and receives the day note via the configured agenda provider.
+Settings polls device state while its Wi-Fi screen is open. The complete
+architecture check rejects host includes of app files, linked app sources,
+literal app IDs in the core, and the old host tree.

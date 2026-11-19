@@ -65,7 +65,7 @@ static void package_sprite(const char *asset,int x,int y,int size,int index,int 
     static unsigned char sheet[64*1024];
     static int width,height;
     static uint64_t loaded_serial;
-    if(size<1 || size>96 || index<0 || index>=64 || strlen(asset)>=sizeof(previous))return;
+    if(size<1 || size>160 || index<0 || index>=64 || strlen(asset)>=sizeof(previous))return;
     uint64_t serial=app_process_frame_serial();
     if(loaded_serial!=serial || strcmp(previous,asset)) {
         char path[2048];
@@ -89,7 +89,7 @@ static void package_sprite(const char *asset,int x,int y,int size,int index,int 
             int sx=x+xx;
             if(sx<0 || sx>=WIDTH)continue;
             unsigned char gray=tile[(yy*width/size)*width+xx*width/size];
-            if(!transparent || gray!=255)ui_pixels[sy*WIDTH+sx]=gray;
+            if(!transparent || gray!=(transparent==2 ? 254 : 255))ui_pixels[sy*WIDTH+sx]=gray;
         }
     }
 }
@@ -409,10 +409,14 @@ static void package_paint_frame_mode(const char *text,int mode) {
                 drawtext_raw(x+length+10,progress_y-1,percent,body_font,52);
             }
         }
-        else if(!strcmp(type,"catalog_cover")) {
-            int item=store_item(label);
-            if(item>=0 && x>=0 && x+w<=WIDTH && y+h<=HEIGHT && w>=25 && h>=30)
-                store_cover(&opds_items[item],x,y,w,h);
+        else if(!strcmp(type,"cover_asset") && w>=16 && h>=30) {
+            Book placeholder={0};
+            placeholder.id=stable_text_id(label);
+            snprintf(placeholder.title,sizeof(placeholder.title),"%s",label);
+            char asset[256],path[2048];
+            json_string(&j,json_get(&j,item,"asset"),asset,sizeof(asset));
+            FILE *cover=app_package_asset(active_app(),asset,path,sizeof(path)) ? fopen(path,"rb") : NULL;
+            cover_draw_file(&placeholder,x,y,w,h,0,cover);
         }
         else if(!strcmp(type,"app_icon") && w==h && w>=24 && w<=76 && x>=0 && x+w<=WIDTH && y+h<=HEIGHT) {
             int id=app_package_find(label);
@@ -524,21 +528,6 @@ static void package_paint_frame_mode(const char *text,int mode) {
         else if(!strcmp(type,"dropdown"))dropdown_button(x,y,w,h,label);
         else if(!strcmp(type,"select")){char value[256];json_string(&j,json_get(&j,item,"value"),value,sizeof(value));select_row17(y,label,value);}
         else if(!strcmp(type,"icon"))icon_button(x,y,package_value(&j,item,"icon"));
-        else if(!strcmp(type,"weather_symbol") && w==h && w>=12 && w<=160 &&
-                x>=0 && x+w<WIDTH && y+h<HEIGHT)
-            weather_symbol(x,y,package_value(&j,item,"code"),w);
-        else if(!strcmp(type,"chess_piece")) {
-            int piece=package_value(&j,item,"piece");
-            if(piece && abs(piece)<=6) {
-                chess_piece(x,y,piece);
-                if(package_value(&j,item,"rotated") && x>=0 && x<=WIDTH-66 && y<=HEIGHT-66)
-                    for(int row=5;row<32;row++)for(int col=5;col<62;col++) {
-                        unsigned char *a=ui_pixels+(y+row)*WIDTH+x+col;
-                        unsigned char *b=ui_pixels+(y+64-row)*WIDTH+x+66-col;
-                        unsigned char gray=*a;*a=*b;*b=gray;
-                    }
-            }
-        }
         else if(!strcmp(type,"hit"))region(x,y,w,h);
         else if(!strcmp(type,"surface"))ui_paint_surface(x,y,w,h,package_value(&j,item,"radius"),package_value(&j,item,"gray"),package_value(&j,item,"outline"));
         else if(!strcmp(type,"points")) {
@@ -753,6 +742,7 @@ static void package_call_app(int id,const char *operation,const char *data,int r
 }
 #include "../../../tools/sdk/lumen_storage.h"
 #include "../../../tools/sdk/lumen_wire.h"
+#include "book_import.h"
 static void package_reader_file(Json *json,const char *title) {
     int owner=app_process_owner();
     if(owner<0 || owner!=(int)active_app())return;
@@ -888,6 +878,8 @@ static void package_dispatch_request(const char *message) {
              app_service_start(target,operation,data,action)))
             package_acknowledge(action,0);
     }
+    else if(!strcmp(kind,"book_import"))
+        package_acknowledge(package_value(&j,0,"action"),package_book_import(text,title));
     else if(!strcmp(kind,"service")) {
         char service[64],operation[64];
         json_string(&j,json_get(&j,0,"service"),service,sizeof(service));

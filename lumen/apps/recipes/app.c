@@ -6,9 +6,30 @@ static struct {char id[64],title[256],source[64];} rows[6];
 static const char *word(const char *de,const char *en,const char *fr) {
     return lumen_language==1 ? en : lumen_language==2 ? fr : de;
 }
+#include "provider.h"
+#include "archive.h"
+
 static void list(void) {
-    char number[16];snprintf(number,sizeof(number),"%d",page);
-    lumen_service("recipes",searching ? "results" : "archive",number,1);
+    if(!searching)rescan();
+    count=searching ? recipes_count17 : saved_count;
+    if(page<0 || page>128 || page*6>=count)page=0;
+    memset(rows,0,sizeof(rows));
+    for(int i=0;i<6 && page*6+i<count;i++) {
+        int index=page*6+i;
+        if(searching) {
+            const Recipe17 *record=&recipes17[index];
+            snprintf(rows[i].id,sizeof(rows[i].id),"%s",record->id);
+            snprintf(rows[i].title,sizeof(rows[i].title),"%s",record->title);
+            if(record->meal)snprintf(rows[i].source,sizeof(rows[i].source),"TheMealDB");
+            else snprintf(rows[i].source,sizeof(rows[i].source),"Wikibooks · %s",record->lang);
+        } else {
+            snprintf(rows[i].id,sizeof(rows[i].id),"%s",saved[index].id);
+            snprintf(rows[i].title,sizeof(rows[i].title),"%s",saved[index].title);
+        }
+    }
+}
+static void recipe_failed(void) {
+    lumen_request("notify","",word("Rezept konnte nicht geladen werden.","Could not load the recipe.","Impossible de charger la recette."),0);
 }
 static void draw(void) {
     ui_paint_heading(word("Rezepte","Recipes","Recettes"),1);
@@ -27,6 +48,7 @@ static void draw(void) {
         lumen_list_divider(28,y+79,572);
     }
     lumen_pager(715,page,(count+5)/6);
+    if(recipe_worker>0)lumen_schedule(250);
     if(busy) {
         ui_paint_surface(60,292,480,146,12,255,90);
         ui_paint_text(70,315,460,100,word("Rezepte werden geladen …","Loading recipes…","Chargement des recettes…"),PAINT_HEADING);
@@ -39,26 +61,26 @@ static void draw(void) {
 }
 static int input(const Input *in) {
     if(in->kind==INPUT_OPEN || in->kind==INPUT_RESUME || in->kind==INPUT_REFRESH){list();return 1;}
-    if(in->kind==INPUT_BACK && searching){searching=lumen_back=busy=0;page=count=0;list();return 1;}
+    if(in->kind==INPUT_BACK && searching){searching=lumen_back=busy=open_on_finish=0;page=count=0;list();return 1;}
     if(in->kind==INPUT_PAGE && !busy){page=in->x;list();return 1;}
     if(in->kind==INPUT_TEXT && in->x==2) {
         char query[256];
         if(lumen_string("text",query,sizeof(query)) && *query) {
-            searching=lumen_back=busy=1;page=count=0;
-            lumen_service("recipes","search",query,3);
+            if(start_recipe(query,NULL)) {
+                searching=lumen_back=busy=1;
+                page=count=recipes_count17=0;
+            } else recipe_failed();
         }
         return 1;
     }
-    if(in->kind==INPUT_SERVICE) {
-        if(in->x==1 && in->y) {
-            count=lumen_number("count");page=lumen_number("page");busy=lumen_number("busy");
-            for(int i=0;i<6;i++) {
-                char field[16];
-                snprintf(field,sizeof(field),"id%d",i);lumen_string(field,rows[i].id,sizeof(rows[i].id));
-                snprintf(field,sizeof(field),"title%d",i);lumen_string(field,rows[i].title,sizeof(rows[i].title));
-                snprintf(field,sizeof(field),"source%d",i);lumen_string(field,rows[i].source,sizeof(rows[i].source));
-            }
-        } else if((in->x==3 || in->x==4) && !in->y)busy=0;
+    if(in->kind==INPUT_PAUSE){open_on_finish=0;return 1;}
+    if(in->kind==INPUT_TICK) {
+        int result=finish_recipe();
+        if(result) {
+            busy=0;
+            if(result<0 && open_on_finish)recipe_failed();
+            list();
+        }
         return 1;
     }
     char id[24],gesture[24];
@@ -69,8 +91,11 @@ static int input(const Input *in) {
     else if(!busy && strlen(id)==8 && !strncmp(id,"recipe-",7) && id[7]>='0' && id[7]<='5') {
         int row=id[7]-'0';
         if(page*6+row<count && *rows[row].id) {
-            busy=searching;
-            lumen_service("recipes",searching ? "fetch" : "open",rows[row].id,4);
+            int index=page*6+row;
+            if(searching) {
+                busy=start_recipe(NULL,&recipes17[index]);
+                if(!busy)recipe_failed();
+            } else if(!read_recipe(saved[index].id,saved[index].title,saved[index].legacy))recipe_failed();
         }
     }
     return 1;

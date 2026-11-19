@@ -234,6 +234,7 @@ static void draw_content(void) {
     else draw_system();
 }
 static void draw(void) {
+    if((screen==WIFI && enabled) || (screen==SYSTEM && tab==0))lumen_schedule(2000);
     if(reset || remove_row>=0) {
         ui_paint_heading(name(screen),0);
         ui_paint_surface(24,275,552,220,16,255,105);

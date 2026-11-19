@@ -229,6 +229,10 @@ static void load(void) {
         if(lumen_legacy_state("chess-v1.bin",&old,sizeof(old)) && valid(&old))chess=old;
     }
 }
+static void piece(int x,int y,int kind,int rotate) {
+    int index=kind>0 ? kind-1 : 5-kind;
+    lumen_sprite(rotate ? "assets/pieces-rotated.pgm" : "assets/pieces.pgm",x,y,66,index,2);
+}
 static void draw(void) {
     heading_actions(tr("Schach"),2);
     lumen_button(468,74,44,44,"?",0);
@@ -251,7 +255,7 @@ static void draw(void) {
         if (chess_selected == sq) {
             rect(x, y, 66, 66, 120);
         }
-        if(chess.b[sq])lumen_chess_piece(x,y,chess.b[sq],chess_flip);
+        if(chess.b[sq])piece(x,y,chess.b[sq],chess_flip);
         if (chess_selected >= 0 && chess_legal(&chess, chess_selected, sq)) {
             if (chess.b[sq])
                 ring(x + 33, y + 33, 29, 3);
@@ -267,7 +271,7 @@ static void draw(void) {
         int pieces[] = {5, 4, 3, 2};
         for (int i = 0; i < 4; i++) {
             button_h(48 + i * 132, 373, 108, 80, "", 0);
-            lumen_chess_piece(70+i*132,379,chess.turn*pieces[i],0);
+            piece(70+i*132,379,chess.turn*pieces[i],0);
         }
     }
     if(chess_computer && chess.turn<0 && moves && !draw)lumen_schedule(80);

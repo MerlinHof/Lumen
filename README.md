@@ -6,8 +6,8 @@
 
 An illustrated Home, a shared Reader, and useful tools for a paper screen.
 
-[**Download 6.7**](https://github.com/MerlinHof/Lumen/releases/tag/v6.7) ·
-[Release notes](docs/releases/6.7.md) ·
+[**Download 6.8**](https://github.com/MerlinHof/Lumen/releases/tag/v6.8) ·
+[Release notes](docs/releases/6.8.md) ·
 [Installation](docs/installation.md) ·
 [Build](docs/building.md) ·
 [Agent guide](AGENTS.md)
@@ -67,15 +67,15 @@ Online features depend on their providers. Home Assistant and OpenAI use your
 own server or account configuration. The calendar is local. Timers provide a
 visual interruption while LUMEN is awake and cannot wake the Kindle from deep sleep.
 
-## What's new in 6.7
+## What's new in 6.8
 
-Wikipedia handles article search and offline archives in its own package.
-2048, Solitaire and Sudoku each build with their own engine. Store searches
-can finish when you switch to another app.
+News, Recipes and Store own their catalogs and downloads. Saved editions,
+recipes and source preferences remain available after an upgrade. The system
+provides shared document tools, Library imports and background scheduling.
 
 [App SDK and package guide](docs/app-packages.md) · [GitHub updates](docs/wireless-updates.md)
 
-[Full 6.7 release notes](docs/releases/6.7.md) · [Version history](docs/changelog.md)
+[Full 6.8 release notes](docs/releases/6.8.md) · [Version history](docs/changelog.md)
 
 <table>
 <tr>
@@ -95,7 +95,7 @@ can finish when you switch to another app.
 Each individual screen is 600 × 800 pixels. They are software previews;
 physical E-Ink appearance and response time depend on the Kindle.*
 
-## Install LUMEN 6.7
+## Install LUMEN 6.8
 
 Already running LUMEN? Use **Settings → System → Update** on the Kindle. The steps below cover first installation and USB recovery.
 
@@ -104,7 +104,7 @@ Already running LUMEN? Use **Settings → System → Update** on the Kindle. The
 A compatible jailbreak, the Kindle .sh launcher and FBInk must already be
 installed. LUMEN's installer checks these prerequisites.
 
-1. [Download LUMEN-6.7.zip](https://github.com/MerlinHof/Lumen/releases/download/v6.7/LUMEN-6.7.zip)
+1. [Download LUMEN-6.8.zip](https://github.com/MerlinHof/Lumen/releases/download/v6.8/LUMEN-6.8.zip)
    and extract the complete folder.
 2. Connect the prepared Kindle over USB.
 3. Open **Install-LUMEN.command** on macOS, or run the Python installer with
@@ -169,11 +169,11 @@ Lumen/
 [Architecture](docs/architecture.md) · [Build guide](docs/building.md) ·
 [Validation and limitations](docs/validation.md) · [Contributing principles](AGENTS.md)
 
-All 52 bundled apps run as independent native processes. Some apps still use
-host-side services for data or background jobs. The [6.7 release notes](docs/releases/6.7.md)
-describe the remaining host dependencies and device validation limits.
-The [architecture status](docs/releases/6.2.pending.md) records the remaining migrations. Supported Amazon imports reuse locally prepared copies;
-protection variants that the converter cannot handle retain the original-reader fallback.
+All 52 bundled apps run as independent native processes. Packages request
+device and document services through shared interfaces. The architecture
+check rejects direct app identities and compiled or included app code in the
+system. Supported Amazon imports reuse locally prepared copies. Other
+protection variants retain the original-reader fallback.
 
 ## Credits & license
 

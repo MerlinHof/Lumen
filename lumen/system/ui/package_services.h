@@ -71,9 +71,6 @@ static int transfer_service(const char *operation,const char *data,int action) {
 #include "annotation_service.h"
 #include "reading_service.h"
 #include "clock_service.h"
-#include "recipe_service.h"
-#include "news_service.h"
-#include "catalog_service.h"
 #include "book_catalog.h"
 #include "media_service.h"
 #include "document_service.h"
@@ -82,7 +79,7 @@ static int package_service_request(const char *name,const char *operation,const 
     if(!strcmp(name,"reading"))return package_reading_activity(operation,data,action);
     if(!strcmp(name,"notes") && !strcmp(operation,"create_learning")) {
         /* Existing Protocol 1 Study packages can call the same installed operation. */
-        if(!app_service_start("lumen.notes",operation,data,action))package_acknowledge(action,0);
+        if(!app_service_start(app_package_provider(PROVIDER_WRITTEN_DOCUMENTS),operation,data,action))package_acknowledge(action,0);
         return 1;
     }
     if(!strcmp(name,"clock")) {
@@ -94,9 +91,6 @@ static int package_service_request(const char *name,const char *operation,const 
     if(!strcmp(name,"document"))return package_document(operation,data,action);
     if(!strcmp(name,"media"))return package_media(operation,data,action);
     if(!strcmp(name,"books"))return package_books(operation,data,action);
-    if(!strcmp(name,"store"))return package_store(operation,data,action);
-    if(!strcmp(name,"news"))return package_news(operation,data,action);
-    if(!strcmp(name,"recipes"))return package_recipes(operation,data,action);
     if(!strcmp(name,"transfer"))return transfer_service(operation,data,action);
     if(!strcmp(name,"dictionary") && !strcmp(operation,"lookup")) {
         char translation[420];

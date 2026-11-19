@@ -668,7 +668,7 @@ static void handle(int fd,const char *initial,size_t initial_size) {
     }
     /* Keep the File Transfer API used by existing browsers and bookmarks. */
     if (!strcmp(method,"GET") && !strcmp(url,"/api/notes")) {
-        web_export(fd,"lumen.notes","export_list","");
+        web_export(fd,app_package_provider(PROVIDER_WRITTEN_DOCUMENTS),"export_list","");
         return;
     }
     if (!strcmp(method,"GET") && !strcmp(url,"/api/note")) {
@@ -679,7 +679,7 @@ static void handle(int fd,const char *initial,size_t initial_size) {
             response(fd,400,"text/plain","Invalid note");return;
         }
         arg(query,"format",format,sizeof(format));
-        web_export(fd,"lumen.notes",!strcmp(format,"pdf") ? "export_pdf" : "export_text",id);
+        web_export(fd,app_package_provider(PROVIDER_WRITTEN_DOCUMENTS),!strcmp(format,"pdf") ? "export_pdf" : "export_text",id);
         return;
     }
     if (!strcmp(method, "PUT") && !strcmp(url, "/api/setup") && haslength) {

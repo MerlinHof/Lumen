@@ -111,14 +111,6 @@ static void lumen_display_text(int x,int y,int w,int h,const char *value,int fam
  printf(",\"family\":%d,\"size\":%d,\"gray\":%d}",family,size,gray);
 }
 static void ui_paint_line(int x,int y,int x2,int y2,int weight,int gray){lumen_cmd("line",x,y,0,0);printf(",\"x2\":%d,\"y2\":%d,\"weight\":%d,\"gray\":%d}",x2,y2,weight,gray);}
-static void lumen_weather_symbol(int x,int y,int size,int code) {
- lumen_cmd("weather_symbol",x,y,size,size);
- printf(",\"code\":%d}",code);
-}
-static void lumen_chess_piece(int x,int y,int kind,int rotated) {
- lumen_cmd("chess_piece",x,y,66,66);
- printf(",\"piece\":%d,\"rotated\":%d}",kind,!!rotated);
-}
 static void lumen_hex_cell(int x,int y,int gray){lumen_cmd("hex_cell",x,y,0,0);printf(",\"gray\":%d}",gray);}
 static void ui_paint_ring(int x,int y,int radius,int weight){lumen_cmd("ring",x,y,0,0);printf(",\"radius\":%d,\"weight\":%d}",radius,weight);}
 static void lumen_button(int x,int y,int w,int h,const char*s,int primary){lumen_cmd("button",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(s);printf(",\"primary\":%d}",primary);}
@@ -214,8 +206,14 @@ static inline void lumen_book_progress(int x,int y,int w,const char *title,const
 static void lumen_book_label(int x,int y,int w,const char *title,const char *author) {
  lumen_book_progress(x,y,w,title,author,-1);
 }
-static void lumen_catalog_cover(int x,int y,int w,int h,const char *key) {
- lumen_cmd("catalog_cover",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(key);putchar('}');
+static inline void lumen_cover_asset(int x,int y,int w,int h,const char *name,const char *title) {
+ lumen_cmd("cover_asset",x,y,w,h);fputs(",\"asset\":",stdout);lumen_json(name);
+ fputs(",\"text\":",stdout);lumen_json(title);putchar('}');
+}
+static inline void lumen_book_import(const char *file,const char *title,int action) {
+ fputs("{\"request\":\"book_import\",\"text\":",stdout);lumen_json(file);
+ fputs(",\"title\":",stdout);lumen_json(title);
+ printf(",\"action\":%d}\n",action);fflush(stdout);
 }
 static void lumen_asset(int x,int y,int w,int h,const char *name) {
  lumen_cmd("asset",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(name);putchar('}');

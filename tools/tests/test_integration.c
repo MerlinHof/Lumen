@@ -91,26 +91,7 @@ int main(int argc, char **argv) {
     for(int i=0;i<200 && !keyboard_layout_serial;i++){usleep(3000);keyboard_package_poll();}
     assert(keyboard_layout_serial);
     assert(!app_package_foreground(app_package_find("retired.rpg")));
-    if (argc > 1) {
-        selected_recipe17.meal = 0;
-        strcpy(selected_recipe17.lang, "de");
-        strcpy(selected_recipe17.id, "wiki-de-115892");
-        strcpy(selected_recipe17.title, "Rote-Bete-Gnocchi mit Spinat");
-        assert(recipes_fetch17(""));
-        recipe_archive16();
-        assert(recipe_recent_count16 > 0);
-        char path[4096];
-        snprintf(path, sizeof(path), "%s/recipe-archive16/wiki-de-115892.html", data_root);
-        assert(file_open16(path, 114));
-        assert(engine_count() > 0);
-        ui_draw();
-        shot17("recipe-live");
-        ui_close();
-        engine_shutdown();
-        puts("PASS native German recipe fetch, rich HTML, image preparation, offline archive and "
-             "Reader");
-        return 0;
-    }
+    (void)argc;
     activate_app(app_package_find("lumen.notes"));settle_app();ui_draw();
     tap17(550,95);assert(active_app()==app_package_find("lumen.notes") && editor_ui.keyboard);
     strcpy(editor_ui.edit,"Title\nSome text to edit.");commit_keyboard();settle_app();ui_draw();

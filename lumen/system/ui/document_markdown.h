@@ -4,7 +4,7 @@ static void reader_markdown17(const char *title, const char *text, int origin) {
     local_path(dir, sizeof(dir), "reader-documents");
     mkdir(dir, 0700);
     snprintf(path, sizeof(path), "%s/md-%016llx.html", dir,
-             (unsigned long long)(press_id(title) ^ press_id(text)));
+             (unsigned long long)(stable_text_id(title) ^ stable_text_id(text)));
     FILE *f = fopen(path, "w");
     if (!f)
         return;

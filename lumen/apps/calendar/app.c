@@ -238,4 +238,12 @@ static int input(const Input *in) {
     }
     return 1;
 }
-int main(void){reset();lumen_run(draw,input,NULL);return 0;}
+static void serve(const char *operation,const char *data) {
+    (void)data;
+    if(strcmp(operation,"today")){lumen_app_service_result(0,"");return;}
+    update_today();
+    char text[512];
+    day_note(today,text);
+    lumen_app_service_result(1,text);
+}
+int main(void){reset();lumen_service_handler=serve;lumen_run(draw,input,NULL);return 0;}

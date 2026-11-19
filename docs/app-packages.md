@@ -319,3 +319,24 @@ position-dependent content interactions can still receive raw coordinates.
 `lumen_https_get` from `lumen_http.h` performs a bounded HTTPS GET from a
 package worker using the device's curl and trusted CA bundle. Weather uses
 this in its own `refresh_forecast` operation.
+
+
+### Document and background helpers
+
+A package can pass an EPUB or PDF from its private data directory to Library
+with `lumen_book_import(path, title, action)`. On success Library consumes the
+temporary file and delivers a service reply. The operation keeps an existing
+book with the same filename and rejects paths outside the sender’s directory.
+
+`lumen_cover_asset` paints a package-local PGM using the shared cover renderer.
+`lumen_markup.h` exposes the installed document parser through
+`markup_load(path, html, attributes, count)`. The caller chooses which
+attributes to receive and releases the returned tree with `markup_free`.
+Markup input is limited to 4 MiB. Packages can use
+`lumen_reader_document_title` to open a private HTML file in Reader.
+
+A Protocol 2 package can declare `periodic` with an exported background
+`operation` and an `interval` of 900–86,400 seconds. LUMEN starts at most one
+scheduled worker at a time while awake and connected. Workers get a standard
+`service_call` and are responsible for checking their own user preferences and
+whether there is work to do. The scheduler limits each worker to 210 seconds.

@@ -21,8 +21,8 @@
 #include "../../tools/sdk/lumen_storage.h"
 #include "lumen_package_defaults.h"
 /* IDs are a package identity, never an origin or privilege class. */
-static struct {AppDefinition def;char key[64],name[96],version[32];int installed,removed,has_icon,api,launcher_order,launcher_visible;unsigned surfaces,providers;} entries[APP_LIMIT];
-static int provider_ids[PROVIDER_COUNT]={-1,-1,-1,-1,-1,-1,-1};
+static struct {AppDefinition def;char key[64],name[96],version[32];int installed,removed,has_icon,api,launcher_order,launcher_visible;unsigned surfaces,providers;int periodic_interval;char periodic_operation[48];} entries[APP_LIMIT];
+static int provider_ids[PROVIDER_COUNT]={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
 enum { APP_REQUEST_MAX=49152, APP_REQUEST_LIMIT=8 };
 typedef struct {
     pid_t child;
@@ -41,8 +41,13 @@ static AppProcess *active_foreground=&initial_foreground;
 static AppProcess *kept_apps[KEPT_APP_COUNT];
 #define foreground (*active_foreground)
 static AppProcess *overlays[APP_OVERLAY_COUNT];
-static int overlay_provider_slots[PROVIDER_COUNT]={-1,-1,-1,-1,-1,-1,-1};
-static AppProcess *service;
+static int overlay_provider_slots[PROVIDER_COUNT]={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+static AppProcess *service,*periodic_process,*system_query;
+static int64_t system_query_deadline;
+static void (*system_query_result)(const char *data);
+static int64_t periodic_due[APP_LIMIT],periodic_deadline;
+static int64_t periodic_probe;
+static char periodic_key[APP_LIMIT][64];
 static uint64_t process_generation,service_caller;
 static int64_t service_deadline;
 static int service_action;
@@ -81,7 +86,7 @@ int app_package_find(const char *key) {
 }
 #define identify app_package_find
 int app_package_asset(AppId id,const char *name,char *path,size_t size) {
- if(!app_package_installed(id) || !package_path_valid(name) || strchr(name,'/'))return 0;
+ if(!app_package_installed(id) || !package_path_valid(name))return 0;
  int n=snprintf(path,size,"%s/../apps/%s/%s",data_root,entries[id].key,name);
  return n>0 && (size_t)n<size;
 }
@@ -89,6 +94,9 @@ static int app_manifest_valid(const Package *p) {
     return valid_id(p->id) && *p->name &&
            ((p->api==1 && !strcmp(p->format,"lumen-app-1")) ||
             (p->api==APP_PACKAGE_API && !strcmp(p->format,"lumen-app-2")));
+}
+int app_package_provider_id(PackageProvider role) {
+    return role>=0 && role<PROVIDER_COUNT ? provider_ids[role] : -1;
 }
 const char *app_package_provider(PackageProvider role) {
     if(role<0 || role>=PROVIDER_COUNT || provider_ids[role]<0)return "";
@@ -108,6 +116,7 @@ static void load_providers(void) {
             continue;
         }
         provider_ids[role]=-1;
+        if(role==PROVIDER_DEVICE_CONTROL)continue;
         for(int id=0;id<APP_LIMIT;id++) {
             if(!entries[id].installed || !(entries[id].providers & (1u<<role)))continue;
             int fallback=provider_ids[role];
@@ -180,6 +189,12 @@ void app_packages_scan(void) {
             entries[id].api=manifest->api;
             entries[id].surfaces=manifest->surfaces;
             entries[id].providers=manifest->providers;
+            entries[id].periodic_interval=manifest->periodic_interval;
+            snprintf(entries[id].periodic_operation,sizeof(entries[id].periodic_operation),"%s",manifest->periodic_operation);
+            if(strcmp(periodic_key[id],manifest->id)) {
+                periodic_due[id]=0;
+                snprintf(periodic_key[id],sizeof(periodic_key[id]),"%s",manifest->id);
+            }
             entries[id].launcher_order=manifest->launcher_order;
             entries[id].launcher_visible=manifest->launcher_visible;
             snprintf(entries[id].key,sizeof(entries[id].key),"%s",manifest->id);
@@ -194,6 +209,7 @@ void app_packages_scan(void) {
     refresh_process(&foreground);
     for(int i=0;i<KEPT_APP_COUNT;i++)if(kept_apps[i])refresh_process(kept_apps[i]);
     if(service)refresh_process(service);
+    if(periodic_process)refresh_process(periodic_process);
     for(int i=0;i<APP_OVERLAY_COUNT;i++)if(overlays[i])refresh_process(overlays[i]);
 }
 const AppDefinition *app_definition(AppId id){return app_package_installed(id) ? &entries[id].def : NULL;}
@@ -424,7 +440,7 @@ static int process_open(AppProcess *p,AppId id,const char *role) {
  close(in[0]);close(out[1]);p->write_fd=in[1];p->read_fd=out[0];fcntl(p->write_fd,F_SETFL,O_NONBLOCK);fcntl(p->read_fd,F_SETFL,O_NONBLOCK);fcntl(p->write_fd,F_SETFD,FD_CLOEXEC);fcntl(p->read_fd,F_SETFD,FD_CLOEXEC);
  snprintf(p->data_dir,sizeof(p->data_dir),"%s",state);
  p->active=id;p->paused=0;p->generation=++process_generation;
- if(p==service)return 1;
+ if(p==service || p==periodic_process || p==system_query)return 1;
  char*event=NULL;size_t n=0;FILE*f=open_memstream(&event,&n);
  int background_action=p==&foreground && service_background_owner==(int)id ? service_action : 0;
  fprintf(f,"{\"event\":\"open\",\"api\":%d,\"surface_api\":2,\"catalog_query\":1,\"reader_preferences\":1,\"width\":600,\"height\":800,\"content_y\":56,\"language\":%d,\"background_action\":%d,\"data_dir\":",entries[id].api,options[OPT_LANGUAGE],background_action);json_text(f,state);fputs(",\"role\":",f);json_text(f,role);fputc('}',f);fclose(f);int ok=process_send(p,event);free(event);return ok;
@@ -445,16 +461,16 @@ static int process_poll(AppProcess *p) {
            const WireField *request=wire_get("request");
            if(request) {
                if(*request->value=='"' && p->incoming_n<APP_REQUEST_MAX && !p->paused &&
-                  (p==&foreground || p==service)) {
+                  (p==&foreground || p==service || p==periodic_process || p==system_query)) {
                    if(!queue_request(p)) {
                        process_close(p);
                        snprintf(p->failure,sizeof(p->failure),"Zu viele App-Anfragen.");
                        return 1;
                    }
                    changed=1;
-                   if(p==service){p->incoming_n=0;return changed;}
+                   if(p==service || p==periodic_process || p==system_query){p->incoming_n=0;return changed;}
                }
-           } else if(p!=service) {
+           } else if(p!=service && p!=periodic_process && p!=system_query) {
                p->frame_back=wire_true("back");
                p->frame_ready=wire_true("ready");
                p->frame_tick=lumen_number("tick");
@@ -492,6 +508,91 @@ static int64_t service_now(void) {
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC,&now);
     return (int64_t)now.tv_sec*1000+now.tv_nsec/1000000;
+}
+static void system_query_close(void) {
+    if(!system_query)return;
+    process_close(system_query);
+    free(system_query);
+    system_query=NULL;
+    system_query_result=NULL;
+}
+void app_system_query_poll(void) {
+    if(!system_query)return;
+    process_poll(system_query);
+    char *response=take_request(system_query);
+    if(response) {
+        char data[2048],kind[48];
+        int ok=wire_read(response) && wire_true("ok") &&
+            wire_bounded_string("request",kind,sizeof(kind)) && !strcmp(kind,"service_result") &&
+            wire_bounded_string("data",data,sizeof(data));
+        free(response);
+        void (*complete)(const char *)=system_query_result;
+        system_query_close();
+        if(ok)complete(data);
+    } else if(system_query->child<=0 || service_now()>=system_query_deadline)system_query_close();
+}
+int app_system_request(PackageProvider provider,const char *operation,void (*complete)(const char *)) {
+    if(system_query || !complete || !package_operation_valid(operation))return 0;
+    int id=app_package_provider_id(provider);
+    if(id<0 || !(entries[id].surfaces & PACKAGE_BACKGROUND))return 0;
+    char directory[2048];
+    root(directory,entries[id].key);
+    Package *manifest=malloc(sizeof(*manifest));
+    if(!manifest)return 0;
+    int declared=0;
+    if(read_manifest(directory,manifest))
+        for(int i=0;i<manifest->operation_count;i++)if(!strcmp(operation,manifest->operations[i]))declared=1;
+    free(manifest);
+    if(!declared)return 0;
+    system_query=calloc(1,sizeof(*system_query));
+    if(!system_query)return 0;
+    system_query->read_fd=system_query->write_fd=system_query->active=-1;
+    if(!process_open(system_query,id,"service")){system_query_close();return 0;}
+    char event[240];
+    snprintf(event,sizeof(event),
+        "{\"event\":\"service_call\",\"language\":%d,\"caller\":\"system\",\"operation\":\"%s\",\"data\":\"\"}",
+        options[OPT_LANGUAGE],operation);
+    if(!process_send(system_query,event)){system_query_close();return 0;}
+    system_query_result=complete;
+    system_query_deadline=service_now()+5000;
+    return 1;
+}
+static void periodic_close(void) {
+    if(!periodic_process)return;
+    process_close(periodic_process);
+    free(periodic_process);
+    periodic_process=NULL;
+}
+void app_periodic_poll(int awake) {
+    int64_t now=service_now();
+    if(periodic_process) {
+        process_poll(periodic_process);
+        if(periodic_process->child<=0 || periodic_process->request_count || now>=periodic_deadline)
+            periodic_close();
+        return;
+    }
+    if(!awake || now<periodic_probe)return;
+    periodic_probe=now+30000;
+    int id=-1;
+    for(int i=0;i<APP_LIMIT;i++)
+        if(entries[i].installed && entries[i].periodic_interval && periodic_due[i]<=now &&
+           foreground.active!=i && (!service || service->active!=i) &&
+           (id<0 || periodic_due[i]<periodic_due[id]))id=i;
+    if(id<0 || !device_wifi_enabled())return;
+    char address[80];
+    device_ip(address,sizeof(address));
+    if(!*address)return;
+    periodic_due[id]=now+(int64_t)entries[id].periodic_interval*1000;
+    periodic_process=calloc(1,sizeof(*periodic_process));
+    if(!periodic_process)return;
+    periodic_process->read_fd=periodic_process->write_fd=periodic_process->active=-1;
+    if(!process_open(periodic_process,id,"service")){periodic_close();return;}
+    char event[240];
+    snprintf(event,sizeof(event),
+        "{\"event\":\"service_call\",\"language\":%d,\"caller\":\"\",\"operation\":\"%s\",\"data\":\"\"}",
+        options[OPT_LANGUAGE],entries[id].periodic_operation);
+    if(!process_send(periodic_process,event)){periodic_close();return;}
+    periodic_deadline=now+210000;
 }
 /* Transfer runs in its own process. Its short-lived export subprocess
  * never touches the foreground package or its IPC descriptors. */
@@ -689,6 +790,8 @@ static void keep_foreground(AppProcess *process) {
     kept_apps[0]=process;
 }
 void app_process_close(void) {
+    periodic_close();
+    system_query_close();
     service_close();service_caller=0;service_background_owner=-1;
     dispose_foreground(active_foreground);
     active_foreground=&initial_foreground;
@@ -793,7 +896,9 @@ PackageProvider app_overlay_role(int slot) {
     return PROVIDER_COUNT;
 }
 int app_provider_overlay_send(PackageProvider role,const char *event) {
-    if(role<PROVIDER_TEXT_INPUT || role>PROVIDER_SLEEP)return 0;
+    if(role<0 || role>=PROVIDER_COUNT)return 0;
+    int id=app_package_provider_id(role);
+    if(id<0 || !(entries[id].surfaces & PACKAGE_OVERLAY))return 0;
     int slot=overlay_provider_slots[role];
     AppProcess *process=overlay_process(slot);
     const char *key=app_package_provider(role);

@@ -59,7 +59,8 @@ int package_operation_valid(const char *operation) {
     return n>0 && n<48 && strspn(operation,"abcdefghijklmnopqrstuvwxyz0123456789_-")==n;
 }
 const char *const package_provider_names[PROVIDER_COUNT]={
-    "startup", "text-input", "status", "notification", "sleep", "document", "books"
+    "startup", "text-input", "status", "notification", "sleep", "document", "books",
+    "device-control", "file-transfer", "alarm", "agenda", "written-documents"
 };
 
 static int package_flags(const Json *json,int array,const char *const *names,
@@ -94,9 +95,13 @@ int package_manifest(const char *text,Package *p) {
    if(p->api!=2 || strcmp(entry,"app") ||
       !package_flags(&j,json_get(&j,0,"surfaces"),surfaces,3,&p->surfaces) || !p->surfaces ||
       (provider_list>=0 && !package_flags(&j,provider_list,package_provider_names,PROVIDER_COUNT,&p->providers)))return 0;
-   unsigned foreground_providers=(1u<<PROVIDER_STARTUP)|(1u<<PROVIDER_DOCUMENT)|(1u<<PROVIDER_BOOKS);
+   unsigned foreground_providers=(1u<<PROVIDER_STARTUP)|(1u<<PROVIDER_DOCUMENT)|(1u<<PROVIDER_BOOKS)|
+       (1u<<PROVIDER_DEVICE_CONTROL)|(1u<<PROVIDER_FILE_TRANSFER)|
+       (1u<<PROVIDER_WRITTEN_DOCUMENTS);
+   unsigned background_providers=(1u<<PROVIDER_AGENDA);
+   if((p->providers & background_providers) && !(p->surfaces & PACKAGE_BACKGROUND))return 0;
    if((p->providers & foreground_providers) && !(p->surfaces & PACKAGE_FOREGROUND))return 0;
-   if((p->providers & ~foreground_providers) && !(p->surfaces & PACKAGE_OVERLAY))return 0;
+   if((p->providers & ~(foreground_providers|background_providers)) && !(p->surfaces & PACKAGE_OVERLAY))return 0;
    int launcher=json_get(&j,0,"launcher");
    if(launcher>=0) {
      char visible[8];
@@ -125,6 +130,19 @@ int package_manifest(const char *text,Package *p) {
    }
  }
  if(!strcmp(p->format,"lumen-app-2") && p->operation_count && !(p->surfaces & PACKAGE_BACKGROUND))return 0;
+ int periodic=json_get(&j,0,"periodic");
+ if(periodic>=0) {
+   int operation=json_get(&j,periodic,"operation"),interval=json_get(&j,periodic,"interval");
+   double seconds=json_number(&j,interval);
+   if(p->api!=2 || t[periodic].type!='{' || operation<0 || interval<0 ||
+      t[operation].type!='"' || t[operation].end-t[operation].start>49 ||
+      !(seconds>=900 && seconds<=86400) || seconds!=(int)seconds)return 0;
+   json_string(&j,operation,p->periodic_operation,sizeof(p->periodic_operation));
+   int declared=0;
+   for(int i=0;i<p->operation_count;i++)if(!strcmp(p->periodic_operation,p->operations[i]))declared=1;
+   if(!declared)return 0;
+   p->periodic_interval=(int)seconds;
+ }
  int configuration=json_get(&j,0,"configuration");
  if(configuration>=0) {
    if(p->api!=2 || t[configuration].type!='[' || t[configuration].count>PACKAGE_CONFIGURATION)return 0;

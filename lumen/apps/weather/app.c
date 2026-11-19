@@ -27,6 +27,17 @@ static int stale(void) {
 static void text(int x,int y,int width,const char *value,PaintText role) {
     lumen_text(x,y,width,40,value,role,-1,1);
 }
+static void weather_symbol(int x,int y,int size,int code) {
+    int index=3;
+    if(code<0)index=0;
+    else if(code<2)index=1;
+    else if(code==2)index=2;
+    else if(code==45 || code==48)index=4;
+    else if(code>=95)index=7;
+    else if((code>=70 && code<=79) || code==85 || code==86)index=6;
+    else if(code>=50)index=5;
+    lumen_sprite("assets/weather.pgm",x,y,size,index,1);
+}
 static void draw(void) {
     ui_paint_heading(word("Wetter","Weather","Météo"),2);
     lumen_icon_action("search",468,74,IC_SEARCH);lumen_icon_action("refresh",528,74,IC_RESTART);
@@ -39,7 +50,7 @@ static void draw(void) {
         return;
     }
     char line[120];
-    lumen_weather_symbol(48,185,130,!forecast.is_day && forecast.code<=1 ? -1 : forecast.code);
+    weather_symbol(48,185,130,!forecast.is_day && forecast.code<=1 ? -1 : forecast.code);
     snprintf(line,sizeof(line),"%d °C",forecast.temp);
     text(200,194,338,line,PAINT_DISPLAY);
     snprintf(line,sizeof(line),"%s %d° · %d km/h",word("Gefühlt","Feels like","Ressenti"),forecast.feel,forecast.wind);
@@ -56,7 +67,7 @@ static void draw(void) {
         int x=28+i*112;const char *date=forecast.days[i].date;
         snprintf(line,sizeof(line),"%.2s.%.2s.",strlen(date)>8 ? date+8 : "--",strlen(date)>5 ? date+5 : "--");
         ui_paint_text(x,473,100,34,line,PAINT_SECONDARY);
-        lumen_weather_symbol(x+12,505,80,forecast.days[i].code);
+        weather_symbol(x+12,505,80,forecast.days[i].code);
         snprintf(line,sizeof(line),"%d / %d°",forecast.days[i].high,forecast.days[i].low);
         ui_paint_text(x,591,100,36,line,PAINT_BODY);
         snprintf(line,sizeof(line),"%d%%",forecast.days[i].rain);

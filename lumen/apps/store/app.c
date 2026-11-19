@@ -1,28 +1,127 @@
+#define _GNU_SOURCE
 #include "lumen_app.h"
+#include <ctype.h>
+#include <signal.h>
+#include <sys/resource.h>
+#include <time.h>
+#include "catalog.h"
+#include "download.h"
 
 enum { FEATURED, RESULTS, DETAIL, SOURCES };
 static int view,page,count,busy,depth,previous_view,previous_page,saved_view,saved_page;
+static int download_index=-1,row_indices[6];
 static char query[256],selected[24],summary[2048];
 static struct {char id[24],title[256],author[512];int flag;} rows[6];
 static const char *word(const char *de,const char *en,const char *fr) {
     return lumen_language==1 ? en : lumen_language==2 ? fr : de;
 }
+static void store_notice(const char *de,const char *en,const char *fr) {
+    lumen_request("notify","Store",word(de,en,fr),0);
+}
+#include "provider.h"
 static void load(void) {
-    char number[16];snprintf(number,sizeof(number),"%d",page);
-    const char *operations[]={"featured","list","detail","sources"};
-    lumen_service("store",operations[view],view==DETAIL ? selected : number,10+view);
+    if(view==SOURCES)u15_init();
+    else if(!*query && view==FEATURED && !store_ui.store_federated)store_seed();
+    depth=store_ui.opds_depth;
+    busy=discover_busy();
+    int size=view==SOURCES ? 6 : view==FEATURED ? 4 : 5;
+    count=view==SOURCES ? source15_count : opds_count;
+    if(page<0 || page*size>=count)page=0;
+    memset(rows,0,sizeof(rows));
+    summary[0]=0;
+    if(view==DETAIL) {
+        if(download_index<0 || download_index>=opds_count){count=0;return;}
+        count=1;
+        snprintf(summary,sizeof(summary),"%s",opds_items[download_index].summary);
+    }
+    int first=count ? (unsigned)time(NULL)/86400u%(unsigned)count : 0;
+    for(int i=0;i<(view==DETAIL ? 1 : size) && page*size+i<count;i++) {
+        int index=view==DETAIL ? download_index : view==FEATURED ? (first+i)%count : page*size+i;
+        row_indices[i]=index;
+        if(view==SOURCES) {
+            snprintf(rows[i].title,sizeof(rows[i].title),"%s",source15[index].name);
+            snprintf(rows[i].author,sizeof(rows[i].author),"%s",source15[index].url);
+            rows[i].flag=source15[index].enabled;
+        } else {
+            const OPDSItem *book=&opds_items[index];
+            snprintf(rows[i].title,sizeof(rows[i].title),"%s",book->title);
+            const char *comma=strchr(book->author,',');
+            if(comma && !strchr(comma+1,',')) {
+                const char *first=comma+1;
+                while(*first==' ')first++;
+                snprintf(rows[i].author,sizeof(rows[i].author),"%s %.*s",first,(int)(comma-book->author),book->author);
+            } else snprintf(rows[i].author,sizeof(rows[i].author),"%s",book->author);
+            rows[i].flag=!!book->acquisition;
+        }
+        snprintf(rows[i].id,sizeof(rows[i].id),"%d",index);
+    }
+    lumen_back=view!=FEATURED || depth>0;
+}
+static void cover(int row,int x,int y,int width,int height) {
+    int index=row_indices[row];
+    const OPDSItem *item=&opds_items[index];
+    const char *part=strstr(item->url,"/ebooks/");
+    int skip=8;
+    if(!part){part=strstr(item->url,"/files/");skip=7;}
+    if(!part){part=strstr(item->url,"/cache/epub/");skip=12;}
+    char asset[128]="";
+    if(part) {
+        unsigned long id=strtoul(part+skip,NULL,10);
+        if(id)snprintf(asset,sizeof(asset),"assets/cover-%012lx.pgm",id);
+    }
+    lumen_cover_asset(x,y,width,height,asset,item->title);
 }
 static void request(const char *operation,const char *data) {
-    lumen_service("store",operation,data,1);
+    if(!strcmp(operation,"search")) {
+        snprintf(store_ui.store_query,sizeof(store_ui.store_query),"%s",data);
+        store_search();
+    } else if(!strcmp(operation,"cancel")) {
+        discover_cancel();store_ui.store_stage=0;
+    } else if(!strcmp(operation,"parent")) {
+        if(store_ui.opds_depth) {
+            discover_cancel();store_ui.store_stage=0;
+            const char *parent=store_ui.opds_history[--store_ui.opds_depth];
+            if(!strcmp(parent,"lumen:search"))store_restore();
+            else if(!discover_start(parent,NULL))store_ui.opds_depth++;
+        }
+    } else if(!strcmp(operation,"browse") || !strcmp(operation,"download")) {
+        int index=atoi(data),download=!strcmp(operation,"download");
+        if(index>=0 && index<opds_count && !!opds_items[index].acquisition==download &&
+           (download || store_ui.opds_depth<16) && !import_pending) {
+            discover_cancel();store_ui.store_stage=0;
+            if(!download)snprintf(store_ui.opds_history[store_ui.opds_depth],2048,"%s",
+                store_ui.store_federated ? "lumen:search" : discover_url());
+            if(discover_start(opds_items[index].url,download ? &opds_items[index] : NULL) && !download) {
+                store_ui.opds_depth++;
+                store_ui.store_federated=0;
+            }
+        }
+    } else if(!strcmp(operation,"toggle_source")) {
+        int index=atoi(data);
+        if(index>=0 && index<source15_count) {
+            source15[index].enabled=!source15[index].enabled;
+            sources15_save();
+        }
+    } else if(!strcmp(operation,"add_source") && source15_count<10 &&
+              (!strncmp(data,"https://",8) || !strncmp(data,"http://",7)) &&
+              !strpbrk(data,"\r\n\"\\<> ")) {
+        int index=source15_count++;
+        snprintf(source15[index].name,sizeof(source15[index].name),"Catalog %d",index-4);
+        snprintf(source15[index].url,sizeof(source15[index].url),"%s",data);
+        source15[index].enabled=1;
+        sources15_save();
+    }
+    load();
 }
 static void set_view(int next,int next_page) {
     view=next;page=next_page;count=0;
     lumen_back=view!=FEATURED || depth>0;
 }
 static void draw(void) {
+    if(job>0)lumen_schedule(250);
     if(view==DETAIL) {
         ui_paint_heading(word("Buch entdecken","Discover a book","Découvrir un livre"),0);
-        lumen_catalog_cover(28,145,120,164,selected);
+        if(count)cover(0,28,145,120,164);
         lumen_wrapped(176,145,396,128,rows[0].title,PAINT_TITLE,3);
         lumen_wrapped(176,273,396,60,rows[0].author,PAINT_BODY,2);
         lumen_wrapped(28,366,544,275,summary,PAINT_BODY,8);
@@ -41,7 +140,7 @@ static void draw(void) {
     for(int i=0;i<limit && page*limit+i<count;i++) {
         if(view==FEATURED) {
             int x=36+i%2*284,y=174+i/2*250;
-            lumen_catalog_cover(x+57,y,130,178,rows[i].id);
+            cover(i,x+57,y,130,178);
             lumen_wrapped(x,y+185,244,57,rows[i].title,PAINT_BODY,2);
             ui_paint_hitbox(x,y,244,243);
         } else if(view==SOURCES) {
@@ -52,7 +151,7 @@ static void draw(void) {
             lumen_list_divider(28,y+75,572);
         } else {
             int y=174+i*87;
-            lumen_catalog_cover(30,y+7,50,69,rows[i].id);
+            cover(i,30,y+7,50,69);
             lumen_wrapped(100,y+4,419,51,rows[i].title,PAINT_BODY,2);
             lumen_text(100,y+57,419,24,rows[i].author,PAINT_SECONDARY,-1,1);
             ui_paint_icon_button(528,y+20,IC_NEXT);
@@ -70,7 +169,18 @@ static void search(void) {
     request("search",query);
 }
 static int input(const Input *in) {
-    if(in->kind==INPUT_OPEN || in->kind==INPUT_RESUME || in->kind==INPUT_REFRESH){load();return 1;}
+    if(in->kind==INPUT_OPEN || in->kind==INPUT_RESUME || in->kind==INPUT_REFRESH || in->kind==INPUT_TICK) {
+        int completed=discover_complete();
+        if(store_ui.store_stage && completed && completed!=2)store_complete(completed);
+        else if(completed<0)store_notice("Verbindung oder Download fehlgeschlagen.",
+            "Connection or download failed.","Échec de la connexion ou du téléchargement.");
+        load();return 1;
+    }
+    if(in->kind==INPUT_PAUSE && import_pending) {
+        import_pending=0;
+        lumen_storage_delete(job_file);
+        return 1;
+    }
     if(in->kind==INPUT_INTENT) {
         if(lumen_string("text",query,sizeof(query)))search();
         return 1;
@@ -87,19 +197,12 @@ static int input(const Input *in) {
     if(in->kind==INPUT_TEXT && in->x==2) {
         char url[2048];if(lumen_string("text",url,sizeof(url)))request("add_source",url);
     }
-    if(in->kind==INPUT_SERVICE) {
-        if(in->x==1){load();return 1;}
-        if(in->x!=10+view || !in->y)return 0;
-        count=lumen_number("count");page=lumen_number("page");depth=lumen_number("depth");busy=lumen_number("busy");
-        lumen_back=view!=FEATURED || depth>0;
-        if(view==DETAIL)lumen_string("summary",summary,sizeof(summary));
-        for(int i=0;i<6;i++) {
-            char field[20];
-            snprintf(field,sizeof(field),"id%d",i);lumen_string(field,rows[i].id,sizeof(rows[i].id));
-            snprintf(field,sizeof(field),"title%d",i);lumen_string(field,rows[i].title,sizeof(rows[i].title));
-            snprintf(field,sizeof(field),"author%d",i);lumen_string(field,rows[i].author,sizeof(rows[i].author));
-            snprintf(field,sizeof(field),"flag%d",i);rows[i].flag=lumen_number(field);
-        }
+    if(in->kind==INPUT_SERVICE && in->x==30) {
+        import_pending=0;
+        lumen_storage_delete(job_file);
+        if(!in->y)store_notice("Buch konnte nicht hinzugefügt werden.",
+            "Could not add the book to the library.","Impossible d’ajouter le livre à la bibliothèque.");
+        load();
         return 1;
     }
     if(in->kind!=INPUT_TAP)return 0;
@@ -132,6 +235,7 @@ static int input(const Input *in) {
         if(rows[i].flag) {
             previous_view=view;previous_page=page;
             snprintf(selected,sizeof(selected),"%s",rows[i].id);
+            download_index=row_indices[i];
             set_view(DETAIL,0);load();
         } else {
             set_view(RESULTS,0);
@@ -140,4 +244,4 @@ static int input(const Input *in) {
     }
     return 1;
 }
-int main(void){lumen_run(draw,input,NULL);return 0;}
+int main(void){lumen_run(draw,input,NULL);discover_cancel();return 0;}

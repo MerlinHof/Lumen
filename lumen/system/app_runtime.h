@@ -7,14 +7,13 @@
 /* App handles are valid only for the lifetime of a running registry. */
 typedef int AppId;
 enum { APP_LIMIT=128 };
-typedef enum { INTENT_OPEN, INTENT_BOOK, INTENT_SEARCH, INTENT_SETTINGS } IntentKind;
+typedef enum { INTENT_OPEN, INTENT_BOOK, INTENT_SEARCH } IntentKind;
 typedef struct {
     AppId app;
     IntentKind kind;
     BookId object_id;
     int has_position;
     ReaderPosition position;
-    int section;
     char text[2048];
 } AppIntent;
 typedef struct {

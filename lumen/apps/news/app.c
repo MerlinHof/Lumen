@@ -1,40 +1,63 @@
+#define _GNU_SOURCE
 #include "lumen_app.h"
+#include <ctype.h>
+#include <signal.h>
+#include <sys/wait.h>
+#include <time.h>
+#include "archive.h"
+#include "provider.h"
 
-static int articles,page,edition_page,count,today,date,busy;
+static int articles,page,edition_page,pending_article;
 static char query[256];
-static struct {char id[17],title[256],detail[180];} rows[7];
 
 static const char *word(const char *de,const char *en,const char *fr) {
     return lumen_language==1 ? en : lumen_language==2 ? fr : de;
 }
-static void list(void) {
-    char number[16];snprintf(number,sizeof(number),"%d",page);
-    lumen_service("news",articles ? "articles" : "editions",number,articles ? 2 : 1);
+static void html_escape_n(FILE *out,const char *text,size_t size) {
+    for(size_t i=0;i<size;i++) {
+        switch(text[i]) {
+        case '&':fputs("&amp;",out);break;
+        case '<':fputs("&lt;",out);break;
+        case '>':fputs("&gt;",out);break;
+        case '"':fputs("&quot;",out);break;
+        default:fputc((unsigned char)text[i],out);break;
+        }
+    }
 }
+static void html_escape(FILE *out,const char *text) {html_escape_n(out,text,strlen(text));}
+#include "editions.h"
+
 static void date_label(char *out,size_t size,int value,const char *suffix) {
     snprintf(out,size,"%02d.%02d.%04d%s",value%100,value/100%100,value/10000,suffix);
 }
 static void draw(void) {
+    int busy=press_busy(),count=articles ? press_list.count : date_count,today=news_date();
+    int per_page=articles ? 5 : 7,max_page=count ? (count-1)/per_page : 0;
+    if(page<0 || page>max_page)page=0;
+    if(busy)lumen_schedule(250);
     ui_paint_heading("News",1);
     lumen_icon_action("search",528,74,IC_SEARCH);
     const char *headline=word("Kuratierte Ausgaben","Curated editions","Éditions sélectionnées");
     char edition[64];
     if(articles) {
-        date_label(edition,sizeof(edition),date,"");
+        date_label(edition,sizeof(edition),press_list.date,"");
         headline=busy ? word("Nachrichten werden geladen …","Loading news…","Chargement des actualités…") :
             *query ? query : edition;
     }
     lumen_text(30,128,540,35,headline,PAINT_SECONDARY,-1,1);
-    int top=articles ? 169 : 181, height=articles ? 110 : 75, per_page=articles ? 5 : 7;
+    int top=articles ? 169 : 181, height=articles ? 110 : 75;
     for(int i=0;i<per_page && page*per_page+i<count;i++) {
         int y=top+i*height;
         char id[16];snprintf(id,sizeof(id),"entry-%d",i);
         if(!busy)lumen_custom_action(id,28,y,544,height);
         if(articles) {
-            lumen_wrapped(36,y+9,522,66,rows[i].title,PAINT_BODY,2);
-            lumen_text(36,y+75,522,25,rows[i].detail,PAINT_SECONDARY,-1,1);
+            PressItem *item=&press_list.item[page*per_page+i];
+            char detail[180];
+            snprintf(detail,sizeof(detail),"%s · %s",item->category,item->publisher);
+            lumen_wrapped(36,y+9,522,66,item->title,PAINT_BODY,2);
+            lumen_text(36,y+75,522,25,detail,PAINT_SECONDARY,-1,1);
         } else {
-            int value=atoi(rows[i].id),current=value==today;
+            int value=dates[page*per_page+i],current=value==today;
             date_label(edition,sizeof(edition),value,current ? word(" · Heute"," · Today"," · Aujourd’hui") : "");
             lumen_text(36,y+7,470,34,edition,PAINT_BODY,-1,1);
             lumen_text(36,y+41,470,25,current ?
@@ -49,31 +72,51 @@ static void draw(void) {
             "Aucun article disponible."),PAINT_HEADING,3);
     lumen_pager(746,page,(count+per_page-1)/per_page);
 }
-static void show_articles(const char *operation,const char *data) {
+static void failed(void) {
+    lumen_request("notify","News",word("Nicht geladen. Gespeicherte Inhalte bleiben verfügbar.",
+        "Could not load. Saved content is still available.",
+        "Chargement impossible. Les contenus enregistrés restent disponibles."),0);
+}
+static void show_articles(int date,const char *term) {
     if(!articles)edition_page=page;
-    articles=lumen_back=1;page=count=0;busy=1;
-    lumen_service("news",operation,data,3);
+    press_cancel();
+    pending_article=0;
+    articles=lumen_back=1;
+    page=0;
+    memset(&press_list,0,sizeof(press_list));
+    press_list.date=date;
+    if(term) {
+        if(!press_search(term,lumen_language))failed();
+    } else if(!press_load_day(date)) {
+        press_legacy(date);
+        if(date==news_date() && !press_start_day(date,lumen_language))failed();
+    }
 }
 static int input(const Input *in) {
-    if(in->kind==INPUT_OPEN || in->kind==INPUT_RESUME || in->kind==INPUT_REFRESH){list();return 1;}
-    if(in->kind==INPUT_BACK && articles) {
-        articles=lumen_back=busy=count=0;page=edition_page;list();return 1;
+    if(in->kind==INPUT_OPEN) {
+        lumen_storage_write("daily-enabled","1",1);
+        press_archive_scan();
+        return 1;
     }
-    if(in->kind==INPUT_PAGE){page=in->x;list();return 1;}
-    if(in->kind==INPUT_TEXT && in->x==1 && lumen_string("text",query,sizeof(query)) && *query)
-        show_articles("search",query);
-    if(in->kind==INPUT_SERVICE) {
-        if(in->x==(articles ? 2 : 1) && in->y) {
-            page=lumen_number("page");count=lumen_number("count");
-            today=lumen_number("today");date=lumen_number("date");busy=articles && lumen_number("busy");
-            if(articles)lumen_string("query",query,sizeof(query));
-            for(int i=0;i<7;i++) {
-                char field[20];
-                snprintf(field,sizeof(field),"id%d",i);lumen_string(field,rows[i].id,sizeof(rows[i].id));
-                snprintf(field,sizeof(field),"title%d",i);lumen_string(field,rows[i].title,sizeof(rows[i].title));
-                snprintf(field,sizeof(field),"detail%d",i);lumen_string(field,rows[i].detail,sizeof(rows[i].detail));
-            }
-        } else if(in->x==3 || in->x==4)list();
+    if(in->kind==INPUT_PAUSE){pending_article=0;return 1;}
+    if(in->kind==INPUT_RESUME || in->kind==INPUT_REFRESH || in->kind==INPUT_TICK) {
+        int result=press_poll();
+        if(result==2 && pending_article)open_article();
+        if(result<0 && articles)failed();
+        if(result)pending_article=0;
+        if(!articles && in->kind!=INPUT_TICK)press_archive_scan();
+        return 1;
+    }
+    if(in->kind==INPUT_BACK && articles) {
+        if(press_busy())press_cancel();
+        articles=lumen_back=pending_article=0;
+        query[0]=0;page=edition_page;
+        press_archive_scan();
+        return 1;
+    }
+    if(in->kind==INPUT_PAGE){page=in->x;return 1;}
+    if(in->kind==INPUT_TEXT && in->x==1 && lumen_string("text",query,sizeof(query)) && *query) {
+        show_articles(0,query);
         return 1;
     }
     char id[24],gesture[24];
@@ -84,13 +127,23 @@ static int input(const Input *in) {
         return 1;
     }
     int per_page=articles ? 5 : 7;
-    if(!busy && strlen(id)==7 && !strncmp(id,"entry-",6) && id[6]>='0' && id[6]<'0'+per_page) {
-        int row=id[6]-'0';
-        if(page*per_page+row<count && *rows[row].id) {
-            if(!articles)show_articles("edition",rows[row].id);
-            else if(!busy){busy=1;lumen_service("news","open",rows[row].id,4);}
+    if(!press_busy() && strlen(id)==7 && !strncmp(id,"entry-",6) && id[6]>='0' && id[6]<'0'+per_page) {
+        int index=page*per_page+id[6]-'0';
+        if(!articles && index<date_count) {
+            query[0]=0;
+            show_articles(dates[index],NULL);
+        } else if(articles && index<press_list.count) {
+            int result=press_open(&press_list.item[index]);
+            if(result==2)open_article();
+            else if(result==1)pending_article=1;
+            else failed();
         }
     }
     return 1;
 }
-int main(void){lumen_run(draw,input,NULL);return 0;}
+int main(void) {
+    lumen_service_handler=daily_service;
+    lumen_run(draw,input,NULL);
+    press_cancel();
+    return 0;
+}

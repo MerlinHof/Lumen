@@ -3,13 +3,10 @@ static struct {
     char name[80], url[2048];
     int enabled;
 } source15[10];
-static int source15_count, source15_page, sources15_dirty;
+static int source15_count;
 /* App-owned module; assembled by apps/host/compose.h. */
 static void sources15_save(void) {
-    sources15_dirty = 1;
-    char p[2048];
-    local_path(p, sizeof(p), "store-sources15.bin");
-    atomic_write(p, source15, sizeof(source15));
+    lumen_storage_write("sources.bin",source15,sizeof(source15));
 }
 static void u15_init(void) {
     if (u15_ready)
@@ -26,13 +23,13 @@ static void u15_init(void) {
         source15[i].enabled = 1;
     }
     source15_count = 5;
-    char p[2048];
-    local_path(p, sizeof(p), "store-sources15.bin");
-    FILE *f = fopen(p, "rb");
-    if (f) {
-        if (fread(source15, sizeof(source15), 1, f) != 1)
-            memset(source15, 0, sizeof(source15));
-        fclose(f);
+    typeof(source15) imported;
+    size_t size;
+    const char *legacy=getenv("LUMEN_LEGACY_DATA");
+    if((lumen_storage_read("sources.bin",imported,sizeof(imported),&size) ||
+        (legacy && lumen_storage_read_at(legacy,"store-sources15.bin",imported,sizeof(imported),&size))) &&
+       size==sizeof(imported)) {
+        memcpy(source15,imported,sizeof(source15));
         for (int i = 0; i < 10; i++) {
             source15[i].name[79] = source15[i].url[2047] = 0;
         }

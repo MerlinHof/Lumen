@@ -47,7 +47,7 @@ def validate_app_coverage(mapping):
         filename = f"lumen/app-packages/{source['id']}.lumen-app"
         with zipfile.ZipFile(ROOT/apps[filename]) as archive:
             built = json.loads(archive.read('manifest.json'))
-        for field in ('id','name','api','format','version','entry','surfaces','provides','operations','configuration','launcher'):
+        for field in ('id','name','api','format','version','entry','surfaces','provides','operations','configuration','launcher','periodic'):
             if built.get(field) != source.get(field):
                 raise RuntimeError(f'Stale app archive {filename}: {field}')
         if built['api'] != 2 or built['format'] != 'lumen-app-2':

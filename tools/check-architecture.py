@@ -21,7 +21,7 @@ if len(manifests) != 52 or len(package_ids) != 52:
 
 legacy = re.compile(r'\b(?:app_for_route|app_route_valid|app_factory_definition|ui_route|route_to)\s*\(')
 imports = re.compile(r'^\s*#\s*include\s*"[^"]*apps/')
-direct_identity = re.compile(r'\bapp_package_find\("([^"]+)"\)')
+direct_identity = re.compile(r'"(lumen\.[a-z0-9._-]+)"')
 host_dependencies = []
 reading_dependencies = []
 violations = []
@@ -47,5 +47,9 @@ if args.reading:
     if reading_dependencies:
         raise SystemExit('Remaining Library and Reader imports or identities:\n'+'\n'.join(reading_dependencies))
     print('PASS Library and Reader package boundary.')
-if args.complete and host_dependencies:
-    raise SystemExit('Remaining app-specific core references:\n'+'\n'.join(host_dependencies))
+if args.complete:
+    host_dependencies.extend(str(path.relative_to(root)) for path in (root/'lumen/apps/host').rglob('*')
+                             if path.is_file())
+    if host_dependencies:
+        raise SystemExit('Remaining app-specific core references:\n'+'\n'.join(host_dependencies))
+    print('PASS Core has no bundled app identities, linked app code, or legacy host assembly.')

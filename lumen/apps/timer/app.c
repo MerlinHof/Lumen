@@ -62,7 +62,29 @@ static void request_state(void){lumen_service("clock","state","",1);}
 static void change(const char *operation,int value) {
     char data[32];snprintf(data,sizeof(data),"%d",value);lumen_service("clock",operation,data,1);
 }
+static int overlay_alarm;
+static char alarm_agenda[512];
+static void draw_alarm(void) {
+    time_t now=time(NULL);
+    struct tm local;
+    char clock[32],date[32];
+    localtime_r(&now,&local);
+    strftime(clock,sizeof(clock),"%H:%M",&local);
+    strftime(date,sizeof(date),"%d.%m.%Y",&local);
+    ui_paint_surface(0,0,600,800,0,255,0);
+    lumen_text(28,72,544,90,clock,PAINT_DISPLAY,0,0);
+    lumen_text(28,166,544,40,date,PAINT_BODY,-1,0);
+    lumen_text(28,240,544,70,overlay_alarm==1 ? word("Zeit ist um","Time is up","Temps écoulé") :
+        word("Wecker","Alarm","Réveil"),PAINT_TITLE,0,0);
+    lumen_text(42,338,516,38,word("Heute im Kalender","Today in Calendar","Aujourd’hui dans le calendrier"),PAINT_HEADING,0,1);
+    lumen_wrapped(42,390,516,186,*alarm_agenda ? alarm_agenda :
+        word("Keine Tagesnotiz","No note for today","Aucune note pour aujourd’hui"),PAINT_BODY,5);
+    lumen_button(80,620,440,48,word("Weiterlesen","Continue","Continuer"),0);
+    lumen_cmd("overlay_action",80,620,440,48);
+    fputs(",\"command\":\"dismiss\"}",stdout);
+}
 static void draw(void) {
+    if(overlay_alarm){draw_alarm();return;}
     lumen_fullscreen=fullscreen;
     if(fullscreen==1)clock_face(1);
     else if(fullscreen==2)v1_timer_ring(1);
@@ -105,7 +127,18 @@ static void activate(const char *id) {
         change("minutes",(int[]){5,10,20,30}[id[7]-'0']);
 }
 static int input(const Input *in) {
-    if(in->kind==INPUT_OPEN){load_face();request_state();return 1;}
+    if(in->kind==INPUT_OPEN){
+        char role[16];
+        if(lumen_string("role",role,sizeof(role)) && !strcmp(role,"overlay"))return 1;
+        load_face();request_state();return 1;
+    }
+    char command[48];
+    if(in->kind==INPUT_INTENT && lumen_string("operation",command,sizeof(command)) && !strcmp(command,"alarm-state")) {
+        overlay_alarm=lumen_number("alarm");
+        lumen_language=lumen_number("language");
+        lumen_string("agenda",alarm_agenda,sizeof(alarm_agenda));
+        return 1;
+    }
     if(in->kind==INPUT_RESUME || in->kind==INPUT_REFRESH){request_state();return 1;}
     if(in->kind==INPUT_TICK && timer_panel==1 && timer_due && timer_due<=milliseconds()){
         timer_due=0;request_state();return 1;

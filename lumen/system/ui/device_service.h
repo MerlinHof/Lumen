@@ -20,17 +20,17 @@ static int settings_autostart(int enabled) {
 static int settings_wifi_operation(const char *operation,const char *data,int action) {
     if(!strcmp(operation,"wifi_start")){wifi_open();return package_acknowledge(action,1);}
     if(!strcmp(operation,"wifi_scan")) {
-        wifi_ui.wifi_scanning=network_scan();return package_acknowledge(action,wifi_ui.wifi_scanning);
+        wifi_ui.scanning=network_scan();return package_acknowledge(action,wifi_ui.scanning);
     }
     if(!strcmp(operation,"wifi_power")) {
         if(strcmp(data,"0") && strcmp(data,"1"))return package_acknowledge(action,0);
         int enabled=*data=='1';
         if(!device_wifi(enabled))return package_acknowledge(action,0);
-        wifi_ui.wifi_enabled=enabled;
+        wifi_ui.enabled=enabled;
         if(enabled)wifi_open();
         else {
-            connect_stop();discover_cancel();network_disconnect();
-            wifi_ui.wifi_ssid[0]=0;wifi_count=0;wifi_ui.wifi_scanning=0;
+            connect_stop();network_disconnect();
+            wifi_ui.ssid[0]=0;wifi_count=0;wifi_ui.scanning=0;
         }
         return package_acknowledge(action,1);
     }
@@ -40,9 +40,9 @@ static int settings_wifi_operation(const char *operation,const char *data,int ac
         for(int i=0;i<wifi_count;i++)if(strlen(wifi_networks[i].ssid)==len && !memcmp(data,wifi_networks[i].ssid,len)) {
             int ok;
             if(!strcmp(operation,"wifi_forget")) {
-                int connected=!strcmp(wifi_networks[i].ssid,wifi_ui.wifi_ssid);
+                int connected=!strcmp(wifi_networks[i].ssid,wifi_ui.ssid);
                 ok=network_forget(i);
-                if(ok && connected){connect_stop();network_disconnect();wifi_ui.wifi_ssid[0]=0;}
+                if(ok && connected){connect_stop();network_disconnect();wifi_ui.ssid[0]=0;}
             } else ok=network_connect(i,end ? end+1 : "");
             if(!ok)ui_message(network_error());
             return package_acknowledge(action,ok);
@@ -50,21 +50,29 @@ static int settings_wifi_operation(const char *operation,const char *data,int ac
         return package_acknowledge(action,0);
     }
     if(strcmp(operation,"wifi_list"))return 0;
+    if(wifi_ui.enabled) {
+        char previous[sizeof(wifi_ui.ssid)];
+        snprintf(previous,sizeof(previous),"%s",wifi_ui.ssid);
+        network_status(wifi_ui.ssid,sizeof(wifi_ui.ssid));
+        if(wifi_ui.scanning || strcmp(previous,wifi_ui.ssid))network_results();
+        wifi_ui.scanning=0;
+    }
     int page=atoi(data);if(page<0 || page>128 || page*6>=wifi_count)page=0;
     char *message=NULL;size_t length=0;FILE *out=package_reply(&message,&length,action,1);
     if(!out)return 0;
     fprintf(out,",\"enabled\":%d,\"busy\":%d,\"count\":%d,\"page\":%d",
-        wifi_ui.wifi_enabled,wifi_ui.wifi_scanning,wifi_count,page);
+        wifi_ui.enabled,wifi_ui.scanning,wifi_count,page);
     for(int i=0;i<6 && page*6+i<wifi_count;i++) {
         WifiNetwork *n=&wifi_networks[page*6+i];
         char field[24];snprintf(field,sizeof(field),"name%d",i);package_field(out,field,n->ssid);
         fprintf(out,",\"saved%d\":%d,\"locked%d\":%d,\"connected%d\":%d",
-            i,!!n->saved,i,!!strstr(n->flags,"WPA"),i,!strcmp(n->ssid,wifi_ui.wifi_ssid));
+            i,!!n->saved,i,!!strstr(n->flags,"WPA"),i,!strcmp(n->ssid,wifi_ui.ssid));
     }
     package_reply_end(out,&message);return 1;
 }
 static int package_device(const char *operation,const char *data,int action,int legacy) {
-    if(app_process_owner()!=app_package_find("lumen.settings") || active_app()!=app_package_find("lumen.settings"))
+    int provider=app_package_provider_id(PROVIDER_DEVICE_CONTROL);
+    if(provider<0 || app_process_owner()!=provider || active_app()!=provider)
         return package_acknowledge(action,0);
     if(!strncmp(operation,"wifi_",5))return settings_wifi_operation(operation,data,action);
     if(!strcmp(operation,"preference")) {

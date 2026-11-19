@@ -119,32 +119,11 @@ int main(int argc, char **argv) {
     activate_app(app_package_find("lumen.wikipedia"));
     capture("wikipedia-archive");
     activate_app(app_package_find("lumen.news"));
-    press_list.count = 5;
-    for (int i = 0; i < 5; i++) {
-        snprintf(press_list.item[i].title, 256, "%s",
-                 i % 2
-                     ? "A discovery worth taking a moment to understand"
-                     : "A longer newspaper headline that wraps into two clear, well-spaced lines");
-        snprintf(press_list.item[i].publisher, 96, "Example Gazette");
-        snprintf(press_list.item[i].category, 48, "Wissenschaft");
-    }
-    capture("filled-news");
+    capture("news-editions");
     activate_app(app_package_find("lumen.store"));
-    opds_count = 5;
-    for (int i = 0; i < 5; i++) {
-        snprintf(opds_items[i].title, 256, "%s",
-                 i % 2 ? "The Quiet Hours"
-                       : "A longer book title that wraps gracefully without touching its author");
-        snprintf(opds_items[i].author, 160, "Hof, Merlin");
-    }
     capture("filled-store");
     activate_app(app_package_find("lumen.recipes"));
-    recipe_recent_count16 = 5;
-    for (int i = 0; i < 5; i++)
-        snprintf(recipe_recent16[i].title, 160, "%s",
-                 i % 2 ? "Kartoffelsuppe"
-                       : "Ein ausführlicher Rezepttitel mit frischen Zutaten aus der Region");
-    capture("filled-recipes");
+    capture("recipes-archive");
     activate_app(app_package_find("lumen.home-assistant"));
     snprintf(ha_url, sizeof(ha_url), "http://example.invalid");
     snprintf(ha_token, sizeof(ha_token), "demo-only");

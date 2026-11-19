@@ -6,6 +6,7 @@
 #include "services.h"
 #include "wireless_update.h"
 #include "system_update.h"
+#include "app_packages.h"
 #include "ui/api.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,12 +14,29 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+#include "html_fragment.h"
+#include "markup_tool.h"
 static double stamp(void) {
     struct timespec t;
     clock_gettime(CLOCK_MONOTONIC, &t);
     return t.tv_sec + t.tv_nsec / 1e9;
 }
 int main(int argc, char **argv) {
+    if(argc>=3 && argc<=15 && !strcmp(argv[1],"--markup-tree")) {
+        if(strcmp(argv[2],"html") && strcmp(argv[2],"xml"))return 1;
+        return markup_tool(!strcmp(argv[2],"html"),argc-3,argv+3) ? 0 : 1;
+    }
+    if(argc==6 && !strcmp(argv[1],"--document-image")) {
+        int w=atoi(argv[4]),h=atoi(argv[5]);
+        if(w<1 || w>800 || h<1 || h>800 || !engine_init())return 1;
+        int ok=engine_image_fit(argv[2],argv[3],w,h);
+        engine_shutdown();
+        return ok ? 0 : 1;
+    }
+    if(argc==3 && !strcmp(argv[1],"--sanitize-html"))return sanitize_html(argv[2]) ? 0 : 1;
+    char *self=realpath(argv[0],NULL);
+    if(self){setenv("LUMEN_DOCUMENT_TOOL",self,1);free(self);}
+
     if (argc == 2 && !strcmp(argv[1], "--version")) {
         puts("LUMEN " LUMEN_VERSION " / MuPDF 1.28.5 / native ARMv7");
         return 0;
@@ -128,9 +146,12 @@ int main(int argc, char **argv) {
     device_present(ui_pixels, 1, settings.refresh);
 #ifndef LUMEN_HOST
     if(system_update_trial()) {
-        unlink("/mnt/us/lumen/.update/system-starting");
-        system_update_keep();
-        device_finish_update();
+        if(system_update_keep()) {
+            unlink("/mnt/us/lumen/.update/system-starting");
+            app_packages_seed();
+            ui_prepare_home();
+            device_finish_update();
+        }
     }
 #endif
     fprintf(stderr, "startup_ms=%.1f books=%d\n", (stamp() - start) * 1000, library_count);

@@ -8,10 +8,7 @@ system/connect.c
 system/wireless_update.c
 system/amazon.c
 system/qrcodegen.c
-system/content_service.c
 system/network.c
-apps/news/archive.c
-apps/news/provider.c
 system/services.c
 system/i18n.c
 system/app_runtime.c

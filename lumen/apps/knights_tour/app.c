@@ -47,8 +47,7 @@ static void draw(void) {
         ui_paint_surface(x,y,CELL_WIDTH,CELL_HEIGHT,0,gray,gray);
         ui_paint_hitbox(x,y,CELL_WIDTH,CELL_HEIGHT);
         if(i==square) {
-            lumen_cmd("chess_piece",x+10,y+7,48,48);
-            fputs(",\"piece\":2}",stdout);
+            lumen_sprite("assets/knight.pgm",x,y,66,0,2);
         } else if(tour[i]) {
             snprintf(label,sizeof(label),"%d",tour[i]);
             lumen_text(x,y,CELL_WIDTH,CELL_HEIGHT,label,PAINT_SECONDARY,95,0);

@@ -301,7 +301,7 @@ frames,folder=app_session('lumen.chess',[component('opponent','selected','0'),
 saved=(folder/'game.bin').read_bytes()
 assert saved[52]==0 and saved[36]==1 and struct.unpack_from('=i',saved,64)[0]==1
 assert any(f.get('tick')==80 for f in frames)
-assert any(c.get('rotated')==1 for f in frames for c in f.get('ui',[]))
+assert any(c.get('type')=='sprite' and c.get('text')=='assets/pieces-rotated.pgm' for f in frames for c in f.get('ui',[]))
 frames,_=app_session('lumen.chess',[tap(80,760)])
 assert (folder/'game.bin').read_bytes()[52]==1
 print('PASS packaged Chess legal pawn move, computer reply, piece rotation and persisted undo.')
@@ -313,7 +313,7 @@ forecast_fixture=dict(current=dict(temperature_2m=19,weather_code=2,is_day=1),
 frames,folder=app_session('lumen.weather',[
     component('search'),dict(event='text',action=2,text='Paris')],legacy)
 assert any(f.get('operation')=='refresh_forecast' and f.get('text')=='Paris' for f in frames)
-assert any(c.get('type')=='weather_symbol' and c.get('code')==2 for f in frames for c in f.get('ui',[]))
+assert any(c.get('type')=='sprite' and c.get('index')==2 for f in frames for c in f.get('ui',[]))
 assert (folder/'city.txt').read_text()=='Paris'
 
 fake_weather=base/'weather-bin';fake_weather.mkdir()
@@ -429,17 +429,17 @@ assert any(f.get('request')=='app_service' and f.get('app')=='lumen.notes' and
 assert (folder/'material.txt').read_text()=='Lesson.txt'
 print('PASS packaged Study enumerates material locally and handles semantic actions for reading, focus and recall.')
 
-frames,_=app_session('lumen.recipes',[
-    dict(event='service',action=1,ok=1,page=0,count=1,id0='wiki-de-5',title0='Offline meal'),
-    component('recipe-0'),component('search'),dict(event='text',action=2,text='soup'),
-    dict(event='service',action=1,ok=1,page=0,count=1,id0='wiki-en-2',title0='Soup',source0='Wikibooks'),
-    component('recipe-0'),dict(event='back')])
-assert any(f.get('operation')=='open' and f.get('text')=='wiki-de-5' for f in frames)
-assert any(f.get('operation')=='search' and f.get('text')=='soup' for f in frames)
-assert any(f.get('operation')=='fetch' and f.get('text')=='wiki-en-2' for f in frames)
-assert any(f.get('back') for f in frames) and not frames[-1].get('back')
-assert any(f.get('operation')=='archive' for f in frames)
-print('PASS packaged Recipes archive, search, document selection and Back behavior.')
+recipe_legacy=base/'recipes-legacy'
+old_recipes=recipe_legacy/'recipe-archive16'
+old_recipes.mkdir(parents=True)
+(old_recipes/'sample.txt').write_text('Offline meal\nOld recipe instructions')
+(old_recipes/'sample.html').write_text('<html><body>Offline meal</body></html>')
+frames,folder=app_session('lumen.recipes',[component('recipe-0'),component('search')],legacy=recipe_legacy)
+assert any(f.get('operation')=='open_file' and f.get('title')=='Offline meal' for f in frames),frames
+assert (folder/'recipe-archive16'/'sample.html').read_text()=='<html><body>Offline meal</body></html>'
+assert all(f.get('service')!='recipes' for f in frames)
+assert any(f.get('request')=='input' for f in frames)
+print('PASS packaged Recipes opens offline archives and imports an older saved recipe.')
 
 frames,folder=app_session('lumen.planetarium',[
     component('map','selected','1'),
@@ -497,19 +497,58 @@ assert any('Pride and Prejudice' in path.read_text() for path in (wiki_data/'wik
 print('PASS Wikipedia searches in its own worker and opens a newly cached article.')
 
 
-frames,_=app_session('lumen.news',[
-    dict(event='service',action=1,ok=1,count=1,page=0,today=20261112,id0='20261112'),
-    component('entry-0'),dict(event='service',action=3,ok=1),
-    dict(event='service',action=2,ok=1,count=1,page=0,date=20261112,
-         id0='1234567890abcdef',title0='Science today',detail0='Science · Publisher'),
-    component('entry-0'),dict(event='back'),component('search'),
-    dict(event='text',action=1,text='Energy')])
-assert any(f.get('operation')=='edition' and f.get('text')=='20261112' for f in frames)
-assert any(f.get('operation')=='open' and f.get('text')=='1234567890abcdef' for f in frames)
-assert any(f.get('operation')=='search' and f.get('text')=='Energy' for f in frames)
-assert any(c.get('text')=='Science today' for f in frames for c in f.get('ui',[]))
-assert frames[-1]['back']
-print('PASS packaged News editions, article selection, search and Back.')
+news_legacy=base/'news-legacy'
+(news_legacy/'news').mkdir(parents=True)
+article=struct.pack('=i256s2300s1024s80s80s128s',1,b'Science today',
+    b'An archived article that works offline.',b'https://example.org/article',
+    b'Publisher',b'',b'')
+(news_legacy/'news'/'20200101.bin').write_bytes(
+    struct.pack('=IIIIi',0x4c4e4557,1,20200101,1,1)+article+bytes(9*len(article)))
+news_bin=ROOT/'build/apps/host/lumen.news/app'
+news_data=base/'news-private'
+news_data.mkdir()
+news_curl=base/'news-curl'
+news_curl.mkdir()
+(news_curl/'curl').write_text("""#!/bin/sh
+while [ "$1" != --output ] && [ "$#" -gt 0 ]; do shift; done
+[ "$#" -gt 1 ] || exit 1
+case "$4" in
+  *bing.com*) printf '%s' '<rss><channel><item><title>Energy forecast</title><link>https://example.org/energy</link><description>New energy report</description></item></channel></rss>' > "$2" ;;
+  *) exit 22 ;;
+esac
+""")
+(news_curl/'curl').chmod(0o755)
+env=dict(os.environ,LUMEN_APP_DATA=str(news_data),LUMEN_LEGACY_DATA=str(news_legacy),
+    LUMEN_DOCUMENT_TOOL=str(ROOT/'build/host/lumen-host'),PATH=str(news_curl)+os.pathsep+os.environ['PATH'])
+with subprocess.Popen([str(news_bin)],env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,
+                      stderr=subprocess.PIPE,text=True) as news:
+    def news_event(event):
+        news.stdin.write(json.dumps(event)+'\n')
+        news.stdin.flush()
+    for event in [dict(event='open',language=1),component('entry-1'),component('entry-0')]:
+        news_event(event)
+    for _ in range(100):
+        if list((news_data/'press').glob('*.article')):break
+        time.sleep(.025)
+    news_event(dict(event='tick'))
+    time.sleep(.1)
+    news_event(dict(event='tick'))
+    news_event(dict(event='back'))
+    news_event(dict(event='text',action=1,text='Energy'))
+    for _ in range(100):
+        if (news_data/'press'/'search.bin').exists():break
+        time.sleep(.025)
+    news_event(dict(event='tick'))
+    time.sleep(.1)
+    news_event(dict(event='tick'))
+    output,error=news.communicate(timeout=5)
+    assert news.returncode==0,error
+frames=list(map(json.loads,output.splitlines()))
+assert any(f.get('operation')=='open_file' and f.get('title')=='Science today' for f in frames)
+assert any('works offline' in path.read_text() for path in (news_data/'press').glob('*.html'))
+assert any(c.get('text')=='Energy forecast' for f in frames for c in f.get('ui',[]))
+assert all(f.get('service')!='news' for f in frames)
+print('PASS News reads an old edition offline, searches RSS locally and opens a private Reader document.')
 
 frames,folder=app_session('lumen.calculator',[
     dict(event='text',action=80,text='5/4*sin(3/4)*sqrt(4)'),
@@ -539,23 +578,55 @@ assert any(f.get('operation')=='armed' and f.get('text')=='1' for f in frames)
 assert struct.unpack('=i',(folder/'face.bin').read_bytes())==(3,)
 print('PASS packaged Clock faces, fullscreen, timer controls and alarm service.')
 
-frames,_=app_session('lumen.store',[
-    dict(event='service',action=10,ok=1,count=1,page=0,id0='1234567890abcdef',
-         title0='Featured book',flag0=1),
-    tap(128,260),
-    dict(event='service',action=12,ok=1,count=1,page=0,id0='1234567890abcdef',
-         title0='Featured book',summary='A story'),
-    tap(210,680),dict(event='back'),
-    tap(485,94),
-    dict(event='service',action=13,ok=1,count=1,page=0,id0='0',title0='Gutenberg',flag0=1),
-    tap(515,174),dict(event='back'),tap(550,94),
-    dict(event='text',action=1,text='Poems')])
-assert any(c.get('type')=='catalog_cover' for f in frames for c in f.get('ui',[]))
-assert any(f.get('operation')=='detail' and f.get('text')=='1234567890abcdef' for f in frames)
-assert any(f.get('operation')=='download' and f.get('text')=='1234567890abcdef' for f in frames)
-assert any(f.get('operation')=='toggle_source' and f.get('text')=='0' for f in frames)
-assert any(f.get('operation')=='search' and f.get('text')=='Poems' for f in frames)
-print('PASS packaged Store featured books, details, download, source toggles and search.')
+store_bin=ROOT/'build/apps/host/lumen.store/app'
+store_data=base/'store-private'
+store_data.mkdir()
+store_assets=base/'store-assets'
+(store_assets/'assets').mkdir(parents=True)
+(store_assets/'assets'/'gutenberg-de.opds').write_text(
+    '<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>Featured book</title>'
+    '<author><name>Doe, Jane</name></author><summary>A story</summary>'
+    '<link href="https://example.org/book.pdf" type="application/pdf" '
+    'rel="http://opds-spec.org/acquisition"/></entry></feed>')
+store_curl=base/'store-curl'
+store_curl.mkdir()
+(store_curl/'curl').write_text("""#!/bin/sh
+while [ "$1" != --output ] && [ "$#" -gt 0 ]; do shift; done
+[ "$#" -gt 1 ] || exit 1
+case "$4" in
+  *book.pdf) printf '%s' '%PDF-1.7 sample' > "$2" ;;
+  *) exit 22 ;;
+esac
+""")
+(store_curl/'curl').chmod(0o755)
+env=dict(os.environ,LUMEN_APP_DATA=str(store_data),LUMEN_APP_ASSETS=str(store_assets),
+    LUMEN_DOCUMENT_TOOL=str(ROOT/'build/host/lumen-host'),PATH=str(store_curl)+os.pathsep+os.environ['PATH'])
+with subprocess.Popen([str(store_bin)],env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,
+                      stderr=subprocess.PIPE,text=True) as store:
+    def store_event(event):
+        store.stdin.write(json.dumps(event)+'\n')
+        store.stdin.flush()
+    for event in (dict(event='open',language=1),tap(128,260),tap(210,680)):
+        store_event(event)
+    for _ in range(100):
+        if list(store_data.glob('*.pdf')):break
+        time.sleep(.025)
+    store_event(dict(event='tick'))
+    time.sleep(.1)
+    store_event(dict(event='tick'))
+    store_event(dict(event='service',action=30,ok=1))
+    store_event(dict(event='back'))
+    store_event(tap(485,94))
+    store_event(tap(515,174))
+    output,error=store.communicate(timeout=5)
+    assert store.returncode==0,error
+frames=list(map(json.loads,output.splitlines()))
+assert any(c.get('type')=='cover_asset' and c.get('text')=='Featured book' for f in frames for c in f.get('ui',[]))
+assert any(c.get('text')=='A story' for f in frames for c in f.get('ui',[]))
+assert any(f.get('request')=='book_import' and f.get('title')=='Featured book' for f in frames)
+assert (store_data/'sources.bin').is_file()
+assert all(f.get('service')!='store' for f in frames)
+print('PASS Store owns OPDS parsing, covers, source settings and download, and requests a scoped Library import.')
 
 frames,_=app_session('lumen.library',[
     dict(event='service',action=1,ok=1,count=6,has_recent=1,sort=2,id16='1234567890abcdee',

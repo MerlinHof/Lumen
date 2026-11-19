@@ -3,12 +3,13 @@
   "api": 2,
   "id": "lumen.knights-tour",
   "name": "Springertour",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "sources": [
     "app.c"
   ],
   "assets": [
-    "assets/icon.pgm"
+    "assets/icon.pgm",
+    "assets/knight.pgm"
   ],
   "entry": "app",
   "surfaces": [

@@ -32,7 +32,7 @@ def build_app(manifest,target='kindle',output=None):
         surfaces=meta.get('surfaces')
         providers=meta.get('provides',[])
         valid_surfaces={'foreground','overlay','background'}
-        valid_providers={'startup','text-input','status','notification','sleep','document','books'}
+        valid_providers={'startup','text-input','status','notification','sleep','document','books','device-control','file-transfer','alarm','agenda','written-documents'}
         if meta.get('entry')!='app':
             raise ValueError('Protocol 2 entry must be app')
         if (not isinstance(surfaces,list) or not surfaces or not all(
@@ -43,13 +43,22 @@ def build_app(manifest,target='kindle',output=None):
                 isinstance(item,str) and item in valid_providers for item in providers)
                 or len(providers)!=len(set(providers))):
             raise ValueError('Invalid system provider roles')
-        foreground_providers={'startup','document','books'}
+        foreground_providers={'startup','document','books','device-control','file-transfer','written-documents'}
+        background_providers={'agenda'}
+        if set(providers) & background_providers and 'background' not in surfaces:
+            raise ValueError('Background providers require a background surface')
         if set(providers) & foreground_providers and 'foreground' not in surfaces:
             raise ValueError('Foreground providers require a foreground surface')
-        if set(providers)-foreground_providers and 'overlay' not in surfaces:
+        if set(providers)-foreground_providers-background_providers and 'overlay' not in surfaces:
             raise ValueError('System overlays require an overlay surface')
         if meta.get('operations') and 'background' not in surfaces:
             raise ValueError('Exported operations require a background surface')
+        periodic=meta.get('periodic')
+        if periodic is not None and (not isinstance(periodic,dict)
+                or periodic.get('operation') not in meta.get('operations',[])
+                or type(periodic.get('interval')) is not int
+                or not 900 <= periodic['interval'] <= 86400):
+            raise ValueError('Periodic work requires an exported operation and a 900–86400 second interval')
     sdk=HERE/'sdk' if (HERE/'sdk').is_dir() else HERE
     out=Path(output or (ROOT/'build/apps'/target/meta['id'] if (ROOT/'lumen').exists() else folder/'build'/target)).resolve();out.mkdir(parents=True,exist_ok=True)
     compiler=shutil.which('clang') if target=='host' else os.environ.get('ZIG') or str(ROOT/'.local/deps/zig/zig')
