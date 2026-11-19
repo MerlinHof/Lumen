@@ -273,7 +273,7 @@ int main(int argc, char **argv) {
     assert(engine_first_mention("Darcy",0,mention_fixture,sizeof(mention_fixture),&mention_offset,&mention_length)==0);
     assert(strstr(mention_fixture,"Darcyville thrived. Mr. Darcy arrived silently. A bold paragraph."));
     assert(mention_length==5 && !strncmp(mention_fixture+mention_offset,"Darcy",5));
-    assert(!strncmp(mention_fixture,"…",3) && !strcmp(mention_fixture+strlen(mention_fixture)-3,"…"));
+    assert(!strncmp(mention_fixture,"... ",4) && !strcmp(mention_fixture+strlen(mention_fixture)-4," ..."));
     assert(engine_first_mention("Head",0,mention_fixture,sizeof(mention_fixture),&mention_offset,&mention_length)<0);
     assert(active_app()==app_package_find("lumen.reader") && reader_ui.reader_document_active);
     settle_app();ui_draw();
@@ -289,7 +289,7 @@ int main(int argc, char **argv) {
     settle_app();
     for(int i=0;i<25 && document_excerpt_wait()>=0;i++){usleep(10000);document_excerpt_poll();}
     settle_app();
-    assert(strstr(app_process_frame(),"context-close") && strstr(app_process_frame(),"Seite 1"));
+    assert(strstr(app_process_frame(),"context-close") && strstr(app_process_frame(),"context-passage") && !strstr(app_process_frame(),"Seite 1"));
     assert(app_process_send("{\"event\":\"service\",\"action\":103,\"ok\":1,\"data\":\"Mr. Darcy\\nA character in Pride and Prejudice.\"}"));
     settle_app();
     assert(strstr(app_process_frame(),"A character in Pride and Prejudice."));
@@ -448,6 +448,14 @@ int main(int argc, char **argv) {
     control_surface(20, 20, 48, 48, 16, 0);
     assert(ui_pixels[20*WIDTH+20] > 0);
     options[OPT_ROUNDING] = 0;
+    memset(ui_pixels, 255, sizeof(ui_pixels));
+    widget_count = 0;
+    region(20, 60, 100, 48);
+    pressed = 0;
+    press_bounds = widgets[pressed];
+    ui_feedback_draw();
+    assert(ui_pixels[64*WIDTH+24] == 255 && ui_pixels[64*WIDTH+70] == 0);
+    pressed = -1;
     control_surface(20, 20, 48, 48, 16, 0);
     assert(ui_pixels[20*WIDTH+20] == 0);
     options[OPT_ROUNDING] = 1;

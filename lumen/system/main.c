@@ -16,12 +16,16 @@
 #include <unistd.h>
 #include "html_fragment.h"
 #include "markup_tool.h"
+#include <math.h>
+#include "render_document.h"
 static double stamp(void) {
     struct timespec t;
     clock_gettime(CLOCK_MONOTONIC, &t);
     return t.tv_sec + t.tv_nsec / 1e9;
 }
 int main(int argc, char **argv) {
+    if(argc==7 && !strcmp(argv[1],"--render-document"))
+        return render_document(argv[2],atoi(argv[3]),atoi(argv[4]),atoi(argv[5]),argv[6]) ? 0 : 1;
     if(argc>=3 && argc<=15 && !strcmp(argv[1],"--markup-tree")) {
         if(strcmp(argv[2],"html") && strcmp(argv[2],"xml"))return 1;
         return markup_tool(!strcmp(argv[2],"html"),argc-3,argv+3) ? 0 : 1;

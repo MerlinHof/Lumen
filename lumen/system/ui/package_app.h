@@ -216,7 +216,8 @@ static void package_paint_frame_mode(const char *text,int mode) {
     if(mode==PACKAGE_PAINT_FOREGROUND)package_fullscreen=!!package_value(&j,0,"fullscreen");
     if(mode==PACKAGE_PAINT_FOREGROUND && package_fullscreen)memset(ui_pixels,255,WIDTH*STATUS_HEIGHT);
     size_t cost=0;
-    Widget last_surface={0};
+    Widget surfaces[192];
+    int surface_count=0;
     for(int item=commands+1;item<j.tokens[commands].next;item=j.tokens[item].next) {
         char type[32],label[2048];
         json_string(&j,json_get(&j,item,"type"),type,sizeof(type));json_string(&j,json_get(&j,item,"text"),label,sizeof(label));
@@ -276,8 +277,13 @@ static void package_paint_frame_mode(const char *text,int mode) {
                 region(x,y,w,h);
                 int radius=package_value(&j,item,"radius");
                 if(json_get(&j,item,"radius")>=0)widget_shape(x,y,w,h,radius,3,0);
-                else if(last_surface.x==x && last_surface.y==y && last_surface.w==w && last_surface.h==h)
-                    widget_shape(x,y,w,h,last_surface.radius,3,0);
+                else for(int k=surface_count-1;k>=0;k--) {
+                    Widget shape=surfaces[k];
+                    if(shape.x==x && shape.y==y && shape.w==w && shape.h==h) {
+                        widget_shape(x,y,w,h,shape.radius,3,0);
+                        break;
+                    }
+                }
             }
             continue;
         }
@@ -627,7 +633,8 @@ static void package_paint_frame_mode(const char *text,int mode) {
             int radius=package_value(&j,item,"radius");
             ui_paint_surface(x,y,w,h,radius,package_value(&j,item,"gray"),package_value(&j,item,"outline"));
             if(mode==PACKAGE_PAINT_FOREGROUND) {
-                last_surface=(Widget){.x=x,.y=y,.w=w,.h=h,.radius=radius};
+                if(surface_count<(int)(sizeof(surfaces)/sizeof(*surfaces)))
+                    surfaces[surface_count++]=(Widget){.x=x,.y=y,.w=w,.h=h,.radius=radius};
                 widget_shape(x,y,w,h,radius,3,0);
             }
         }

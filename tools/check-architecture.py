@@ -18,8 +18,8 @@ args = parser.parse_args()
 manifests = [json.loads(path.read_text()) for path in
              (root/'lumen/apps').glob('*/package.json')]
 package_ids = {app['id'] for app in manifests}
-if len(manifests) != 52 or len(package_ids) != 52:
-    raise SystemExit('Expected 52 unique bundled app IDs')
+if len(manifests) != 53 or len(package_ids) != 53:
+    raise SystemExit('Expected 53 unique bundled app IDs')
 
 legacy = re.compile(r'\b(?:app_for_route|app_route_valid|app_factory_definition|ui_route|route_to)\s*\(')
 imports = re.compile(r'^\s*#\s*include\s*"[^"]*apps/')
@@ -44,7 +44,7 @@ for source in (root/'tools/config/sources.txt').read_text().splitlines():
 
 if violations:
     raise SystemExit('Numeric app routes returned:\n'+'\n'.join(violations))
-print('PASS 52 distinct packages and no numeric app routing.')
+print('PASS 53 distinct packages and no numeric app routing.')
 if args.reading:
     if reading_dependencies:
         raise SystemExit('Remaining Library and Reader imports or identities:\n'+'\n'.join(reading_dependencies))

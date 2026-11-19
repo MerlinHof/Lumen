@@ -8,6 +8,7 @@ typedef struct {
 } HAHistory;
 static HAHistory ha_history[8];
 static char ha_history_key[1500],ha_history_pending[1500];
+static int ha_history_span,ha_pending_span;
 static time_t ha_history_at,ha_history_retry,ha_refresh_at;
 static time_t ha_timestamp(const char *s) {
     struct tm t = {0};
@@ -36,7 +37,7 @@ static time_t ha_timestamp(const char *s) {
     }
     return v;
 }
-static void ha_history_parse(void) {
+static void ha_history_parse(const char *requested) {
     char *s = ha_read("ha-history.json", 8388608);
     if (!s)
         return;
@@ -50,6 +51,8 @@ static void ha_history_parse(void) {
                 continue;
             HAHistory *hist = &ha_history[a];
             json_string(&j, json_get(&j, first, "entity_id"), hist->id, sizeof(hist->id));
+            if(!*hist->id && requested && j.tokens[0].count==1 && !strchr(requested,','))
+                snprintf(hist->id,sizeof(hist->id),"%.159s",requested);
             int count = j.tokens[array].count,
                 step = count > HA_POINTS ? (count + HA_POINTS - 2) / (HA_POINTS - 1) : 1;
             for (int k = 0, obj = first; k < count && obj<j.count; k++, obj=j.tokens[obj].next) {
@@ -61,7 +64,8 @@ static void ha_history_parse(void) {
                 int state_field=json_get(&j,obj,"state");
                 if(state_field<0)state_field=json_get(&j,obj,"s");
                 int timestamp=json_get(&j,obj,"last_changed");
-                if(timestamp<0)timestamp=json_get(&j,obj,"last_updated");
+                int updated=json_get(&j,obj,"last_updated");
+                if(timestamp<0)timestamp=updated;
                 if(timestamp<0)timestamp=json_get(&j,obj,"lu");
                 if(timestamp<0)timestamp=json_get(&j,obj,"lc");
                 json_string(&j,state_field,state,sizeof(state));
@@ -74,7 +78,15 @@ static void ha_history_parse(void) {
                     v = 0;
                 else if (end == state || *end || !isfinite(v))
                     continue;
-                time_t t = ha_timestamp(stamp);
+                time_t t=ha_timestamp(stamp);
+                if(!t && timestamp>=0 && j.tokens[timestamp].type!='"') {
+                    double value=json_number(&j,timestamp);
+                    if(isfinite(value) && value>0 && value<4102444800.0)t=(time_t)value;
+                }
+                if(!t && updated>=0 && updated!=timestamp) {
+                    json_string(&j,updated,stamp,sizeof(stamp));
+                    t=ha_timestamp(stamp);
+                }
                 if (!t)
                     continue;
                 int at = hist->count++;

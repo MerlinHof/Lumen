@@ -125,14 +125,16 @@ static void status(void) {
         label(right,72,date,1,0,0);
         action(right,72,"open","lumen.calendar","");
     }
-    int name_width=right-left-12;
+    int timer_width=*timer ? 29+10*(int)strlen(timer) : 0;
+    if(timer_width>right-left-76)timer_width=0;
+    int name_width=right-left-12-timer_width;
     if(name_width>195)name_width=195;
     if(name_width>0)label(left,name_width,"",0,1,0);
     left+=name_width>0 ? name_width+12 : 0;
-    if(*timer && right-left>98) {
+    if(timer_width) {
         symbol(left,15,25,IC_CLOCK);
-        label(left+27,right-left-27,timer,1,0,1);
-        action(left,right-left,"open","lumen.clock","clock-timer");
+        label(left+29,timer_width-29,timer,0,0,1);
+        action(left,timer_width,"open","lumen.clock","clock-timer");
     }
     lumen_end();
 }

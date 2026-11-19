@@ -1986,30 +1986,31 @@ int ui_feedback_active(void) {
 void ui_feedback_draw(void) {
     if(!ui_feedback_active())return;
     Widget r=press_bounds;
-    /* Invert solid pixels in the filled control. Keeping grayscale pixels
-     * stable allows the sparse feedback frame to use the fast waveform. */
     int inset=4,w=r.w-2*inset,h=r.h-2*inset;
     if(w<8 || h<8)return;
-    int radius=r.radius,profile=rounding_profile();
+    /* Keep a rounded fallback even when square surfaces are selected. */
+    int radius=r.radius-inset;
+    if(radius<RADIUS_MEDIUM)radius=RADIUS_MEDIUM;
+    int profile=rounding_profile();
+    if(!profile)profile=CORNER_SUPERELLIPSE;
     if(radius>MAX_CORNER_RADIUS)radius=MAX_CORNER_RADIUS;
-    if(radius>r.w/2)radius=r.w/2;
-    if(radius>r.h/2)radius=r.h/2;
-    if(profile && radius*2>=(r.w<r.h ? r.w : r.h)-1)profile=CORNER_CIRCLE;
-    const unsigned char *mask=profile && radius>0 ? corner_mask(radius,profile) : NULL;
+    if(radius>w/2)radius=w/2;
+    if(radius>h/2)radius=h/2;
+    if(radius*2>=(w<h ? w : h)-1)profile=CORNER_CIRCLE;
+    const unsigned char *mask=corner_mask(radius,profile);
     int x0=r.x+inset,y0=r.y+inset;
     for(int y=0;y<h;y++) {
         if((unsigned)(y+y0)>=HEIGHT)continue;
-        int corner_y=(y<h/2 ? y : h-1-y)+inset;
+        int corner_y=y<h/2 ? y : h-1-y;
         int cut=0;
         if(mask && corner_y<radius)
             while(cut<radius && mask[corner_y*radius+cut]<CORNER_ALPHA/2)cut++;
-        cut=cut>inset ? cut-inset : 0;
         int left=r.sides&1 ? cut : 0,right=w-(r.sides&2 ? cut : 0);
         if(left+x0<0)left=-x0;
         if(right+x0>WIDTH)right=WIDTH-x0;
         for(int x=left;x<right;x++) {
             unsigned char *pixel=&ui_pixels[(y+y0)*WIDTH+x+x0];
-            if(*pixel==0 || *pixel==255)*pixel=255-*pixel;
+            *pixel=*pixel<128 ? 255 : 0;
         }
     }
 }

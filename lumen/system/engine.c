@@ -617,7 +617,7 @@ static void mention_excerpt(const char *text,const char *match,const char *term_
     end=context_after(end);
     while(start<match && *start==' ')start++;
     while(end>term_end && end[-1]==' ')end--;
-    size_t room=capacity-7,term_size=(size_t)(term_end-match);
+    size_t room=capacity-9,term_size=(size_t)(term_end-match);
     if(term_size>room)term_size=room;
     if((size_t)(end-start)>room) {
         if((size_t)(match-start)>room/3)start=match-room/3;
@@ -626,11 +626,11 @@ static void mention_excerpt(const char *text,const char *match,const char *term_
         while(end>start && ((unsigned char)*end&192)==128)end--;
     }
     while(term_size && ((unsigned char)match[term_size]&192)==128)term_size--;
-    memcpy(excerpt,"…",3);
+    memcpy(excerpt,"... ",4);
     size_t bytes=(size_t)(end-start);
-    memcpy(excerpt+3,start,bytes);
-    memcpy(excerpt+3+bytes,"…",4);
-    *offset=(int)(match-start)+3;
+    memcpy(excerpt+4,start,bytes);
+    memcpy(excerpt+4+bytes," ...",5);
+    *offset=(int)(match-start)+4;
     *length=(int)term_size;
 }
 /* The caller runs the bounded search outside the input and rendering loop. */

@@ -153,9 +153,7 @@ static void context_draw(void) {
     lumen_text(40,235,520,31,label,PAINT_SECONDARY,-1,1);
     if(mention_state==2) {
         lumen_excerpt(40,273,515,235,mention_quote,9,mention_offset,mention_length);
-        snprintf(label,sizeof(label),"%s %d",word("Seite","Page","Page"),mention_page);
-        snprintf(label+strlen(label),sizeof(label)-strlen(label),"  ›");
-        lumen_button_action("context-passage",402,229,156,36,label,0);
+        lumen_custom_action("context-passage",40,273,515,231);
     } else lumen_wrapped(40,273,515,95,mention_state==1 ?
         word("Buch wird durchsucht …","Searching the book…","Recherche dans le livre…") :
         word("Keine passende Textstelle gefunden.","No matching passage found.","Aucun passage correspondant."),

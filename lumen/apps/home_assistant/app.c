@@ -31,7 +31,7 @@ static void list(void) {
             ha_device(&devices[0],&ha_entities[i]);
             break;
         }
-        ha_fetch_history(graph_id);
+        ha_fetch_history(graph_id,hours);
         busy=history_worker!=0;
         return;
     }
@@ -49,7 +49,7 @@ static void list(void) {
                 snprintf(ids+used,sizeof(ids)-used,"%s%s",used ? "," : "",devices[i].id);
         }
     }
-    if(view==DASHBOARD)ha_fetch_history(ids);
+    if(view==DASHBOARD)ha_fetch_history(ids,0);
 }
 static void show(int next) {
     view=next;page=count=0;trace=-1;lumen_back=view!=DASHBOARD;list();
@@ -191,7 +191,7 @@ static int input(const Input *in) {
     if(in->kind==INPUT_PAGE){page=in->x;list();return 1;}
     if(in->kind==INPUT_COMPONENT && view==GRAPH) {
         char value[8];lumen_string("text",value,sizeof(value));
-        if(value[0]>='0' && value[0]<='2'){hours=(int[]){1,6,24}[value[0]-'0'];trace=-1;}
+        if(value[0]>='0' && value[0]<='2'){hours=(int[]){1,6,24}[value[0]-'0'];trace=-1;list();}
         return 1;
     }
     if(in->kind==INPUT_TEXT) {

@@ -15,7 +15,7 @@ static void ha_init(void) {
         free(favorites);
     }
     ha_parse();
-    ha_history_parse();
+    ha_history_parse(NULL);
 }
 static void ha_refresh(void) {
     if(states_worker || time(NULL)<ha_refresh_at)return;
@@ -31,31 +31,36 @@ static void ha_update(void) {
     }
     result=ha_worker_done(&history_worker);
     if(result>0) {
-        ha_history_parse();
+        ha_history_parse(ha_history_pending);
         snprintf(ha_history_key,sizeof(ha_history_key),"%s",ha_history_pending);
-        ha_history_at=time(NULL);
+        ha_history_at=time(NULL);ha_history_span=ha_pending_span;
     }
     if(result<0)ha_history_retry=time(NULL)+12;
     ha_refresh();
 }
-static void ha_fetch_history(const char *ids) {
+static void ha_fetch_history(const char *ids,int span) {
     time_t now=time(NULL);
     if(!*ids || strlen(ids)>=sizeof(ha_history_key) ||
        strspn(ids,"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.,")!=strlen(ids) ||
-       (!strcmp(ha_history_key,ids) && now-ha_history_at<300) ||
-       (!strcmp(ha_history_pending,ids) && now<ha_history_retry))return;
+       (!strcmp(ha_history_key,ids) && span==ha_history_span && now-ha_history_at<300) ||
+       (!strcmp(ha_history_pending,ids) && span==ha_pending_span && now<ha_history_retry))return;
     if(history_worker) {
-        if(!strcmp(ha_history_pending,ids))return;
+        if(!strcmp(ha_history_pending,ids) && span==ha_pending_span)return;
         lumen_worker_cancel(&history_worker);
     }
-    time_t start=now-86400;
+    time_t start=now-(span>0 ? span : 24)*3600;
     struct tm utc;
-    char stamp[32],endpoint[1800];
+    char stamp[32],until[32],endpoint[1800];
     gmtime_r(&start,&utc);
     strftime(stamp,sizeof(stamp),"%Y-%m-%dT%H:%M:%SZ",&utc);
-    snprintf(endpoint,sizeof(endpoint),"/api/history/period/%s?filter_entity_id=%s&minimal_response&no_attributes&significant_changes_only=0",stamp,ids);
+    gmtime_r(&now,&utc);
+    strftime(until,sizeof(until),"%Y-%m-%dT%H:%M:%SZ",&utc);
+    snprintf(endpoint,sizeof(endpoint),
+        "/api/history/period/%s?filter_entity_id=%s&end_time=%s&minimal_response&no_attributes",
+        stamp,ids,until);
     history_worker=ha_worker(endpoint,NULL,"ha-history.json",8388609,30);
     snprintf(ha_history_pending,sizeof(ha_history_pending),"%s",ids);
+    ha_pending_span=span;
     ha_history_retry=history_worker ? 0 : now+12;
 }
 static void ha_device(Device *device,const HAEntity *entity) {

@@ -40,8 +40,8 @@ def validate_version(version):
 def validate_app_coverage(mapping):
     """Guard the release against missing or stale built-in app archives."""
     apps = {name: path for name, path in mapping.items() if name.startswith('lumen/app-packages/')}
-    if len(apps) != 52:
-        raise RuntimeError(f'Expected 52 shipped apps, found {len(apps)}')
+    if len(apps) != 53:
+        raise RuntimeError(f'Expected 53 shipped apps, found {len(apps)}')
     for manifest in (ROOT/'lumen/apps').glob('*/package.json'):
         source = json.loads(manifest.read_text())
         filename = f"lumen/app-packages/{source['id']}.lumen-app"

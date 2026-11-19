@@ -119,7 +119,7 @@ def app_session(key,events,legacy=None):
 
 # Launch every package from its own executable with fresh private storage.
 manifests=sorted((ROOT/'lumen/apps').glob('*/package.json'))
-assert len(manifests)==52
+assert len(manifests)==53
 ids=set()
 for manifest in manifests:
  definition=json.loads(manifest.read_text())

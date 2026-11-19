@@ -6,8 +6,8 @@
 
 An illustrated Home, a shared Reader, and useful tools for a paper screen.
 
-[**Download 7.0**](https://github.com/MerlinHof/Lumen/releases/tag/v7.0) ·
-[Release notes](docs/releases/7.0.md) ·
+[**Download 7.1**](https://github.com/MerlinHof/Lumen/releases/tag/v7.1) ·
+[Release notes](docs/releases/7.1.md) ·
 [Installation](docs/installation.md) ·
 [Build](docs/building.md) ·
 [Agent guide](AGENTS.md)
@@ -67,17 +67,17 @@ Online features depend on their providers. Home Assistant and OpenAI use your
 own server or account configuration. The calendar is local. Timers provide a
 visual interruption while LUMEN is awake and cannot wake the Kindle from deep sleep.
 
-## What's new in 7.0
+## What's new in 7.1
 
-Reader highlights the first mention of a word and shows context around it.
-Status titles and rounded touch feedback follow the current screen. Home
-Assistant handles compact history results, and OpenAI has a cleaner chat
-composer, archive, and setup. The SDK adds forms, automatic state checkpoints,
-and clearer network errors.
+Browser opens basic HTML and CSS sites in pages sized for Kindle. Reader
+lookup uses literal ellipses and opens the longer excerpt when you tap it.
+Home Assistant fetches the selected history range in full screen. Touch
+feedback follows rounded controls, and the status bar timer sits next to its
+icon.
 
 [App SDK and package guide](docs/app-packages.md) · [GitHub updates](docs/wireless-updates.md)
 
-[Full 7.0 release notes](docs/releases/7.0.md) · [Version history](docs/changelog.md)
+[Full 7.1 release notes](docs/releases/7.1.md) · [Version history](docs/changelog.md)
 
 <table>
 <tr>
@@ -97,7 +97,7 @@ and clearer network errors.
 Each individual screen is 600 × 800 pixels. They are software previews;
 physical E-Ink appearance and response time depend on the Kindle.*
 
-## Install LUMEN 7.0
+## Install LUMEN 7.1
 
 Already running LUMEN? Use **Settings → System → Update** on the Kindle. The steps below cover first installation and USB recovery.
 
@@ -106,7 +106,7 @@ Already running LUMEN? Use **Settings → System → Update** on the Kindle. The
 A compatible jailbreak, the Kindle .sh launcher and FBInk must already be
 installed. LUMEN's installer checks these prerequisites.
 
-1. [Download LUMEN-7.0.zip](https://github.com/MerlinHof/Lumen/releases/download/v7.0/LUMEN-7.0.zip)
+1. [Download LUMEN-7.1.zip](https://github.com/MerlinHof/Lumen/releases/download/v7.1/LUMEN-7.1.zip)
    and extract the complete folder.
 2. Connect the prepared Kindle over USB.
 3. Open **Install-LUMEN.command** on macOS, or run the Python installer with
@@ -171,7 +171,7 @@ Lumen/
 [Architecture](docs/architecture.md) · [Build guide](docs/building.md) ·
 [Validation and limitations](docs/validation.md) · [Contributing principles](AGENTS.md)
 
-All 52 bundled apps run as independent native processes. Packages request
+All 53 bundled apps run as independent native processes. Packages request
 device and document services through shared interfaces. The architecture
 check rejects direct app identities and compiled or included app code in the
 system. Supported Amazon imports reuse locally prepared copies. Other

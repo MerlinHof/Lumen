@@ -33,5 +33,6 @@ def run(http=False,native_only=False):
     if not native_only: subprocess.run([sys.executable,'tools/tests/test_installation.py'],check=True)
     if http:
         binary=compile_test('http','tools/tests/http_server.c');subprocess.run([sys.executable,'tools/tests/test_http.py',str(binary)],check=True)
+        subprocess.run([sys.executable,'tools/tests/test_web_apps.py'],check=True)
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--http',action='store_true');p.add_argument('--native-only',action='store_true');a=p.parse_args();run(a.http,a.native_only)

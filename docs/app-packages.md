@@ -185,7 +185,7 @@ for existing Settings packages.
 
 ## Existing app implementations
 
-All 52 active apps ship as independent packages since LUMEN 6.0. Their build
+All 53 active apps ship as independent packages. Their build
 manifests are the `lumen/apps/*/package.json` files. A missing package displays a
 missing-app screen. Home also offers access to Settings and File Transfer.
 
@@ -334,6 +334,14 @@ book with the same filename and rejects paths outside the sender’s directory.
 attributes to receive and releases the returned tree with `markup_free`.
 Markup input is limited to 4 MiB. Packages can use
 `lumen_reader_document_title` to open a private HTML file in Reader.
+A package can render a trusted local HTML document into a grayscale bitmap in a
+worker by running `LUMEN_DOCUMENT_TOOL --render-document INPUT PAGE WIDTH HEIGHT OUTPUT`.
+The first stdout line is the page count, followed by tab-separated link
+rectangles and destinations. Coordinates and page numbers are zero-based.
+Use `lumen_bitmap` to paint the raster from private storage. The Browser owns
+fetching and sanitizing its HTML before calling the renderer. The
+`lumen_http_page` helper also returns the final URL after redirects so callers
+can resolve relative links against the displayed page.
 
 A Protocol 2 package can declare `periodic` with an exported background
 `operation` and an `interval` of 900–86,400 seconds. LUMEN starts at most one

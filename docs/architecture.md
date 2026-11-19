@@ -24,7 +24,7 @@ linking is required. App replacement is a directory transaction and does not
 restart LUMEN. Crashes are confined to the app process; this is not a filesystem
 security sandbox. Native packages must be trusted.
 
-All 52 active apps ship from their individual package folders. Keyboard,
+All 53 active apps ship from their individual package folders. Keyboard,
 Notifications, Status Bar and Lock Screen run in separate overlay processes.
 Reader and Notes own their controls and navigation. Wikipedia owns article
 fetching and its offline archive, and opens cached HTML through the Reader. Shared document services

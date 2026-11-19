@@ -1,5 +1,7 @@
 # Changelog
 
+- [7.1](releases/7.1.md) · Standalone Browser, Home Assistant graph history, rounded touch feedback, Reader lookup, and status bar timer spacing.
+
 - [7.0](releases/7.0.md) · Reader context, synchronous status titles, Home Assistant history, OpenAI polish, and simpler SDK forms and state.
 
 - [6.9](releases/6.9.md) · Semantic app controls, indexed grids, and shared HTTP and worker APIs.

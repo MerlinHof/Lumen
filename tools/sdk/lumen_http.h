@@ -25,6 +25,7 @@ typedef struct {
     int redirects;
     int allow_http;
     int compressed;
+    int report_url;
 } LumenHttpRequest;
 
 static inline int lumen_url_encode(const char *value,char *output,size_t capacity) {
@@ -95,11 +96,15 @@ static inline pid_t lumen_http_start(LumenHttpRequest request,int output,size_t 
     const char *protocols=request.allow_http ? "=http,https" : "=https";
     const char *args[36]={"curl","-q","--silent","--fail","--proto",protocols,
         "--proto-redir",protocols,"--connect-timeout",connect,"--max-time",seconds,
-        "--max-filesize",bytes,"--user-agent","LUMEN Kindle Reader (https://github.com/MerlinHof/Lumen)"};
-    int count=16;
+        "--max-filesize",bytes,"--globoff","--user-agent","LUMEN Kindle Reader (https://github.com/MerlinHof/Lumen)"};
+    int count=17;
     if(config){args[count++]="--config";args[count++]="-";}
     if(request.redirects){args[count++]="--location";args[count++]="--max-redirs";args[count++]=redirects;}
     if(request.compressed)args[count++]="--compressed";
+    if(request.report_url) {
+        args[count++]="--write-out";
+        args[count++]="\nLUMEN-EFFECTIVE-URL:%{url_effective}\n";
+    }
     args[count++]="--";
     args[count++]=url;
     args[count]=NULL;
@@ -199,6 +204,27 @@ static inline int lumen_http_download(LumenHttpRequest request,int fd,size_t lim
     return lumen_http_download_result(request,fd,limit)==LUMEN_HTTP_OK;
 }
 
+/* The final URL is needed to resolve relative links after a redirect. */
+static inline LumenHttpResult lumen_http_page(LumenHttpRequest request,char *body,size_t capacity,
+                                             char *url,size_t url_capacity) {
+    if(!url || !url_capacity)return LUMEN_HTTP_INVALID;
+    *url=0;
+    request.report_url=1;
+    LumenHttpResult result=lumen_http_text_result(request,body,capacity);
+    if(result!=LUMEN_HTTP_OK)return result;
+    const char marker[]="\nLUMEN-EFFECTIVE-URL:";
+    char *line=strrchr(body,'\n');
+    if(!line || line==body || line[1])return LUMEN_HTTP_BAD_TEXT;
+    *line=0;
+    char *start=strrchr(body,'\n');
+    if(!start || strncmp(start,marker,sizeof(marker)-1))return LUMEN_HTTP_BAD_TEXT;
+    const char *address=start+sizeof(marker)-1;
+    size_t length=strlen(address);
+    if(!length || length>=url_capacity)return LUMEN_HTTP_BAD_TEXT;
+    memcpy(url,address,length+1);
+    *start=0;
+    return LUMEN_HTTP_OK;
+}
 static inline int lumen_https_get(const char *url,char *body,size_t capacity) {
     return lumen_http_text((LumenHttpRequest){.url=url,.redirects=4},body,capacity) && *body;
 }
