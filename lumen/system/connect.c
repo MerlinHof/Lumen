@@ -1,7 +1,7 @@
 #include "i18n.h"
 #define _GNU_SOURCE
 #include "connect.h"
-#include "../apps/terminal/session.h"
+#include "../../tools/sdk/lumen_shell_session.h"
 #include "device.h"
 #include "version.h"
 #include "wireless_update.h"
@@ -91,7 +91,7 @@ static void response(int fd, int status, const char *type, const char *body) {
     writeall(fd, hdr, (size_t)n);
     writeall(fd, body, strlen(body));
 }
-static TerminalSession web_shell;
+static LumenShellSession web_shell;
 static void books_changed(void) {
     char marker[2048];
     snprintf(marker,sizeof(marker),"%s/books-changed",data_root);
@@ -584,7 +584,7 @@ static void handle(int fd,const char *initial,size_t initial_size) {
         }
         if(memchr(command,0,bodyn)) {response(fd,400,"text/plain","Invalid command");return;}
         command[bodyn]=0;
-        int result=terminal_session_command(&web_shell,"/mnt/us",command,output,sizeof(output));
+        int result=lumen_shell_command(&web_shell,"/mnt/us",command,output,sizeof(output));
         char *reply=NULL;size_t size=0;FILE *stream=open_memstream(&reply,&size);
         if(!stream) {response(fd,500,"text/plain","Cannot return command output");return;}
         fprintf(stream,"{\"exit\":%d,\"output\":",result);
@@ -1116,7 +1116,7 @@ int connect_start(int port, int timeout) {
             }
         }
         for (int i=0;i<12;i++) if (pending[i].fd>=0) close(pending[i].fd);
-        terminal_session_close(&web_shell);
+        lumen_shell_close(&web_shell);
         device_hold_awake(0);
         close(listenfd);
         firewall(0);

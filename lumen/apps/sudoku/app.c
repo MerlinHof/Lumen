@@ -1,5 +1,5 @@
 #include "lumen_app.h"
-#include "../games/puzzles.h"
+#include "engine.h"
 
 static Sudoku game;
 static int selected=-1,pencil,dirty;

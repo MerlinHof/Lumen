@@ -117,15 +117,7 @@ int main(int argc, char **argv) {
     }
 
     activate_app(app_package_find("lumen.wikipedia"));
-    wiki_entry_count = 3;
-    for (int i = 0; i < 3; i++) {
-        snprintf(wiki_entries[i].title, 256, "%s",
-                 i == 0   ? "A longer article title with room to breathe"
-                 : i == 1 ? "Rosenheim"
-                          : "Typography");
-        wiki_entries[i].seen = time(NULL) - i * 86400;
-    }
-    capture("filled-wikipedia");
+    capture("wikipedia-archive");
     activate_app(app_package_find("lumen.news"));
     press_list.count = 5;
     for (int i = 0; i < 5; i++) {

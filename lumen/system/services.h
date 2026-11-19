@@ -2,8 +2,7 @@
 #define LUMEN_SERVICES_H
 #include <stddef.h>
 enum {
-    SERVICE_TIME,
-    SERVICE_WIKI_IMAGE
+    SERVICE_TIME
 };
 int service_start(int kind,const char *arg);
 int service_poll(void); /* 0 pending/idle, kind success, -kind failure */

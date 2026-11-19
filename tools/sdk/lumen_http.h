@@ -23,7 +23,8 @@ static inline int lumen_https_get(const char *url,char *body,size_t capacity) {
         close(fd[1]);
         execlp("curl","curl","-q","--silent","--fail","--location","--max-redirs","4",
                "--proto","=https","--proto-redir","=https","--connect-timeout","4",
-               "--max-time","12","--max-filesize",limit,"--",url,(char *)NULL);
+               "--max-time","12","--max-filesize",limit,"--user-agent",
+               "LUMEN Kindle Reader (https://github.com/MerlinHof/Lumen)","--",url,(char *)NULL);
         _exit(127);
     }
     close(fd[1]);

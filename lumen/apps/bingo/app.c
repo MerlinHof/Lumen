@@ -1,4 +1,4 @@
-#include "../games/package_ui.h"
+#include "lumen_game.h"
 
 static signed char cells[25];
 static int dirty;

@@ -1,4 +1,4 @@
-#include "../games/package_ui.h"
+#include "lumen_game.h"
 
 enum { LEFT=28, TOP=190, CELL_WIDTH=68, CELL_HEIGHT=64 };
 static unsigned char tour[64]={1};

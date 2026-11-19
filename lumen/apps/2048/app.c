@@ -1,5 +1,5 @@
 #include "lumen_app.h"
-#include "../games/puzzles.h"
+#include "engine.h"
 
 static Tiles game;
 static int dirty;

@@ -9,11 +9,10 @@ versus “custom”. A package using an existing identity replaces that app in p
 `system/app_packages` owns discovery, installation, process lifecycle and bounded
 IPC. Packages live in `lumen/apps/<id>`; personal state lives in
 `lumen/appdata/<id>`. `AppIntent` still owns navigation payloads and stable
-book references. Existing numeric IDs remain stable; package slots do not
-renumber built-in entries. Engraved artwork lives in each app’s assets folder.
+book references. Package IDs are stable. A running registry assigns temporary handles. Engraved artwork lives in each app’s assets folder.
 
 An independent app is a static ARMv7 executable plus assets and a SHA-256 manifest.
-It exchanges Protocol 1 newline JSON with LUMEN. The system renders its UI through
+It exchanges Protocol 2 newline JSON with LUMEN. The system renders its UI through
 `system/ui/package_app.h`, using the existing controls, typography, icons,
 rounding and refresh engine. The app receives bounded queued input and the system
 keyboard's text results. Markdown requests open the same Reader used by books,
@@ -27,7 +26,8 @@ security sandbox. Native packages must be trusted.
 
 All 52 active apps ship from their individual package folders. Keyboard,
 Notifications, Status Bar and Lock Screen run in separate overlay processes.
-Reader and Notes own their controls and navigation. Shared document services
+Reader and Notes own their controls and navigation. Wikipedia owns article
+fetching and its offline archive, and opens cached HTML through the Reader. Shared document services
 supply rendering, editable text, ink and export. Settings owns its screens
 and accesses Wi-Fi, updates and preferences through device services.
 

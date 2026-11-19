@@ -1,4 +1,4 @@
-#include "../games/package_ui.h"
+#include "lumen_game.h"
 
 enum { COLS=7, ROWS=6 };
 static struct { unsigned char board[ROWS][COLS];int moves,turn,winner; } game={.turn=1};

@@ -21,9 +21,7 @@ OPDSItem opds_items[OPDS_LIMIT];
 int opds_count;
 static pid_t job = -1;
 static char current_url[2048], error[256], target[2048], temp[2048];
-static int acquisition, wiki_mode, wiki_fallback_pending;
-static char wiki_search_url[2048];
-static char wiki_text[524288], wiki_title[256], wiki_image[2048], wiki_image_name[512];
+static int acquisition;
 const char *discover_error(void) { return error; }
 const char *discover_url(void) { return current_url; }
 int discover_busy(void) { return job > 0; }
@@ -404,7 +402,6 @@ int discover_start(const char *url, const OPDSItem *book) {
     }
     if (strlen(url) >= sizeof(current_url))
         return 0;
-    wiki_mode = 0;
     acquisition = book != NULL;
     snprintf(current_url, sizeof(current_url), "%s", url);
     snprintf(temp, sizeof(temp), "%s/opds-download.tmp", data_root);
@@ -539,147 +536,7 @@ int discover_complete(void) {
                  tr("Verbindung oder Download fehlgeschlagen. Details im Netzwerkprotokoll."));
         return -1;
     }
-    if (wiki_mode) {
-        if (discover_parse_lookup(target))
-            return 3;
-        if (wiki_fallback_pending) {
-            wiki_fallback_pending = 0;
-            if (discover_start(wiki_search_url, NULL)) {
-                wiki_mode = 1;
-                return 0;
-            }
-        }
-        return -1;
-    }
     if (acquisition)
         return 2;
     return discover_parse(target, current_url) ? 1 : -1;
-}
-
-const char *discover_lookup_text(void) { return wiki_text; }
-const char *discover_lookup_title(void) { return wiki_title; }
-const char *discover_lookup_image(void) { return wiki_image; }
-const char *discover_lookup_image_name(void) { return wiki_image_name; }
-static void wiki_content(fz_xml *x) {
-    if (!x)
-        return;
-    if (!strcmp(localtag(x), "error")) {
-        const char *code = fz_xml_att(x, "code");
-        if (code && strstr(code, "busy"))
-            snprintf(error, sizeof(error), "%s",
-                     tr("Wikipedia ist ausgelastet. Bitte später erneut versuchen."));
-    }
-    if (!strcmp(localtag(x), "page")) {
-        const char *title = fz_xml_att(x, "title");
-        if (title)
-            snprintf(wiki_title, sizeof(wiki_title), "%s", title);
-        const char *file = fz_xml_att(x, "pageimage");
-        if (file)
-            snprintf(wiki_image_name, sizeof(wiki_image_name), "%s", file);
-    }
-    if (!strcmp(localtag(x), "original") || !strcmp(localtag(x), "thumbnail")) {
-        const char *src = fz_xml_att(x, "source");
-        if (src &&
-            (!strncmp(src, "https://upload.wikimedia.org/", 29) ||
-             !strncmp(src, "https://thumb.wikimedia.org/", 28)) &&
-            (!*wiki_image || !strcmp(localtag(x), "thumbnail")))
-            snprintf(wiki_image, sizeof(wiki_image), "%s", src);
-    }
-    if (!strcmp(localtag(x), "extract")) {
-        content(x, wiki_text, sizeof(wiki_text));
-        size_t n = strlen(wiki_text);
-        if (n == sizeof(wiki_text) - 1) {
-            while (n && ((unsigned char)wiki_text[n - 1] & 192) == 128)
-                n--;
-            if (n && (unsigned char)wiki_text[n - 1] >= 192)
-                n--;
-            wiki_text[n] = 0;
-        }
-    }
-    for (fz_xml *c = fz_xml_down(x); c; c = fz_xml_next(c))
-        wiki_content(c);
-}
-int discover_parse_lookup(const char *path) {
-    wiki_text[0] = wiki_title[0] = wiki_image[0] = wiki_image_name[0] = 0;
-    error[0] = 0;
-    fz_context *ctx = fz_new_context(NULL, NULL, 1024 * 1024);
-    if (!ctx)
-        return 0;
-    fz_xml *xml = NULL;
-    fz_buffer *buf = NULL;
-    int ok = 0;
-    fz_var(xml);
-    fz_var(buf);
-    fz_var(ok);
-    fz_try(ctx) {
-        buf = fz_read_file(ctx, path);
-        xml = fz_parse_xml(ctx, buf, 0);
-        wiki_content(fz_xml_root(xml));
-        ok = *wiki_text != 0;
-    }
-    fz_always(ctx) {
-        fz_drop_xml(ctx, xml);
-        fz_drop_buffer(ctx, buf);
-    }
-    fz_catch(ctx) {}
-    fz_drop_context(ctx);
-    if (!ok && !*error)
-        snprintf(error, sizeof(error), "%s", tr("Kein Wikipedia-Eintrag gefunden."));
-    return ok;
-}
-int discover_lookup(const char *query, int english) {
-    char encoded[900], url[2048];
-    size_t n = 0, count = 0;
-    size_t length = strlen(query);
-    if (length > 160)
-        length = 160;
-    while (length && ((unsigned char)query[length] & 192) == 128)
-        length--;
-    for (const unsigned char *p = (const unsigned char *)query;
-         *p && count < length && n + 4 < sizeof(encoded); p++, count++) {
-        if ((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9') ||
-            *p == '-' || *p == '_')
-            encoded[n++] = *p;
-        else {
-            snprintf(encoded + n, 4, "%%%02X", *p);
-            n += 3;
-        }
-    }
-    encoded[n] = 0;
-    wiki_text[0] = wiki_title[0] = wiki_image[0] = wiki_image_name[0] = 0;
-    snprintf(url, sizeof(url),
-             "https://%s.wikipedia.org/w/"
-             "api.php?action=query&generator=search&gsrsearch=%s&gsrnamespace=0&gsrlimit=1&prop="
-             "extracts%%7Cpageimages&piprop=thumbnail%%7Coriginal%%7Cname&pithumbsize=500&"
-             "pilicense=free&explaintext=1&exsectionformat=wiki&exlimit=1&format=xml",
-             english == 2   ? "fr"
-             : english == 3 ? "zh"
-             : english      ? "en"
-                            : "de",
-             encoded);
-    snprintf(wiki_search_url, sizeof(wiki_search_url), "%s", url);
-    snprintf(url, sizeof(url),
-             "https://%s.wikipedia.org/w/"
-             "api.php?action=query&titles=%s&redirects=1&prop=extracts%%7Cpageimages&piprop="
-             "thumbnail%%7Coriginal%%7Cname&pithumbsize=500&pilicense=free&explaintext=1&"
-             "exsectionformat=wiki&exlimit=1&format=xml",
-             english == 2   ? "fr"
-             : english == 3 ? "zh"
-             : english      ? "en"
-                            : "de",
-             encoded);
-    discover_cancel();
-    wiki_fallback_pending = 1;
-    int ok = discover_start(url, NULL);
-    if (ok)
-        wiki_mode = 1;
-    return ok;
-}
-
-void discover_restore_lookup(const char *t, const char *s, const char *i, const char *n) {
-    snprintf(wiki_title, sizeof(wiki_title), "%s", t);
-    snprintf(wiki_text, sizeof(wiki_text), "%s", s);
-    snprintf(wiki_image, sizeof(wiki_image), "%s", i);
-    snprintf(wiki_image_name, sizeof(wiki_image_name), "%s", n);
-    error[0] = 0;
 }

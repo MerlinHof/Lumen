@@ -44,7 +44,6 @@ unsigned char ui_pixels[WIDTH * HEIGHT];
 static int ink_color, ui_y_offset;
 #include "../../apps/wifi/shell_state.h"
 #include "../../apps/store/shell_state.h"
-#include "../../apps/wikipedia/shell_state.h"
 #include "../../apps/timer/shell_state.h"
 #include "editor_state.h"
 static struct {
@@ -177,9 +176,6 @@ static void apps_page_turned(void);
 static void store_search(void);
 static void turn(int);
 static void system_loading(void);
-static int wiki_refresh_failed(void);
-static void wiki_history_scan(void);
-static void wiki_article_opened(void);
 static void extra_init(void);
 static int extra_poll(void);
 static int extra_tick(void);
@@ -192,8 +188,6 @@ static void extra_overlay(void);
 static int extra_intercept(const Input *in);
 static void extra_track(unsigned seconds, unsigned pages, uint64_t id);
 static void extra_zone(void);
-static void extra_wiki_cache(void);
-static void extra_wiki_restore(void);
 static void key_outline(int x, int y, int w, int h);
 enum { READER_TOOLBAR_END = 126, READER_CONTENTS_X = 468, READER_SETTINGS_X = 528 };
 static void control_surface(int x, int y, int w, int h, int r, int color);
@@ -204,10 +198,6 @@ static void commit_keyboard(void);
 
 static void keyboard_insert(const char *s);
 static void keyboard_backspace(void);
-static void new_apps_init(void);
-static void new_apps_save(void);
-static int new_apps_poll(void);
-static int new_apps_tick(void);
 
 static void v1_init(void), v1_save(void);
 static int v1_tick(void), v1_poll(void);
@@ -222,14 +212,9 @@ static int status_action(const Input *input);
 static int keyboard_package_poll(void);
 static void package_back_results(void);
 static void launcher_delete_confirm(int);
-static void polish_wiki_refetched(void);
-static int article_wiki_open(void);
-static void article_wiki_request(void);
-static int wiki_reader_pending;
 static void polish_draw(void), polish_close(void);
 static int polish_tick(void), polish_poll(void),
     polish_power(const Input *);
-static void polish_wiki_archive(void), polish_wiki_saved(void);
 #include "keyboard_request.h"
 static void open_keyboard(int target, const char *title, const char *value) {
     const KeyboardRequest request = {target, title, value};
@@ -923,7 +908,7 @@ void ui_init(void) {
     library_settings_load();
     apps_init();
     extra_init();
-    new_apps_init();
+    v1_init();
     if (options[OPT_LANGUAGE] < 0 || options[OPT_LANGUAGE] > 2)
         options[OPT_LANGUAGE] = 0;
     options[OPT_CONFIRM] = 1;
@@ -999,7 +984,7 @@ void ui_save(void) {
     apps_checkpoint();
     apps_save();
     extra_save();
-    new_apps_save();
+    v1_save();
     if (current >= 0) {
         library_progress(&library[current], page, engine_count());
         save_anchor(&library[current], page, -1);
@@ -1622,27 +1607,17 @@ static int ui_dispatch_input(const Input *in) {
         int done = discover_complete();
         if (network_poll && !done)
             return 2;
-        if (active_app()==app_package_find("lumen.store") && store_ui.store_stage && done && done!=3 && done!=2) {
+        if(store_ui.store_stage && done && done!=2) {
             store_complete(done);
-            app_process_send("{\"event\":\"refresh\"}");
-            return 1;
-        }
-        if (done == 3) {
-            polish_wiki_refetched();
-            extra_wiki_cache();
-            if (active_app()==app_package_find("lumen.wikipedia"))
-                article_wiki_request();
-            return 1;
+            if(active_app()==app_package_find("lumen.store")) {
+                app_process_send("{\"event\":\"refresh\"}");
+                return 1;
+            }
+            return 2;
         }
         if (done < 0) {
             char message[256];
             snprintf(message, sizeof(message), "%s", discover_error());
-            if (active_app()==app_package_find("lumen.wikipedia") && wiki_refresh_failed())
-                return 1;
-            if (active_app()==app_package_find("lumen.wikipedia")) {
-                extra_wiki_restore();
-                app_process_send("{\"event\":\"refresh\"}");
-            }
             ui_message(message);
         } else if (done == 2) {
             if (active_app()==document_provider())
@@ -1866,10 +1841,7 @@ int ui_poll_interval(void) {
     if(blink>=0 && (other<0 || blink<other))other=blink;
     int context=document_excerpt_wait();
     if(context>=0 && (other<0 || context<other))other=context;
-    int np = new_apps_poll();
-    int pp = polish_poll();
-    if (pp >= 0 && (np < 0 || pp < np))
-        np = pp;
+    int np = polish_poll();
     int vp = v1_poll();
     if (vp >= 0 && (np < 0 || vp < np))
         np = vp;
@@ -2099,7 +2071,6 @@ void ui_close(void) {
     companion_close16();
     polish_close();
     v1_close();
-    news_cancel();
     ui_unicode_close();
 }
 

@@ -10,9 +10,9 @@ static void recipe_archive16(void);
 static int job_kind16;
 
 static void reader16(const char *title, const char *body, int origin) {
-    document_open(title, "LUMEN", title, body, NULL, origin, 0);
+    document_open(title, "LUMEN", title, body, NULL, origin);
 }
-static int file_open16(const char *path, int origin) {
+static int file_open_named(const char *path,int origin,const char *title) {
     const char *ext = strrchr(path, '.');
     int supported = 0;
     const char *types[] = {".epub", ".pdf",  ".txt", ".html", ".htm",
@@ -34,13 +34,16 @@ static int file_open16(const char *path, int origin) {
     struct stat document_stat;
     if (!stat(path,&document_stat)) b->size=document_stat.st_size;
     const char *n = strrchr(path, '/');
-    snprintf(b->title, sizeof(b->title), "%s", n ? n + 1 : path);
+    snprintf(b->title,sizeof(b->title),"%s",title && *title ? title : n ? n+1 : path);
     library_restore_state(b);
     snprintf(b->format, sizeof(b->format), "%s", ext + 1);
     reader_ui.reader_document_active = 1;
     if (history_count < 64)
         history[history_count++] = origin;
     return ui_open(BOOK_LIMIT);
+}
+static int file_open16(const char *path,int origin) {
+    return file_open_named(path,origin,NULL);
 }
 static void url_encode(const char *s, char *out, int cap) {
     int n = 0;

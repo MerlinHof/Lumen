@@ -371,14 +371,19 @@ static void lumen_reader_file(const char *title,const char *path) {
  fputs(",\"document\":{\"type\":\"markdown\",\"path\":",stdout);lumen_json(path);
  puts("}}");fflush(stdout);
 }
-static inline void lumen_reader_document(const char *path,const char *collection) {
- fputs("{\"request\":\"intent\",\"app\":\"lumen.reader\",\"operation\":\"open_file\",\"document\":{\"type\":\"document\",\"path\":",stdout);
+static inline void lumen_reader_document_title(const char *path,const char *collection,const char *title) {
+ fputs("{\"request\":\"intent\",\"app\":\"lumen.reader\",\"operation\":\"open_file\"",stdout);
+ if(title){fputs(",\"title\":",stdout);lumen_json(title);}
+ fputs(",\"document\":{\"type\":\"document\",\"path\":",stdout);
  lumen_json(path);
  if(collection){fputs(",\"collection\":",stdout);lumen_json(collection);}
  puts("}}");fflush(stdout);
 }
 static inline void lumen_open_provider(const char *role) {
  fputs("{\"request\":\"open_provider\",\"provider\":",stdout);lumen_json(role);puts("}");fflush(stdout);
+}
+static inline void lumen_reader_document(const char *path,const char *collection) {
+ lumen_reader_document_title(path,collection,NULL);
 }
 static void lumen_open(const char*id){fputs("{\"request\":\"open\",\"app\":",stdout);lumen_json(id);puts("}");fflush(stdout);}
 static void (*lumen_service_handler)(const char *operation,const char *data);

@@ -1,4 +1,4 @@
-#include "../games/package_ui.h"
+#include "lumen_game.h"
 
 enum { COLS=33, ROWS=35, LEFT=36, TOP=140, TILE=16 };
 typedef struct {

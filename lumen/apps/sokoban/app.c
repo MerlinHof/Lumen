@@ -1,4 +1,4 @@
-#include "../games/package_ui.h"
+#include "lumen_game.h"
 
 static const char *word(const char *de,const char *en,const char *fr) {
     return lumen_language==1 ? en : lumen_language==2 ? fr : de;

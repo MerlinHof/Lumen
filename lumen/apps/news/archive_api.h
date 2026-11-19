@@ -13,8 +13,4 @@ typedef struct {
 extern Newspaper newspaper;
 int news_date(void);
 int news_load(int date);
-int news_start(int language, unsigned topics);
-int news_poll(void);
-int news_busy(void);
-void news_cancel(void);
 #endif

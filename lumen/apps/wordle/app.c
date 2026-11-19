@@ -1,4 +1,4 @@
-#include "../games/package_ui.h"
+#include "lumen_game.h"
 #include "wordle_words.h"
 #include <ctype.h>
 static struct {

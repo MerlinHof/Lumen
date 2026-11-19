@@ -7,13 +7,6 @@ typedef struct {
 } OPDSItem;
 extern OPDSItem opds_items[OPDS_LIMIT];
 extern int opds_count;
-const char *discover_lookup_text(void);
-const char *discover_lookup_title(void);
-const char *discover_lookup_image(void);
-const char *discover_lookup_image_name(void);
-void discover_restore_lookup(const char*,const char*,const char*,const char*);
-int discover_lookup(const char *query, int english);
-int discover_parse_lookup(const char *path);
 int discover_start(const char *url, const OPDSItem *book);
 int discover_busy(void);
 int discover_complete(void);

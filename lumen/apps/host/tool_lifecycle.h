@@ -41,11 +41,7 @@ static void extra_init(void) {
     sscanf(pause_state, "%lld", &pause_ms);
     if (!timer_due && pause_ms > 0 && pause_ms <= 86400000)
         timer_paused = pause_ms;
-    char wiki_path[2048];
-    local_path(wiki_path, sizeof(wiki_path), "wiki-last.xml");
-    if (!access(wiki_path, R_OK))
-        discover_parse_lookup(wiki_path);
-    extra_load_text("wiki-query.txt", wiki_query, sizeof(wiki_query));
+
 }
 static void extra_save(void) {
     if (insights_dirty) {
@@ -81,9 +77,6 @@ static void extra_timer_label(char *out, int cap) {
     }
 }
 static int extra_poll(void) {
-    if (active_app()==app_package_find("lumen.wikipedia") && *discover_lookup_image() && !wiki_image_available() &&
-        wiki_image_attempts < 3)
-        return 1000;
     if (app_process_pending())return 25;
     if (release_state()==1) return 750;
     if (service_busy() || discover_busy())
@@ -112,35 +105,12 @@ static int extra_poll(void) {
     return wait;
 }
 static int extra_tick(void) {
-    int changed = new_apps_tick() | v1_tick(), done = service_poll();
+    int changed = v1_tick(), done = service_poll();
     if (release_poll() && active_app()==app_package_find("lumen.settings")) changed=1;
-    if (active_app()==app_package_find("lumen.wikipedia") && !discover_busy() && !service_busy() && *discover_lookup_image() &&
-        (strcmp(wiki_image_requested, discover_lookup_image()) ||
-         (!wiki_image_available() && wiki_image_attempts < 3 &&
-          time(NULL) >= wiki_image_retry_at))) {
-        if (strcmp(wiki_image_requested, discover_lookup_image()))
-            wiki_image_attempts = 0;
-        snprintf(wiki_image_requested, sizeof(wiki_image_requested), "%s", discover_lookup_image());
-        if (!wiki_image_available() &&
-            service_start(SERVICE_WIKI_IMAGE, wiki_image_requested)) {
-            wiki_image_attempts++;
-            wiki_image_retry_at = time(NULL) + 30;
-        }
-    }
-    if (done == SERVICE_WIKI_IMAGE)
-        polish_wiki_saved();
-    if (wiki_reader_pending &&
-        (done == SERVICE_WIKI_IMAGE || done == -SERVICE_WIKI_IMAGE || !service_busy())) {
-        wiki_reader_pending = 0;
-        if (active_app()==app_package_find("lumen.wikipedia"))
-            article_wiki_open();
-    }
-    polish_wiki_archive();
     if (done) {
         changed = 1;
         if (done < 0) {
-            if (done != -SERVICE_WIKI_IMAGE &&
-                (done != -SERVICE_TIME || time(NULL)-last_time_success>172800))
+            if (done != -SERVICE_TIME || time(NULL)-last_time_success>172800)
                 ui_message(service_error());
             if (done == -SERVICE_TIME)
                 last_sync = time(NULL) - 82800;

@@ -1,6 +1,6 @@
 """Full-runtime transaction recovery and independent app updates, no network."""
 from pathlib import Path
-import hashlib,json,os,shutil,subprocess,sys,zipfile
+import hashlib,json,os,shutil,subprocess,sys,time,zipfile
 ROOT=Path(__file__).resolve().parents[2];sys.path.insert(0,str(ROOT/'tools'))
 from check import compile_test
 binary=compile_test('package-runner','tools/tests/package_runner.c')
@@ -457,19 +457,45 @@ assert any('12026' in c.get('text','') for c in frames[-1]['ui'])
 assert struct.unpack('=dd',(folder/'sky-location-1.bin').read_bytes())==(48.13,11.58)
 print('PASS packaged Planetarium sky/solar views, time travel, Back and private location.')
 
-frames,_=app_session('lumen.wikipedia',[
-    dict(event='service',action=1,ok=1,count=2,page=0,id0='1234567890abcdef',
-         title0='Cached article',date0='12.11.2026',id1='1234567890abcdea',title1='Other'),
-    component('search'),component('delete-0'),component('confirm'),
-    dict(event='service',action=4,ok=1),
-    component('open-0'),dict(event='service',action=3,ok=0),
-    dict(event='intent',operation='search',text='Maple')])
+wiki_legacy=base/'wiki-legacy'
+archive=wiki_legacy/'wiki-archive'
+archive.mkdir(parents=True)
+def article_record(title, body, stamp):
+    return struct.pack('=Iiq256s2048s512s524288s',0x574b3131,1,stamp,title.encode(),b'',b'',body.encode())
+(archive/'1234567890abcdef.bin').write_bytes(article_record('Cached article','A saved paragraph.',1700000001))
+(archive/'1234567890abcdea.bin').write_bytes(article_record('Other','A second paragraph.',1700000000))
+frames,wiki_data=app_session('lumen.wikipedia',[
+    component('search'),component('open-0'),component('delete-0'),component('confirm')],wiki_legacy)
 assert any(f.get('request')=='input' for f in frames)
-assert any(f.get('operation')=='remove' and f.get('text')=='1234567890abcdef' for f in frames)
-assert any(f.get('operation')=='open' and f.get('text')=='1234567890abcdef' for f in frames)
-assert any(f.get('operation')=='search' and f.get('text')=='Maple' for f in frames)
+assert any(f.get('operation')=='open_file' and f.get('title')=='Cached article' for f in frames)
 assert any(c.get('text')=='Cached article' for f in frames for c in f.get('ui',[]))
-print('PASS packaged Wikipedia offline list, deletion, cached open and search intent.')
+assert (wiki_data/'wiki-archive/1234567890abcdef.deleted').read_text()=='1'
+assert (archive/'1234567890abcdef.bin').is_file()
+reopened,_=app_session('lumen.wikipedia',[],wiki_legacy)
+assert all(c.get('text')!='Cached article' for c in reopened[-1]['ui'])
+print('PASS Wikipedia reads and opens its legacy offline archive and preserves deletions across restarts.')
+wiki_binary=ROOT/'build/apps/host/lumen.wikipedia/app'
+with subprocess.Popen([str(wiki_binary)],stdin=subprocess.PIPE,stdout=subprocess.PIPE,
+                      stderr=subprocess.PIPE,text=True,
+                      env=dict(os.environ,LUMEN_APP_DATA=str(wiki_data),
+                               PATH=str(wiki_worker)+':'+os.environ['PATH'])) as wiki:
+    wiki.stdin.write(json.dumps(dict(event='open',language=1))+'\n')
+    wiki.stdin.write(json.dumps(dict(event='intent',operation='search',text='Darcy'))+'\n')
+    wiki.stdin.flush()
+    for _ in range(100):
+        time.sleep(.02)
+        if any((wiki_data/'wiki-archive').glob('*.bin')):break
+    for _ in range(5):
+        wiki.stdin.write('{"event":"tick"}\n')
+        wiki.stdin.flush()
+        time.sleep(.02)
+    output,wiki_error=wiki.communicate(timeout=5)
+    assert wiki.returncode==0,wiki_error
+assert any(frame.get('title')=='Mr. Darcy' and frame.get('operation')=='open_file'
+           for frame in map(json.loads,output.splitlines()))
+assert any('Pride and Prejudice' in path.read_text() for path in (wiki_data/'wiki-archive').glob('*.html'))
+print('PASS Wikipedia searches in its own worker and opens a newly cached article.')
+
 
 frames,_=app_session('lumen.news',[
     dict(event='service',action=1,ok=1,count=1,page=0,today=20261112,id0='20261112'),

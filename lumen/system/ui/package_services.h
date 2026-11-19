@@ -72,7 +72,6 @@ static int transfer_service(const char *operation,const char *data,int action) {
 #include "reading_service.h"
 #include "clock_service.h"
 #include "recipe_service.h"
-#include "wikipedia_service.h"
 #include "news_service.h"
 #include "catalog_service.h"
 #include "book_catalog.h"
@@ -97,7 +96,6 @@ static int package_service_request(const char *name,const char *operation,const 
     if(!strcmp(name,"books"))return package_books(operation,data,action);
     if(!strcmp(name,"store"))return package_store(operation,data,action);
     if(!strcmp(name,"news"))return package_news(operation,data,action);
-    if(!strcmp(name,"wikipedia"))return package_wikipedia(operation,data,action);
     if(!strcmp(name,"recipes"))return package_recipes(operation,data,action);
     if(!strcmp(name,"transfer"))return transfer_service(operation,data,action);
     if(!strcmp(name,"dictionary") && !strcmp(operation,"lookup")) {

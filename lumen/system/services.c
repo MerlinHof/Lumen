@@ -49,48 +49,6 @@ char *service_read(const char *name, size_t max) {
     fclose(f);
     return s;
 }
-static int fetch(const char *url, const char *out) {
-    char cfg[2048], ca[2048];
-    path(cfg, sizeof(cfg), "service-private.tmp");
-    FILE *f = fopen(cfg, "w");
-    if (!f)
-        return 0;
-    chmod(cfg, 0600);
-    fprintf(f, "url = \"%s\"\noutput = \"%s\"\n", url, out);
-    fclose(f);
-    pid_t p = fork();
-    if (p == 0) {
-        int null = open("/dev/null", O_RDWR);
-        dup2(null, 1);
-        dup2(null, 2);
-        close(null);
-        snprintf(ca, sizeof(ca), "%s/../certs/ca-bundle.pem", data_root);
-        if (!getenv("CURL_CA_BUNDLE") && access(ca, R_OK) == 0)
-            setenv("CURL_CA_BUNDLE", ca, 1);
-        execlp("curl", "curl", "--config", cfg, "--location", "--max-redirs", "5", "--proto-redir",
-               "=https", "--user-agent", "LUMEN/0.12 (personal Kindle reader)", "--fail",
-               "--silent", "--connect-timeout", "5", "--max-time",
-               "25", "--max-filesize", "2097152", "--proto", "=https",
-               NULL);
-        _exit(127);
-    }
-    if (p < 0) {
-        unlink(cfg);
-        return 0;
-    }
-    int status = 0;
-    while (waitpid(p, &status, 0) < 0 && errno == EINTR) {
-    }
-    unlink(cfg);
-    if (!(p > 0 && WIFEXITED(status) && WEXITSTATUS(status) == 0)) {
-        char failure[2048];
-        path(failure, sizeof(failure), "service-error-code.txt");
-        char n[24];
-        snprintf(n, sizeof(n), "%d", WIFEXITED(status) ? WEXITSTATUS(status) : -1);
-        atomic_write(failure, n, strlen(n));
-    }
-    return p > 0 && WIFEXITED(status) && WEXITSTATUS(status) == 0;
-}
 static int set_clock(time_t seconds) {
 #ifndef LUMEN_HOST
     struct timeval now = {seconds, 0};
@@ -179,10 +137,8 @@ void service_cancel(void) {
     unlink(cfg);
 }
 int service_start(int kind,const char *arg) {
-    if(worker>0 || (kind!=SERVICE_TIME && kind!=SERVICE_WIKI_IMAGE))return 0;
-    if (kind == SERVICE_WIKI_IMAGE && (!arg || (strncmp(arg, "https://upload.wikimedia.org/", 29) &&
-                                                strncmp(arg, "https://thumb.wikimedia.org/", 28))))
-        return 0;
+    (void)arg;
+    if(worker>0 || kind!=SERVICE_TIME)return 0;
     char failure[2048];
     path(failure, sizeof(failure), "service-error-code.txt");
     unlink(failure);
@@ -196,23 +152,7 @@ int service_start(int kind,const char *arg) {
         signal(SIGTERM, SIG_DFL);
         struct rlimit r={3*1024*1024,3*1024*1024};
         setrlimit(RLIMIT_FSIZE, &r);
-        char out[2048];
-        path(out, sizeof(out), "service-result.tmp");
-        int ok = 0;
-        if (kind == SERVICE_TIME)
-            ok = ntp();
-        else if (kind == SERVICE_WIKI_IMAGE) {
-            if (fetch(arg,out)) {
-                char pgm[2048], final[2048], key[2048];
-                path(pgm, sizeof(pgm), "wiki-image.pending");
-                path(final, sizeof(final), "wiki-image.pgm");
-                path(key, sizeof(key), "wiki-image-url.txt");
-                ok = engine_image_fit(out, pgm, 500, 260) && !rename(pgm, final) &&
-                     atomic_write(key, arg, strlen(arg));
-                unlink(pgm);
-            }
-        }
-        unlink(out);
+        int ok=ntp();
         _exit(ok ? 0 : 1);
     }
     setpgid(worker,worker);

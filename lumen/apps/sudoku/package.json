@@ -3,10 +3,10 @@
   "api": 2,
   "id": "lumen.sudoku",
   "name": "Sudoku",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "sources": [
     "app.c",
-    "../games/puzzles.c"
+    "engine.c"
   ],
   "assets": [
     "assets/icon.pgm"

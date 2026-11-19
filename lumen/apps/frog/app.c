@@ -1,4 +1,4 @@
-#include "../games/package_ui.h"
+#include "lumen_game.h"
 
 
 /* English-style peg solitaire, using a cross of lily pads. */

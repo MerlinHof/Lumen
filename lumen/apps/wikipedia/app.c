@@ -1,5 +1,9 @@
 #include "lumen_app.h"
 #include "summary.h"
+#include "lumen_http.h"
+#include "lumen_text.h"
+#include "archive.h"
+#include "fetch.h"
 
 static int page,count,busy;
 static char query[256],deleting[17];
@@ -9,13 +13,26 @@ static const char *word(const char *de,const char *en,const char *fr) {
     return lumen_language==1 ? en : lumen_language==2 ? fr : de;
 }
 static void list(void) {
-    char value[16];snprintf(value,sizeof(value),"%d",page);
-    lumen_service("wikipedia","list",value,1);
+    refresh_archive();
+    count=archive_count;
+    if(page<0 || page*7>=count)page=0;
+    memset(rows,0,sizeof(rows));
+    for(int i=0;i<7 && page*7+i<count;i++) {
+        const ArchiveRow *article=&archive[page*7+i];
+        snprintf(rows[i].id,sizeof(rows[i].id),"%016llx",(unsigned long long)article->id);
+        snprintf(rows[i].title,sizeof(rows[i].title),"%s",article->title);
+        time_t seen=(time_t)article->seen;
+        struct tm date;
+        if(localtime_r(&seen,&date))strftime(rows[i].date,sizeof(rows[i].date),"%d.%m.%Y · %H:%M",&date);
+    }
+}
+static void unavailable(void) {
+    lumen_request("notify","Wikipedia",word("Artikel nicht verfügbar.","Article unavailable.","Article indisponible."),0);
 }
 static void search(void) {
     if(!*query)return;
-    busy=1;
-    lumen_service("wikipedia","search",query,2);
+    busy=start_article(query);
+    if(!busy)unavailable();
 }
 static void draw(void) {
     ui_paint_heading("Wikipedia",1);
@@ -39,6 +56,7 @@ static void draw(void) {
         lumen_wrapped(30,175,540,120,word("Gelesene Artikel bleiben hier offline verfügbar.",
             "Articles you read stay available offline.","Les articles lus restent disponibles hors ligne."),
             PAINT_HEADING,4);
+    if(fetch_worker>0)lumen_schedule(200);
     if(*deleting || busy) {
         ui_paint_surface(30,272,540,210,14,255,95);
         ui_paint_text(45,290,510,74,busy ?
@@ -63,26 +81,24 @@ static int input(const Input *in) {
     if(in->kind==INPUT_BACK && *deleting){deleting[0]=0;lumen_back=0;return 1;}
     if(in->kind==INPUT_PAGE && !busy && !*deleting){page=in->x;list();return 1;}
     if(in->kind==INPUT_TEXT && in->x==1 && lumen_string("text",query,sizeof(query)))search();
-    if(in->kind==INPUT_SERVICE) {
-        if(in->x==1 && in->y) {
-            count=lumen_number("count");page=lumen_number("page");busy=lumen_number("busy");
-            for(int i=0;i<7;i++) {
-                char field[20];
-                snprintf(field,sizeof(field),"id%d",i);lumen_string(field,rows[i].id,sizeof(rows[i].id));
-                snprintf(field,sizeof(field),"title%d",i);lumen_string(field,rows[i].title,sizeof(rows[i].title));
-                snprintf(field,sizeof(field),"date%d",i);lumen_string(field,rows[i].date,sizeof(rows[i].date));
-            }
-        } else if((in->x==2 || in->x==3) && !in->y) {
+    if(in->kind==INPUT_PAUSE){accept_result=0;return 1;}
+    if(in->kind==INPUT_TICK) {
+        uint64_t key;
+        if(finish_article(&key)) {
             busy=0;
-            lumen_request("notify","Wikipedia",word("Artikel nicht verfügbar.","Article unavailable.","Article indisponible."),0);
-        } else if(in->x==4)list();
+            list();
+            if(accept_result && (!key || !open_article(key,0)))unavailable();
+        }
         return 1;
     }
     char id[24],gesture[24];
     if(in->kind!=INPUT_COMPONENT || busy || !lumen_string("id",id,sizeof(id)) ||
        !lumen_string("gesture",gesture,sizeof(gesture)) || strcmp(gesture,"clicked"))return 0;
     if(*deleting) {
-        if(!strcmp(id,"confirm"))lumen_service("wikipedia","remove",deleting,4);
+        if(!strcmp(id,"confirm")) {
+            if(!remove_article(strtoull(deleting,NULL,16)))unavailable();
+            list();
+        }
         if(!strcmp(id,"confirm") || !strcmp(id,"cancel")){deleting[0]=0;lumen_back=0;}
     } else if(!strcmp(id,"search")) {
         lumen_request("input",word("Wikipedia durchsuchen","Search Wikipedia","Rechercher dans Wikipédia"),query,1);
@@ -97,8 +113,8 @@ static int input(const Input *in) {
                 snprintf(deleting,sizeof(deleting),"%s",rows[row].id);
                 lumen_back=1;
             } else {
-                busy=1;
-                lumen_service("wikipedia","open",rows[row].id,3);
+                const ArchiveRow *article=&archive[page*7+row];
+                if(!open_article(article->id,article->legacy))unavailable();
             }
         }
     }

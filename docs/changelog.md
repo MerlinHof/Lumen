@@ -1,5 +1,7 @@
 # Changelog
 
+- [6.7](releases/6.7.md) · Package-owned Wikipedia, standalone puzzle engines and Store search continuity.
+
 - [6.6](releases/6.6.md) · Manifest-driven app navigation, shared overlays, independent Library and Reader controls, and app-owned Home Assistant and Photos state.
 
 - [6.5](releases/6.5.md) · Protocol 2, configurable providers, SDK updates and faster parallel app builds.

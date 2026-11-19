@@ -1,5 +1,8 @@
+#define _XOPEN_SOURCE 700
+#define _DARWIN_C_SOURCE
+#define _DEFAULT_SOURCE
 #include "lumen_app.h"
-#include "session.h"
+#include "lumen_shell_session.h"
 #include <ctype.h>
 
 enum { HISTORY=16, COMMAND=512, OUTPUT=8192, TOP=66, LINE=27, ADVANCE=12, COLUMNS=46 };
@@ -8,7 +11,7 @@ static char transcript[32768];
 static size_t transcript_length;
 static int count,running,scroll,prompt_y,bottom=800;
 static char prompt[64]="kindle > ";
-static TerminalSession shell;
+static LumenShellSession shell;
 
 static const char *word(const char *de,const char *en,const char *fr) {
     return lumen_language==1 ? en : lumen_language==2 ? fr : de;
@@ -91,7 +94,7 @@ static int input(const Input *in) {
         }
         scroll=0;append(prompt);append(command);append("\n");
         running=1;lumen_begin();draw();lumen_end();
-        int result=terminal_session_command(&shell,access("/mnt/us",X_OK) ? "/" : "/mnt/us",
+        int result=lumen_shell_command(&shell,access("/mnt/us",X_OK) ? "/" : "/mnt/us",
                                             command,output,sizeof(output));
         append(output);
         if(*output && output[strlen(output)-1]!='\n')append("\n");
@@ -121,7 +124,7 @@ static int input(const Input *in) {
     }
     return 1;
 }
-static void shutdown_shell(void){terminal_session_close(&shell);}
+static void shutdown_shell(void){lumen_shell_close(&shell);}
 int main(void) {
     char hostname[52]="kindle";
     if(gethostname(hostname,sizeof(hostname)-1))snprintf(hostname,sizeof(hostname),"kindle");

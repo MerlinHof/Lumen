@@ -783,7 +783,7 @@ static void package_reader_file(Json *json,const char *title) {
         int exists=!fstatat(parent,leaf,&info,AT_SYMLINK_NOFOLLOW) && S_ISREG(info.st_mode);
         close(parent);
         int n=snprintf(verified,sizeof(verified),"%s/%s",root,path);
-        if(exists && n>0 && (size_t)n<sizeof(verified))file_open16(verified,active_app());
+        if(exists && n>0 && (size_t)n<sizeof(verified))file_open_named(verified,active_app(),title);
         else ui_message("Dokument nicht verfügbar.");
         return;
     }

@@ -1,6 +1,5 @@
-#define _XOPEN_SOURCE 700
-#define _DEFAULT_SOURCE
-#include "session.h"
+#ifndef LUMEN_SHELL_SESSION_H
+#define LUMEN_SHELL_SESSION_H
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
@@ -18,12 +17,18 @@
 #include <sys/prctl.h>
 #endif
 
-static int64_t milliseconds(void) {
+typedef struct {
+    pid_t pid;
+    int input, output;
+    unsigned sequence;
+} LumenShellSession;
+
+static int64_t lumen_shell_now(void) {
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC,&now);
     return (int64_t)now.tv_sec*1000+now.tv_nsec/1000000;
 }
-void terminal_session_close(TerminalSession *session) {
+static void lumen_shell_close(LumenShellSession *session) {
     if(session->pid<=0)return;
     close(session->input);
     close(session->output);
@@ -31,7 +36,7 @@ void terminal_session_close(TerminalSession *session) {
     while(waitpid(session->pid,NULL,0)<0 && errno==EINTR) {}
     session->pid=0;
 }
-static int start(TerminalSession *session,const char *directory) {
+static int lumen_shell_start(LumenShellSession *session,const char *directory) {
     int commands[2], output[2];
     if(pipe(commands))return 0;
     output[0]=posix_openpt(O_RDWR|O_NOCTTY);
@@ -85,7 +90,7 @@ static int start(TerminalSession *session,const char *directory) {
     fcntl(session->output,F_SETFL,O_NONBLOCK);
     return 1;
 }
-static int send_script(int fd,const char *command,unsigned sequence,int64_t deadline) {
+static int lumen_shell_send(int fd,const char *command,unsigned sequence,int64_t deadline) {
     char script[2300];
     size_t n=0;
     memcpy(script,"eval '",6);n=6;
@@ -97,7 +102,7 @@ static int send_script(int fd,const char *command,unsigned sequence,int64_t dead
     n+=(size_t)snprintf(script+n,sizeof(script)-n,
         "' </dev/null\ncommand printf '\\036LUMEN%08x:%%d\\037' \"$?\"\n",sequence);
     for(size_t sent=0;sent<n;) {
-        int64_t remaining=deadline-milliseconds();
+        int64_t remaining=deadline-lumen_shell_now();
         if(remaining<=0)return 0;
         struct pollfd p={.fd=fd,.events=POLLOUT};
         if(poll(&p,1,(int)remaining)<=0){if(errno==EINTR)continue;return 0;}
@@ -108,7 +113,7 @@ static int send_script(int fd,const char *command,unsigned sequence,int64_t dead
     return 1;
 }
 /* Interpret the boundaries of ANSI controls before displaying plain text. */
-static void append(char *out,size_t cap,size_t *used,unsigned char c,int *escape) {
+static void lumen_shell_append(char *out,size_t cap,size_t *used,unsigned char c,int *escape) {
     if(*escape==1) {
         *escape=c=='[' ? 2 : c==']' || c=='P' || c=='_' || c=='^' ? 3 : 0;
         return;
@@ -120,23 +125,23 @@ static void append(char *out,size_t cap,size_t *used,unsigned char c,int *escape
     if(c==8){if(*used && out[*used-1]!='\n')(*used)--;return;}
     if((c==9 || c==10 || (c>=32 && c!=127)) && *used+1<cap)out[(*used)++]=(char)c;
 }
-int terminal_session_command(TerminalSession *session,const char *directory,
+static int lumen_shell_command(LumenShellSession *session,const char *directory,
                              const char *command,char *out,size_t capacity) {
     if(!capacity)return 125;
     out[0]=0;
     signal(SIGPIPE,SIG_IGN);
-    if(session->pid<=0 && !start(session,directory))return 125;
-    int64_t deadline=milliseconds()+8000;
+    if(session->pid<=0 && !lumen_shell_start(session,directory))return 125;
+    int64_t deadline=lumen_shell_now()+8000;
     unsigned sequence=++session->sequence;
-    if(!send_script(session->input,command,sequence,deadline)){
-        terminal_session_close(session);return 125;
+    if(!lumen_shell_send(session->input,command,sequence,deadline)){
+        lumen_shell_close(session);return 125;
     }
     char marker[32],status[4];
     size_t prefix=(size_t)snprintf(marker,sizeof(marker),"\036LUMEN%08x:",sequence);
     size_t match=0, digits=0, used=0;
     int result=124,escape=0;
     for(;;) {
-        int64_t remaining=deadline-milliseconds();
+        int64_t remaining=deadline-lumen_shell_now();
         if(remaining<=0)break;
         struct pollfd p={.fd=session->output,.events=POLLIN};
         int ready=poll(&p,1,(int)remaining);
@@ -156,15 +161,17 @@ int terminal_session_command(TerminalSession *session,const char *directory,
             }
             if(match<prefix && c==(unsigned char)marker[match]){match++;continue;}
             if(match) {
-                for(size_t j=0;j<match;j++)append(out,capacity,&used,marker[j],&escape);
-                for(size_t j=0;j<digits;j++)append(out,capacity,&used,status[j],&escape);
+                for(size_t j=0;j<match;j++)lumen_shell_append(out,capacity,&used,marker[j],&escape);
+                for(size_t j=0;j<digits;j++)lumen_shell_append(out,capacity,&used,status[j],&escape);
                 match=digits=0;
                 if(c==(unsigned char)marker[0]){match=1;continue;}
             }
-            append(out,capacity,&used,c,&escape);
+            lumen_shell_append(out,capacity,&used,c,&escape);
         }
     }
     out[used]=0;
-    terminal_session_close(session);
+    lumen_shell_close(session);
     return result;
 }
+
+#endif

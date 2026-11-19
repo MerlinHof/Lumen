@@ -1,5 +1,4 @@
 #include "../apps/news/api.h"
-static int copy_file(const char *, const char *);
 /* Shared article-to-reader boundary. Documents live outside the personal library. */
 static void document_escape(FILE *f, const char *s, size_t n) {
     for (size_t i = 0; i < n; i++)
@@ -21,7 +20,7 @@ static void document_escape(FILE *f, const char *s, size_t n) {
         }
 }
 static int document_open(const char *title, const char *author, const char *source,
-                         const char *text, const char *image, int origin, int wiki) {
+                         const char *text, const char *image, int origin) {
     if (!text || !*text)
         return 0;
     char dir[2048], path[2048];
@@ -46,7 +45,7 @@ static int document_open(const char *title, const char *author, const char *sour
     char local_image[2048], image_name[80];
     snprintf(image_name, sizeof(image_name), "%016llx.pgm", (unsigned long long)id);
     snprintf(local_image, sizeof(local_image), "%s/%s", dir, image_name);
-    if (image && *image && copy_file(image, local_image)) {
+    if (image && *image && package_copy(image, local_image)) {
         image = image_name;
         fputs("<figure><img src=\"", f);
         document_escape(f, image, strlen(image));
@@ -62,20 +61,7 @@ static int document_open(const char *title, const char *author, const char *sour
             a++;
         while (b > a && (b[-1] == ' ' || b[-1] == '\r'))
             b--;
-        int level = 0;
-        if (wiki)
-            while (a + level < b && a[level] == '=')
-                level++;
-        if (level >= 2) {
-            a += level;
-            while (b > a && b[-1] == '=')
-                b--;
-            while (a < b && *a == ' ')
-                a++;
-            while (b > a && b[-1] == ' ')
-                b--;
-        }
-        const char *tag = level >= 3 ? "h3" : level == 2 ? "h2" : "p";
+        const char *tag = "p";
         if (b > a) {
             fprintf(f, "<%s>", tag);
             document_escape(f, a, b - a);
@@ -89,11 +75,6 @@ static int document_open(const char *title, const char *author, const char *sour
         fputs("\">", f);
         document_escape(f, title, strlen(title));
         fputs("</a></p>", f);
-    }
-    if (wiki) {
-        fputs("<p>Wikipedia · CC BY-SA · <a "
-              "href=\"https://creativecommons.org/licenses/by-sa/4.0/\">Lizenz</a></p>",
-              f);
     }
     fputs("</body></html>", f);
     int ok = !ferror(f);
@@ -127,34 +108,9 @@ static int document_open(const char *title, const char *author, const char *sour
     }
     return 1;
 }
-static int article_wiki_open(void) {
-    char image[2048], source[512];
-    local_path(image, sizeof(image), "wiki-image.pgm");
-    const char *language[] = {"de", "en", "fr", "zh"};
-    snprintf(
-        source, sizeof(source), "https://%s.wikipedia.org/wiki/%s",
-        language[(wiki_ui.wiki_article_language < 0 ? options[OPT_LANGUAGE] : wiki_ui.wiki_article_language) % 4],
-        discover_lookup_title());
-    int ok=document_open(discover_lookup_title(), "Wikipedia", source, discover_lookup_text(),
-                         wiki_image_available() ? image : NULL, active_app(), 1);
-    if(ok)wiki_article_opened();return ok;
-}
 static int article_news_open(void) {
     char image[2048];
     press_image_path(image, sizeof(image));
     return document_open(press_article.title, press_article.publisher, press_article.url,
-                         press_article.body, image, active_app(), 0);
-}
-
-static void article_wiki_request(void) {
-    if (wiki_image_available() || !*discover_lookup_image()) {
-        article_wiki_open();
-        return;
-    }
-    wiki_reader_pending = 1;
-    snprintf(wiki_image_requested, sizeof(wiki_image_requested), "%s", discover_lookup_image());
-    if (!service_busy() && !service_start(SERVICE_WIKI_IMAGE, wiki_image_requested)) {
-        wiki_reader_pending = 0;
-        article_wiki_open();
-    }
+                         press_article.body, image, active_app());
 }

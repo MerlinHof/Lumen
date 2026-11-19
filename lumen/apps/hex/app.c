@@ -1,4 +1,4 @@
-#include "../games/package_ui.h"
+#include "lumen_game.h"
 #include "rules.h"
 
 static unsigned char hex_board[121],hex_previous[121];

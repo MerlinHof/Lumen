@@ -13,20 +13,22 @@ static int polish_tick(void) {
         }
         press_open_pending=0;
     }
-    if (news_enabled) {
-        news_enabled = 0;
-        news_cancel();
-        news_save_settings();
-        press_daily_enabled = 1;
-        extra_write_text("press-daily-enabled.txt", "1");
-    }
     static int initialized;
-    if (!initialized) {
-        initialized = 1;
-        char *s = service_read("press-daily-enabled.txt", 8);
-        if (s) {
-            press_daily_enabled = atoi(s) != 0;
-            free(s);
+    if(!initialized) {
+        initialized=1;
+        char *settings=service_read("press-daily-enabled.txt",8);
+        if(settings) {
+            press_daily_enabled=atoi(settings)!=0;
+            free(settings);
+        } else {
+            char *previous=service_read("news-settings.txt",80);
+            unsigned topics;
+            int enabled;
+            if(previous && sscanf(previous,"%u %d",&topics,&enabled)==2 && enabled) {
+                press_daily_enabled=1;
+                extra_write_text("press-daily-enabled.txt","1");
+            }
+            free(previous);
         }
     }
     if (press_daily_enabled && !press_busy() && time(NULL) >= press_retry_at && active_app()!=app_package_find("lumen.news")) {
@@ -54,48 +56,4 @@ static int polish_poll(void) {
 }
 static void polish_close(void) {
     press_cancel();
-    polish_wiki_archive();
-}
-
-static void polish_wiki_refetched(void) {
-    wiki_refresh_id = 0;
-    char p[2048];
-    wiki_cache_path(p, sizeof(p), wiki_key(), "deleted");
-    unlink(p);
-    wiki_saved_hash = 0;
-    polish_wiki_archive();
-}
-
-static int wiki_refresh_failed(void) {
-    if (!wiki_refresh_id)
-        return 0;
-    char path[2048];
-    wiki_cache_path(path, sizeof(path), wiki_refresh_id, "bin");
-    WikiSaved *a = malloc(sizeof(*a));
-    FILE *f = fopen(path, "rb");
-    int ok = a && f && fread(a, sizeof(*a), 1, f) == 1 && a->magic == 0x574b3131;
-    if (f)
-        fclose(f);
-    if (ok) {
-        a->title[255] = a->text[524287] = a->image[2047] = a->name[511] = 0;
-        wiki_ui.wiki_article_language = a->language >= 0 && a->language < 4 ? a->language : 0;
-        discover_restore_lookup(a->title, a->text, a->image, a->name);
-        wiki_saved_hash = press_id(a->text) ^ wiki_key();
-        wiki_cache_path(path, sizeof(path), wiki_refresh_id, "pgm");
-        char target[2048];
-        local_path(target, sizeof(target), "wiki-image.pgm");
-        if (copy_file(path, target))
-            extra_write_text("wiki-image-url.txt", a->image);
-    }
-    free(a);
-    wiki_refresh_id = 0;
-    return ok && article_wiki_open();
-}
-
-static void extra_wiki_cache(void) {
-    char *xml = service_read("opds-feed.xml", 2097152);
-    if (xml) {
-        extra_write_text("wiki-last.xml", xml);
-        free(xml);
-    }
 }

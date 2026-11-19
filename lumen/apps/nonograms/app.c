@@ -1,4 +1,4 @@
-#include "../games/package_ui.h"
+#include "lumen_game.h"
 static unsigned char nono_solution[25],nono_cells[25];
 static int nono_mark,dirty;
 static unsigned rng;

@@ -1,4 +1,4 @@
-#include "../games/package_ui.h"
+#include "lumen_game.h"
 #include "data.h"
 
 static int selected=6,element_grid16[9][18],dirty;

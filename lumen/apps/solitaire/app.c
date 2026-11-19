@@ -1,5 +1,5 @@
-#include "../games/package_ui.h"
-#include "../games/puzzles.h"
+#include "lumen_game.h"
+#include "engine.h"
 
 static Patience solitaire;
 static int pat_source=-99,pat_index,dirty;
