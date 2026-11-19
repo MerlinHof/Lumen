@@ -60,7 +60,7 @@ static void frog_draw(void) {
     for (int i = 0; i < 49; i++) {
         if (!frog_pad(i/7,i%7)) continue;
         int x = 68 + i%7*77, y = 174 + i/7*77;
-        ui_paint_hitbox(x-34,y-34,68,68);
+        lumen_index_action("pad",i,30+i%7*77,136+i/7*77,77,77);
         int target = frog_jump(frog_selected, i);
         ui_paint_ellipse(x, y+4, 28, 25, 198);
         ui_paint_ellipse(x, y+1, 28, 25, target ? 94 : 139);
@@ -91,9 +91,9 @@ static int frog_input(const Input *in) {
             frog_board = frog_undo[--frog_moves];
             frog_selected = -1;
         }
-    } else if (in->kind==INPUT_TAP && in->x >= 30 && in->x < 569 && in->y >= 136 && in->y < 675) {
-        int col = (in->x-30)/77, row = (in->y-136)/77, to = row*7+col;
-        if (frog_pad(row,col)) {
+        else {
+            int to=lumen_action_index(action,"pad",49);
+            if(to<0 || !frog_pad(to/7,to%7))return 1;
             if (frog_board & (1ULL<<to)) frog_selected = frog_selected == to ? -1 : to;
             else if (frog_jump(frog_selected,to) && frog_moves < 32) {
                 frog_undo[frog_moves++] = frog_board;

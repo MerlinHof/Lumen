@@ -1,4 +1,5 @@
 #include "lumen_app.h"
+#include "lumen_worker.h"
 #include <math.h>
 #include <ctype.h>
 #include "lumen_http.h"
@@ -109,13 +110,13 @@ static void draw(void) {
     ui_paint_heading("Home Assistant",view==DASHBOARD || view==DEVICES ? 2 : 0);
     if(view==CONFIG) {
         lumen_text(30,143,540,35,word("Serveradresse","Server address","Adresse du serveur"),PAINT_BODY,0,1);
-        lumen_button(28,188,544,52,*ha_url ? ha_url : "http://homeassistant.local:8123",0);
+        lumen_button_action("address",28,188,544,52,*ha_url ? ha_url : "http://homeassistant.local:8123",0);
         lumen_text(30,281,540,35,word("Zugriffstoken","Access token","Jeton d’accès"),PAINT_BODY,0,1);
-        lumen_button(28,327,544,52,token_set ? "••••••••" : word("Token eingeben","Enter token","Saisir le jeton"),0);
+        lumen_button_action("token",28,327,544,52,token_set ? "••••••••" : word("Token eingeben","Enter token","Saisir le jeton"),0);
         lumen_wrapped(30,414,540,132,word("Adresse und Token lassen sich auch über Dateiübertragung im Browser einrichten.",
             "Set the address and token here or in the File Transfer web interface.",
             "Configurez l’adresse et le jeton ici ou via l’interface web de transfert."),PAINT_BODY,4);
-        lumen_button(28,607,544,52,word("Verbinden","Connect","Connecter"),1);
+        lumen_button_action("connect",28,607,544,52,word("Verbinden","Connect","Connecter"),1);
         return;
     }
     if(view==GRAPH) {
@@ -128,15 +129,16 @@ static void draw(void) {
         lumen_segments("span",28,716,544,48,spans,3,hours==1 ? 0 : hours==6 ? 1 : 2);
         return;
     }
-    ui_paint_icon_button(468,74,IC_SETTINGS);
-    ui_paint_icon_button(528,74,view==DEVICES ? IC_DONE : IC_DEVICES);
+    lumen_icon_action("settings",468,74,IC_SETTINGS);
+    lumen_icon_action("devices",528,74,view==DEVICES ? IC_DONE : IC_DEVICES);
     if(!configured) {
         lumen_wrapped(30,175,540,120,word("Serveradresse und Zugriffstoken einrichten.",
             "Set up the server address and access token.","Configurez l’adresse du serveur et le jeton d’accès."),PAINT_HEADING,4);
-        lumen_button(28,420,544,48,word("Einrichten","Set up","Configurer"),1);
+        lumen_button_action("settings",28,420,544,48,word("Einrichten","Set up","Configurer"),1);
         return;
     }
     if(view==DEVICES) {
+        lumen_custom_action("search",28,186,544,48);
         ui_paint_surface(28,186,544,48,10,255,105);
         ui_paint_icon_button(29,188,IC_SEARCH);
         lumen_text(79,188,477,44,*search ? search : word("Geräte suchen","Search devices","Rechercher"),PAINT_BODY,*search ? 0 : 100,1);
@@ -150,6 +152,7 @@ static void draw(void) {
             lumen_text(30,y+4,445,33,d->name,PAINT_BODY,0,1);
             lumen_text(30,y+35,445,26,value,PAINT_SECONDARY,-1,1);
             lumen_toggle(492,y+14,d->saved);
+            lumen_index_action("favorite",i,28,y,544,67);
             lumen_list_divider(28,y+67,572);
         } else {
             int x=28+i%2*282,y=148+i/2*140;
@@ -158,7 +161,7 @@ static void draw(void) {
             lumen_text(x+13,y+8,236,31,d->name,PAINT_BODY,0,1);
             lumen_text(x+13,y+41,d->sensor ? 236 : 146,51,value,d->sensor ? PAINT_TITLE : PAINT_BODY,0,1);
             if(!d->sensor)lumen_toggle(x+175,y+51,!strcmp(d->value,"on"));
-            ui_paint_hitbox(x,y,262,126);
+            lumen_index_action("device",i,x,y,262,126);
         }
     }
     if(!count)lumen_wrapped(30,view==DEVICES ? 265 : 220,540,105,
@@ -192,27 +195,28 @@ static int input(const Input *in) {
         }
         return 1;
     }
-    if(in->kind!=INPUT_TAP)return 0;
-    int x=in->x,y=in->y;
+    if(view==GRAPH && in->kind==INPUT_TAP) {
+        if(in->y>=229 && in->y<642 && in->x>=66 && in->x<558)trace=in->x;
+        return 1;
+    }
+    char id[64];
+    if(!lumen_action(in,id,"clicked"))return 0;
     if(view==CONFIG) {
-        if(y>=188 && y<240)lumen_request("input","Home Assistant URL",ha_url,2);
-        else if(y>=327 && y<379)lumen_request("secret",word("Zugriffstoken","Access token","Jeton d’accès"),"",3);
-        else if(y>=607 && y<659){ha_configure();ha_refresh_at=0;show(DEVICES);}
+        if(!strcmp(id,"address"))lumen_request("input","Home Assistant URL",ha_url,2);
+        else if(!strcmp(id,"token"))lumen_request("secret",word("Zugriffstoken","Access token","Jeton d’accès"),"",3);
+        else if(!strcmp(id,"connect")){ha_configure();ha_refresh_at=0;show(DEVICES);}
         return 1;
     }
-    if(view==GRAPH) {
-        if(y>=229 && y<642 && x>=66 && x<558)trace=x;
-        return 1;
-    }
-    if(y>=74 && y<118 && x>=468)show(x<528 ? CONFIG : view==DEVICES ? DASHBOARD : DEVICES);
-    else if(!configured && y>=420 && y<468)show(CONFIG);
-    else if(view==DEVICES && y>=186 && y<234)
+    if(!strcmp(id,"settings"))show(CONFIG);
+    else if(!strcmp(id,"devices"))show(view==DEVICES ? DASHBOARD : DEVICES);
+    else if(view==DEVICES && !strcmp(id,"search"))
         lumen_request("input",word("Geräte suchen","Search devices","Rechercher des appareils"),search,1);
-    else if(view==DEVICES && y>=250 && y<658) {
-        int i=(y-250)/68;if(*devices[i].id){ha_toggle_favorite(devices[i].id);list();}
-    } else if(view==DASHBOARD && x>=28 && x<572 && y>=148 && y<708 && (y-148)%140<126) {
-        int i=(y-148)/140*2+(x>=310);
-        if(*devices[i].id) {
+    else if(view==DEVICES) {
+        int i=lumen_action_index(id,"favorite",6);
+        if(i>=0 && *devices[i].id){ha_toggle_favorite(devices[i].id);list();}
+    } else if(view==DASHBOARD) {
+        int i=lumen_action_index(id,"device",8);
+        if(i>=0 && *devices[i].id) {
             if(devices[i].sensor){snprintf(graph_id,sizeof(graph_id),"%s",devices[i].id);show(GRAPH);}
             else ha_toggle_device(&devices[i]);
         }

@@ -100,7 +100,7 @@ typedef struct {
     int left,top,width,height,kind,checked,count;
     char id[64],label[120],value[1024];
 } PackageComponent;
-enum { PACKAGE_COMPONENT_LIMIT=64 };
+enum { PACKAGE_COMPONENT_LIMIT=144 };
 static PackageComponent package_components[PACKAGE_COMPONENT_LIMIT];
 static int package_component_count,package_component_layout,package_component_top;
 static char package_focused_component[64];
@@ -201,9 +201,10 @@ static void package_paint_frame_mode(const char *text,int mode) {
             package_component_count++;
             continue;
         }
-        if(!strcmp(type,"select_action") || !strcmp(type,"dropdown_action") || !strcmp(type,"custom_action")) {
+        if(!strcmp(type,"select_action") || !strcmp(type,"dropdown_action") || !strcmp(type,"custom_action") || !strcmp(type,"target_action")) {
             int selector=!strcmp(type,"select_action");
-            if(x<0 || y<STATUS_HEIGHT || w<44 || h<44 || x+w>WIDTH || y+h>HEIGHT ||
+            int minimum=!strcmp(type,"target_action") ? 12 : 44;
+            if(x<0 || y<STATUS_HEIGHT || w<minimum || h<minimum || w>WIDTH-x || h>HEIGHT-y ||
                package_component_count>=PACKAGE_COMPONENT_LIMIT)continue;
             PackageComponent *component=&package_components[package_component_count];
             json_string(&j,json_get(&j,item,"id"),component->id,sizeof(component->id));
@@ -218,11 +219,12 @@ static void package_paint_frame_mode(const char *text,int mode) {
             else region(x,y,w,h);
             continue;
         }
-        if(!strcmp(type,"icon_action") || !strcmp(type,"button_action") || !strcmp(type,"toggle_action")) {
+        if(!strcmp(type,"icon_action") || !strcmp(type,"button_action") || !strcmp(type,"toggle_action") || !strcmp(type,"icon_control")) {
             int is_icon=!strcmp(type,"icon_action"),is_toggle=!strcmp(type,"toggle_action");
-            int id=package_value(&j,item,"icon");
-            if(x<0 || y<STATUS_HEIGHT || w<44 || h<44 || x+w>WIDTH || y+h>HEIGHT ||
-               (is_icon && (w!=44 || h!=44 || id<0 || id>IC_LAST)) ||
+            int is_control=!strcmp(type,"icon_control"),id=package_value(&j,item,"icon");
+            if(x<0 || y<STATUS_HEIGHT || w<44 || h<36 || w>WIDTH-x || h>HEIGHT-y ||
+               ((is_icon || is_control) && (id<0 || id>IC_LAST)) ||
+               (is_icon && (w!=44 || h!=44)) || (is_control && h<44) ||
                (is_toggle && (w!=64 || h!=44 || x<10 || x>WIDTH-80 || y<STATUS_HEIGHT+8)) ||
                package_component_count>=PACKAGE_COMPONENT_LIMIT)continue;
             PackageComponent *component=&package_components[package_component_count];
@@ -231,7 +233,10 @@ static void package_paint_frame_mode(const char *text,int mode) {
             component->left=x;component->top=y;component->width=w;component->height=h;
             component->kind=COMPONENT_BUTTON;
             if(is_icon)icon_button(x,y,id);
-            else if(is_toggle) {
+            else if(is_control) {
+                button_h(x,y,w,h,"",0);
+                icon(x+(w-44)/2,y+(h-44)/2,id);
+            } else if(is_toggle) {
                 component->kind=COMPONENT_TOGGLE;
                 component->checked=!!package_value(&j,item,"checked");
                 toggle(x,y,component->checked);

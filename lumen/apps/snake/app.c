@@ -94,21 +94,19 @@ static int input(const Input *in) {
         else snake_direction(&snake_game,0,in->dy>0 ? 1 : -1);
         return 1;
     }
-    if(in->kind!=INPUT_TAP)return 0;
-    int x=in->x,y=in->y;
-    if(y>=74 && y<118) {
-        if(x>=528)snake_new(&snake_game);
-        else if(x>=468)help("Snake",local("Sammle Äpfel und vermeide Wände und deinen eigenen Körper.",
+    char id[64];
+    if(!lumen_action(in,id,"clicked"))return 0;
+    if(!strcmp(id,"restart"))snake_new(&snake_game);
+    else if(!strcmp(id,"help"))help("Snake",local("Sammle Äpfel und vermeide Wände und deinen eigenen Körper.",
             "Collect apples and avoid the walls and your own body.",
             "Ramassez les pommes. Évitez les murs et le corps du serpent."));
-    } else if(x>=414 && y>=124 && y<164) {
+    else if(!strcmp(id,"pause")) {
         if(snake_game.over)snake_new(&snake_game);
         snake_game.paused=!snake_game.paused;
-    } else if(y>=677 && y<725 && x>=258 && x<342)snake_direction(&snake_game,0,-1);
-    else if(y>=735 && y<783) {
-        if(x>=153 && x<237)snake_direction(&snake_game,-1,0);
-        else if(x>=258 && x<342)snake_direction(&snake_game,0,1);
-        else if(x>=363 && x<447)snake_direction(&snake_game,1,0);
+    } else {
+        int move=lumen_action_index(id,"move",4);
+        const int dx[]={0,-1,0,1},dy[]={-1,0,1,0};
+        if(move>=0)snake_direction(&snake_game,dx[move],dy[move]);
     }
     return 1;
 }
@@ -120,23 +118,20 @@ static int input(const Input *in) {
 #define ui_font(x) (x)
 #define centered(x,y,w,h,s,r) ui_paint_text(x,y,w,h,s,r)
 #define drawtext(x,y,s,r,w) lumen_text(x,y,w,34,s,r,-1,1)
-#define region ui_paint_hitbox
 #define stroke_color ui_paint_line
 #define stroke(x,y,xx,yy,w) ui_paint_line(x,y,xx,yy,w,0)
 #define aa_disc(x,y,r,c) ui_paint_ellipse(x,y,r,r,c)
 #define control_surface(x,y,w,h,r,c) ui_paint_surface(x,y,w,h,r,c,c)
 #define outline_surface(x,y,w,h,r,c) ui_paint_surface(x,y,w,h,r,255,c)
 #define key_outline(x,y,w,h) outline_surface(x,y,w,h,8,115)
-#define button_h lumen_button
-#define icon ui_paint_icon_button
 static void draw(void) {
     ui_paint_heading("Snake",2);
-    lumen_button(468,74,44,44,"?",0);
-    ui_paint_icon_button(528,74,IC_RESTART);
+    lumen_button_action("help",468,74,44,44,"?",0);
+    lumen_icon_action("restart",528,74,IC_RESTART);
     char b[60];
     snprintf(b, sizeof(b), "%d  ·  %s %u", snake_game.score, (local("Rekord","Best","Record")), best_score);
     drawtext(30, 132, b, ui_font(UI_BODY), 360);
-    button_h(414, 124, 158, 40,
+    lumen_button_action("pause",414,124,158,40,
              snake_game.over     ? local("Neu starten","Restart","Rejouer")
              : snake_game.paused ? local("Start","Start","Démarrer")
                                  : local("Pause","Pause","Pause"),
@@ -177,9 +172,8 @@ static void draw(void) {
     int x[] = {258, 153, 258, 363}, y[] = {677, 735, 735, 735},
         kind[] = {IC_UP, IC_PREV, IC_DOWN, IC_NEXT};
     for (int i = 0; i < 4; i++) {
-        region(x[i], y[i], 84, 48);
-        key_outline(x[i], y[i], 84, 48);
-        icon(x[i] + 20, y[i] + 2, kind[i]);
+        char id[24];snprintf(id,sizeof(id),"move:%d",i);
+        lumen_icon_control(id,x[i],y[i],84,48,kind[i]);
     }
     if(!snake_game.paused && !snake_game.over) {
         int64_t now=ui_clock_millis();

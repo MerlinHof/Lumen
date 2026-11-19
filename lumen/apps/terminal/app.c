@@ -64,7 +64,7 @@ static void draw(void) {
     }
     prompt_y=TOP+(last-first)*LINE;
     if(bottom==800) {
-        ui_paint_hitbox(16,prompt_y,568,LINE+8);
+        lumen_index_action("prompt",0,16,prompt_y,568,LINE+8);
         lumen_mono_columns(22,prompt_y,556,LINE,running ? "…" : prompt,0,ADVANCE);
         if(!running)ui_paint_surface(22+(int)strlen(prompt)*ADVANCE,prompt_y+4,7,12,0,0,0);
     }
@@ -115,12 +115,11 @@ static int input(const Input *in) {
         if(in->dy>0 && scroll<(int)sizeof(transcript))scroll+=12;
         if(in->dy<0)scroll=scroll>12 ? scroll-12 : 0;
     }
-    if(in->y>=prompt_y && in->y<prompt_y+LINE+8) {
-        if(in->kind==INPUT_TAP)edit_command("");
-        if(in->kind==INPUT_HOLD && count) {
-            const char *choices[HISTORY];for(int i=0;i<count;i++)choices[i]=history[i];
-            lumen_select(choices,count,-1,2);
-        }
+    char id[64];
+    if(lumen_action(in,id,"clicked") && !strcmp(id,"prompt:0"))edit_command("");
+    if(lumen_action(in,id,"long_pressed") && !strcmp(id,"prompt:0") && count) {
+        const char *choices[HISTORY];for(int i=0;i<count;i++)choices[i]=history[i];
+        lumen_select(choices,count,-1,2);
     }
     return 1;
 }

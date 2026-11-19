@@ -131,24 +131,25 @@ static void draw(void) {
         if(!fullscreen) {
             const int icon_ids[]={IC_PREV,IC_ROTATE_PHOTO,IC_FOLDER,IC_TRASH,IC_FULLSCREEN,IC_NEXT};
             const int left[]={28,148,216,278,398,528};
-            for(int i=0;i<6;i++)ui_paint_icon_button(left[i],748,icon_ids[i]);
+            const char *actions[]={"previous","rotate","move","delete","fullscreen","next"};
+            if(!confirm)for(int i=0;i<6;i++)lumen_icon_action(actions[i],left[i],748,icon_ids[i]);
         }
     } else {
         ui_paint_heading(word("Fotos","Photos","Photos"),3);
-        ui_paint_icon_button(408,74,IC_FOLDER_PLUS);ui_paint_icon_button(468,74,IC_CONNECT);
-        ui_paint_icon_button(528,74,view==SETTINGS ? IC_CLOSE : IC_SETTINGS);
+        lumen_icon_action("new-album",408,74,IC_FOLDER_PLUS);lumen_icon_action("transfer",468,74,IC_CONNECT);
+        lumen_icon_action("settings",528,74,view==SETTINGS ? IC_CLOSE : IC_SETTINGS);
         if(view==SETTINGS) {
             char duration[16];snprintf(duration,sizeof(duration),"%d s",seconds);
-            lumen_select_row(203,word("Dauer pro Foto","Duration per photo","Durée par photo"),duration);
-            lumen_select_row(271,word("Bildformat","Image fit","Ajustement"),fill ? word("Ausfüllen","Fill","Remplir") : word("Einpassen","Fit","Ajuster"));
-            lumen_select_row(339,word("Bildausrichtung","Orientation","Orientation"),rotation ? word("Querformat","Landscape","Paysage") : word("Hochformat","Portrait","Portrait"));
+            lumen_select_action("duration",203,word("Dauer pro Foto","Duration per photo","Durée par photo"),duration);
+            lumen_select_action("fit",271,word("Bildformat","Image fit","Ajustement"),fill ? word("Ausfüllen","Fill","Remplir") : word("Einpassen","Fit","Ajuster"));
+            lumen_select_action("orientation",339,word("Bildausrichtung","Orientation","Orientation"),rotation ? word("Querformat","Landscape","Paysage") : word("Hochformat","Portrait","Portrait"));
         } else {
-            lumen_button(28,133,328,44,folder ? photo_catalog.folders[folder-1] : word("Alle Fotos","All photos","Toutes les photos"),0);
-            if(count)lumen_button(376,133,196,44,word("Diashow","Slideshow","Diaporama"),1);
+            lumen_button_action("albums",28,133,328,44,folder ? photo_catalog.folders[folder-1] : word("Alle Fotos","All photos","Toutes les photos"),0);
+            if(count)lumen_button_action("slideshow",376,133,196,44,word("Diashow","Slideshow","Diaporama"),1);
             for(int i=0;i<16 && *ids[i];i++) {
                 int x=19+i%4*142,y=187+i/4*139;
                 lumen_photo(x,y,136,136,ids[i],1,0,0);
-                ui_paint_hitbox(x,y,136,136);
+                lumen_index_action("photo",i,x,y,136,136);
             }
             if(!count)lumen_wrapped(30,215,540,130,word("Hier erscheinen deine Fotos.",
                 "Your photos will appear here.","Vos photos apparaîtront ici."),PAINT_BODY,4);
@@ -158,8 +159,8 @@ static void draw(void) {
     if(confirm) {
         ui_paint_surface(24,275,552,220,16,255,100);
         ui_paint_text(35,295,530,85,word("Foto löschen?","Delete photo?","Supprimer la photo ?"),PAINT_HEADING);
-        lumen_button(38,412,250,52,word("Abbrechen","Cancel","Annuler"),0);
-        lumen_button(312,412,250,52,word("Löschen","Delete","Supprimer"),1);
+        lumen_button_action("cancel-delete",38,412,250,52,word("Abbrechen","Cancel","Annuler"),0);
+        lumen_button_action("confirm-delete",312,412,250,52,word("Löschen","Delete","Supprimer"),1);
     }
 }
 static int input(const Input *in) {
@@ -236,58 +237,58 @@ static int input(const Input *in) {
         } else if(in->x==2 && in->y)request("list","",1);
         return 1;
     }
-    if(in->kind!=INPUT_TAP && in->kind!=INPUT_HOLD)return 0;
-    int x=in->x,y=in->y;
-    if(confirm) {
-        if(y>=412 && y<464 && in->kind==INPUT_TAP) {
-            if(x>=312){request("delete",ids[selected],2);view=GALLERY;lumen_back=0;}
-            confirm=0;
+    if(view==PHOTO && fullscreen && in->kind==INPUT_TAP) {
+        if(slideshow)open_gallery();
+        else {photo_fill=0;photo_controls=1;}
+        return 1;
+    }
+    char id[64];
+    if(view==GALLERY && lumen_action(in,id,"long_pressed")) {
+        int index=lumen_action_index(id,"photo",16);
+        if(index>=0 && *ids[index]) {
+            selected=index;
+            const char *choices[]={word("Ordner","Album","Album"),
+                word("Als Sperrbild verwenden","Use as lock screen","Utiliser en veille")};
+            lumen_select(choices,2,-1,3);
         }
+        return 1;
+    }
+    if(!lumen_action(in,id,"clicked"))return 0;
+    if(confirm) {
+        if(!strcmp(id,"confirm-delete")){request("delete",ids[selected],2);view=GALLERY;lumen_back=0;}
+        if(!strcmp(id,"confirm-delete") || !strcmp(id,"cancel-delete"))confirm=0;
         return 1;
     }
     if(view==PHOTO) {
-        if(slideshow)open_gallery();
-        else if(fullscreen){photo_fill=0;photo_controls=1;}
-        else if(y>=748) {
-            if(x<85)advance(-1);
-            else if(x>=528)advance(1);
-            else if(x>=398 && x<444){photo_fill=1;photo_controls=0;}
-            else if(x>=278 && x<325)confirm=1;
-            else if(x>=216 && x<263)menu(1);
-            else if(x>=148 && x<194)request("rotate",ids[selected],2);
-        }
+        if(!strcmp(id,"previous"))advance(-1);
+        else if(!strcmp(id,"next"))advance(1);
+        else if(!strcmp(id,"fullscreen")){photo_fill=1;photo_controls=0;}
+        else if(!strcmp(id,"delete"))confirm=1;
+        else if(!strcmp(id,"move"))menu(1);
+        else if(!strcmp(id,"rotate"))request("rotate",ids[selected],2);
         return 1;
     }
-    if(y>=74 && y<118 && in->kind==INPUT_TAP) {
-        if(x>=528){view=view==SETTINGS ? GALLERY : SETTINGS;lumen_back=view!=GALLERY;}
-        else if(x>=468)lumen_open("lumen.transfer");
-        else if(x>=408)lumen_request("input",word("Neuer Ordner","New album","Nouvel album"),"",1);
-        return 1;
-    }
-    if(view==SETTINGS && x>=360) {
-        if(y>=203 && y<251){
+    if(!strcmp(id,"settings")){view=view==SETTINGS ? GALLERY : SETTINGS;lumen_back=view!=GALLERY;}
+    else if(!strcmp(id,"transfer"))lumen_open("lumen.transfer");
+    else if(!strcmp(id,"new-album"))lumen_request("input",word("Neuer Ordner","New album","Nouvel album"),"",1);
+    else if(view==SETTINGS) {
+        if(!strcmp(id,"duration")){
             const char *choices[]={"5 s","10 s","15 s","20 s","30 s","60 s","120 s"};
             int current=1;for(int i=0;i<7;i++)if(durations[i]==seconds)current=i;
             lumen_select(choices,7,current,4);
-        } else if(y>=271 && y<319) {
+        } else if(!strcmp(id,"fit")) {
             const char *choices[]={word("Einpassen","Fit","Ajuster"),word("Ausfüllen","Fill","Remplir")};
             lumen_select(choices,2,fill,5);
-        } else if(y>=339 && y<387) {
+        } else if(!strcmp(id,"orientation")) {
             const char *choices[]={word("Hochformat","Portrait","Portrait"),word("Querformat","Landscape","Paysage")};
             lumen_select(choices,2,rotation,6);
         }
     } else if(view==GALLERY) {
-        if(y>=133 && y<177){if(x<356)menu(0);else show_photo(0,1);}
-        else if(x>=19 && x<581 && y>=187 && y<740) {
-            int i=(y-187)/139*4+(x-19)/142;
-            if(i>=0 && i<16 && *ids[i]){
-                if(in->kind==INPUT_TAP)show_photo(i,0);
-                else {
-                    selected=i;
-                    const char *choices[]={word("Ordner","Album","Album"),word("Als Sperrbild verwenden","Use as lock screen","Utiliser en veille")};
-                    lumen_select(choices,2,-1,3);
-                }
-            }
+        if(!strcmp(id,"albums"))menu(0);
+        else if(!strcmp(id,"slideshow") && count)show_photo(0,1);
+        else {
+            int index=lumen_action_index(id,"photo",16);
+            if(index>=0 && *ids[index])show_photo(index,0);
         }
     }
     return 1;

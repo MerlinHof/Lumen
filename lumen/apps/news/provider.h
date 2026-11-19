@@ -18,11 +18,6 @@ static uint64_t press_id(const char *s) {
 static void pp(char *out, int n, const char *name) {
     snprintf(out,n,"%s/press/%s",getenv("LUMEN_APP_DATA"),name);
 }
-static void redirect_worker_io(void) {
-    int fd=open("/dev/null",O_RDWR);
-    if(fd<0 || dup2(fd,STDIN_FILENO)<0 || dup2(fd,STDOUT_FILENO)<0)_exit(1);
-    if(fd>STDOUT_FILENO)close(fd);
-}
 static int readbin(const char *p, void *out, size_t n) {
     FILE *f = fopen(p, "rb");
     if(!f) {
@@ -48,20 +43,14 @@ static void sane_list(PressList *l) {
             a->published[95] = 0;
     }
 }
-static int fetch(const char *url, const char *file) {
-    if (strncmp(url, "https://", 8) && strncmp(url, "http://", 7))
-        return 0;
-    pid_t p = fork();
-    if (!p) {
-        freopen("/dev/null", "w", stderr);
-        execlp("curl", "curl", "-q", "--fail", "--silent", "--location", "--compressed",
-               "--connect-timeout", "6", "--max-time", "22", "--max-redirs", "5", "--max-filesize",
-               "4194304", "--proto", "=http,https", "--proto-redir", "=http,https", "--user-agent",
-               "Mozilla/5.0 (compatible; LUMEN/1.1; personal offline reader)", "--output", file,
-               "--", url, (char *)NULL);
-        _exit(127);
-    }
-    return wait_success(p);
+static int fetch(const char *url,const char *file) {
+    int fd=open(file,O_WRONLY|O_CREAT|O_TRUNC|O_NOFOLLOW|O_CLOEXEC,0600);
+    if(fd<0)return 0;
+    int ok=lumen_http_download((LumenHttpRequest){.url=url,.allow_http=1,.redirects=5,
+        .compressed=1,.connect_timeout=6,.timeout=22},fd,4u<<20);
+    if(close(fd))ok=0;
+    if(!ok)unlink(file);
+    return ok;
 }
 static const char *tag(MarkupNode *x) {
     const char *s = x->tag;
@@ -256,14 +245,7 @@ static void init(void) {
     mkdir(p, 0700);
 }
 int press_busy(void) { return pw > 0; }
-void press_cancel(void) {
-    if (pw > 0) {
-        kill(pw, SIGTERM);
-        while (waitpid(pw, NULL, 0) < 0 && errno == EINTR) {
-        }
-        pw = -1;
-    }
-}
+void press_cancel(void) {lumen_worker_cancel(&pw);}
 int press_load_day(int d) {
     init();
     char name[80], p[2048];
@@ -287,9 +269,8 @@ static int list_start(int date, int lang, const char *query) {
     char name[80];
     snprintf(name, 80, *query ? "search.bin" : "edition-%08d.bin", date);
     pp(result_path, sizeof(result_path), name);
-    pw = fork();
+    pw=lumen_worker_start();
     if (!pw) {
-        redirect_worker_io();
         PressList *l = calloc(1, sizeof(*l));
         if (!l)
             _exit(1);
@@ -301,16 +282,7 @@ static int list_start(int date, int lang, const char *query) {
         pp(temp,sizeof(temp),name);
         if (*query) {
             char encoded[1600], url[2048];
-            int n = 0;
-            for (const unsigned char *p = (const unsigned char *)query; *p && n < 1500; p++) {
-                if (isalnum(*p))
-                    encoded[n++] = *p;
-                else {
-                    snprintf(encoded + n, 4, "%%%02X", *p);
-                    n += 3;
-                }
-            }
-            encoded[n] = 0;
+            if(!lumen_url_encode(query,encoded,sizeof(encoded)))_exit(1);
             snprintf(url, sizeof(url),
                      "https://www.bing.com/news/search?q=%s&format=rss&setlang=%s", encoded,
                      lang == 0   ? "de"
@@ -398,9 +370,8 @@ int press_open(const PressItem *item) {
         memset(&press_article, 0, sizeof(press_article));
     snprintf(press_article.title, 256, "%s", item->title);
     snprintf(press_article.url, 2048, "%s", item->url);
-    pw = fork();
+    pw=lumen_worker_start();
     if (!pw) {
-        redirect_worker_io();
         PressArticle *article = calloc(1, sizeof(*article));
         char html[2048], image[2048], raw[2048];
         snprintf(name,sizeof(name),"article-%ld.tmp",(long)getpid());
@@ -433,15 +404,8 @@ int press_open(const PressItem *item) {
     return pw > 0;
 }
 int press_poll(void) {
-    if (pw <= 0)
-        return 0;
-    int s;
-    pid_t p = waitpid(pw, &s, WNOHANG);
-    if (!p)
-        return 0;
-    pw = -1;
-    if (p < 0 || !WIFEXITED(s) || WEXITSTATUS(s))
-        return -job;
+    int result=lumen_worker_poll(&pw);
+    if(result<=0)return result ? -job : 0;
     if (job == 1) {
         if (!readbin(result_path, &press_list, sizeof(press_list)) ||
             press_list.magic != 0x50524c31 || press_list.count < 1 ||

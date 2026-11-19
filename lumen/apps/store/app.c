@@ -1,8 +1,9 @@
 #define _GNU_SOURCE
 #include "lumen_app.h"
+#include "lumen_worker.h"
 #include <ctype.h>
 #include <signal.h>
-#include <sys/resource.h>
+#include "lumen_http.h"
 #include <time.h>
 #include "catalog.h"
 #include "download.h"
@@ -125,13 +126,13 @@ static void draw(void) {
         lumen_wrapped(176,145,396,128,rows[0].title,PAINT_TITLE,3);
         lumen_wrapped(176,273,396,60,rows[0].author,PAINT_BODY,2);
         lumen_wrapped(28,366,544,275,summary,PAINT_BODY,8);
-        lumen_button(28,665,544,48,busy ? word("Download abbrechen","Cancel download","Annuler") :
+        lumen_button_action("download",28,665,544,48,busy ? word("Download abbrechen","Cancel download","Annuler") :
             word("Buch herunterladen","Download book","Télécharger"),0);
         return;
     }
     ui_paint_heading(view==SOURCES ? word("Store · Quellen","Store · Sources","Librairie · Sources") : "Store",2);
-    ui_paint_icon_button(528,74,view==SOURCES ? IC_PLUS : IC_SEARCH);
-    if(view!=SOURCES)ui_paint_icon_button(468,74,IC_SETTINGS);
+    lumen_icon_action(view==SOURCES ? "add-source" : "search",528,74,view==SOURCES ? IC_PLUS : IC_SEARCH);
+    if(view!=SOURCES)lumen_icon_action("sources",468,74,IC_SETTINGS);
     if(view!=SOURCES)
         lumen_text(30,125,540,36,busy ?
             word("Kataloge werden durchsucht …","Searching catalogs…","Recherche dans les catalogues…") :
@@ -142,12 +143,13 @@ static void draw(void) {
             int x=36+i%2*284,y=174+i/2*250;
             cover(i,x+57,y,130,178);
             lumen_wrapped(x,y+185,244,57,rows[i].title,PAINT_BODY,2);
-            ui_paint_hitbox(x,y,244,243);
+            lumen_index_action("book",i,x,y,244,243);
         } else if(view==SOURCES) {
             int y=145+i*82;
             lumen_text(30,y+6,425,37,rows[i].title,PAINT_BODY,0,1);
             lumen_text(30,y+42,425,25,rows[i].author,PAINT_SECONDARY,-1,1);
-            lumen_toggle(492,y+10,rows[i].flag);
+            char id[24];snprintf(id,sizeof(id),"source:%d",i);
+            lumen_toggle_action(id,492,y+10,rows[i].flag);
             lumen_list_divider(28,y+75,572);
         } else {
             int y=174+i*87;
@@ -155,7 +157,7 @@ static void draw(void) {
             lumen_wrapped(100,y+4,419,51,rows[i].title,PAINT_BODY,2);
             lumen_text(100,y+57,419,24,rows[i].author,PAINT_SECONDARY,-1,1);
             ui_paint_icon_button(528,y+20,IC_NEXT);
-            ui_paint_hitbox(28,y,544,87);
+            lumen_index_action("book",i,28,y,544,87);
             lumen_list_divider(28,y+86,572);
         }
     }
@@ -205,32 +207,25 @@ static int input(const Input *in) {
         load();
         return 1;
     }
-    if(in->kind!=INPUT_TAP)return 0;
-    int x=in->x,y=in->y;
+    char id[64];
+    if(view==SOURCES && lumen_action(in,id,"changed")) {
+        int index=lumen_action_index(id,"source",6);
+        if(index>=0 && *rows[index].id)request("toggle_source",rows[index].id);
+        return 1;
+    }
+    if(!lumen_action(in,id,"clicked"))return 0;
     if(view==DETAIL) {
-        if(y>=665 && y<713)request(busy ? "cancel" : "download",selected);
+        if(!strcmp(id,"download"))request(busy ? "cancel" : "download",selected);
         return 1;
     }
-    if(y>=74 && y<118) {
-        if(x>=528) {
-            if(view==SOURCES)lumen_request("input","OPDS URL ({q})","",2);
-            else lumen_request("input",word("Bücher suchen","Search books","Chercher des livres"),query,1);
-        } else if(x>=468 && view!=SOURCES) {
-            saved_view=view;saved_page=page;set_view(SOURCES,0);load();
-        }
-        return 1;
+    if(!strcmp(id,"search"))
+        lumen_request("input",word("Bücher suchen","Search books","Chercher des livres"),query,1);
+    else if(!strcmp(id,"add-source") && view==SOURCES)
+        lumen_request("input","OPDS URL ({q})","",2);
+    else if(!strcmp(id,"sources") && view!=SOURCES) {
+        saved_view=view;saved_page=page;set_view(SOURCES,0);load();
     }
-    if(x<28 || x>=572)return 0;
-    if(view==SOURCES) {
-        if(y>=145 && y<637 && x>=460) {
-            int i=(y-145)/82;
-            if(*rows[i].id)request("toggle_source",rows[i].id);
-        }
-        return 1;
-    }
-    int i=-1;
-    if(view==FEATURED && y>=174 && y<659)i=(y-174)/250*2+(x>=300);
-    if(view==RESULTS && y>=174 && y<609)i=(y-174)/87;
+    int i=view==SOURCES ? -1 : lumen_action_index(id,"book",view==FEATURED ? 4 : 5);
     if(i>=0 && *rows[i].id) {
         if(rows[i].flag) {
             previous_view=view;previous_page=page;

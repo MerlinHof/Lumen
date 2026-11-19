@@ -12,24 +12,8 @@ static void fetch_image(const char *url,uint64_t id) {
     unlinkat(parent,temp,0);
     int fd=openat(parent,temp,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW,0600);
     if(fd>=0) {
-        pid_t worker=fork();
-        if(!worker) {
-            if(dup2(fd,STDOUT_FILENO)<0)_exit(1);
-            close(fd);close(parent);
-            execlp("curl","curl","-q","--fail","--silent","--proto","=https","--connect-timeout","4",
-                   "--max-time","8","--max-filesize","1048576","--user-agent","LUMEN Kindle Reader "
-                   "(https://github.com/MerlinHof/Lumen)","--",url,(char *)NULL);
-            _exit(1);
-        }
-        if(worker>0) {
-            int status;
-            pid_t waited;
-            do waited=waitpid(worker,&status,0); while(waited<0 && errno==EINTR);
-            struct stat size;
-            if(waited==worker && WIFEXITED(status) && WEXITSTATUS(status)==0 &&
-               !fstat(fd,&size) && size.st_size>0 && size.st_size<=1048576 && !fsync(fd))
-                renameat(parent,temp,parent,leaf);
-        }
+        if(lumen_http_download((LumenHttpRequest){.url=url,.timeout=8},fd,1u<<20) && !fsync(fd))
+            renameat(parent,temp,parent,leaf);
         close(fd);
         unlinkat(parent,temp,0);
     }
@@ -38,7 +22,7 @@ static void fetch_image(const char *url,uint64_t id) {
 
 static uint64_t fetch_article(const char *query,int language) {
     char encoded[769],url[1500],image[2048];
-    uri_encode(query,encoded,sizeof(encoded));
+    if(!lumen_url_encode(query,encoded,sizeof(encoded)))return 0;
     char *body=malloc(2097153);
     Article *article=calloc(1,sizeof(*article));
     uint64_t id=0;

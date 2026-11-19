@@ -340,3 +340,30 @@ A Protocol 2 package can declare `periodic` with an exported background
 scheduled worker at a time while awake and connected. Workers get a standard
 `service_call` and are responsible for checking their own user preferences and
 whether there is work to do. The scheduler limits each worker to 210 seconds.
+
+
+### Named controls and indexed targets
+
+Use `lumen_page` and the form components when the SDK can handle layout.
+For custom layouts, `lumen_button_action`, `lumen_icon_action`,
+`lumen_icon_control`, `lumen_toggle_action`, and `lumen_select_action`
+bind a name to the control when it is drawn. The input handler reads the
+action with `lumen_action` and checks the gesture it expects. Use
+`lumen_index_action("cell", index, x, y, w, h)` for repeated areas or dense
+grids. The SDK creates IDs such as `cell:12` and `lumen_action_index`
+validates the index against the app's item count.
+
+### HTTP and workers
+
+Include `lumen_http.h` and call `lumen_https_get(url, buffer, sizeof(buffer))`
+from a package worker for a public text endpoint. For authenticated JSON,
+pass `LumenHttpRequest` to `lumen_http_text` and set `bearer` and, for POST,
+`json`. Credentials and request bodies go through a private stream.
+Authenticated requests do not follow redirects. Plain HTTP is opt-in for
+local or user-configured servers. Use `lumen_url_encode` for query values.
+
+`lumen_http_download` writes a bounded response to an empty private file
+descriptor. The caller owns the file and commits it only on success.
+For longer jobs, use an exported app service or the local worker helpers
+in `lumen_worker.h`. The local helpers separate worker I/O from the app
+protocol and provide nonblocking polling and cancellation.

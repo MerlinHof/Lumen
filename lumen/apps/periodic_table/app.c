@@ -12,7 +12,7 @@ static void draw(void) {
         int number=element_grid16[row][col];
         if(!number)continue;
         int x=12+col*32,y=138+row*36;
-        ui_paint_hitbox(x,y,31,34);
+        lumen_index_action("element",number-1,x,y,31,34);
         ui_paint_surface(x,y,31,34,7,number==selected ? 0 : 244,0);
         const char *symbol=elements16[number-1][0];
         int width=(int)strlen(symbol)*12;
@@ -38,8 +38,9 @@ static void draw(void) {
     lumen_text(28,760,544,30,element[3],PAINT_SECONDARY,96,1);
 }
 static int input(const Input *in) {
-    if(in->kind!=INPUT_TAP || in->x<12 || in->x>=588 || in->y<138 || in->y>=462)return 1;
-    int number=element_grid16[(in->y-138)/36][(in->x-12)/32];
+    char id[64];
+    if(!lumen_action(in,id,"clicked"))return 0;
+    int number=lumen_action_index(id,"element",118)+1;
     if(number && number!=selected){selected=number;dirty=1;}
     return 1;
 }

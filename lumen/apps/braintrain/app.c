@@ -31,12 +31,10 @@ static int import_record(const char *name,void *record,size_t size) {
 #define UI_BODY PAINT_BODY
 #define ui_font(r) (r)
 #define heading_actions ui_paint_heading
-#define icon_button ui_paint_icon_button
 #define button_h(x,y,w,h,s,p) lumen_button(x,y,w,h,tr(s),p)
 #define rect(x,y,w,h,c) ui_paint_surface(x,y,w,h,0,c,c)
 #define key_outline(x,y,w,h) ui_paint_surface(x,y,w,h,RADIUS_MEDIUM,255,115)
 #define control_surface(x,y,w,h,r,c) ui_paint_surface(x,y,w,h,r,c,c)
-#define region ui_paint_hitbox
 #define label_at(x,y,w,h,s,r) lumen_text(x,y,w,h,tr(s),r,-1,1)
 #define centered(x,y,w,h,s,r) ui_paint_text(x,y,w,h,tr(s),r)
 #define drawtext(x,y,s,r,w) label_at(x,y,w,37,s,r)
@@ -249,10 +247,10 @@ static void brain_finish(void) {
 static void draw(void) {
     brain_init();
     heading_actions("BrainTrain", 1);
-    icon_button(528, 74, brain_phase ? IC_CLOSE : IC_HISTORY);
+    lumen_icon_action("history",528,74,brain_phase ? IC_CLOSE : IC_HISTORY);
     char b[160];
     if (!brain_phase) {
-        button_h(28, 145, 544, 62, "Tagesrunde · 12 Aufgaben", 0);
+        lumen_button_action("daily",28, 145, 544, 62, tr("Tagesrunde · 12 Aufgaben"),0);
         for(int i=0;i<6;i++) {
             char id[16];snprintf(id,sizeof(id),"exercise%d",i);
             snprintf(b,sizeof(b),"%s %d",tr("Stufe"),brain_stats.levels[i]);
@@ -285,7 +283,7 @@ static void draw(void) {
         centered(28, 389, 544, 40, b, ui_font(UI_PRIMARY));
         wrapped(30, 485, "Eine kurze Pause gehört zum Training. Morgen wartet eine neue Runde.",
                 ui_font(UI_BODY), 540, 4);
-        button_h(28, 657, 544, 60, "Fertig", 0);
+        lumen_button_action("done",28, 657, 544, 60, tr("Fertig"),0);
         return;
     }
     snprintf(b, 160, "%d / %d · %s · %s %d", brain_round + 1, brain_total,
@@ -305,7 +303,7 @@ static void draw(void) {
         } else if (brain_task != 5)
             centered(28, 290, 544, 80, brain_answer, ui_font(UI_DISPLAY));
         wrapped(30, 555, brain_explanation, ui_font(UI_BODY), 540, 4);
-        button_h(28, 708, 544, 62, "Weiter", 0);
+        lumen_button_action("next",28, 708, 544, 62, tr("Weiter"),0);
         return;
     }
     if (brain_task == 0) {
@@ -318,9 +316,9 @@ static void draw(void) {
             key_outline(x, y, 80, 80);
             control_surface(x + 3, y + 3, 74, 74, RADIUS_MEDIUM,
                  (brain_phase == 1 ? brain_target[i] : brain_selected[i]) ? 0 : 255);
-            region(x, y, 80, 80);
+            if(brain_phase==2)lumen_index_action("memory",i,x,y,80,80);
         }
-        button_h(28, 705, 544, 62, brain_phase == 1 ? "Bereit" : "Prüfen", 0);
+        lumen_button_action("continue",28, 705, 544, 62, tr(brain_phase==1 ? "Bereit" : "Prüfen"),0);
         return;
     }
     if (brain_task == 1 && brain_phase == 1) {
@@ -328,7 +326,7 @@ static void draw(void) {
         centered(28, 325, 544, 90, brain_question, ui_font(UI_DISPLAY));
         wrapped(30, 455, "Gesucht wird gleich die Ziffer zwei Stellen vor der letzten.", ui_font(UI_BODY),
                 540, 3);
-        button_h(28, 705, 544, 62, "Bereit", 0);
+        lumen_button_action("continue",28, 705, 544, 62, tr("Bereit"),0);
         return;
     }
     if (brain_task == 5) {
@@ -337,11 +335,11 @@ static void draw(void) {
             int x = 118 + (i % 3) * 126, y = 280 + (i / 3) * 126;
             key_outline(x, y, 112, 112);
             control_surface(x + 3, y + 3, 106, 106, RADIUS_MEDIUM, brain_grid[i] ? 0 : 255);
-            region(x, y, 112, 112);
+            lumen_index_action("light",i,x,y,112,112);
         }
         snprintf(b, 160, "%d %s", brain_moves, tr("Züge"));
         centered(28, 677, 544, 34, b, ui_font(UI_SECONDARY));
-        button_h(28, 725, 544, 50, "Überspringen", 0);
+        lumen_button_action("skip",28, 725, 544, 50, tr("Überspringen"),0);
         return;
     }
     if (brain_task == 4) {
@@ -359,105 +357,61 @@ static void draw(void) {
                     ui_font(UI_TITLE), 540, 3);
     int yy = brain_task == 4 ? 493 : 343;
     button_h(28, yy, 544, 58, *brain_input ? brain_input : tr("Antwort"), 0);
-    icon_button(522, yy + 7, IC_DELETE);
+    lumen_icon_action("erase",522,yy+7,IC_DELETE);
     const char *keys[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "−", "0", "OK"};
     int kh = brain_task == 4 ? 43 : 65, top = yy + 75;
-    for (int i = 0; i < 12; i++)
-        button_h(28 + (i % 3) * 185, top + (i / 3) * (kh + 8), 174, kh, keys[i], 0);
+    for(int i=0;i<12;i++) {
+        char id[24];snprintf(id,sizeof(id),"key:%d",i);
+        lumen_button_action(id,28+(i%3)*185,top+(i/3)*(kh+8),174,kh,keys[i],0);
+    }
 }
 static int input(const Input *in) {
     if(in->kind==INPUT_BACK){brain_phase=lumen_back=0;return 1;}
-    if(in->kind==INPUT_COMPONENT && !brain_phase) {
-        char id[32],gesture[24];
-        lumen_string("id",id,sizeof(id));
-        lumen_string("gesture",gesture,sizeof(gesture));
-        if(!strcmp(gesture,"clicked") && !strncmp(id,"exercise",8) &&
-           strlen(id)==9 && id[8]>='0' && id[8]<='5')brain_start(id[8]-'0');
-        return 1;
-    }
-    if (in->kind != INPUT_TAP)
-        return 2;
+    char id[64];
+    if(!lumen_action(in,id,"clicked"))return 0;
     brain_init();
-    int x = in->x, y = in->y;
-    if (x >= 516 && y >= 74 && y < 118) {
-        brain_phase = brain_phase ? 0 : 5;
+    if(!strcmp(id,"history")) {
+        brain_phase=brain_phase ? 0 : 5;
         lumen_back=brain_phase!=0;
-        return 1;
-    }
-    if (!brain_phase) {
-        if (y >= 145 && y < 207)
-            brain_start(-1);
-        return 1;
-    }
-    if (brain_phase == 5)
-        return 1;
-    if (brain_phase == 4) {
-        if (y >= 657 && y < 717)
-            brain_phase = lumen_back = 0;
-        return 1;
-    }
-    if (brain_phase == 3) {
-        if (y >= 708 && y < 770) {
-            if (++brain_round >= brain_total)
-                brain_finish();
-            else
-                brain_new();
+    } else if(!brain_phase) {
+        if(!strcmp(id,"daily"))brain_start(-1);
+        else if(strlen(id)==9 && !strncmp(id,"exercise",8) && id[8]>='0' && id[8]<='5')brain_start(id[8]-'0');
+    } else if(brain_phase==4) {
+        if(!strcmp(id,"done"))brain_phase=lumen_back=0;
+    } else if(brain_phase==3) {
+        if(!strcmp(id,"next")) {
+            if(++brain_round>=brain_total)brain_finish();
+            else brain_new();
         }
-        return 1;
-    }
-    if (brain_task == 0) {
-        if (y >= 705 && y < 767) {
-            if (brain_phase == 1)
-                brain_phase = 2;
-            else
-                brain_check();
-        } else if (brain_phase == 2 && x >= 124 && x < 474 && y >= 275 && y < 625) {
-            int c = (x - 124) / 90, r = (y - 275) / 90;
-            if (c < 4 && r < 4)
-                brain_selected[r * 4 + c] ^= 1;
-        }
-        return 1;
-    }
-    if (brain_task == 1 && brain_phase == 1) {
-        if (y >= 705 && y < 767)
-            brain_phase = 2;
-        return 1;
-    }
-    if (brain_task == 5) {
-        if (x >= 118 && x < 496 && y >= 280 && y < 658) {
-            int c = (x - 118) / 126, r = (y - 280) / 126;
-            if (c < 3 && r < 3) {
-                brain_lights(r * 3 + c);
-                brain_moves++;
-                int any = 0;
-                for (int i = 0; i < 9; i++)
-                    any |= brain_grid[i];
-                if (!any)
-                    brain_feedback(1);
+    } else if(brain_phase==1 || brain_phase==2) {
+        if(brain_task==0) {
+            if(!strcmp(id,"continue")) {
+                if(brain_phase==1)brain_phase=2;
+                else brain_check();
+            } else if(brain_phase==2) {
+                int index=lumen_action_index(id,"memory",16);
+                if(index>=0)brain_selected[index]^=1;
             }
-        } else if (y >= 725 && y < 775)
-            brain_feedback(0);
-        return 1;
-    }
-    int yy = brain_task == 4 ? 493 : 343, kh = brain_task == 4 ? 43 : 65, top = yy + 75;
-    if (x >= 516 && y >= yy && y < yy + 58) {
-        size_t n = strlen(brain_input);
-        if (n)
-            brain_input[n - 1] = 0;
-    } else if (y >= top && y < top + 4 * (kh + 8) && x >= 28 && x < 572) {
-        int c = (x - 28) / 185, r = (y - top) / (kh + 8), k = r * 3 + c;
-        if (c < 3 && k < 12) {
-            if (k == 11)
-                brain_check();
-            else if (k == 9) {
-                if (!*brain_input)
-                    strcpy(brain_input, "-");
-            } else {
-                size_t n = strlen(brain_input);
-                if (n < 20) {
-                    brain_input[n] = k == 10 ? '0' : '1' + k;
-                    brain_input[n + 1] = 0;
-                }
+        } else if(brain_task==1 && brain_phase==1) {
+            if(!strcmp(id,"continue"))brain_phase=2;
+        } else if(brain_task==5) {
+            int index=lumen_action_index(id,"light",9);
+            if(index>=0) {
+                brain_lights(index);
+                brain_moves++;
+                int any=0;
+                for(int i=0;i<9;i++)any|=brain_grid[i];
+                if(!any)brain_feedback(1);
+            } else if(!strcmp(id,"skip"))brain_feedback(0);
+        } else {
+            int key=lumen_action_index(id,"key",12);
+            size_t length=strlen(brain_input);
+            if(!strcmp(id,"erase") && length)brain_input[length-1]=0;
+            else if(key==11)brain_check();
+            else if(key==9 && !length)strcpy(brain_input,"-");
+            else if(key>=0 && key!=9 && length<20) {
+                brain_input[length]=key==10 ? '0' : '1'+key;
+                brain_input[length+1]=0;
             }
         }
     }

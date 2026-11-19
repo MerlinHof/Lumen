@@ -65,7 +65,7 @@ static void daily(void) {
 }
 static void draw(void) {
     daily();
-    ui_paint_heading("Wordle",1);ui_paint_icon_button(528,74,IC_BOOK);
+    ui_paint_heading("Wordle",1);lumen_icon_action("help",528,74,IC_BOOK);
     char b[96];
     snprintf(b,sizeof(b),"%02d.%02d.%04d · %s",wordle_game.date%100,
              wordle_game.date/100%100,wordle_game.date/10000,
@@ -82,16 +82,17 @@ static void draw(void) {
             game_text("Gewonnen!","Solved!","Gagné !") : game_text("Lösung","Answer","Solution"),word_secret);
         ui_paint_text(28,652,544,42,b,PAINT_HEADING);
         ui_paint_text(28,712,544,35,game_text("Morgen ein neues Wort","A new word tomorrow","Un nouveau mot demain"),PAINT_SECONDARY);
-    } else lumen_button(90,663,420,60,game_text("Wort eingeben","Enter a word","Saisir un mot"),0);
+    } else lumen_button_action("guess",90,663,420,60,game_text("Wort eingeben","Enter a word","Saisir un mot"),0);
 }
 static int input(const Input *in) {
     daily();
-    if(in->kind==INPUT_TAP) {
-        if(in->x>=528 && in->y>=74 && in->y<118)game_help("Wordle",
+    char id[64];
+    if(lumen_action(in,id,"clicked")) {
+        if(!strcmp(id,"help"))game_help("Wordle",
             "Errate das englische Wort in sechs Versuchen. Schwarz markiert die richtige Position, Grau einen Buchstaben an einer anderen Stelle.",
             "Guess the English word in six tries. Black means the right letter in the right place. Gray means the right letter elsewhere.",
             "Devinez le mot anglais en six essais. Noir indique la bonne place. Gris indique une lettre présente ailleurs.");
-        else if(!wordle_game.over && in->x>=90 && in->x<510 && in->y>=663 && in->y<723)
+        else if(!wordle_game.over && !strcmp(id,"guess"))
             lumen_request("input","Wordle · English","",1);
         return 1;
     }

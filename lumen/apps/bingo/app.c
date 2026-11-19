@@ -36,7 +36,7 @@ static void draw(void) {
         char text[10];
         if(i==12)snprintf(text,sizeof(text),"★");
         else snprintf(text,sizeof(text),"%d",abs(v));
-        ui_paint_hitbox(x,y,100,94);ui_paint_surface(x,y,100,94,12,255,1);
+        if(i!=12)lumen_index_action("cell",i,x,y,106,100);ui_paint_surface(x,y,100,94,12,255,1);
         if(v<0)ui_paint_ellipse(x+50,y+47,35,35,0);
         lumen_text(x,y,100,94,text,PAINT_HEADING,v<0 ? 255 : 0,0);
     }
@@ -44,16 +44,17 @@ static void draw(void) {
 }
 static int input(const Input *in) {
     char action[32];
-    if(in->kind!=INPUT_TAP && !game_action(in,action,sizeof(action)))return 0;
-    if(in->kind==INPUT_COMPONENT) {
+    if(!game_action(in,action,sizeof(action)))return 0;
+    {
         if(!strcmp(action,"restart"))reset();
         else if(!strcmp(action,"help"))game_help("Bingo",
             "Tippe jede aufgerufene Zahl an. Das mittlere Feld ist frei. Fünf markierte Felder in einer Reihe, Spalte oder Diagonale ergeben Bingo.",
             "Tap each called number. The center is free. Five marked squares in a row, column or diagonal make bingo.",
             "Touchez chaque numéro annoncé. La case centrale est libre. Cinq cases marquées sur une ligne, une colonne ou une diagonale font bingo.");
-    } else if(in->x>=35 && in->x<565 && in->y>=200 && in->y<700) {
-        int i=(in->y-200)/100*5+(in->x-35)/106;
-        if(i!=12){cells[i]=-cells[i];dirty=1;}
+        else {
+            int cell=lumen_action_index(action,"cell",25);
+            if(cell>=0 && cell!=12){cells[cell]=-cells[cell];dirty=1;}
+        }
     }
     return 1;
 }

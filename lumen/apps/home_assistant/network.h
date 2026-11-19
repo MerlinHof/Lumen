@@ -69,15 +69,8 @@ static pid_t ha_worker(const char *endpoint,const char *payload,const char *cach
     size_t size=strlen(ha_url);
     while(size && ha_url[size-1]=='/')size--;
     if(snprintf(url,sizeof(url),"%.*s%s",(int)size,ha_url,endpoint)>=(int)sizeof(url))return 0;
-    pid_t child=fork();
+    pid_t child=lumen_worker_start();
     if(child)return child>0 ? child : 0;
-    close(STDIN_FILENO);
-    /* Keep a standard descriptor occupied while curl creates its own pipes. */
-    int null=open("/dev/null",O_RDONLY);
-    if(null>STDIN_FILENO){dup2(null,STDIN_FILENO);close(null);}
-    close(STDOUT_FILENO);
-    null=open("/dev/null",O_WRONLY);
-    if(null>STDOUT_FILENO){dup2(null,STDOUT_FILENO);close(null);}
     char *body=malloc(limit);
     int ok=body && lumen_http_bearer(url,ha_token,payload,body,limit,timeout);
     if(ok && cache) {
@@ -92,10 +85,5 @@ static pid_t ha_worker(const char *endpoint,const char *payload,const char *cach
     _exit(ok ? 0 : 1);
 }
 static int ha_worker_done(pid_t *worker) {
-    if(!*worker)return 0;
-    int status;
-    pid_t result=waitpid(*worker,&status,WNOHANG);
-    if(!result || (result<0 && errno==EINTR))return 0;
-    *worker=0;
-    return result>0 && WIFEXITED(status) && WEXITSTATUS(status)==0 ? 1 : -1;
+    return lumen_worker_poll(worker);
 }

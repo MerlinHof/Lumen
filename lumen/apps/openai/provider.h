@@ -1,7 +1,7 @@
 /* OpenAI requests run only in the package's on-demand worker. */
 #define LUMEN_JSON_IMPLEMENTATION
 #include "lumen_json.h"
-#include <sys/wait.h>
+#include "lumen_http.h"
 
 enum { PROVIDER_LIMIT=4194304, REPLY_LIMIT=131072 };
 
@@ -57,58 +57,18 @@ static int parse_models(const char *response,char ids[512][160]) {
 }
 
 static char *provider_request(const char *key,int models) {
-    /* Curl reads the credentials through an anonymous stream. For POST, the
-     * request body is already in package storage. */
-    FILE *config=tmpfile();
-    if(!config)return NULL;
-    char body_path[2048],leaf[256];
-    int parent=-1;
-    if(!models) {
-        parent=lumen_storage_parent("request.json",0,leaf);
-        if(parent<0){fclose(config);return NULL;}
-        const char *root=getenv("LUMEN_APP_DATA");
-        int n=snprintf(body_path,sizeof(body_path),"%s/%s",root,leaf);
-        close(parent);
-        if(n<=0 || (size_t)n>=sizeof(body_path) || strpbrk(body_path,"\r\n\"\\")) {
-            fclose(config);return NULL;
-        }
-    }
-    fprintf(config,"header = \"Authorization: Bearer %s\"\n",key);
-    if(!models)fprintf(config,"header = \"Content-Type: application/json\"\ndata-binary = \"@%s\"\n",body_path);
-    if(fflush(config) || fseek(config,0,SEEK_SET)){fclose(config);return NULL;}
-    int out[2];
-    if(pipe(out)){fclose(config);return NULL;}
-    pid_t child=fork();
-    if(child==0) {
-        close(out[0]);
-        if(dup2(fileno(config),STDIN_FILENO)<0 || dup2(out[1],STDOUT_FILENO)<0)_exit(127);
-        close(out[1]);
-        execlp("curl","curl","-q","--silent","--fail","--config","-",
-            "--proto","=https","--connect-timeout","8","--max-time","120",
-            "--max-filesize","4194304","--",models ? "https://api.openai.com/v1/models" :
-            "https://api.openai.com/v1/responses",(char *)NULL);
-        _exit(127);
-    }
-    fclose(config);
-    close(out[1]);
-    if(child<0){close(out[0]);return NULL;}
+    char *payload=models ? NULL : provider_read("request.json",PROVIDER_LIMIT,0);
+    if(!models && !payload)return NULL;
     char *body=malloc(PROVIDER_LIMIT+1);
-    size_t used=0;
-    ssize_t n=0;
-    if(body)while(used<PROVIDER_LIMIT+1) {
-        n=read(out[0],body+used,PROVIDER_LIMIT+1-used);
-        if(n<0 && errno==EINTR)continue;
-        if(n<=0)break;
-        used+=(size_t)n;
-    }
-    close(out[0]);
-    int status;
-    pid_t result;
-    do {result=waitpid(child,&status,0);} while(result<0 && errno==EINTR);
-    if(!body || result!=child || !WIFEXITED(status) || WEXITSTATUS(status) ||
-       n<0 || !used || used>PROVIDER_LIMIT || memchr(body,0,used)){free(body);return NULL;}
-    body[used]=0;
-    return body;
+    LumenHttpRequest request={
+        .url=models ? "https://api.openai.com/v1/models" : "https://api.openai.com/v1/responses",
+        .bearer=key,.json=payload,.timeout=120,.connect_timeout=8
+    };
+    int ok=body && lumen_http_text(request,body,PROVIDER_LIMIT+1) && *body;
+    free(payload);
+    if(ok)return body;
+    free(body);
+    return NULL;
 }
 
 static int store_reply(const char *id,const char *response) {

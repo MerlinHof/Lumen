@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include "release_update.h"
+#include "../../tools/sdk/lumen_http.h"
 #include "library.h"
 #include "services.h"
 #include "version.h"
@@ -56,23 +57,16 @@ int release_activate(void) {
     return state == 4 && !access(ready,F_OK) && atomic_write(restart,"1",1);
 }
 static int download(const char *url,const char *file,size_t limit) {
-    if (strpbrk(url,"\r\n\"\\")) return 0;
-    pid_t p=fork();
-    if (p==0) {
-        char size[32],ca[2048];
-        snprintf(size,sizeof(size),"%zu",limit);
-        snprintf(ca,sizeof(ca),"%s/../certs/ca-bundle.pem",data_root);
-        if (!getenv("CURL_CA_BUNDLE") && !access(ca,R_OK)) setenv("CURL_CA_BUNDLE",ca,1);
-        int fd=open("/dev/null",O_RDWR);dup2(fd,1);dup2(fd,2);close(fd);
-        execlp("curl","curl","--fail","--silent","--location","--max-redirs","5",
-               "--proto","=https","--proto-redir","=https","--connect-timeout","8",
-               "--max-time","180","--max-filesize",size,"--user-agent","LUMEN/" LUMEN_VERSION,
-               "--output",file,url,NULL);
-        _exit(127);
-    }
-    if (p<0) return 0;
-    int status=0;while(waitpid(p,&status,0)<0) { if (errno!=EINTR) return 0; }
-    return WIFEXITED(status) && !WEXITSTATUS(status);
+    char ca[2048];
+    snprintf(ca,sizeof(ca),"%s/../certs/ca-bundle.pem",data_root);
+    if(!getenv("CURL_CA_BUNDLE") && !access(ca,R_OK))setenv("CURL_CA_BUNDLE",ca,1);
+    int fd=open(file,O_WRONLY|O_CREAT|O_TRUNC|O_NOFOLLOW|O_CLOEXEC,0600);
+    if(fd<0)return 0;
+    int ok=lumen_http_download((LumenHttpRequest){.url=url,.redirects=5,
+         .connect_timeout=8,.timeout=180},fd,limit);
+    if(close(fd))ok=0;
+    if(!ok)unlink(file);
+    return ok;
 }
 static int digest_file(const char *name,char out[65]) {
     FILE *f=fopen(name,"rb");if(!f)return 0;

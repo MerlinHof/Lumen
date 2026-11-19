@@ -41,7 +41,7 @@ static void signal_draw(void) {
         int x=28+(i%4)*138, y=151+(i/4)*138;
         int value=signal_game.tiles[i];
         if (!value) continue;
-        ui_paint_hitbox(x,y,130,130);
+        lumen_index_action("cell",i,x,y,138,138);
         ui_paint_surface(x,y,130,130,18,255,2);
         char label[8];
         snprintf(label,sizeof(label),"%d",value);
@@ -66,13 +66,11 @@ static int signal_input(const Input *in) {
                 "Touchez une tuile voisine de la case vide pour la déplacer. Rangez les nombres de 1 à 15, avec la case vide en bas à droite.");
             return 0;
         }
-        if(strcmp(action,"restart"))return 0;
-        signal_new(&signal_game,(unsigned)ui_clock_millis(),40);
-    } else if(in->kind==INPUT_TAP) {
-        int col=(in->x-28)/138, row=(in->y-151)/138;
-        if (in->x<28 || in->y<151 || col>=4 || row>=4) return 1;
-        int closest=row*4+col;
-        if (signal_won(&signal_game) || !signal_slide(&signal_game, closest)) return 1;
+        if(!strcmp(action,"restart"))signal_new(&signal_game,(unsigned)ui_clock_millis(),40);
+        else {
+            int closest=lumen_action_index(action,"cell",16);
+            if(closest<0 || signal_won(&signal_game) || !signal_slide(&signal_game,closest))return 1;
+        }
     } else return 0;
     signal_dirty = 1;
     return 1;

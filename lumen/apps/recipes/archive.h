@@ -91,11 +91,8 @@ static int start_recipe(const char *term,const Recipe17 *recipe) {
         selected_recipe17=*recipe;
         snprintf(fetched_id,sizeof(fetched_id),"%s",recipe->id);
     }
-    pid_t child=fork();
+    pid_t child=lumen_worker_start();
     if(!child) {
-        int null=open("/dev/null",O_RDWR);
-        if(null<0 || dup2(null,STDIN_FILENO)<0 || dup2(null,STDOUT_FILENO)<0)_exit(1);
-        if(null>STDOUT_FILENO)close(null);
         if(recipe)_exit(recipes_fetch17("") ? 0 : 1);
         recipes_search17(term);
         recipes_parse17();
@@ -109,11 +106,8 @@ static int start_recipe(const char *term,const Recipe17 *recipe) {
 }
 static int finish_recipe(void) {
     if(recipe_worker<=0)return 0;
-    int status;
-    pid_t done=waitpid(recipe_worker,&status,WNOHANG);
-    if(!done || (done<0 && errno==EINTR))return 0;
-    recipe_worker=0;
-    if(done<0 || !WIFEXITED(status) || WEXITSTATUS(status))return -1;
+    int result=lumen_worker_poll(&recipe_worker);
+    if(result<=0)return result;
     if(fetching) {
         if(open_on_finish && !read_recipe(fetched_id,selected_recipe17.title,0))return -1;
         return 1;

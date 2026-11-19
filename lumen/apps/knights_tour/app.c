@@ -45,7 +45,7 @@ static void draw(void) {
         int col=i%8,row=i/8,x=LEFT+col*CELL_WIDTH,y=TOP+row*CELL_HEIGHT;
         int gray=(col+row)%2 ? 225 : 255;
         ui_paint_surface(x,y,CELL_WIDTH,CELL_HEIGHT,0,gray,gray);
-        ui_paint_hitbox(x,y,CELL_WIDTH,CELL_HEIGHT);
+        lumen_index_action("cell",i,x,y,CELL_WIDTH,CELL_HEIGHT);
         if(i==square) {
             lumen_sprite("assets/knight.pgm",x,y,66,0,2);
         } else if(tour[i]) {
@@ -55,9 +55,8 @@ static void draw(void) {
     }
 }
 static int input(const Input *in) {
-    if(in->kind==INPUT_COMPONENT) {
-        char action[32];
-        if(!game_action(in,action,sizeof(action)))return 0;
+    char action[32];
+    if(!game_action(in,action,sizeof(action)))return 0;
         if(!strcmp(action,"help"))
             lumen_app_open_with("lumen.reader","open_document","",
                 word("Springertour","Knight’s Tour","Parcours du cavalier"),
@@ -70,12 +69,8 @@ static int input(const Input *in) {
         } else if(!strcmp(action,"restart")) {
             memset(tour,0,sizeof(tour));square=0;tour[0]=1;moves=1;dirty=1;
         }
-        return 1;
-    }
-    if(in->kind!=INPUT_TAP)return 0;
-    if(in->x<LEFT || in->x>=LEFT+8*CELL_WIDTH || in->y<TOP || in->y>=TOP+8*CELL_HEIGHT)
-        return 0;
-    int to=(in->y-TOP)/CELL_HEIGHT*8+(in->x-LEFT)/CELL_WIDTH;
+    int to=lumen_action_index(action,"cell",64);
+    if(to<0)return 1;
     if(tour[to] || !reachable(square,to))return 0;
     square=to;tour[to]=++moves;dirty=1;
     return 1;

@@ -38,9 +38,6 @@ static void drawtext_raw(int x,int y,const char *label,int style,int width) {
 }
 static void disc(int x,int y,int radius,int gray){ui_paint_ellipse(x,y,radius,radius,gray);}
 static void key_outline(int x,int y,int w,int h){ui_paint_surface(x,y,w,h,10,255,110);}
-static void button_h(int x,int y,int w,int h,const char *label,int active) {
-    lumen_button(x,y,w,h,tr(label),active);
-}
 static void map_selector(void) {
     const char *tabs[]={word("Himmel","Sky","Ciel"),word("Sonnensystem","Solar system","Système solaire")};
     lumen_segments("map",259,74,253,44,tabs,2,solar);
@@ -50,10 +47,8 @@ static void map_selector(void) {
 #define wrapped(x,y,label,style,w,lines) lumen_wrapped(x,y,w,(lines)*36,tr(label),style,lines)
 #define drawtext(x,y,label,style,w) drawtext_raw(x,y,tr(label),style,w)
 #define heading(label) ui_paint_heading(tr(label),1)
-#define icon_button ui_paint_icon_button
 #define ring ui_paint_ring
 #define aa_disc disc
-#define toggle lumen_toggle
 #define rect(x,y,w,h,gray) ui_paint_surface(x,y,w,h,0,gray,-1)
 
 static struct {
@@ -172,7 +167,7 @@ static void sky_map(void) {
 static void sky_draw(void) {
     heading("Planetarium");
     map_selector();
-    icon_button(528, 74, IC_SETTINGS);
+    lumen_icon_action("settings",528,74,IC_SETTINGS);
     char b[150];
     snprintf(b, sizeof(b), "%02d.%02d.%04d %02d:%02d UTC · %.2f°, %.2f°", sky_config.day,
              sky_config.month, sky_config.year, sky_config.hour, sky_config.minute, sky_config.lat,
@@ -181,11 +176,11 @@ static void sky_draw(void) {
     sky_map();
     const char *steps[] = {"+1 h", "+1 d", "+1 y", "+1000 y"};
     lumen_segments("step",83, 696, 434, 38, steps, 4, sky_step);
-    icon_button(24, 696, IC_PREV);
-    icon_button(530, 696, IC_NEXT);
-    button_h(28, 747, 162, 42, "Jetzt", 0);
-    button_h(210, 747, 170, 42, "Ereignisse", 0);
-    button_h(400, 747, 172, 42, "Datum", 0);
+    lumen_icon_action("earlier",24,696,IC_PREV);
+    lumen_icon_action("later",530,696,IC_NEXT);
+    lumen_button_action("now",28, 747, 162, 42,tr("Jetzt"),0);
+    lumen_button_action("events",210, 747, 170, 42,tr("Ereignisse"),0);
+    lumen_button_action("date",400, 747, 172, 42,tr("Datum"),0);
 }
 static void sky_time_label(astro_time_t t, char *out, int cap) {
     astro_utc_t u = Astronomy_UtcFromTime(t);
@@ -198,10 +193,10 @@ static void sky_settings_draw(void) {
     char b[512];
     if (sky_panel == 0) {
         snprintf(b, sizeof(b), "%.4f, %.4f", sky_config.lat, sky_config.lon);
-        button_h(28, 228, 544, 56, b, 0);
+        lumen_button_action("location",28, 228, 544, 56,b,0);
         drawtext(30, 194, "Breitengrad, Längengrad", ui_font(UI_SECONDARY), 540);
         drawtext(30, 330, "Sternbild-Linien", ui_font(UI_PRIMARY), 450);
-        toggle(492, 330, sky_show_lines);
+        lumen_toggle_action("lines",492,330,sky_show_lines);
         wrapped(30, 430,
                 "Tippe einen Stern an, um Namen, Sternbild und Koordinaten zu sehen. Datum und "
                 "Uhrzeit sind UTC. Die Karte wird vollständig lokal berechnet.",
@@ -277,7 +272,7 @@ static void solar16(void) {
         sky_now();
     heading("Planetarium");
     map_selector();
-    icon_button(528, 74, IC_SETTINGS);
+    lumen_icon_action("settings",528,74,IC_SETTINGS);
     astro_time_t t = sky_time();
     char label[120];
     sky_time_label(t, label, sizeof(label));
@@ -301,10 +296,10 @@ static void solar16(void) {
     }
     for (int i = 0; i < 8; i++)
         drawtext(28 + (i % 4) * 140, 650 + (i / 4) * 25, names[i], ui_font(UI_SECONDARY), 135);
-    button_h(28, 714, 125, 48, "−1 Tag", 0);
-    button_h(165, 714, 125, 48, "+1 Tag", 0);
-    button_h(302, 714, 125, 48, "−1 Jahr", 0);
-    button_h(439, 714, 133, 48, "+1 Jahr", 0);
+    lumen_button_action("day-back",28, 714, 125, 48,tr("−1 Tag"),0);
+    lumen_button_action("day-forward",165, 714, 125, 48,tr("+1 Tag"),0);
+    lumen_button_action("year-back",302, 714, 125, 48,tr("−1 Jahr"),0);
+    lumen_button_action("year-forward",439, 714, 133, 48,tr("+1 Jahr"),0);
 }
 
 static void draw(void) {
@@ -345,39 +340,44 @@ static int input(const Input *in) {
     if(in->kind==INPUT_BACK && settings){settings=lumen_back=0;return 1;}
     if(in->kind==INPUT_TEXT){accept_text(in->x);return 1;}
     if(in->kind==INPUT_PAGE && settings && sky_panel==2){history_page=in->x;return 1;}
-    if(lumen_is("component")) {
-        char id[32];lumen_string("id",id,sizeof(id));
-        char value[8];
-        if(!lumen_string("text",value,sizeof(value)) || strlen(value)!=1 ||
-           value[0]<'0' || value[0]>'3')return 0;
+    char id[64],value[8];
+    if(lumen_action(in,id,"selected") && lumen_string("text",value,sizeof(value)) &&
+       strlen(value)==1 && value[0]>='0' && value[0]<='3') {
         int choice=value[0]-'0';
         if(!strcmp(id,"map"))solar=choice==1;
-        if(!strcmp(id,"step") && choice>=0 && choice<4)sky_step=choice;
-        if(!strcmp(id,"panel") && choice>=0 && choice<3)sky_panel=choice;
+        if(!strcmp(id,"step"))sky_step=choice;
+        if(!strcmp(id,"panel") && choice<3)sky_panel=choice;
         return 1;
     }
-    if(in->kind!=INPUT_TAP)return 0;
-    int x=in->x,y=in->y;
-    if(settings) {
-        if(!sky_panel && y>=228 && y<284) {
-            char value[48];snprintf(value,sizeof(value),"%.4f, %.4f",sky_config.lat,sky_config.lon);
-            lumen_request("input",tr("Breitengrad, Längengrad"),value,1);
-        } else if(!sky_panel && y>=325 && y<375 && x>=460)sky_show_lines=!sky_show_lines;
-    } else if(x>=528 && y>=74 && y<118) {
-        settings=lumen_back=1;sky_panel=0;
-    } else if(solar && y>=714 && y<762) {
-        int saved=sky_step;
-        sky_step=x<297 ? 1 : 2;
-        sky_shift(x<160 || (x>=297 && x<434) ? -1 : 1);
-        sky_step=saved;
-    } else if(!solar && y>=696 && y<740) {
-        if(x<80)sky_shift(-1);
-        else if(x>=520)sky_shift(1);
-    } else if(!solar && y>=747) {
-        if(x<200){sky_now();sky_selected=-1;}
-        else if(x<390){settings=lumen_back=1;sky_panel=1;}
-        else prompt_date();
-    } else if(!solar && y>=158 && y<693) {
+    if(settings && !sky_panel && lumen_action(in,id,"changed") && !strcmp(id,"lines")) {
+        sky_show_lines=!sky_show_lines;
+        return 1;
+    }
+    if(lumen_action(in,id,"clicked")) {
+        if(settings && !sky_panel && !strcmp(id,"location")) {
+            char coordinates[48];snprintf(coordinates,sizeof(coordinates),"%.4f, %.4f",sky_config.lat,sky_config.lon);
+            lumen_request("input",tr("Breitengrad, Längengrad"),coordinates,1);
+        } else if(!settings && !strcmp(id,"settings")){settings=lumen_back=1;sky_panel=0;}
+        else if(!settings && solar) {
+            int day=!strcmp(id,"day-back") || !strcmp(id,"day-forward");
+            int year=!strcmp(id,"year-back") || !strcmp(id,"year-forward");
+            if(day || year) {
+                int saved=sky_step;
+                sky_step=day ? 1 : 2;
+                sky_shift(!strcmp(id,"day-back") || !strcmp(id,"year-back") ? -1 : 1);
+                sky_step=saved;
+            }
+        } else if(!settings && !solar) {
+            if(!strcmp(id,"earlier"))sky_shift(-1);
+            else if(!strcmp(id,"later"))sky_shift(1);
+            else if(!strcmp(id,"now")){sky_now();sky_selected=-1;}
+            else if(!strcmp(id,"events")){settings=lumen_back=1;sky_panel=1;}
+            else if(!strcmp(id,"date"))prompt_date();
+        }
+        return 1;
+    }
+    if(!settings && !solar && in->kind==INPUT_TAP && in->y>=158 && in->y<693) {
+        int x=in->x,y=in->y;
         int best=625;sky_selected=-1;
         for(size_t i=0;i<sizeof(sky_px)/sizeof(*sky_px);i++) {
             int dx=x-sky_px[i],dy=y-sky_py[i],dist=dx*dx+dy*dy;

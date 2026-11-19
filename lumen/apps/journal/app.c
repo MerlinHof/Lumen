@@ -137,7 +137,7 @@ static void draw(void) {
         for(int i=0;i<PAGE_SIZE && page*PAGE_SIZE+i<count;i++) {
             int date=dates[page*PAGE_SIZE+i],y=145+i*74;
             char label[40];date_label(label,date);
-            ui_paint_hitbox(28,y,544,74);
+            lumen_index_action("day",i,28,y,544,74);
             lumen_text(32,y+4,470,33,label,PAINT_HEADING,-1,1);
             lumen_text(32,y+36,470,30,date==today ?
                 word("Heute · Gedanken festhalten","Today · Capture your thoughts","Aujourd’hui · Notez vos pensées") :
@@ -151,17 +151,18 @@ static void draw(void) {
     }
     char label[40];date_label(label,entry.date);
     ui_paint_heading(label,section<6);
-    lumen_select_row(140,word("Abschnitt","Section","Section"),prompt(section));
+    lumen_select_action("section",140,word("Abschnitt","Section","Section"),prompt(section));
     if(section<6) {
-        ui_paint_icon_button(528,74,IC_EDIT);
-        ui_paint_hitbox(28,218,544,480);
+        lumen_icon_action("edit",528,74,IC_EDIT);
+        lumen_custom_action("edit",28,218,544,480);
         lumen_wrapped(30,225,540,470,*entry.answers[section] ? entry.answers[section] :
             word("Hier tippen und schreiben …","Tap here to write …","Touchez ici pour écrire…"),PAINT_BODY,12);
     } else {
         ui_paint_text(28,245,544,48,prompt(6),PAINT_HEADING);
         for(int i=1;i<=5;i++) {
             snprintf(label,sizeof(label),"%d",i);
-            lumen_button(30+(i-1)*110,335,100,70,label,entry.score==i);
+            char id[24];snprintf(id,sizeof(id),"score:%d",i-1);
+            lumen_button_action(id,30+(i-1)*110,335,100,70,label,entry.score==i);
         }
         ui_paint_text(28,445,544,44,word("1 · schwer    —    5 · sehr gut","1 · difficult    —    5 · very good",
                                        "1 · difficile    —    5 · très bien"),PAINT_BODY);
@@ -179,21 +180,20 @@ static int input(const Input *in) {
         return 1;
     }
     if(in->kind==INPUT_SELECT && entry.date && in->x==1 && in->y>=0 && in->y<7){section=in->y;return 1;}
-    if(in->kind!=INPUT_TAP)return 0;
-    int x=in->x,y=in->y;
+    char id[64];
+    if(!lumen_action(in,id,"clicked"))return 0;
     if(!entry.date) {
-        if(x>=28 && x<572 && y>=145 && y<663) {
-            int i=page*PAGE_SIZE+(y-145)/74;
-            if(i<count)open_day(dates[i]);
-        }
-    } else if(y>=140 && y<188 && x>=28 && x<572) {
+        int row=lumen_action_index(id,"day",PAGE_SIZE);
+        if(row>=0 && page*PAGE_SIZE+row<count)open_day(dates[page*PAGE_SIZE+row]);
+    } else if(!strcmp(id,"section")) {
         const char *options[7];
         for(int i=0;i<7;i++)options[i]=prompt(i);
         lumen_select(options,7,section,1);
-    } else if(section<6 && ((x>=28 && x<572 && y>=218 && y<698) || (x>=528 && x<572 && y>=74 && y<118))) {
+    } else if(section<6 && !strcmp(id,"edit"))
         lumen_multiline(prompt(section),entry.answers[section],10+section);
-    } else if(section==6 && x>=30 && x<570 && y>=335 && y<405 && (x-30)%110<100) {
-        entry.score=1+(x-30)/110;save_change();
+    else if(section==6) {
+        int score=lumen_action_index(id,"score",5);
+        if(score>=0){entry.score=score+1;save_change();}
     }
     return 1;
 }

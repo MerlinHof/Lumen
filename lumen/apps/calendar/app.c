@@ -108,7 +108,7 @@ static void draw_month(void) {
         int cell=offset+day-1,x=27+cell%7*78,y=258+cell/7*58;
         int day_key=key(&first)+day-1;
         char label[8];snprintf(label,sizeof(label),"%d",day);
-        ui_paint_hitbox(x,y,78,56);
+        lumen_index_action("date",day-1,x,y,78,56);
         if(day==date.tm_mday)ui_paint_ellipse(x+39,y+24,22,22,0);
         else if(day_key==today)ui_paint_ring(x+39,y+24,22,2);
         lumen_text(x,y,78,48,label,PAINT_BODY,day==date.tm_mday ? 255 : 0,0);
@@ -134,7 +134,7 @@ static void draw_week(void) {
         ui_paint_text(x,235,78,38,label,PAINT_SECONDARY);
         if(key(&day)==today)ui_paint_line(x+14,274,x+64,274,3,0);
         ui_paint_line(x,289,x,659,1,205);
-        ui_paint_hitbox(x,200,78,460);
+        lumen_index_action("weekday",col,x,200,78,460);
         day_note(key(&day),preview);
         lumen_wrapped(x+7,306,64,350,*preview ? preview : "—",PAINT_SECONDARY,12);
     }
@@ -146,7 +146,7 @@ static void draw_year(void) {
     for(int m=0;m<12;m++) {
         struct tm first=date;first.tm_mon=m;first.tm_mday=1;mktime(&first);
         int x=28+m%3*185,y=205+m/3*123;
-        ui_paint_hitbox(x,y,174,112);
+        lumen_index_action("month",m,x,y,174,112);
         ui_paint_text(x,y,174,30,months[language()][m],PAINT_BODY);
         int offset=(first.tm_wday+6)%7;
         for(int d=0;d<days_in(date.tm_year+1900,m);d++) {
@@ -205,6 +205,19 @@ static int input(const Input *in) {
                 char label[24];strftime(label,sizeof(label),"%Y-%m",&date);
                 lumen_request("input","YYYY-MM",label,JUMP_ACTION);
             }
+            else if(view==MONTH) {
+                int day=lumen_action_index(id,"date",days_in(date.tm_year+1900,date.tm_mon));
+                if(day>=0){struct tm next=date;next.tm_mday=day+1;move_date(next);}
+            } else if(view==WEEK) {
+                int col=lumen_action_index(id,"weekday",7);
+                if(col>=0){struct tm next=date;next.tm_mday+=col-(next.tm_wday+6)%7;move_date(next);view=DAY;}
+            } else if(view==YEAR) {
+                int month=lumen_action_index(id,"month",12);
+                if(month>=0) {
+                    struct tm next=date;next.tm_mon=month;next.tm_mday=1;
+                    move_date(next);view=MONTH;fetch_activity();
+                }
+            }
         }
         return 1;
     }
@@ -223,19 +236,6 @@ static int input(const Input *in) {
     }
     if(in->kind==INPUT_SELECT && in->x==DELETE_ACTION && in->y==1){write_note("");return 1;}
     if(in->kind==INPUT_SWIPE && abs(in->dx)>abs(in->dy)){shift(in->dx<0 ? 1 : -1);if(view==MONTH)fetch_activity();return 1;}
-    if(in->kind!=INPUT_TAP)return 0;
-    int x=in->x,y=in->y;
-    if(view==MONTH && x>=27 && x<573 && y>=258 && y<606) {
-        struct tm first=date;first.tm_mday=1;mktime(&first);
-        int day=(y-258)/58*7+(x-27)/78-(first.tm_wday+6)%7+1;
-        if(day>=1 && day<=days_in(date.tm_year+1900,date.tm_mon)){date.tm_mday=day;move_date(date);}
-    } else if(view==WEEK && x>=28 && x<574 && y>=200 && y<660) {
-        struct tm next=date;next.tm_mday+=(x-28)/78-(next.tm_wday+6)%7;
-        move_date(next);view=DAY;
-    } else if(view==YEAR && x>=28 && x<573 && y>=205 && y<697) {
-        int month=(y-205)/123*3+(x-28)/185;
-        if(month<12){struct tm next=date;next.tm_mon=month;next.tm_mday=1;move_date(next);view=MONTH;fetch_activity();}
-    }
     return 1;
 }
 static void serve(const char *operation,const char *data) {

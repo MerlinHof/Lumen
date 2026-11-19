@@ -16,11 +16,8 @@ static unsigned random16(void) {
 }
 static void notify(const char *text){lumen_request("notify","",text,0);}
 #define rect(x,y,w,h,c) ui_paint_surface(x,y,w,h,0,c,c)
-#define icon_button ui_paint_icon_button
 #define key_outline(x,y,w,h) ui_paint_surface(x,y,w,h,3,255,115)
-#define region ui_paint_hitbox
 #define centered ui_paint_text
-#define button_h lumen_button
 static int crossword_pick16;
 static const char *cross_bank16[][2] = {
     {"PLANETS", "Welten um einen Stern (EN)"},
@@ -218,9 +215,9 @@ static int cross_commit17(const char *text) {
 }
 static void crossword_draw17(void) {
     ui_paint_heading(word("Kreuzworträtsel","Crossword","Mots croisés"),3);
-    lumen_button(408,74,44,44,"?",0);
-    icon_button(468, 74, IC_DONE);
-    icon_button(528, 74, IC_RESTART);
+    lumen_button_action("help",408,74,44,44,"?",0);
+    lumen_icon_action("check",468,74,IC_DONE);
+    lumen_icon_action("restart",528,74,IC_RESTART);
     char grid[8][10] = {{0}}, mask[8][10] = {{0}};
     for (int i = 0; i < 5; i++)
         for (int k = 0; cross_words16[i][k]; k++) {
@@ -236,7 +233,7 @@ static void crossword_draw17(void) {
             if (mask[y][x]) {
                 int xx = 30 + x * 54, yy = 132 + y * 46;
                 key_outline(xx, yy, 54, 46);
-                region(xx, yy, 54, 46);
+                lumen_index_action("cell",y*10+x,xx,yy,54,46);
                 if (grid[y][x]) {
                     char b[2] = {grid[y][x], 0};
                     centered(xx, yy + 10, 54, 36, b, PAINT_BODY);
@@ -253,7 +250,8 @@ static void crossword_draw17(void) {
             b, sizeof(b), "%d %s  %s%s", i + 1, cross_down16[i] ? "↓" : "→", *definitions[i] ? definitions[i] : cross_clues16[i],
             cross_checked17 ? (!strcasecmp(crossword_answer16[i], cross_words16[i]) ? " ✓" : " ×")
                             : "");
-        button_h(28, 520 + i * 49, 544, 43, b, cross_selected17 == i);
+        char id[24];snprintf(id,sizeof(id),"clue:%d",i);
+        lumen_button_action(id,28,520+i*49,544,43,b,cross_selected17==i);
     }
 }
 
@@ -268,30 +266,27 @@ static int input(const Input *in) {
         if(lumen_string("text",text,sizeof(text))){crossword_pick16=in->x-10;cross_commit17(text);}
         return 1;
     }
-    if(in->kind!=INPUT_TAP)return 0;
-    int x=in->x,y=in->y;
-    if(y>=74 && y<118) {
-        if(x>=408 && x<452)lumen_app_open_with("lumen.reader","open_document","",
+    int pick=-1;
+    char id[64];
+    if(lumen_action(in,id,"clicked")) {
+        if(!strcmp(id,"help"))lumen_app_open_with("lumen.reader","open_document","",
             word("Kreuzworträtsel","Crossword","Mots croisés"),
             word("Tippe auf einen Hinweis, um die Lösung einzugeben. Die Lösungen sind englische Wörter.",
                  "Tap a clue to enter its answer. All answers are English words.",
                  "Touchez un indice pour saisir sa réponse. Les réponses sont en anglais."));
-        else if(x>=528 && x<572){crossword_new16(random16());cross_checked17=0;save();fetch_clues();}
-        else if(x>=468 && x<512) {
+        else if(!strcmp(id,"restart")){crossword_new16(random16());cross_checked17=0;save();fetch_clues();}
+        else if(!strcmp(id,"check")) {
             cross_checked17=1;
             int solved=1;
             for(int i=0;i<5;i++)solved&=!strcasecmp(crossword_answer16[i],cross_words16[i]);
             notify(solved ? word("Alle Wörter stimmen!","All words are correct!","Tout est correct !") :
                             word("Lösungen geprüft.","Answers checked.","Réponses vérifiées."));
+        } else {
+            pick=lumen_action_index(id,"clue",5);
+            int cell=lumen_action_index(id,"cell",80);
+            if(cell>=0)for(int i=0;i<5;i++)for(int k=0;cross_words16[i][k];k++)
+                if(cross_x16[i]+!cross_down16[i]*k==cell%10 && cross_y16[i]+cross_down16[i]*k==cell/10)pick=i;
         }
-        return 1;
-    }
-    int pick=-1;
-    if(x>=28 && x<572 && y>=520 && y<765)pick=(y-520)/49;
-    else if(x>=30 && x<570 && y>=132 && y<500) {
-        int col=(x-30)/54,row=(y-132)/46;
-        for(int i=0;i<5;i++)for(int k=0;cross_words16[i][k];k++)
-            if(cross_x16[i]+!cross_down16[i]*k==col && cross_y16[i]+cross_down16[i]*k==row)pick=i;
     }
     if(pick>=0) {
         cross_selected17=pick;

@@ -112,14 +112,9 @@ static void forecast_operation(const char *operation,const char *data) {
     }
     static char body[100001];
     char url[1024],escaped[sizeof(forecast.city)*3];
-    char *at=escaped;
-    static const char hex[]="0123456789ABCDEF";
-    for(const unsigned char *p=(const unsigned char *)data;*p;p++) {
-        if((*p>='a' && *p<='z') || (*p>='A' && *p<='Z') || wire_digit(*p) || strchr("-._~",*p))
-            *at++=(char)*p;
-        else {*at++='%';*at++=hex[*p>>4];*at++=hex[*p&15];}
+    if(!lumen_url_encode(data,escaped,sizeof(escaped))) {
+        lumen_app_service_result(0,"");return;
     }
-    *at=0;
     const char *language=lumen_language==1 ? "en" : lumen_language==2 ? "fr" : "de";
     snprintf(url,sizeof(url),"https://geocoding-api.open-meteo.com/v1/search?name=%s&count=1&language=%s&format=json",escaped,language);
     double latitude,longitude;

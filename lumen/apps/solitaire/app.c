@@ -61,12 +61,12 @@ static int column_gap(int c) {
 }
 static void draw(void) {
     ui_paint_heading("Solitaire", 4);
-    ui_paint_icon_button(348,74,IC_BOOK);
-    ui_paint_icon_button(408, 74, IC_UNDO);
-    ui_paint_icon_button(468, 74, IC_DONE);
-    ui_paint_icon_button(528, 74, IC_RESTART);
+    lumen_icon_action("help",348,74,IC_BOOK);
+    lumen_icon_action("undo",408,74,IC_UNDO);
+    lumen_icon_action("auto",468,74,IC_DONE);
+    lumen_icon_action("restart",528,74,IC_RESTART);
     PatienceState *s = &solitaire.state;
-    ui_paint_hitbox(21, 132, 72, 96);
+    lumen_custom_action("draw",21,132,72,96);
     card(21, 132, -1, s->ns > 0, 0);
     if (!s->ns)
         ui_paint_icon_button(35,158,IC_RESTART);
@@ -98,26 +98,28 @@ static void draw(void) {
         game_text("Geschafft!","Solved!","Réussi !"),PAINT_HEADING);
 }
 static int input(const Input *in) {
-    if(in->kind!=INPUT_TAP)return 1;
-    int x=in->x,y=in->y;
-    dirty=1;
-    if (y >= 74 && y < 118) {
-        if (x >= 528)
+    char id[64];
+    if(lumen_action(in,id,"clicked")) {
+        dirty=1;
+        if(!strcmp(id,"draw"))patience_draw(&solitaire);
+        else if(!strcmp(id,"restart"))
             patience_new(&solitaire,(uint32_t)ui_clock_millis());
-        else if (x >= 468 && x<512)
+        else if(!strcmp(id,"auto"))
             patience_auto(&solitaire);
-        else if (x >= 408 && x<452)
+        else if(!strcmp(id,"undo"))
             patience_undo(&solitaire);
-        else if (x>=348 && x<392)game_help("Solitaire",
+        else if(!strcmp(id,"help"))game_help("Solitaire",
             "Lege die Karten nach Farben von Ass bis König ab. Im Tableau wechselst du Rot und Schwarz in absteigender Reihenfolge. Leere Spalten nehmen Könige auf.",
             "Build each suit from ace to king. In the tableau, build downward and alternate red and black. Only kings go in empty columns.",
             "Empilez chaque couleur de l’as au roi. Sur le tableau, descendez en alternant rouge et noir. Seuls les rois occupent les colonnes vides.");
         pat_source = -99;
-    } else if (y >= 132 && y < 228) {
-        if (x >= 21 && x < 93) {
-            patience_draw(&solitaire);
-            pat_source = -99;
-        } else if (x >= 101 && x < 173 && solitaire.state.nw) {
+        return 1;
+    }
+    if(in->kind!=INPUT_TAP)return 0;
+    int x=in->x,y=in->y;
+    dirty=1;
+    if (y >= 132 && y < 228) {
+        if (x >= 101 && x < 173 && solitaire.state.nw) {
             pat_source = -1;
             pat_index = 0;
         } else if (x >= 261 && x < 573) {

@@ -249,9 +249,8 @@ static int input(const Input *in) {
         }
         return 1;
     }
-    char id[32],gesture[16];
-    if(in->kind!=INPUT_COMPONENT || !lumen_string("id",id,sizeof(id)) ||
-       !lumen_string("gesture",gesture,sizeof(gesture)) || strcmp(gesture,"clicked"))return 0;
+    char id[32];
+    if(!lumen_action_read(in,id,sizeof(id),"clicked"))return 0;
     if(view==SETUP) {
         if(!strcmp(id,"refresh-models") && !models_busy && !busy) {
             models_busy=1;lumen_app_service_background("lumen.openai","models_refresh","",5);

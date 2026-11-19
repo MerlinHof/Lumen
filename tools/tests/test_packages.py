@@ -155,10 +155,12 @@ for app,x,y,help_x in [
  ('nonograms',177,291,490),('solitaire',50,165,368),('wordle',290,685,550),
  ('periodic-table',21,150,None)
 ]:
- events=[tap(x,y)]
+ first={'wordle':'guess','periodic-table':'element:0','bingo':'cell:0',
+        'connect-four':'column:0','nonograms':'cell:0','solitaire':'draw'}.get(app)
+ events=[component(first) if first else tap(x,y)]
  if app=='wordle': events.append(dict(event='text',action=1,text='PAPER'))
  if help_x:
-     events.append(component('help') if app in ('bingo','connect-four','hex') else tap(help_x,92))
+     events.append(component('help'))
  frames,folder=app_session('lumen.'+app,events)
  assert any(frame.get('ui') for frame in frames),app
  assert any(folder.glob('*.bin')),app
@@ -197,7 +199,7 @@ assert walls and (31,33) in seen
 assert any(f.get('request')=='intent' and f.get('operation')=='open_document' for f in frames)
 print('PASS packaged Maze renders a solvable board and opens help through a Reader intent.')
 
-frames,folder=app_session('lumen.knights-tour',[tap(130,350),component('help')])
+frames,folder=app_session('lumen.knights-tour',[component('cell:17'),component('help')])
 assert (folder/'tour.bin').read_bytes()[17]==2
 assert any(f.get('request')=='intent' for f in frames)
 print('PASS packaged Knight’s Tour legal move, private save and Reader help.')
@@ -212,24 +214,24 @@ assert any(c.get('text')=='A quoted passage' for f in frames for c in f.get('ui'
 print('PASS packaged Quotes renders annotations and uses stable book references.')
 
 frames,_=app_session('lumen.minesweeper',[
-    dict(event='input',kind=12,x=110,y=210),tap(110,210),tap(340,340),tap(490,92)])
+    component('cell:1','long_pressed'),component('cell:1'),component('cell:32'),component('help')])
 assert any(c.get('text')=='1 / 12' for f in frames for c in f.get('ui',[]))
 assert any(f.get('operation')=='open_document' for f in frames)
 frames,_=app_session('lumen.hangman',[
     dict(event='service',action=1,ok=1,word='INK'),
-    *[tap(50+54*i,470) for i in (0,1,2,3,4,5)]])
+    *[component(f'letter:{i}') for i in (0,1,2,3,4,5)]])
 assert any(f.get('service')=='dictionary' for f in frames)
 assert any('INK' in c.get('text','') for f in frames for c in f.get('ui',[]))
 for key in ('lumen.tetris','lumen.snake'):
-    frames,_=app_session(key,[tap(480,145),dict(event='tick'),dict(event='pause'),dict(event='resume')])
+    frames,_=app_session(key,[component('pause'),dict(event='tick'),dict(event='pause'),dict(event='resume')])
     assert not frames[0]['tick'] and 20<=frames[1]['tick']<=650 and frames[-1]['tick']==0
     assert frames[1]['ui']!=frames[2]['ui']
 print('PASS packaged Minesweeper, Hangman, Tetris and Snake input, dictionary, timing and pause.')
 
 frames,folder=app_session('lumen.flashcards',[
-    tap(550,92),dict(event='text',action=1,text='Physics'),
+    component('new'),dict(event='text',action=1,text='Physics'),
     dict(event='text',action=2,text='Force?'),dict(event='text',action=3,text='Mass times acceleration.'),
-    tap(100,640),tap(340,744)])
+    component('reveal'),component('review:2')])
 assert (folder/'cards.bin').is_file() and (folder/'reviews.tsv').read_text().split('\t')[2]=='3'
 assert any(c.get('text')=='Mass times acceleration.' for f in frames for c in f.get('ui',[]))
 print('PASS packaged Flashcards creates cards, reveals answers and records FSRS reviews.')
@@ -238,7 +240,7 @@ frames,folder=app_session('lumen.sokoban',[component('help'),component('left')])
 assert (folder/'warehouse.bin').is_file()
 assert any(c.get('type')=='sprite' and c.get('transparent')==1 for f in frames for c in f.get('ui',[]))
 assert any(f.get('operation')=='open_document' for f in frames)
-frames,folder=app_session('lumen.crossword',[tap(100,545),dict(event='text',action=10,text='X'),tap(430,92)])
+frames,folder=app_session('lumen.crossword',[component('clue:0'),dict(event='text',action=10,text='X'),component('help')])
 assert any(f.get('operation')=='clues' for f in frames)
 assert any(f.get('request')=='input' and f.get('action')==10 for f in frames)
 assert any(f.get('request')=='notify' and 'letters' in f.get('text','') for f in frames)
@@ -246,7 +248,7 @@ assert any(f.get('operation')=='open_document' for f in frames)
 print('PASS packaged Sokoban assets, save and help, and Crossword clues, editing, validation and help.')
 
 
-frames,folder=app_session('lumen.braintrain',[component('exercise0'),tap(100,735),tap(150,300),tap(100,735)])
+frames,folder=app_session('lumen.braintrain',[component('exercise0'),component('continue'),component('memory:0'),component('continue')])
 assert len([c for c in frames[0]['ui'] if c['type']=='component_card'])==6
 assert (folder/'training.bin').is_file()
 frames,folder=app_session('lumen.languages',[
@@ -282,7 +284,7 @@ legacy=base/'legacy-dates'
     +struct.pack('=3I',int(today),1260,0)+bytes(30*12))
 record=struct.pack('=iii',1,int(today),4)+b'Legacy journal'.ljust(6*8192,b'\0')
 (legacy/'journals17'/f'{today}.bin').write_bytes(struct.pack('=II',0x4c554d16,len(record))+record)
-frames,folder=app_session('lumen.journal',[tap(100,170),tap(100,250),
+frames,folder=app_session('lumen.journal',[component('day:0'),component('edit'),
     dict(event='text',action=10,text='Two lines\nSecond line'),dict(event='back')],legacy)
 assert any(f.get('request')=='multiline' and f.get('text')=='Legacy journal' for f in frames)
 assert b'Two lines\nSecond line' in (folder/f'{today}.bin').read_bytes()
@@ -297,12 +299,12 @@ assert {c.get('selected') for f in frames for c in f.get('ui',[]) if c.get('type
 print('PASS packaged Journal and Calendar import legacy data, edit using multiline input and save privately.')
 
 frames,folder=app_session('lumen.chess',[component('opponent','selected','0'),
-    tap(333,615),tap(333,485),dict(event='tick'),tap(425,760)])
+    component("square:52"),component("square:36"),dict(event='tick'),component('rotate')])
 saved=(folder/'game.bin').read_bytes()
 assert saved[52]==0 and saved[36]==1 and struct.unpack_from('=i',saved,64)[0]==1
 assert any(f.get('tick')==80 for f in frames)
 assert any(c.get('type')=='sprite' and c.get('text')=='assets/pieces-rotated.pgm' for f in frames for c in f.get('ui',[]))
-frames,_=app_session('lumen.chess',[tap(80,760)])
+frames,_=app_session('lumen.chess',[component('undo')])
 assert (folder/'game.bin').read_bytes()[52]==1
 print('PASS packaged Chess legal pawn move, computer reply, piece rotation and persisted undo.')
 
@@ -349,7 +351,7 @@ case "$config" in *'Authorization: Bearer fixture-secret'*) ;; *) exit 3;; esac
 case "$*" in
  *'/v1/models') echo '{"data":[{"id":"z-model"},{"id":"a-model"}]}';;
  *'/v1/responses')
-  case "$config" in *"@$LUMEN_APP_DATA/request.json"*) ;; *) exit 4;; esac
+  case "$config" in *'data-binary = "{\\"input\\":\\"hello\\"}"'*) ;; *) exit 4;; esac
   test "$(cat "$LUMEN_APP_DATA/request.json")" = '{"input":"hello"}' || exit 5
   echo '{"output":[{"content":[{"type":"output_text","text":"Grüße ☀"}]}]}';;
  *) exit 6;;
@@ -374,7 +376,7 @@ wiki_worker=base/'wiki-bin';wiki_worker.mkdir()
 wiki_curl=wiki_worker/'curl'
 wiki_curl.write_text("""#!/bin/sh
 case "$*" in
- *en.wikipedia.org*%44%61%72%63%79*) echo '{"query":{"pages":[{"title":"Mr. Darcy","extract":"A character in Pride and Prejudice."}]}}';;
+ *en.wikipedia.org*Darcy*) echo '{"query":{"pages":[{"title":"Mr. Darcy","extract":"A character in Pride and Prejudice."}]}}';;
  *) exit 2;;
 esac
 """)
@@ -443,8 +445,9 @@ print('PASS packaged Recipes opens offline archives and imports an older saved r
 
 frames,folder=app_session('lumen.planetarium',[
     component('map','selected','1'),
-    tap(462,737),
-    tap(550,95),
+    component('year-forward'),
+    component('settings'),
+    component('location'),
     dict(event='text',action=1,text='48.13, 11.58'),
     dict(event='back'),
     component('map','selected','0'),
@@ -510,10 +513,9 @@ news_data.mkdir()
 news_curl=base/'news-curl'
 news_curl.mkdir()
 (news_curl/'curl').write_text("""#!/bin/sh
-while [ "$1" != --output ] && [ "$#" -gt 0 ]; do shift; done
-[ "$#" -gt 1 ] || exit 1
-case "$4" in
-  *bing.com*) printf '%s' '<rss><channel><item><title>Energy forecast</title><link>https://example.org/energy</link><description>New energy report</description></item></channel></rss>' > "$2" ;;
+for arg do url=$arg; done
+case "$url" in
+  *bing.com*) printf '%s' '<rss><channel><item><title>Energy forecast</title><link>https://example.org/energy</link><description>New energy report</description></item></channel></rss>' ;;
   *) exit 22 ;;
 esac
 """)
@@ -591,10 +593,9 @@ store_assets=base/'store-assets'
 store_curl=base/'store-curl'
 store_curl.mkdir()
 (store_curl/'curl').write_text("""#!/bin/sh
-while [ "$1" != --output ] && [ "$#" -gt 0 ]; do shift; done
-[ "$#" -gt 1 ] || exit 1
-case "$4" in
-  *book.pdf) printf '%s' '%PDF-1.7 sample' > "$2" ;;
+for arg do url=$arg; done
+case "$url" in
+  *book.pdf) printf '%s' '%PDF-1.7 sample' ;;
   *) exit 22 ;;
 esac
 """)
@@ -606,7 +607,7 @@ with subprocess.Popen([str(store_bin)],env=env,stdin=subprocess.PIPE,stdout=subp
     def store_event(event):
         store.stdin.write(json.dumps(event)+'\n')
         store.stdin.flush()
-    for event in (dict(event='open',language=1),tap(128,260),tap(210,680)):
+    for event in (dict(event='open',language=1),component('book:0'),component('download')):
         store_event(event)
     for _ in range(100):
         if list(store_data.glob('*.pdf')):break
@@ -616,8 +617,8 @@ with subprocess.Popen([str(store_bin)],env=env,stdin=subprocess.PIPE,stdout=subp
     store_event(dict(event='tick'))
     store_event(dict(event='service',action=30,ok=1))
     store_event(dict(event='back'))
-    store_event(tap(485,94))
-    store_event(tap(515,174))
+    store_event(component("sources"))
+    store_event(component("source:0","changed","0"))
     output,error=store.communicate(timeout=5)
     assert store.returncode==0,error
 frames=list(map(json.loads,output.splitlines()))
@@ -655,8 +656,8 @@ home_assistant.mkdir()
     {'entity_id':'sensor.room','state':'22','last_changed':'2026-11-16T09:00:00Z'}
 ]]))
 frames,private=app_session('lumen.home-assistant',[
-    tap(130,178),dict(event='back'),tap(550,94),
-    tap(165,208),dict(event='text',action=1,text='KUCHE'),tap(510,275),dict(event='back')
+    component('device:0'),dict(event='back'),component('devices'),
+    component('search'),dict(event='text',action=1,text='KUCHE'),component('favorite:0'),dict(event='back')
 ],legacy=home_assistant)
 assert any(c.get('text')=='Küche' for f in frames for c in f.get('ui',[]))
 assert any(c.get('type')=='line' for f in frames for c in f.get('ui',[]))
@@ -687,8 +688,8 @@ print('PASS packaged OpenAI private chat archive, follow-up context and model se
 
 frames,photo_state=app_session('lumen.photos',[
     dict(event='service',action=1,ok=1,ids='1234567890abcdef 1234567890abcdea'),
-    tap(410,156),dict(event='tick'),tap(240,410),tap(430,95),dict(event='text',action=1,text='Travel'),
-    tap(100,156),dict(event='select',action=1,value=0),tap(80,235),tap(166,769),tap(236,769),
+    component('slideshow'),dict(event='tick'),tap(240,410),component('new-album'),dict(event='text',action=1,text='Travel'),
+    component('albums'),dict(event='select',action=1,value=0),component('photo:0'),component('rotate'),component('move'),
     dict(event='select',action=2,value=0),dict(event='back')])
 assert any(f.get('fullscreen') for f in frames)
 assert any(c.get('type')=='photo' and c.get('text')=='1234567890abcdea' and c.get('full')

@@ -15,23 +15,24 @@ static void draw(void) {
                       game_text("Am Zug · Spieler","To play · Player","Au tour du joueur"),
         game.winner ? game.winner : game.turn);
     ui_paint_text(28,137,544,46,label,PAINT_HEADING);
+    for(int col=0;col<COLS;col++)lumen_index_action("column",col,40+col*75,210,75,462);
     for(int row=0;row<ROWS;row++)for(int col=0;col<COLS;col++) {
         int x=40+col*75,y=210+row*77,v=game.board[row][col];
-        ui_paint_hitbox(x,y,73,75);ui_paint_ring(x+36,y+37,29,2);
+        ui_paint_ring(x+36,y+37,29,2);
         if(v)ui_paint_ellipse(x+36,y+37,25,25,v==1 ? 0 : 170);
     }
 }
 static int input(const Input *in) {
     char action[32];
-    if(in->kind!=INPUT_TAP && !game_action(in,action,sizeof(action)))return 0;
-    if(in->kind==INPUT_COMPONENT) {
-        if(!strcmp(action,"restart")){memset(&game,0,sizeof(game));game.turn=1;dirty=1;}
-        else if(!strcmp(action,"help"))game_help(title(),
+    if(!game_action(in,action,sizeof(action)))return 0;
+    if(!strcmp(action,"restart")){memset(&game,0,sizeof(game));game.turn=1;dirty=1;}
+    else if(!strcmp(action,"help"))game_help(title(),
             "Tippe eine Spalte an. Der Stein fällt auf den untersten freien Platz. Vier eigene Steine in einer Reihe, Spalte oder Diagonale gewinnen.",
             "Tap a column to drop a stone into its lowest free square. Four of your stones in a row, column or diagonal win.",
             "Touchez une colonne pour y déposer un pion. Alignez quatre pions horizontalement, verticalement ou en diagonale.");
-    } else if(!game.winner && in->x>=40 && in->x<565 && in->y>=210 && in->y<672) {
-        int col=(in->x-40)/75,row=ROWS-1;
+    else if(!game.winner) {
+        int col=lumen_action_index(action,"column",COLS),row=ROWS-1;
+        if(col<0)return 0;
         while(row>=0 && game.board[row][col])row--;
         if(row<0)return 1;
         int player=game.turn;

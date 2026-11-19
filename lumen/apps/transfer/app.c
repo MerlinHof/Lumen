@@ -18,8 +18,7 @@ static void draw(void) {
     ui_paint_heading(t("Dateiübertragung","File Transfer","Transfert de fichiers"),1);
     lumen_icon_action("settings",528,74,IC_SETTINGS);
     lumen_text(30,145,430,48,t("Transfer-Server","Transfer server","Serveur de transfert"),PAINT_HEADING,0,1);
-    lumen_toggle(492,150,active);
-    lumen_custom_action("server",478,142,94,56);
+    lumen_toggle_action("server",492,150,active);
     ui_paint_line(28,207,572,207,1,189);
     if(!active) {
         lumen_wrapped(30,244,542,204,t(
@@ -72,11 +71,10 @@ static int input(const Input *in) {
             lumen_service("transfer",id,text,1);
         return 1;
     }
-    char id[24],gesture[24];
-    if(in->kind!=INPUT_COMPONENT || settings || !lumen_string("id",id,sizeof(id)) ||
-       !lumen_string("gesture",gesture,sizeof(gesture)) || strcmp(gesture,"clicked"))return 0;
-    if(!strcmp(id,"settings"))settings=lumen_back=1;
-    else if(!strcmp(id,"server"))lumen_service("transfer",active ? "stop" : "start","",1);
+    char id[64];
+    if(settings)return 0;
+    if(lumen_action(in,id,"clicked") && !strcmp(id,"settings"))settings=lumen_back=1;
+    else if(lumen_action(in,id,"changed") && !strcmp(id,"server"))lumen_service("transfer",active ? "stop" : "start","",1);
     return 1;
 }
 int main(void){lumen_run(draw,input,NULL);return 0;}

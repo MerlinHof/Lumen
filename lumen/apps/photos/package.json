@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.photos",
   "name": "Fotos",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "sources": [
     "app.c"
   ],

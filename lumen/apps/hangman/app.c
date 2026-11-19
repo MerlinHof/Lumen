@@ -47,18 +47,16 @@ static int input(const Input *in) {
         if(*word && strspn(word,"ABCDEFGHIJKLMNOPQRSTUVWXYZ")==strlen(word))
             snprintf(word_game.word,sizeof(word_game.word),"%s",word);
     }
-    if(in->kind!=INPUT_TAP)return 0;
-    if(in->y>=74 && in->y<118) {
-        if(in->x>=528)restart();
-        else if(in->x>=468)help(local("Wortraten","Hangman","Pendu"),
+    char id[64];
+    if(!lumen_action(in,id,"clicked"))return 0;
+    if(!strcmp(id,"restart"))restart();
+    else if(!strcmp(id,"help"))help(local("Wortraten","Hangman","Pendu"),
             local("Errate das Wort Buchstabe für Buchstabe. Sechs falsche Buchstaben beenden das Spiel.",
             "Guess the hidden word one letter at a time. Six wrong guesses end the round.",
             "Devinez le mot lettre par lettre. Six erreurs terminent la partie."));
-    } else if(in->y>=455 && in->y<629) {
-        int row=(in->y-455)/58,cols=row==2 ? 6 : 10,start=(600-cols*54)/2;
-        int dx=in->x-start;
-        if(dx>=0 && dx/54<cols && dx%54<48 && (in->y-455)%58<48)
-            hangman_guess(&word_game,row*10+dx/54);
+    else {
+        int letter=lumen_action_index(id,"letter",26);
+        if(letter>=0)hangman_guess(&word_game,letter);
     }
     return 1;
 }
@@ -72,12 +70,11 @@ static int input(const Input *in) {
 #define stroke(x,y,xx,yy,w) ui_paint_line(x,y,xx,yy,w,0)
 #define control_surface(x,y,w,h,r,c) ui_paint_surface(x,y,w,h,r,c,c)
 #define outline_surface(x,y,w,h,r,c) ui_paint_surface(x,y,w,h,r,255,c)
-#define button_h lumen_button
 #define ring ui_paint_ring
 static void draw(void) {
     ui_paint_heading(local("Wortraten","Hangman","Pendu"),2);
-    lumen_button(468,74,44,44,"?",0);
-    ui_paint_icon_button(528,74,IC_RESTART);
+    lumen_button_action("help",468,74,44,44,"?",0);
+    lumen_icon_action("restart",528,74,IC_RESTART);
     stroke(118, 320, 300, 320, 2);
     stroke(154, 320, 154, 151, 2);
     stroke(154, 151, 260, 151, 2);
@@ -109,8 +106,10 @@ static void draw(void) {
         if (word_game.guesses & (1u << i)) {
             control_surface(xx, y, 48, 48, RADIUS_MEDIUM, 220);
             centered(xx, y, 48, 48, key, ui_font(UI_BODY));
-        } else
-            button_h(xx, y, 48, 48, key, 0);
+        } else {
+            char id[24];snprintf(id,sizeof(id),"letter:%d",i);
+            lumen_button_action(id,xx,y,48,48,key,0);
+        }
     }
     if (word_game.over && !word_game.won) {
         char solution[80];

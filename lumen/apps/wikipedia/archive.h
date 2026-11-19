@@ -111,14 +111,6 @@ static const char *article_language(int index) {
     static const char *const languages[]={"de","en","fr","zh"};
     return languages[index>=0 && index<4 ? index : 0];
 }
-static void uri_encode(const char *text,char *out,size_t limit) {
-    size_t used=0;
-    for(const unsigned char *p=(const unsigned char *)text;*p && used+3<limit;p++) {
-        snprintf(out+used,4,"%%%02X",*p);
-        used+=3;
-    }
-    out[used]=0;
-}
 static int open_article(uint64_t id,int legacy) {
     const char *root=getenv(legacy ? "LUMEN_LEGACY_DATA" : "LUMEN_APP_DATA");
     char path[64];
@@ -160,7 +152,7 @@ static int open_article(uint64_t id,int legacy) {
         p+=n+(p[n]=='\n');
     }
     char encoded[770];
-    uri_encode(article->title,encoded,sizeof(encoded));
+    lumen_url_encode(article->title,encoded,sizeof(encoded));
     fprintf(out,"<p><a href=\"https://%s.wikipedia.org/wiki/%s\">Wikipedia</a> · "
         "<a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA</a></p>",
         article_language(article->language),encoded);

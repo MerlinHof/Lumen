@@ -13,9 +13,7 @@ static unsigned game_random(unsigned *seed) {
     return *seed>>8;
 }
 static inline int game_action(const Input *input,char *id,size_t capacity) {
-    char gesture[24];
-    return input->kind==INPUT_COMPONENT && wire_bounded_string("id",id,capacity) &&
-        wire_bounded_string("gesture",gesture,sizeof(gesture)) && !strcmp(gesture,"clicked");
+    return lumen_action_read(input,id,capacity,"clicked");
 }
 
 static const struct { const char *id; int icon,dx,dy; } game_directions[]={
@@ -25,9 +23,7 @@ static const struct { const char *id; int icon,dx,dy; } game_directions[]={
 static inline void game_direction_pad(void) {
     for (int i=0;i<4;i++) {
         int x=150+i*79;
-        lumen_button(x,728,60,44,"",0);
-        ui_paint_icon_button(x+8,728,game_directions[i].icon);
-        lumen_custom_action(game_directions[i].id,x,728,60,44);
+        lumen_icon_control(game_directions[i].id,x,728,60,44,game_directions[i].icon);
     }
 }
 

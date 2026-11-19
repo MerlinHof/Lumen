@@ -137,22 +137,21 @@ static const int tick_ms=650;
 static int input(const Input *in) {
     if(in->kind==INPUT_PAUSE || in->kind==INPUT_RESUME){block_game.paused=1;return 1;}
     if(in->kind==INPUT_TICK){if(!block_game.paused && !block_game.over)blocks_tick(&block_game);next_tick=ui_clock_millis()+tick_ms;return 1;}
-    if(in->kind!=INPUT_TAP)return 0;
-    int x=in->x,y=in->y;
-    if(y>=74 && y<118) {
-        if(x>=528)blocks_new(&block_game);
-        else if(x>=468)help("Tetris",local("Drehe und verschiebe die Steine. Fülle Reihen, um sie zu entfernen.",
+    char id[64];
+    if(!lumen_action(in,id,"clicked"))return 0;
+    if(!strcmp(id,"restart"))blocks_new(&block_game);
+    else if(!strcmp(id,"help"))help("Tetris",local("Drehe und verschiebe die Steine. Fülle Reihen, um sie zu entfernen.",
             "Rotate and move falling blocks. Complete horizontal lines to clear them.",
             "Tournez et déplacez les blocs. Complétez des lignes pour les effacer."));
-    } else if(x>=414 && y>=124 && y<164) {
+    else if(!strcmp(id,"pause")) {
         if(block_game.over)blocks_new(&block_game);
         block_game.paused=!block_game.paused;
-    } else if(y>=735 && y<783 && x>=49 && (x-49)/136<4 && (x-49)%136<94) {
-        int key=(x-49)/136;
+    } else {
+        int key=lumen_action_index(id,"move",4);
         if(key==0)blocks_move(&block_game,-1);
         else if(key==1)blocks_rotate(&block_game);
         else if(key==2)blocks_move(&block_game,1);
-        else blocks_drop(&block_game);
+        else if(key==3)blocks_drop(&block_game);
     }
     return 1;
 }
@@ -164,21 +163,18 @@ static int input(const Input *in) {
 #define ui_font(x) (x)
 #define centered(x,y,w,h,s,r) ui_paint_text(x,y,w,h,s,r)
 #define drawtext(x,y,s,r,w) lumen_text(x,y,w,34,s,r,-1,1)
-#define region ui_paint_hitbox
 #define rect(x,y,w,h,c) ui_paint_surface(x,y,w,h,0,c,c)
 #define control_surface(x,y,w,h,r,c) ui_paint_surface(x,y,w,h,r,c,c)
 #define outline_surface(x,y,w,h,r,c) ui_paint_surface(x,y,w,h,r,255,c)
 #define key_outline(x,y,w,h) outline_surface(x,y,w,h,8,115)
-#define button_h lumen_button
-#define icon ui_paint_icon_button
 static void board_tile(int x, int y, int size, int color) {
     control_surface(x + 1, y + 1, size - 2, size - 2, RADIUS_SMALL, color);
 }
 static void draw(void) {
     ui_paint_heading("Tetris",2);
-    lumen_button(468,74,44,44,"?",0);
-    ui_paint_icon_button(528,74,IC_RESTART);
-    button_h(414, 124, 158, 40,
+    lumen_button_action("help",468,74,44,44,"?",0);
+    lumen_icon_action("restart",528,74,IC_RESTART);
+    lumen_button_action("pause",414,124,158,40,
              block_game.over     ? local("Neu starten","Restart","Rejouer")
              : block_game.paused ? local("Start","Start","Démarrer")
                                  : local("Pause","Pause","Pause"),
@@ -220,9 +216,8 @@ static void draw(void) {
     int kinds[] = {IC_PREV, IC_ROTATE, IC_NEXT, IC_DOWN};
     for (int i = 0; i < 4; i++) {
         int x = 49 + i * 136;
-        region(x, 735, 94, 48);
-        key_outline(x, 735, 94, 48);
-        icon(x + 25, 737, kinds[i]);
+        char id[24];snprintf(id,sizeof(id),"move:%d",i);
+        lumen_icon_control(id,x,735,94,48,kinds[i]);
     }
     if(!block_game.paused && !block_game.over) {
         int64_t now=ui_clock_millis();

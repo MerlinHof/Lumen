@@ -82,10 +82,8 @@ static int input(const Input *in) {
         }
         return 1;
     }
-    if(in->kind!=INPUT_COMPONENT)return 0;
-    char id[32],gesture[32];
-    if(!lumen_string("id",id,sizeof(id)) || !lumen_string("gesture",gesture,sizeof(gesture)) ||
-       strcmp(gesture,"clicked"))return 0;
+    char id[32];
+    if(!lumen_action_read(in,id,sizeof(id),"clicked"))return 0;
     if(!strcmp(id,"clock"))lumen_open("lumen.clock");
     else if(!strcmp(id,"focus"))lumen_service("clock","start_timer","25",2);
     else if(!strcmp(id,"recall"))

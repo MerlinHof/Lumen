@@ -11,6 +11,8 @@ parser.add_argument('--reading', action='store_true',
                     help='Enforce the Library and Reader package boundary for 6.6.')
 parser.add_argument('--complete', action='store_true',
                     help='Require every app-specific host dependency to be removed.')
+parser.add_argument('--sdk', action='store_true',
+                    help='Enforce semantic controls and shared HTTP in bundled packages.')
 args = parser.parse_args()
 
 manifests = [json.loads(path.read_text()) for path in
@@ -53,3 +55,28 @@ if args.complete:
     if host_dependencies:
         raise SystemExit('Remaining app-specific core references:\n'+'\n'.join(host_dependencies))
     print('PASS Core has no bundled app identities, linked app code, or legacy host assembly.')
+
+
+if args.sdk:
+    # These interactions use position, shapes, or whole-view gestures as input.
+    spatial = {
+        'calculator': 'graph cursor', 'hex': 'hexagonal board',
+        'home_assistant': 'history graph', 'maze': 'maze field',
+        'notes': 'ink canvas', 'photos': 'full-screen photo dismissal',
+        'planetarium': 'star coordinates', 'reader': 'document page gestures',
+        'sokoban': 'warehouse field', 'solitaire': 'overlapping card stacks',
+        'timer': 'full-screen clock dismissal',
+    }
+    raw = re.compile(r'\b(?:INPUT_(?:TAP|HOLD|DOWN)|ui_paint_hitbox)\b')
+    network = re.compile(r'"curl"')
+    pending = []
+    for manifest in sorted((root/'lumen/apps').glob('*/package.json')):
+        for source in manifest.parent.rglob('*'):
+            if not source.is_file() or source.suffix not in ('.c','.h'):
+                continue
+            for number,line in enumerate(source.read_text().splitlines(),1):
+                if network.search(line) or (raw.search(line) and manifest.parent.name not in spatial):
+                    pending.append(f'{source.relative_to(root)}:{number}')
+    if pending:
+        raise SystemExit('Raw controls or private HTTP outside the SDK boundary:\n'+'\n'.join(pending))
+    print(f'PASS SDK action and HTTP audit across all {len(manifests)} bundled packages.')

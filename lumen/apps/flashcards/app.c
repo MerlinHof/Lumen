@@ -74,21 +74,22 @@ static void draw(void) {
     lumen_back=browse;
     ui_paint_heading(browse ? word("Kartenbibliothek","Card library","Bibliothèque de cartes") :
                      word("Karteikarten","Flashcards","Cartes mémoire"),browse ? 1 : 2);
-    ui_paint_icon_button(528,74,IC_PLUS);
+    lumen_icon_action("new",528,74,IC_PLUS);
     if(browse) {
         for(int row=0;row<7 && page*7+row<count;row++) {
             Flashcard *card=&cards[page*7+row];
             int y=151+row*72;
-            ui_paint_hitbox(28,y,480,66);
+            lumen_index_action("card",row,28,y,480,66);
             lumen_text(30,y,466,32,card->front,PAINT_BODY,-1,1);
             lumen_text(30,y+33,466,30,card->deck,PAINT_SECONDARY,-1,1);
-            ui_paint_icon_button(522,y+8,IC_TRASH);
+            char id[24];snprintf(id,sizeof(id),"delete:%d",row);
+            lumen_icon_action(id,522,y+8,IC_TRASH);
             lumen_list_divider(28,y+66,572);
         }
         lumen_pager(695,page,(count+6)/7);
         return;
     }
-    ui_paint_icon_button(468,74,IC_CONTENTS);
+    lumen_icon_action("browse",468,74,IC_CONTENTS);
     int due=0;
     int64_t now=time(NULL);
     for(int i=0;i<count;i++)due+=cards[i].memory.due<=now;
@@ -107,7 +108,7 @@ static void draw(void) {
     lumen_text(32,215,536,32,card->deck,PAINT_SECONDARY,-1,1);
     lumen_wrapped(32,275,536,150,card->front,PAINT_TITLE,5);
     if(!revealed) {
-        lumen_button(28,622,544,60,word("Antwort zeigen","Show answer","Afficher la réponse"),0);
+        lumen_button_action("reveal",28,622,544,60,word("Antwort zeigen","Show answer","Afficher la réponse"),0);
         return;
     }
     ui_paint_line(28,440,572,440,1,190);
@@ -121,7 +122,8 @@ static void draw(void) {
         snprintf(label,sizeof(label),seconds<3600 ? "%ld min" : seconds<86400 ? "%ld h" : "%ld d",
                  seconds<3600 ? seconds/60 : seconds<86400 ? seconds/3600 : seconds/86400);
         ui_paint_text(28+i*140,687,124,30,label,PAINT_SECONDARY);
-        lumen_button(28+i*140,722,124,54,labels[i],0);
+        char id[24];snprintf(id,sizeof(id),"review:%d",i);
+        lumen_button_action(id,28+i*140,722,124,54,labels[i],0);
     }
 }
 static int input(const Input *in) {
@@ -159,26 +161,28 @@ static int input(const Input *in) {
         }
         return 1;
     }
-    if(in->kind!=INPUT_TAP)return 0;
-    int x=in->x,y=in->y;
-    if(y>=74 && y<118 && x>=528 && x<572) {
+    char id[64];
+    if(!lumen_action(in,id,"clicked"))return 0;
+    if(!strcmp(id,"new")) {
         if(count<512)edit(-1);
         else lumen_request("notify","",word("Kartenbibliothek voll.","Card library full.","Bibliothèque pleine."),0);
-    } else if(!browse && y>=74 && y<118 && x>=468 && x<512) {
-        browse=1;page=0;
-    } else if(browse && y>=151 && y<655 && x>=28 && x<572) {
-        int index=page*7+(y-151)/72;
-        if(index<count) {
-            if(x<510)edit(index);
-            else {
-                editing=index;
-                const char *options[]={word("Abbrechen","Cancel","Annuler"),word("Karte löschen","Delete card","Supprimer la carte")};
-                lumen_select(options,2,-1,DELETE_CARD);
-            }
+    } else if(!browse && !strcmp(id,"browse")){browse=1;page=0;}
+    else if(browse) {
+        int row=lumen_action_index(id,"card",7);
+        if(row>=0 && page*7+row<count)edit(page*7+row);
+        row=lumen_action_index(id,"delete",7);
+        if(row>=0 && page*7+row<count) {
+            editing=page*7+row;
+            const char *options[]={word("Abbrechen","Cancel","Annuler"),
+                word("Karte löschen","Delete card","Supprimer la carte")};
+            lumen_select(options,2,-1,DELETE_CARD);
         }
-    } else if(!browse && selected>=0 && x>=28 && x<572) {
-        if(!revealed && y>=622 && y<682)revealed=1;
-        else if(revealed && y>=722 && y<776 && (x-28)%140<124)review(1+(x-28)/140);
+    } else if(selected>=0) {
+        if(!revealed && !strcmp(id,"reveal"))revealed=1;
+        else if(revealed) {
+            int rating=lumen_action_index(id,"review",4);
+            if(rating>=0)review(rating+1);
+        }
     }
     return 1;
 }

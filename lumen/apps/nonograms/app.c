@@ -66,8 +66,8 @@ static void v1_nono_new(void) {
 }
 static void draw(void) {
     ui_paint_heading(title(),2);
-    ui_paint_icon_button(468,74,IC_BOOK);
-    ui_paint_icon_button(528, 74, IC_RESTART);
+    lumen_icon_action("help",468,74,IC_BOOK);
+    lumen_icon_action("restart",528,74,IC_RESTART);
     ui_paint_text(28, 133, 544, 32, game_text("5 × 5 · Ein Bild aus Logik","5 × 5 · Draw with logic","5 × 5 · Dessinez par logique"), PAINT_SECONDARY);
     for (int r = 0; r < 5; r++) {
         unsigned mask = 0, v[5];
@@ -98,7 +98,7 @@ static void draw(void) {
     int win = 1;
     for (int i = 0; i < 25; i++) {
         int x = 146 + (i % 5) * 76, y = 263 + (i / 5) * 76;
-        ui_paint_hitbox(x,y,76,76);
+        lumen_index_action("cell",i,x,y,76,76);
         ui_paint_surface(x,y,76,76,5,nono_cells[i]==1 ? 0 : 255,1);
         if (nono_cells[i] == 2) {
             ui_paint_line(x + 24, y + 24, x + 52, y + 52, 2,0);
@@ -107,25 +107,25 @@ static void draw(void) {
         if ((nono_cells[i] == 1) != nono_solution[i])
             win = 0;
     }
-    lumen_button(28,692,262,48,game_text("Füllen","Fill","Remplir"),!nono_mark);
-    lumen_button(310,692,262,48,game_text("Leer markieren","Mark empty","Marquer vide"),nono_mark);
+    lumen_button_action("fill",28,692,262,48,game_text("Füllen","Fill","Remplir"),!nono_mark);
+    lumen_button_action("mark",310,692,262,48,game_text("Leer markieren","Mark empty","Marquer vide"),nono_mark);
     if (win)
         ui_paint_text(28, 746, 544, 40, game_text("Gelöst!","Solved!","Résolu !"), PAINT_HEADING);
 }
 
 static int input(const Input *in) {
-    if(in->kind!=INPUT_TAP)return 1;
-    int x=in->x,y=in->y;
-    if(y>=74 && y<118) {
-        if(x>=528)v1_nono_new();
-        else if(x>=468 && x<512)game_help(title(),
+    char id[64];
+    if(lumen_action(in,id,"clicked")) {
+        if(!strcmp(id,"restart"))v1_nono_new();
+        else if(!strcmp(id,"help"))game_help(title(),
             "Die Zahlen geben die Länge zusammenhängender Blöcke an. Zwischen zwei Blöcken muss mindestens ein leeres Feld liegen.",
             "Clues give the lengths of consecutive runs. Leave at least one empty square between runs, and mark empty squares as you go.",
             "Les indices donnent la longueur des suites. Laissez au moins une case vide entre deux suites.");
-    } else if(y>=692 && y<740){nono_mark=x>=300;dirty=1;}
-    else if(x>=146 && x<526 && y>=263 && y<643) {
-        int i=(y-263)/76*5+(x-146)/76,val=nono_mark ? 2 : 1;
-        nono_cells[i]=nono_cells[i]==val ? 0 : val;dirty=1;
+        else if(!strcmp(id,"fill") || !strcmp(id,"mark")){nono_mark=!strcmp(id,"mark");dirty=1;}
+        else {
+            int cell=lumen_action_index(id,"cell",25),value=nono_mark ? 2 : 1;
+            if(cell>=0){nono_cells[cell]=nono_cells[cell]==value ? 0 : value;dirty=1;}
+        }
     }
     return 1;
 }

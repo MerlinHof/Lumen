@@ -1,5 +1,7 @@
 #define _GNU_SOURCE
 #include "lumen_app.h"
+#include "lumen_worker.h"
+#include "lumen_http.h"
 #include <ctype.h>
 #include <signal.h>
 #include <sys/wait.h>
@@ -119,9 +121,8 @@ static int input(const Input *in) {
         show_articles(0,query);
         return 1;
     }
-    char id[24],gesture[24];
-    if(in->kind!=INPUT_COMPONENT || !lumen_string("id",id,sizeof(id)) ||
-       !lumen_string("gesture",gesture,sizeof(gesture)) || strcmp(gesture,"clicked"))return 0;
+    char id[24];
+    if(!lumen_action_read(in,id,sizeof(id),"clicked"))return 0;
     if(!strcmp(id,"search")) {
         lumen_request("input",word("News suchen","Search news","Rechercher des actualités"),query,1);
         return 1;

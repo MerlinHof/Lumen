@@ -57,17 +57,8 @@ static int store_complete(int done) {
 }
 static void store_search(void) {
     char encoded[1200];
-    size_t n = 0;
-    const char *term = *store_ui.store_query ? store_ui.store_query : "books";
-    for (const unsigned char *p = (const unsigned char *)term; *p && n + 4 < sizeof(encoded); p++) {
-        if (isalnum(*p) && *p < 128)
-            encoded[n++] = *p;
-        else {
-            snprintf(encoded + n, 4, "%%%02X", *p);
-            n += 3;
-        }
-    }
-    encoded[n] = 0;
+    const char *term=*store_ui.store_query ? store_ui.store_query : "books";
+    if(!lumen_url_encode(term,encoded,sizeof(encoded)))return;
     snprintf(store_ui.store_urls[0], sizeof(store_ui.store_urls[0]),
              "https://www.gutenberg.org/ebooks/search.opds/?query=%s&sort_order=downloads",
              *store_ui.store_query                 ? encoded

@@ -16,6 +16,8 @@ static void banner(void) {
         lumen_cmd("wrap",37,76,470,65);
         fputs(",\"text\":",stdout);lumen_json(message);fputs(",\"lines\":2}",stdout);
         ui_paint_icon_button(525,75,IC_CLOSE);
+        lumen_cmd("overlay_action",520,65,54,66);
+        fputs(",\"command\":\"dismiss\"}",stdout);
     } else lumen_begin();
     lumen_end();
 }
@@ -27,7 +29,7 @@ static void foreground(void) {
         "Notifications appear briefly above the open app.",
         "Les notifications apparaissent brièvement sur l’application."),
         PAINT_BODY,0,1);
-    lumen_button(28,238,544,52,localized("Vorschau anzeigen","Show a preview","Afficher un aperçu"),0);
+    lumen_button_action("preview",28,238,544,52,localized("Vorschau anzeigen","Show a preview","Afficher un aperçu"),0);
     lumen_end();
 }
 int main(void) {
@@ -45,6 +47,7 @@ int main(void) {
         if(result<0 && errno==EINTR)continue;
         if(!result)continue;
         if(result<0 || !lumen_next())break;
+        char id[24],gesture[24];
         if(lumen_is("open")) {
             char role[24];lumen_string("role",role,sizeof(role));
             overlay=!strcmp(role,"overlay");
@@ -57,13 +60,11 @@ int main(void) {
             if(ms<1 || ms>60000)ms=6000;
             deadline=ui_clock_millis()+ms;
             banner();
-        } else if(overlay && (lumen_is("dismiss") ||
-                  (lumen_is("input") && lumen_number("kind")==INPUT_TAP &&
-                   lumen_number("x")>=515 && lumen_number("x")<577 &&
-                   lumen_number("y")>=57 && lumen_number("y")<148))) {
+        } else if(overlay && lumen_is("dismiss")) {
             *message=0;banner();
-        } else if(!overlay && lumen_is("input") && lumen_number("kind")==INPUT_TAP &&
-                  lumen_number("y")>=238 && lumen_number("y")<290) {
+        } else if(!overlay && lumen_is("component") &&
+                  wire_bounded_string("id",id,sizeof(id)) && !strcmp(id,"preview") &&
+                  wire_bounded_string("gesture",gesture,sizeof(gesture)) && !strcmp(gesture,"clicked")) {
             lumen_request("notify","",localized("Eine Mitteilung von LUMEN.","A notification from LUMEN.","Une notification de LUMEN."),0);
         }
     }

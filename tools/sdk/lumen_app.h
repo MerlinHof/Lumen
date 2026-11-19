@@ -272,9 +272,38 @@ static inline void lumen_button_action(const char *id,int x,int y,int w,int h,co
  fputs(",\"text\":",stdout);lumen_json(label);
  printf(",\"primary\":%d}",primary);
 }
+static inline void lumen_icon_control(const char *id,int x,int y,int w,int h,int icon) {
+ lumen_cmd("icon_control",x,y,w,h);
+ fputs(",\"id\":",stdout);lumen_json(id);
+ printf(",\"icon\":%d}",icon);
+}
 static inline void lumen_custom_action(const char *id,int x,int y,int w,int h) {
  lumen_cmd("custom_action",x,y,w,h);
  fputs(",\"id\":",stdout);lumen_json(id);putchar('}');
+}
+/* Semantic targets for dense grids and repeated rows. IDs are stable
+   within the view and independent of the current screen coordinates. */
+static inline void lumen_index_action(const char *group,int index,int x,int y,int w,int h) {
+ char id[64];
+ int length=snprintf(id,sizeof(id),"%s:%d",group,index);
+ if(length<1 || length>=(int)sizeof(id) || index<0)return;
+ lumen_cmd("target_action",x,y,w,h);
+ fputs(",\"id\":",stdout);lumen_json(id);putchar('}');
+}
+static inline int lumen_action_read(const Input *in,char *id,size_t capacity,const char *gesture) {
+ char event[24];
+ return in->kind==INPUT_COMPONENT && wire_bounded_string("id",id,capacity) &&
+        wire_bounded_string("gesture",event,sizeof(event)) && !strcmp(event,gesture);
+}
+static inline int lumen_action(const Input *in,char id[64],const char *gesture) {
+ return lumen_action_read(in,id,64,gesture);
+}
+static inline int lumen_action_index(const char *id,const char *group,int count) {
+ size_t length=strlen(group);
+ if(strncmp(id,group,length) || id[length]!=':' || id[length+1]<'0' || id[length+1]>'9')return -1;
+ char *end;
+ long index=strtol(id+length+1,&end,10);
+ return *end || index<0 || index>=count ? -1 : (int)index;
 }
 static inline void lumen_toggle_action(const char *id,int x,int y,int checked) {
  lumen_cmd("toggle_action",x,y,64,44);

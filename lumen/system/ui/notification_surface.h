@@ -66,10 +66,19 @@ static int notification_input(const Input *in,int visible) {
     if(in->kind!=INPUT_TAP && in->kind!=INPUT_SWIPE)return 0;
     int captured=notification_capture || inside;
     notification_capture=0;
-    if(captured && visible) {
-        char event[128];
-        snprintf(event,sizeof(event),"{\"event\":\"input\",\"kind\":%d,\"x\":%d,\"y\":%d}",in->kind,in->x,in->y);
-        app_provider_overlay_send(PROVIDER_NOTIFICATION,event);
+    if(captured && visible && in->kind==INPUT_TAP) {
+        int slot=app_provider_overlay_slot(PROVIDER_NOTIFICATION);
+        OverlayAction actions[8];
+        int count=overlay_actions(app_overlay_frame(slot),actions,8);
+        for(int i=0;i<count;i++) {
+            OverlayBounds bounds=actions[i].bounds;
+            if(!strcmp(actions[i].command,"dismiss") &&
+               in->x>=bounds.x && in->x<bounds.x+bounds.w &&
+               in->y>=bounds.y && in->y<bounds.y+bounds.h) {
+                notification_dismiss();
+                break;
+            }
+        }
     }
     return captured;
 }

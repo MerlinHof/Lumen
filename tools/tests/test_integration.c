@@ -92,6 +92,15 @@ int main(int argc, char **argv) {
     assert(keyboard_layout_serial);
     assert(!app_package_foreground(app_package_find("retired.rpg")));
     (void)argc;
+    activate_app(app_package_find("lumen.periodic-table"));settle_app();ui_draw();
+    assert(package_component_count==118);
+    int element=-1;
+    for(int i=0;i<package_component_count;i++)
+        if(!strcmp(package_components[i].id,"element:117"))element=i;
+    assert(element>=0);
+    PackageComponent target=package_components[element];
+    tap17(target.left+target.width/2,target.top+target.height/2);
+    assert(strstr(app_process_frame(),"118  Og"));
     activate_app(app_package_find("lumen.notes"));settle_app();ui_draw();
     tap17(550,95);assert(active_app()==app_package_find("lumen.notes") && editor_ui.keyboard);
     strcpy(editor_ui.edit,"Title\nSome text to edit.");commit_keyboard();settle_app();ui_draw();

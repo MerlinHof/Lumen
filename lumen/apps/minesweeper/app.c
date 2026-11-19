@@ -84,26 +84,29 @@ static void mines_reveal(Mines *m, int c) {
 
 static int flag_mode,held_cell=-1;
 static void restart(void){mines_new(&mine_game);flag_mode=0;held_cell=-1;}
-static int cell_at(const Input *in) {
-    if(in->x<30 || in->x>=570 || in->y<170 || in->y>=750)return -1;
-    return (in->y-170)/58*9+(in->x-30)/60;
-}
 static int input(const Input *in) {
-    int cell=cell_at(in);
-    if(in->kind==INPUT_HOLD && cell>=0){mines_flag(&mine_game,cell);held_cell=cell;return 1;}
     if(in->kind==INPUT_SWIPE){held_cell=-1;return 1;}
-    if(in->kind!=INPUT_TAP)return 0;
-    if(held_cell>=0){int held=held_cell;held_cell=-1;if(cell==held)return 1;}
-    if(in->y>=74 && in->y<118) {
-        if(in->x>=528)restart();
-        else if(in->x>=468)help(local("Minesweeper","Minesweeper","Démineur"),
+    char id[64];
+    if(lumen_action(in,id,"long_pressed")) {
+        int cell=lumen_action_index(id,"cell",90);
+        if(cell>=0){mines_flag(&mine_game,cell);held_cell=cell;}
+        return 1;
+    }
+    if(lumen_action(in,id,"clicked")) {
+        if(!strcmp(id,"restart"))restart();
+        else if(!strcmp(id,"help"))help(local("Minesweeper","Minesweeper","Démineur"),
             local("Decke alle sicheren Felder auf. Zahlen zählen die Minen auf den acht Nachbarfeldern. Halte ein Feld gedrückt, um es zu markieren.",
             "Reveal every safe square. Numbers count mines in the eight neighboring squares. Hold a square to flag it.",
             "Révélez toutes les cases sûres. Les chiffres comptent les mines voisines. Maintenez une case pour la marquer."));
-    } else if(in->y>=122 && in->y<158 && in->x>=414)flag_mode^=1;
-    else if(cell>=0) {
-        if(flag_mode)mines_flag(&mine_game,cell);
-        else mines_reveal(&mine_game,cell);
+        else if(!strcmp(id,"flag-mode"))flag_mode^=1;
+        else {
+            int cell=lumen_action_index(id,"cell",90);
+            if(held_cell>=0){int held=held_cell;held_cell=-1;if(cell==held)return 1;}
+            if(cell>=0) {
+                if(flag_mode)mines_flag(&mine_game,cell);
+                else mines_reveal(&mine_game,cell);
+            }
+        }
     }
     return 1;
 }
@@ -114,28 +117,25 @@ static int input(const Input *in) {
 #define ui_font(x) (x)
 #define centered(x,y,w,h,s,r) ui_paint_text(x,y,w,h,s,r)
 #define drawtext(x,y,s,r,w) lumen_text(x,y,w,34,s,r,-1,1)
-#define region ui_paint_hitbox
 #define rect(x,y,w,h,c) ui_paint_surface(x,y,w,h,0,c,c)
 #define stroke(x,y,xx,yy,w) ui_paint_line(x,y,xx,yy,w,0)
 #define aa_disc(x,y,r,c) ui_paint_ellipse(x,y,r,r,c)
 #define outline_surface(x,y,w,h,r,c) ui_paint_surface(x,y,w,h,r,255,c)
-#define button_h lumen_button
 #define icon ui_paint_icon_button
 static void draw(void) {
     ui_paint_heading(local("Minesweeper","Minesweeper","Démineur"),2);
-    lumen_button(468,74,44,44,"?",0);
-    ui_paint_icon_button(528,74,IC_RESTART);
+    lumen_button_action("help",468,74,44,44,"?",0);
+    lumen_icon_action("restart",528,74,IC_RESTART);
     char b[80];
     snprintf(b, sizeof(b), "%d / 12", mine_game.flags);
     drawtext(30, 129, b, ui_font(UI_BODY), 300);
-    button_h(414, 122, 158, 36, flag_mode ? local("Aufdecken","Reveal","Révéler") : local("Fahne","Flag","Drapeau"), flag_mode);
+    lumen_button_action("flag-mode",414,122,158,36, flag_mode ? local("Aufdecken","Reveal","Révéler") : local("Fahne","Flag","Drapeau"), flag_mode);
     outline_surface(28,168,544,584,RADIUS_SMALL,104);
     for (int i = 0; i < 90; i++) {
         int x = 30 + (i % 9) * 60, y = 170 + (i / 9) * 58;
+        if(!mine_game.over)lumen_index_action("cell",i,x,y,60,58);
         if (!mine_game.open[i]) {
             rect(x, y, 58, 56, 215);
-            if (!mine_game.over)
-                region(x, y, 58, 56);
         } else {
             rect(x, y, 58, 56, 255);
 

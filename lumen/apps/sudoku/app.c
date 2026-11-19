@@ -8,19 +8,19 @@ static const char *word(const char *de,const char *en,const char *fr) {
 }
 static void draw(void) {
     ui_paint_heading("Sudoku",2);
-    ui_paint_icon_button(468,74,IC_BOOK);
-    ui_paint_icon_button(528,74,IC_RESTART);
-    lumen_button(28,119,140,42,word("Notizen","Pencil","Crayon"),pencil);
-    ui_paint_icon_button(184,118,IC_UNDO);
-    ui_paint_icon_button(240,118,IC_DELETE);
-    lumen_button(360,119,150,42,word("Hinweis","Hint","Indice"),0);
+    lumen_icon_action("help",468,74,IC_BOOK);
+    lumen_icon_action("restart",528,74,IC_RESTART);
+    lumen_button_action("pencil",28,119,140,42,word("Notizen","Pencil","Crayon"),pencil);
+    lumen_icon_action("undo",184,118,IC_UNDO);
+    lumen_icon_action("erase",240,118,IC_DELETE);
+    lumen_button_action("hint",360,119,150,42,word("Hinweis","Hint","Indice"),0);
     char text[8];
     for(int i=0;i<81;i++) {
         int x=39+i%9*58,y=170+i/9*58;
         if(i==selected)ui_paint_surface(x+1,y+1,56,56,5,215,0);
         else if(selected>=0 && game.board.cell[selected] && game.board.cell[i]==game.board.cell[selected])
             ui_paint_surface(x+1,y+1,56,56,5,232,0);
-        ui_paint_hitbox(x,y,58,58);
+        lumen_index_action("cell",i,x,y,58,58);
         if(game.board.cell[i]) {
             snprintf(text,sizeof(text),"%d",game.board.cell[i]);
             lumen_text(x,y,58,58,text,game.given[i] ? PAINT_HEADING : PAINT_BODY,game.given[i] ? 0 : 70,0);
@@ -35,26 +35,33 @@ static void draw(void) {
         ui_paint_line(39+i*58,170,39+i*58,692,weight,gray);
         ui_paint_line(39,170+i*58,561,170+i*58,weight,gray);
     }
-    for(int v=1;v<=9;v++){snprintf(text,sizeof(text),"%d",v);lumen_button(28+(v-1)*61,725,56,52,text,0);}
+    for(int v=1;v<=9;v++) {
+        char id[24];snprintf(id,sizeof(id),"digit:%d",v-1);
+        snprintf(text,sizeof(text),"%d",v);
+        lumen_button_action(id,28+(v-1)*61,725,56,52,text,0);
+    }
     if(sudoku_won(&game))ui_paint_text(28,692,544,28,word("Geschafft!","Solved!","Résolu !"),PAINT_BODY);
 }
 static int input(const Input *in) {
-    if(in->kind!=INPUT_TAP)return 1;
-    int x=in->x,y=in->y;
-    if(y>=74 && y<118) {
-        if(x>=528){sudoku_new(&game,(uint32_t)time(NULL),game.difficulty);selected=-1;dirty=1;}
-        else if(x>=468 && x<512)lumen_request("reader","Sudoku",word(
+    char id[64];
+    if(lumen_action(in,id,"clicked")) {
+        if(!strcmp(id,"restart")){sudoku_new(&game,(uint32_t)time(NULL),game.difficulty);selected=-1;dirty=1;}
+        else if(!strcmp(id,"help"))lumen_request("reader","Sudoku",word(
             "# Sudoku\n\nJede Reihe, Spalte und jeder 3×3-Block enthält die Ziffern 1 bis 9 einmal. Tippe ein Feld und danach eine Ziffer an. Im Notizmodus kannst du Kandidaten festhalten.",
             "# Sudoku\n\nEvery row, column and 3×3 box contains digits 1 to 9 exactly once. Tap a square, then a digit. Use Pencil to mark possible digits.",
             "# Sudoku\n\nChaque ligne, colonne et bloc 3×3 contient les chiffres de 1 à 9 une seule fois. Touchez une case, puis un chiffre. Le crayon note les chiffres possibles."),0);
-    } else if(y>=118 && y<162) {
-        if(x>=28 && x<168)pencil^=1;
-        else if(x>=184 && x<228)dirty|=sudoku_undo(&game);
-        else if(x>=240 && x<284)dirty|=sudoku_put(&game,selected,0,0);
-        else if(x>=360 && x<510)dirty|=sudoku_hint(&game,selected);
-    } else if(x>=39 && x<561 && y>=170 && y<692)selected=(y-170)/58*9+(x-39)/58;
-    else if(y>=725 && y<777 && x>=28 && x<573 && (x-28)%61<56)
-        dirty|=sudoku_put(&game,selected,(x-28)/61+1,pencil);
+        else if(!strcmp(id,"pencil"))pencil^=1;
+        else if(!strcmp(id,"undo"))dirty|=sudoku_undo(&game);
+        else if(!strcmp(id,"erase"))dirty|=sudoku_put(&game,selected,0,0);
+        else if(!strcmp(id,"hint"))dirty|=sudoku_hint(&game,selected);
+        else {
+            int digit=lumen_action_index(id,"digit",9);
+            int cell=lumen_action_index(id,"cell",81);
+            if(digit>=0)dirty|=sudoku_put(&game,selected,digit+1,pencil);
+            else if(cell>=0)selected=cell;
+        }
+        return 1;
+    }
     return 1;
 }
 static void save(void){if(dirty && app_state_save("game.bin",&game,sizeof(game)))dirty=0;}

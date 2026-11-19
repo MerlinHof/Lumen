@@ -1,5 +1,7 @@
 # Changelog
 
+- [6.9](releases/6.9.md) · Semantic app controls, indexed grids, and shared HTTP and worker APIs.
+
 - [6.8](releases/6.8.md) · Standalone News, Recipes and Store providers, package-rendered alarms, and removal of the legacy app host.
 
 - [6.7](releases/6.7.md) · Package-owned Wikipedia, standalone puzzle engines and Store search continuity.

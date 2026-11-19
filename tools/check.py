@@ -14,7 +14,7 @@ def compile_test(name,source,ui=False):
     return binary
 def run(http=False,native_only=False):
     os.chdir(ROOT);OUT.mkdir(parents=True,exist_ok=True)
-    subprocess.run([sys.executable,'tools/check-architecture.py','--reading','--complete'],check=True)
+    subprocess.run([sys.executable,'tools/check-architecture.py','--reading','--complete','--sdk'],check=True)
     shutil.rmtree(OUT/'test-data',ignore_errors=True)
     shutil.rmtree(OUT/'apps',ignore_errors=True)
     shutil.rmtree(OUT/'appdata',ignore_errors=True)

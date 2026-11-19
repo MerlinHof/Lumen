@@ -65,39 +65,15 @@ static void save_photo(const char *url,const char *path) {
         strncmp(url,"https://www.themealdb.com/",26)) || strpbrk(url,"\r\n\t "))return;
     FILE *image=tmpfile();
     if(!image)return;
-    pid_t child=fork();
-    if(!child) {
-        if(dup2(fileno(image),STDOUT_FILENO)<0)_exit(1);
-        execlp("curl","curl","-q","--fail","--silent","--proto","=https","--connect-timeout","4",
-               "--max-time","8","--max-filesize","2097152","--",url,(char *)NULL);
-        _exit(1);
-    }
-    if(child>0) {
-        int status;pid_t done;
-        do done=waitpid(child,&status,0);while(done<0 && errno==EINTR);
-        if(done==child && WIFEXITED(status) && !WEXITSTATUS(status) && !fseek(image,0,SEEK_SET)) {
-            unsigned char *bytes=malloc(2097153);
-            if(bytes) {
-                size_t size=fread(bytes,1,2097153,image);
-                if(size && size<=2097152 && !ferror(image))lumen_storage_write(path,bytes,size);
-                free(bytes);
-            }
+    if(lumen_http_download((LumenHttpRequest){.url=url,.timeout=8},fileno(image),2u<<20)) {
+        unsigned char *bytes=malloc(2u<<20);
+        if(bytes) {
+            size_t size=fread(bytes,1,2u<<20,image);
+            if(size && !ferror(image))lumen_storage_write(path,bytes,size);
+            free(bytes);
         }
     }
     fclose(image);
-}
-static void url_encode(const char *s, char *out, int cap) {
-    int n = 0;
-    for (; *s && n < cap - 4; s++) {
-        unsigned char c = *s;
-        if (isalnum(c) || strchr("-._~", c))
-            out[n++] = c;
-        else {
-            snprintf(out + n, 4, "%%%02X", c);
-            n += 3;
-        }
-    }
-    out[n] = 0;
 }
 typedef struct {
     char title[256], id[64], lang[4];
@@ -118,7 +94,7 @@ static void recipes_search17(const char *q) {
                      : i == 1 ? "%s"
                               : "intitle:Cuisine %s",
                      q);
-            url_encode(term, encoded, sizeof(encoded));
+            if(!lumen_url_encode(term,encoded,sizeof(encoded)))continue;
             snprintf(url, sizeof(url),
                      "https://%s.wikibooks.org/w/"
                      "api.php?action=query&list=search&srsearch=%s&srnamespace=%s&srlimit=25&"
@@ -131,7 +107,7 @@ static void recipes_search17(const char *q) {
         }
     }
     char encoded[7000], url[8192], out[4096];
-    url_encode(q, encoded, sizeof(encoded));
+    if(!lumen_url_encode(q,encoded,sizeof(encoded)))return;
     snprintf(url, sizeof(url), "https://www.themealdb.com/api/json/v1/1/search.php?s=%s", encoded);
     snprintf(out,sizeof(out),"meals.json");
     lumen_storage_delete(out);

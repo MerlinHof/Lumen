@@ -91,9 +91,8 @@ static int input(const Input *in) {
         }
         return 1;
     }
-    char id[24],gesture[24];
-    if(in->kind!=INPUT_COMPONENT || busy || !lumen_string("id",id,sizeof(id)) ||
-       !lumen_string("gesture",gesture,sizeof(gesture)) || strcmp(gesture,"clicked"))return 0;
+    char id[24];
+    if(busy || !lumen_action_read(in,id,sizeof(id),"clicked"))return 0;
     if(*deleting) {
         if(!strcmp(id,"confirm")) {
             if(!remove_article(strtoull(deleting,NULL,16)))unavailable();
