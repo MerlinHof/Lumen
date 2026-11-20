@@ -10,7 +10,8 @@ typedef struct {
     size_t changed_bytes;
     int64_t deadline,network_end;
     const char *base;
-    int requests,modules;
+    char *navigation;
+    int requests,modules,cookie_writes;
 } WebScript;
 
 static int64_t script_time(void) {
@@ -215,6 +216,30 @@ static JSValue script_fetch(JSContext *js,JSValueConst self,int argc,JSValueCons
     free(body);
     return result;
 }
+static JSValue script_cookie(JSContext *js,JSValueConst self,int argc,JSValueConst *argv) {
+    (void)self;
+    WebScript *script=JS_GetContextOpaque(js);
+    if(argc) {
+        const char *value=JS_ToCString(js,argv[0]);
+        if(value && script->cookie_writes++<24)web_cookie_write(script->base,value);
+        JS_FreeCString(js,value);
+        return JS_UNDEFINED;
+    }
+    char result[4096];
+    web_cookie_read(script->base,result);
+    return JS_NewString(js,result);
+}
+static JSValue script_navigate(JSContext *js,JSValueConst self,int argc,JSValueConst *argv) {
+    (void)self;
+    WebScript *script=JS_GetContextOpaque(js);
+    if(!argc)return JS_UNDEFINED;
+    const char *url=JS_ToCString(js,argv[0]);
+    char resolved[WEB_URL];
+    if(url && web_resource_url(script->base,url,resolved) && strcmp(script->base,resolved))
+        snprintf(script->navigation,WEB_URL,"%s",resolved);
+    JS_FreeCString(js,url);
+    return JS_UNDEFINED;
+}
 static char *script_module_name(JSContext *js,const char *parent,const char *name,void *opaque) {
     WebScript *script=opaque;
     char url[WEB_URL];
@@ -240,7 +265,7 @@ static JSModuleDef *script_module_load(JSContext *js,const char *url,void *opaqu
     script->modules++;
     char *body=malloc(SCRIPT_SOURCE+1);
     int ok=body && lumen_http_text((LumenHttpRequest){.url=url,.timeout=3,.redirects=2,.compressed=1,
-         .user_agent=mobile_agent,.allow_http=!strncmp(url,"http://",7)},body,SCRIPT_SOURCE+1);
+         .user_agent=mobile_agent,.cookie_jar=web_cookie_jar(),.allow_http=!strncmp(url,"http://",7)},body,SCRIPT_SOURCE+1);
     if(!ok) {
         free(body);JS_ThrowReferenceError(js,"Unable to load module");return NULL;
     }
@@ -264,13 +289,15 @@ static void script_eval(WebScript *script,const char *code,const char *name,int 
 }
 static const char dom_init[]=
 "((g)=>{"
-"const lookup=g._find,get=g._get,set=g._set,make=g._make,append=g._append,active=g._active,pull=g._fetch;"
+"const lookup=g._find,get=g._get,set=g._set,make=g._make,append=g._append,active=g._active,pull=g._fetch,cookie=g._cookie,navigate=g._navigate;"
 "const nodes=new Map(), events=new Map(); let ready=[], timers=[];"
 "const select=(s,p)=>lookup(s,p).map(wrap);"
 "function wrap(i){if(!i)return null;if(nodes.has(i))return nodes.get(i);"
 "const e={getAttribute:n=>get(i,n),setAttribute:(n,v)=>set(i,n,String(v)),"
 "removeAttribute:n=>set(i,n,null),hasAttribute:n=>get(i,n)!==null,"
-"querySelector:s=>select(s,i)[0]||null,querySelectorAll:s=>select(s,i),"
+"querySelector:s=>select(s,i)[0]||null,querySelectorAll:s=>select(s,i),matches:s=>select(s,0).includes(e),"
+"closest:s=>{for(let n=e;n;n=n.parentNode)if(n.matches(s))return n;return null;},"
+"get children(){return select('*',i).filter(n=>n.parentNode===e);},"
 "appendChild:n=>{if(n)append(i,n._key);return n;},"
 "addEventListener:(n,f)=>{if(['click','input','change','submit'].includes(n)&&typeof f==='function'){"
 "const k=i+':'+n,a=events.get(k)||[];if(a.length<24)a.push(f);events.set(k,a);if(n==='click')active(i);}},"
@@ -298,16 +325,35 @@ static const char dom_init[]=
 "getElementById:n=>select('#'+n,0)[0]||null,querySelector:n=>select(n,0)[0]||null,"
 "querySelectorAll:n=>select(n,0),getElementsByClassName:n=>select('.'+n,0),getElementsByTagName:n=>select(n,0),"
 "createElement:n=>wrap(make(String(n).toLowerCase())),readyState:'loading',"
+"get forms(){return select('form',0);},"
 "addEventListener:(n,f)=>{if(n==='DOMContentLoaded'&&typeof f==='function'&&ready.length<24)ready.push(f);}};"
 "g.window=g;g.self=g;g.innerWidth=g._viewportWidth;g.innerHeight=g._viewportHeight;"
 "const href=g._pageUrl;const m=href.match(/^(https?:)\\/\\/([^/?#]+)([^?#]*)(\\?[^#]*)?(#.*)?$/);"
-"g.location=m?{href,protocol:m[1],host:m[2],hostname:m[2].split(':')[0],"
-"origin:m[1]+'//'+m[2],pathname:m[3]||'/',search:m[4]||'',hash:m[5]||'',toString:()=>href}:{href};"
-"g.document.location=g.location;g.document.URL=href;"
+"const loc=m?{protocol:m[1],host:m[2],hostname:m[2].split(':')[0],"
+"origin:m[1]+'//'+m[2],pathname:m[3]||'/',search:m[4]||'',hash:m[5]||''}:{};"
+"loc.assign=loc.replace=v=>navigate(String(v));loc.toString=()=>href;"
+"Object.defineProperty(loc,'href',{get:()=>href,set:v=>navigate(String(v))});"
+"for(const target of [g,g.document])Object.defineProperty(target,'location',{get:()=>loc,set:v=>navigate(String(v))});"
+"g.document.URL=href;Object.defineProperty(g.document,'cookie',{get:()=>cookie(),set:v=>cookie(String(v))});"
+"function storage(){const data=new Map();return {get length(){return data.size;},"
+"getItem:k=>data.get(String(k))??null,setItem:(k,v)=>{if(data.size<64)data.set(String(k),String(v));},"
+"removeItem:k=>data.delete(String(k)),clear:()=>data.clear(),key:i=>[...data.keys()][i]??null};}"
+"g.sessionStorage=storage();g.localStorage=storage();"
+"g.document.hidden=false;g.document.removeEventListener=()=>{};g.removeEventListener=()=>{};"
 "Object.defineProperty(g.document,'title',{get:()=>select('title',0)[0]?.textContent||'',"
 "set:v=>{const el=select('title',0)[0];if(el)el.textContent=String(v);}});"
 "g.navigator={userAgent:g._userAgent,language:g._language,onLine:true,maxTouchPoints:1};"
-"g.performance={now:()=>Date.now()};"
+"const started=Date.now();g.performance={now:()=>Date.now()-started,timeOrigin:started};"
+"g.navigator.sendBeacon=()=>false;"
+"const digits='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';"
+"g.btoa=v=>{const s=String(v);let out='';for(let i=0;i<s.length;i+=3){"
+"const a=s.charCodeAt(i),b=s.charCodeAt(i+1)|0,c=s.charCodeAt(i+2)|0;"
+"if(a>255||b>255||c>255)throw new TypeError('Invalid character');"
+"out+=digits[a>>2]+digits[((a&3)<<4)|(b>>4)]+(i+1<s.length?digits[((b&15)<<2)|(c>>6)]:'=')+"
+"(i+2<s.length?digits[c&63]:'=');}return out;};"
+"g.atob=v=>{const s=String(v).replace(/\\s/g,'').replace(/=+$/,'');let out='',bits=0,n=0;"
+"for(const c of s){const x=digits.indexOf(c);if(x<0)throw new TypeError('Invalid base64');"
+"n=(n<<6)|x;bits+=6;if(bits>=8){bits-=8;out+=String.fromCharCode((n>>bits)&255);}}return out;};"
 "g.Event=class{constructor(type,opts={}){this.type=type;this.bubbles=!!opts.bubbles;this.defaultPrevented=false;}"
 "preventDefault(){this.defaultPrevented=true;}};"
 "g.CustomEvent=class extends g.Event{constructor(type,opts={}){super(type,opts);this.detail=opts.detail;}};"
@@ -322,9 +368,11 @@ static const char dom_init[]=
 "g.clearTimeout=i=>{if(i>0&&i<=timers.length)timers[i-1]=null;};"
 "g.requestAnimationFrame=f=>g.setTimeout(()=>f(0),0);"
 "g._drain=()=>{const list=timers;timers=[];for(const f of list)if(f)try{f()}catch(_){};};"
-"g._ready=()=>{document.readyState='complete';for(const f of ready)try{f.call(document)}catch(_){};ready=[];};"
+"g.document.createEvent=()=>({initEvent(type,bubbles,cancelable){Object.assign(this,{type,bubbles,cancelable});}});"
+"g._ready=()=>{document.readyState='complete';for(const f of ready)try{f.call(document)}catch(_){};ready=[];"
+"if(typeof g.onload==='function')try{g.onload()}catch(_){};};"
 "g._click=dispatch;"
-"for(const n of ['_find','_get','_set','_make','_append','_active','_fetch','_pageUrl','_userAgent','_language','_viewportWidth','_viewportHeight'])delete g[n];"
+"for(const n of ['_find','_get','_set','_make','_append','_active','_fetch','_pageUrl','_userAgent','_language','_viewportWidth','_viewportHeight','_cookie','_navigate'])delete g[n];"
 "})(globalThis);";
 
 static void script_tree(WebScript *script,MarkupNode *node,const char *base) {
@@ -341,7 +389,7 @@ static void script_tree(WebScript *script,MarkupNode *node,const char *base) {
                    !web_resource_url(base,node->attribute[6],url))continue;
                 script->remote_count++;
                 char *body=malloc(SCRIPT_SOURCE+1);
-                if(body && lumen_http_text((LumenHttpRequest){.url=url,.timeout=3,.redirects=2,.compressed=1,.user_agent=mobile_agent,
+                if(body && lumen_http_text((LumenHttpRequest){.url=url,.timeout=3,.redirects=2,.compressed=1,.user_agent=mobile_agent,.cookie_jar=web_cookie_jar(),
                         .allow_http=!strncmp(url,"http://",7)},body,SCRIPT_SOURCE+1)) {
                     script->deadline=script_time()+180;
                     script_eval(script,body,url,module ? JS_EVAL_TYPE_MODULE : JS_EVAL_TYPE_GLOBAL);
@@ -388,36 +436,40 @@ static const MarkupNode *form_owner(const MarkupNode *node) {
         if(node->tag && !strcmp(node->tag,"form"))return node;
     return NULL;
 }
-static int form_parameters(MarkupNode *node,const MarkupNode *submit,char *out,size_t size,int *count) {
+static int form_parameters(MarkupNode *node,const MarkupNode *submit,char *out,size_t size,int *count,int post) {
     for(;node;node=node->next) {
         if(node->tag && node->attribute[ATTR_NAME] && !node->attribute[ATTR_DISABLED]) {
             const char *type=node->attribute[8];
             if(form_editable(node) || node==submit || (!strcmp(node->tag,"input") && type && !strcasecmp(type,"hidden"))) {
-                char name[128],value[WEB_FIELD_TEXT*3];
+                char name[256],value[4096];
                 if(!lumen_url_encode(node->attribute[ATTR_NAME],name,sizeof(name)) ||
                    !lumen_url_encode(node->attribute[10] ? node->attribute[10] : "",value,sizeof(value)))return 0;
                 size_t used=strlen(out);
-                int bytes=snprintf(out+used,size-used,"%c%s=%s",*count ? '&' : '?',name,value);
+                const char *separator=*count ? "&" : post ? "" : "?";
+                int bytes=snprintf(out+used,size-used,"%s%s=%s",separator,name,value);
                 if(bytes<0 || bytes>=(int)(size-used))return 0;
                 (*count)++;
             }
         }
-        if(!form_parameters(node->child,submit,out,size,count))return 0;
+        if(!form_parameters(node->child,submit,out,size,count,post))return 0;
     }
     return 1;
 }
-static void form_target(const char *base,MarkupNode *submit,char out[WEB_URL]) {
+static void form_target(const char *base,MarkupNode *submit,char out[WEB_URL],char body[WEB_POST]) {
     const MarkupNode *form=form_owner(submit);
     if(!form)return;
     const char *method=form->attribute[ATTR_METHOD];
-    if(method && *method && strcasecmp(method,"get"))return;
+    int post=method && !strcasecmp(method,"post");
+    if(method && *method && !post && strcasecmp(method,"get"))return;
     const char *action=submit->attribute[ATTR_FORM_ACTION];
     if(!action)action=form->attribute[ATTR_ACTION];
     if(action && *action) {if(!url_join(base,action,out))return;}
     else snprintf(out,WEB_URL,"%s",base);
-    out[strcspn(out,"?#")]=0;
+    out[strcspn(out,post ? "#" : "?#")]=0;
     int count=0;
-    if(!form_parameters(form->child,submit,out,WEB_URL,&count))*out=0;
+    *body=0;
+    if(!form_parameters(form->child,submit,post ? body : out,post ? WEB_POST : WEB_URL,&count,post))
+        *out=*body=0;
 }
 static int script_event(WebScript *script,JSValue dispatch,int id,const char *event) {
     JSContext *js=script->context;
@@ -428,10 +480,10 @@ static int script_event(WebScript *script,JSValue dispatch,int id,const char *ev
     JS_FreeValue(js,args[1]);JS_FreeValue(js,result);
     return allowed;
 }
-static WebScript *script_run(MarkupNode *root,const char *base,const WebAction *actions,int count,int64_t network_end,char next_url[WEB_URL]) {
+static WebScript *script_run(MarkupNode *root,const char *base,const WebAction *actions,int count,int64_t network_end,char next_url[WEB_URL],char post[WEB_POST]) {
     WebScript *script=calloc(1,sizeof(*script));
     if(!script)return NULL;
-    script->network_end=network_end;script->base=base;
+    script->network_end=network_end;script->base=base;script->navigation=next_url;
     script_index_tree(script,root);
     JSRuntime *runtime=JS_NewRuntime();
     if(!runtime)return script;
@@ -447,7 +499,7 @@ static WebScript *script_run(MarkupNode *root,const char *base,const WebAction *
         const struct {const char *name;JSCFunction *call;int args;} bindings[]={
             {"_find",script_lookup,2},{"_get",script_get,2},{"_set",script_set,3},
             {"_make",script_create,1},{"_append",script_append,2},{"_active",script_clickable,1},
-            {"_fetch",script_fetch,1}
+            {"_fetch",script_fetch,1},{"_cookie",script_cookie,1},{"_navigate",script_navigate,1}
         };
         for(size_t i=0;i<sizeof(bindings)/sizeof(*bindings);i++)
             JS_SetPropertyStr(js,globals,bindings[i].name,JS_NewCFunction(js,bindings[i].call,bindings[i].name,bindings[i].args));
@@ -485,7 +537,7 @@ static WebScript *script_run(MarkupNode *root,const char *base,const WebAction *
                     submit=script_event(script,click,action->id,"click") && action->kind==WEB_SUBMIT;
                 if(submit) {
                     int form=script_index(script,(MarkupNode *)form_owner(node));
-                    if(form && script_event(script,click,form,"submit"))form_target(base,node,next_url);
+                    if(form && script_event(script,click,form,"submit"))form_target(base,node,next_url,post);
                 }
             }
             for(int pass=0;pass<2 && script_time()<deadline;pass++) {

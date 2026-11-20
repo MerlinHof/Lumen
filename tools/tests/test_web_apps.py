@@ -33,6 +33,14 @@ class Fixture(BaseHTTPRequestHandler):
         pass
 
     def do_POST(self):
+        if self.path=='/preferences':
+            request=self.rfile.read(int(self.headers['Content-Length'])).decode()
+            assert parse_qs(request)=={'state':['ready']},request
+            assert 'stage=ZG9uZQ==' in self.headers.get('Cookie','')
+            self.send_response(303)
+            self.send_header('Location','/finished')
+            self.end_headers()
+            return
         assert self.path=='/api/services/switch/toggle'
         assert self.headers.get('Authorization')=='Bearer fixture-token'
         body=self.rfile.read(int(self.headers['Content-Length']))
@@ -80,7 +88,16 @@ class Fixture(BaseHTTPRequestHandler):
             '/article/message.json': ('application/json', b'{"message":"Async update"}'),
             '/article/base.css': ('text/css', b'.story { color:#555; margin:20px; }'),
             '/article/next': ('text/html', b'<title>Next fixture</title><p>A second page.</p>'),
-            '/catalog': ('text/html', b'<title>Search results</title><p>Found a book.</p>'),
+            '/catalog': ('text/html', b'''<title>Following form</title><script>
+                document.cookie="stage="+btoa("done")+"; Path=/";
+                if(sessionStorage.getItem("seen")===null)sessionStorage.setItem("seen","1");
+                if(document.cookie.includes("stage=")&&sessionStorage.getItem("seen")==="1")
+                    location.replace("/receipt");
+                </script><noscript><meta http-equiv="refresh" content="0;url=/wrong"></noscript>'''),
+            '/receipt': ('text/html', b'<title>Search results</title><p>Found a book.</p>'
+                         b'<form action="/preferences" method="post"><input type="hidden" name="state" '
+                         b'value="ready"><button>Continue</button></form>'),
+            '/finished': ('text/html', b'<title>Submission complete</title>'),
             '/api/states': ('application/json', json.dumps([
                 dict(entity_id='sensor.room', state='23', attributes=dict(unit_of_measurement='C')),
                 dict(entity_id='sensor.mode', state='idle', attributes={}),
@@ -89,6 +106,8 @@ class Fixture(BaseHTTPRequestHandler):
         }
         if request.path=='/catalog':
             assert parse_qs(request.query)=={'q':['ink & paper'],'src':['book']}
+        if request.path=='/receipt':
+            assert 'stage=ZG9uZQ==' in self.headers.get('Cookie','')
         if request.path.startswith('/api/history/period/'):
             if self.headers.get('Authorization') != 'Bearer fixture-token':
                 self.send_error(401)
@@ -209,6 +228,8 @@ with ThreadingHTTPServer(('127.0.0.1',0),Fixture) as server, TemporaryDirectory(
         assert 'ink &amp; paper' in (browser/'browser-1.html').read_text()
         app.click('link:4')
         app.wait(lambda ui: label(ui,'Search results'))
+        app.click('link:0')
+        app.wait(lambda ui: label(ui,'Submission complete'))
     finally:
         app.close()
     print('PASS standalone Browser renders HTML and CSS, runs JavaScript and responsive layout, follows redirects and keeps navigation history.')

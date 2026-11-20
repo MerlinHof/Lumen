@@ -10,6 +10,7 @@
 #include <iterator>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -362,9 +363,17 @@ extern "C" int web_engine_render(const char *html,const char *raster,int page,in
         if(std::fclose(file) || !written)return 0;
         std::fprintf(metadata,"%d\n",pages);
         int emitted=0;
+        std::set<std::string> emitted_controls;
+        bool missing_control=false;
         for(const auto &anchor:doc->root()->select_all("a[href]")) {
             const char *uri=anchor->get_attr("href");
-            if(!uri || strpbrk(uri,"\r\n\t") || std::strlen(uri)>1023 || !anchor->get_render_item())continue;
+            if(!uri || strpbrk(uri,"\r\n\t") || std::strlen(uri)>1023)continue;
+            const bool control=!std::strncmp(uri,"lumen-",6);
+            auto item=anchor->get_render_item();
+            if(!item) {
+                missing_control=missing_control || control;
+                continue;
+            }
             std::string jump;
             if(*uri=='#') {
                 for(const auto &target:doc->root()->select_all("[id]")) {
@@ -379,7 +388,8 @@ extern "C" int web_engine_render(const char *html,const char *raster,int page,in
                 uri=jump.c_str();
             }
             position::vector boxes;
-            anchor->get_render_item()->get_rendering_boxes(boxes);
+            item->get_rendering_boxes(boxes);
+            bool covered=false;
             for(const auto &box:boxes) {
                 if(!std::isfinite(box.left()) || !std::isfinite(box.right()) ||
                    !std::isfinite(box.top()) || !std::isfinite(box.bottom()))continue;
@@ -390,7 +400,37 @@ extern "C" int web_engine_render(const char *html,const char *raster,int page,in
                 if(emitted<64 && x<right && y<bottom) {
                     std::fprintf(metadata,"%d\t%d\t%d\t%d\t%s\n",x,y,right,bottom,uri);
                     emitted++;
+                    covered=true;
                 }
+            }
+            if(control) {
+                if(covered)emitted_controls.emplace(uri);
+                else missing_control=true;
+            }
+        }
+        if(missing_control && emitted<64) {
+            struct Hit {int x0,y0,x1,y1;};
+            std::map<std::string,Hit> hits;
+            /* Inline controls inside positioned wrappers can have no independent
+               boxes. Ask the same layout tree that receives pointer events. */
+            for(int y=7;y<height;y+=15)for(int x=7;x<width;x+=15) {
+                auto element=doc->root_render()->get_element_by_point(x,y+page*step,x,y,nullptr);
+                while(element && !element->get_attr("href"))element=element->parent();
+                const char *url=element ? element->get_attr("href") : nullptr;
+                if(!url || std::strncmp(url,"lumen-",6) || emitted_controls.count(url))continue;
+                auto [where,inserted]=hits.try_emplace(url,Hit{x,y,x,y});
+                if(!inserted) {
+                    auto &hit=where->second;
+                    hit.x0=std::min(hit.x0,x);hit.y0=std::min(hit.y0,y);
+                    hit.x1=std::max(hit.x1,x);hit.y1=std::max(hit.y1,y);
+                }
+            }
+            for(const auto &[url,hit]:hits) {
+                if(emitted==64)break;
+                std::fprintf(metadata,"%d\t%d\t%d\t%d\t%s\n",
+                    std::max(0,hit.x0-7),std::max(0,hit.y0-7),
+                    std::min(width,hit.x1+8),std::min(height,hit.y1+8),url.c_str());
+                emitted++;
             }
         }
         return !std::ferror(metadata);

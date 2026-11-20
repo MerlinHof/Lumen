@@ -1,12 +1,12 @@
 /* Translate web documents to a static HTML subset with bounded local resources. */
 enum { WEB_URL=1024, WEB_BODY=2<<20, WEB_CSS=64<<10, WEB_IMAGE=256<<10 };
-static const char *const attributes[]={"href","rel","class","id","style","alt","src","onclick","type","hidden","value","media","name","action","method","placeholder","disabled","formaction","enctype","aria-label","title","oninput","onchange","onsubmit"};
+static const char *const attributes[]={"href","rel","class","id","style","alt","src","onclick","type","hidden","value","media","name","action","method","placeholder","disabled","formaction","http-equiv","aria-label","content","oninput","onchange","onsubmit","srcset","data-src","poster"};
 #define WEB_ATTRIBUTES (sizeof(attributes)/sizeof(attributes[0]))
-enum { ATTR_HREF=0, ATTR_NAME=12, ATTR_ACTION, ATTR_METHOD, ATTR_PLACEHOLDER, ATTR_DISABLED, ATTR_FORM_ACTION, ATTR_ENCTYPE, ATTR_ARIA_LABEL };
-enum { WEB_EDIT, WEB_CLICK, WEB_SUBMIT, WEB_SEARCH, WEB_FIELDS=40, WEB_FIELD_TEXT=256 };
+enum { ATTR_HREF=0, ATTR_NAME=12, ATTR_ACTION, ATTR_METHOD, ATTR_PLACEHOLDER, ATTR_DISABLED, ATTR_FORM_ACTION, ATTR_HTTP_EQUIV, ATTR_ARIA_LABEL, ATTR_CONTENT, ATTR_SRCSET=24, ATTR_LAZY_SRC, ATTR_POSTER };
+enum { WEB_EDIT, WEB_CLICK, WEB_SUBMIT, WEB_SEARCH, WEB_FIELDS=40, WEB_FIELD_TEXT=256,WEB_POST=8192 };
 typedef struct {int id,kind;char value[WEB_FIELD_TEXT];} WebAction;
 typedef struct {int id,submit;char label[80],value[WEB_FIELD_TEXT];} WebField;
-static const char mobile_agent[]="Mozilla/5.0 (Linux; Kindle; Mobile) LUMEN/7.4";
+static const char mobile_agent[]="Mozilla/5.0 (Linux; Kindle; Mobile) LUMEN/7.5";
 static int url_valid(const char *url) {
     if(strncmp(url,"http://",7) && strncmp(url,"https://",8))return 0;
     const char *host=strstr(url,"://")+3;
@@ -23,7 +23,7 @@ static int url_join(const char *base,const char *ref,char out[WEB_URL]) {
     const char *host=scheme+3;
     const char *path=host+strcspn(host,"/?#");
     int size;
-    if(strstr(ref,"://"))size=snprintf(out,WEB_URL,"%s",ref);
+    if(!strncmp(ref,"http://",7) || !strncmp(ref,"https://",8))size=snprintf(out,WEB_URL,"%s",ref);
     else if(!strncmp(ref,"//",2))size=snprintf(out,WEB_URL,"%.*s:%s",(int)(scheme-base),base,ref);
     else if(*ref=='/')size=snprintf(out,WEB_URL,"%.*s%s",(int)(path-base),base,ref);
     else if(*ref=='#')size=snprintf(out,WEB_URL,"%.*s%s",(int)strcspn(base,"#"),base,ref);
@@ -59,6 +59,7 @@ static int permitted(const char *s,size_t len,const char *const *set,size_t coun
     for(size_t i=0;i<count;i++)if(strlen(set[i])==len && !strncasecmp(s,set[i],len))return 1;
     return 0;
 }
+#include "cookies.h"
 #include "selector.h"
 #include "script.h"
 
@@ -127,7 +128,7 @@ static int web_image(FILE *out,const char *base,const char *src,const char *alt,
     if(!file)return 0;
     unsigned char *data=malloc(WEB_IMAGE);
     size_t length=0;
-    if(data && lumen_http_download((LumenHttpRequest){.url=url,.timeout=4,.redirects=3,.user_agent=mobile_agent,
+    if(data && lumen_http_download((LumenHttpRequest){.url=url,.timeout=4,.redirects=3,.user_agent=mobile_agent,.cookie_jar=web_cookie_jar(),
        .allow_http=!strncmp(url,"http://",7)},fileno(file),WEB_IMAGE))
         length=fread(data,1,WEB_IMAGE,file);
     fclose(file);
@@ -150,19 +151,70 @@ static int web_image(FILE *out,const char *base,const char *src,const char *alt,
     free(data);
     return valid;
 }
+static int safe_image_score(double pixels) {
+    if(!(pixels>0 && pixels<=20000))return 1000000;
+    int value=(int)pixels;
+    return value>=WEB_VIEW_WIDTH ? value-WEB_VIEW_WIDTH : 30000+WEB_VIEW_WIDTH-value;
+}
+static int web_embedded_image(FILE *out,const char *src,const char *alt) {
+    if(!src || (strncmp(src,"data:image/png;base64,",22) && strncmp(src,"data:image/jpeg;base64,",23)) ||
+       strlen(src)>WEB_IMAGE*4/3+64)return 0;
+    const char *encoded=strchr(src,',')+1;
+    if(strspn(encoded,"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=")!=strlen(encoded))return 0;
+    fputs("<img src=\"",out);web_escape(out,src);
+    fputs("\" alt=\"",out);if(alt)web_escape(out,alt);fputs("\">",out);
+    return 1;
+}
+static const char *image_source(const MarkupNode *node,char chosen[WEB_URL]) {
+    const char *src=node->attribute[6],*set=node->attribute[ATTR_SRCSET];
+    if(set && strncmp(set,"data:",5)) {
+        int score=1000000;
+        for(const char *at=set;*at;) {
+            at+=strspn(at," \t\r\n,");
+            const char *end=at+strcspn(at," \t\r\n,");
+            const char *value=end+strspn(end," \t\r\n");
+            const char *comma=strchr(value,',');
+            char *unit;
+            double size=strtod(value,&unit);
+            if(unit==value)size=WEB_VIEW_WIDTH;
+            else if(*unit=='x')size*=WEB_VIEW_WIDTH;
+            int quality=safe_image_score(size);
+            size_t n=(size_t)(end-at);
+            if(n && n<WEB_URL && quality<score) {
+                score=quality;
+                snprintf(chosen,WEB_URL,"%.*s",(int)n,at);
+            }
+            if(!comma)break;
+            at=comma+1;
+        }
+        if(*chosen)return chosen;
+    }
+    if((!src || !*src || !strncmp(src,"data:",5)) && node->attribute[ATTR_LAZY_SRC])
+        return node->attribute[ATTR_LAZY_SRC];
+    return src;
+}
 static void web_content(FILE *out,MarkupNode *node,const char *base,int *images,
                         const WebScript *script) {
     static const char *const allowed[]={"a","body","article","form","label","aside","b","blockquote","br","code","dd","div","dl","dt",
         "em","footer","h1","h2","h3","h4","h5","h6","header","hr","i","li","main","nav","ol","p","pre",
         "section","small","span","strong","sub","sup","table","tbody","td","th","thead","tr","u","ul"};
     static const char *const omit[]={"head","script","style","template","svg","math","iframe","video",
-        "audio","select"};
+        "audio","select","noscript"};
     for(;node;node=node->next) {
         if(node->text){web_escape(out,node->text);continue;}
         const char *tag=node->tag;
-        if(!tag || node->attribute[9] || permitted(tag,strlen(tag),omit,sizeof(omit)/sizeof(*omit)))continue;
+        if(!tag || node->attribute[9])continue;
+        if(!strcmp(tag,"video")) {
+            web_image(out,base,node->attribute[ATTR_POSTER],node->attribute[ATTR_ARIA_LABEL],images,
+                      script ? script->network_end : 0);
+            continue;
+        }
+        if(permitted(tag,strlen(tag),omit,sizeof(omit)/sizeof(*omit)))continue;
         if(!strcmp(tag,"img")) {
-            if(!web_image(out,base,node->attribute[6],node->attribute[5],images,script ? script->network_end : 0) &&
+            char chosen[WEB_URL]="";
+            const char *src=image_source(node,chosen);
+            if(!web_embedded_image(out,src,node->attribute[5]) &&
+               !web_image(out,base,src,node->attribute[5],images,script ? script->network_end : 0) &&
                node->attribute[5] && *node->attribute[5]) {
                 fputs("<span>[",out);web_escape(out,node->attribute[5]);fputs("]</span>",out);
             }
@@ -220,14 +272,44 @@ static void web_content(FILE *out,MarkupNode *node,const char *base,int *images,
         if(control && strcmp(tag,"a"))fputs("</a>",out);
     }
 }
+static int web_meta_refresh(MarkupNode *node,const char *base,char next[WEB_URL]) {
+    for(;node;node=node->next) {
+        if(!node->tag || !strcmp(node->tag,"noscript") || !strcmp(node->tag,"body"))continue;
+        if(!strcmp(node->tag,"meta") && node->attribute[ATTR_HTTP_EQUIV] &&
+           !strcasecmp(node->attribute[ATTR_HTTP_EQUIV],"refresh") && node->attribute[ATTR_CONTENT]) {
+            char *end;
+            double delay=strtod(node->attribute[ATTR_CONTENT],&end);
+            if(end!=node->attribute[ATTR_CONTENT] && delay>=0 && delay<=1) {
+                end+=strspn(end," \t;");
+                if(!strncasecmp(end,"url",3)) {
+                    end+=3;end+=strspn(end," \t");
+                    if(*end++=='=') {
+                        end+=strspn(end," \t");
+                        size_t n=strlen(end);
+                        char ref[WEB_URL];
+                        if(n>2 && (*end=='"' || *end=='\'') && end[n-1]==*end){end++;n-=2;}
+                        if(n && n<sizeof(ref)) {
+                            snprintf(ref,sizeof(ref),"%.*s",(int)n,end);
+                            if(web_resource_url(base,ref,next))return 1;
+                            *next=0;
+                        }
+                    }
+                }
+            }
+        }
+        if(web_meta_refresh(node->child,base,next))return 1;
+    }
+    return 0;
+}
 static int web_document(const char *source,const char *clean,const char *url,char title[128],const WebAction *actions,int count,
-                        WebField fields[WEB_FIELDS],int *field_count,char next_url[WEB_URL]) {
+                        WebField fields[WEB_FIELDS],int *field_count,char next_url[WEB_URL],char post[WEB_POST]) {
     MarkupNode *root=markup_load(source,1,attributes,WEB_ATTRIBUTES);
     if(!root)return 0;
     FILE *out=fopen(clean,"wb");
     if(!out){markup_free(root);return 0;}
     const int64_t network_end=script_time()+7500;
-    WebScript *script=script_run(root,url,actions,count,network_end,next_url);
+    WebScript *script=script_run(root,url,actions,count,network_end,next_url,post);
+    if(!*next_url && !count)web_meta_refresh(root,url,next_url);
     if(script)for(int i=1;i<=script->count && *field_count<WEB_FIELDS;i++) {
         MarkupNode *node=script->nodes[i];
         if(!form_editable(node) || !script_visible(node))continue;
@@ -237,7 +319,7 @@ static int web_document(const char *source,const char *clean,const char *url,cha
         const MarkupNode *form=form_owner(node);
         const char *method=form ? form->attribute[ATTR_METHOD] : NULL;
         const char *type=node->attribute[8];
-        field->submit=form && (!method || !*method || !strcasecmp(method,"get")) &&
+        field->submit=form && (!method || !*method || !strcasecmp(method,"get") || !strcasecmp(method,"post")) &&
             ((type && !strcasecmp(type,"search")) || form_field_count(form->child)==1);
         if(!label || !*label)label=node->attribute[ATTR_ARIA_LABEL];
         if(!label || !*label)label="Enter text";

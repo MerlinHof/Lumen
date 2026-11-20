@@ -1,9 +1,42 @@
 /* Bounded selector matching for the JavaScript DOM bridge. */
 enum { WEB_VIEW_WIDTH=584, WEB_VIEW_HEIGHT=686 };
 
+static int selector_attribute(const MarkupNode *node,const char *at,const char *end) {
+    const char *name=at;
+    while(at<end && (isalnum((unsigned char)*at) || *at=='-' || *at=='_'))at++;
+    size_t length=(size_t)(at-name);
+    if(!length)return 0;
+    const char *value=NULL;
+    for(size_t i=0;i<WEB_ATTRIBUTES;i++)if(strlen(attributes[i])==length && !memcmp(attributes[i],name,length)) {
+        value=node->attribute[i];break;
+    }
+    if(!value)return 0;
+    while(at<end && isspace((unsigned char)*at))at++;
+    if(at==end)return 1;
+    char op=*at=='=' ? 0 : *at++;
+    if(at==end || *at++!='=')return 0;
+    while(at<end && isspace((unsigned char)*at))at++;
+    while(end>at && isspace((unsigned char)end[-1]))end--;
+    if(end-at>=2 && (*at=='"' || *at=='\'') && end[-1]==*at){at++;end--;}
+    size_t n=(size_t)(end-at),size=strlen(value);
+    if(n>size)return 0;
+    if(!op)return n==size && !memcmp(value,at,n);
+    if(op=='^')return !memcmp(value,at,n);
+    if(op=='$')return !memcmp(value+size-n,at,n);
+    if(op=='*') {
+        for(size_t i=0;i+n<=size;i++)if(!memcmp(value+i,at,n))return 1;
+    }
+    return 0;
+}
 static int simple_match(const MarkupNode *node,const char *p,const char *end) {
     if(!node || !node->tag || p==end)return 0;
     while(p<end) {
+        if(*p=='[') {
+            p++;
+            const char *right=memchr(p,']',(size_t)(end-p));
+            if(!right || !selector_attribute(node,p,right))return 0;
+            p=right+1;continue;
+        }
         char kind=*p=='.' || *p=='#' ? *p++ : 0;
         const char *part=p;
         while(p<end && (isalnum((unsigned char)*p) || *p=='-' || *p=='_' || *p=='*'))p++;
@@ -31,7 +64,14 @@ static int selector_match(const MarkupNode *node,const char *start,const char *e
     --*budget;
     while(end>start && isspace((unsigned char)end[-1]))end--;
     const char *p=end;
-    while(p>start && !isspace((unsigned char)p[-1]) && p[-1]!='>')p--;
+    int attribute=0;
+    while(p>start) {
+        char c=p[-1];
+        if(c==']')attribute++;
+        else if(c=='[' && attribute)attribute--;
+        else if(!attribute && (isspace((unsigned char)c) || c=='>'))break;
+        p--;
+    }
     if(!simple_match(node,p,end))return 0;
     while(p>start && isspace((unsigned char)p[-1]))p--;
     if(p==start)return 1;

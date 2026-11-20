@@ -386,6 +386,9 @@ pass `LumenHttpRequest` to `lumen_http_text` and set `bearer` and, for POST,
 `json`. Credentials and request bodies go through a private stream.
 Authenticated requests do not follow redirects. Plain HTTP is opt-in for
 local or user-configured servers. Use `lumen_url_encode` for query values.
+For web forms, set `form_post` to the URL-encoded form body. To maintain an
+HTTP session, set `cookie_jar` to the absolute path of a private app-data
+file. The transport reads and updates that jar across requests.
 
 `lumen_http_download` writes a bounded response to an empty private file
 descriptor. The caller owns the file and commits it only on success.

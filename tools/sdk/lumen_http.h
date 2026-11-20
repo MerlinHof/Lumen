@@ -20,6 +20,7 @@ typedef struct {
     const char *url;
     const char *bearer;
     const char *json;
+    const char *form_post;
     int timeout;
     int connect_timeout;
     int redirects;
@@ -28,6 +29,7 @@ typedef struct {
     int report_url;
     int redirect_target;
     const char *user_agent;
+    const char *cookie_jar;
 } LumenHttpRequest;
 
 static inline int lumen_url_encode(const char *value,char *output,size_t capacity) {
@@ -72,13 +74,17 @@ static inline pid_t lumen_http_start(LumenHttpRequest request,int output,size_t 
        request.redirects<0 || request.redirects>8 ||
        (strncmp(url,"https://",8) && (!request.allow_http || strncmp(url,"http://",7))))return -1;
     if((request.user_agent && (strlen(request.user_agent)>256 || strpbrk(request.user_agent,"\r\n"))) ||
-       (request.redirect_target && (request.bearer || request.json || request.redirects || request.report_url)))
+       (request.redirect_target && (request.bearer || request.json || request.form_post || request.redirects || request.report_url)))
         return -1;
+    if(request.cookie_jar && (request.bearer || request.redirect_target ||
+       request.cookie_jar[0]!='/' || strpbrk(request.cookie_jar,"\r\n")))return -1;
+    if(request.form_post && (request.json || strlen(request.form_post)>8191 ||
+       *request.form_post=='@' || strpbrk(request.form_post,"\r\n")))return -1;
     int secured=request.bearer!=NULL;
     if(secured && (!*request.bearer || strpbrk(request.bearer,"\r\n\t \"\\") ||
                    request.redirects))return -1;
     FILE *config=NULL;
-    if(secured || request.json) {
+    if(secured || request.json || request.form_post) {
         config=tmpfile();
         if(!config)return -1;
         int ok=!secured || (fputs("header = \"Authorization: Bearer ",config)>=0 &&
@@ -91,6 +97,9 @@ static inline pid_t lumen_http_start(LumenHttpRequest request,int output,size_t 
                fputs("header = \"Content-Type: application/json\"\ndata-binary = \"",config)>=0 &&
                lumen_http_quote(config,body);
         }
+        if(ok && request.form_post)
+            ok=fputs("header = \"Content-Type: application/x-www-form-urlencoded\"\ndata-binary = \"",config)>=0 &&
+               lumen_http_quote(config,request.form_post);
         if(!ok || fflush(config) || fseek(config,0,SEEK_SET)){fclose(config);return -1;}
     }
     char seconds[16],connect[16],bytes[24],redirects[8];
@@ -107,6 +116,10 @@ static inline pid_t lumen_http_start(LumenHttpRequest request,int output,size_t 
     if(config){args[count++]="--config";args[count++]="-";}
     if(request.redirects){args[count++]="--location";args[count++]="--max-redirs";args[count++]=redirects;}
     if(request.compressed)args[count++]="--compressed";
+    if(request.cookie_jar) {
+        args[count++]="--cookie";args[count++]=request.cookie_jar;
+        args[count++]="--cookie-jar";args[count++]=request.cookie_jar;
+    }
     if(request.report_url) {
         args[count++]="--write-out";
         args[count++]="\nLUMEN-EFFECTIVE-URL:%{url_effective}\n";

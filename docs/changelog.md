@@ -1,5 +1,7 @@
 # Changelog
 
+- [7.5](releases/7.5.md) · Browser navigation, cookies, POST forms and responsive images, plus smoother Library progress rings.
+
 - [7.4](releases/7.4.md) · On-device litehtml Browser with native CSS layout, stylesheet caching, and JavaScript modules.
 
 - [7.3](releases/7.3.md) · Compact Browser with web forms, Library progress rows, Reader mentions, and live Home Assistant history.

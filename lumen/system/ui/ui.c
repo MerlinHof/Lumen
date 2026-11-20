@@ -639,6 +639,37 @@ static void aa_arc_color(int cx, int cy, int r, int start, int end, int thicknes
             blend_pixel(cx + dx, cy + dy, alpha, color);
         }
 }
+/* Supersample the ring and rounded ends as one shape, then blend once. */
+static void aa_progress_ring(int cx,int cy,int radius,int percent) {
+    enum { SAMPLES=4, UNIT=8 };
+    const float radians=(float)percent*6.28318530718f/100.f;
+    const int end_x=(int)lroundf(radius*UNIT*sinf(radians));
+    const int end_y=-(int)lroundf(radius*UNIT*cosf(radians));
+    const int inner=(radius-2)*UNIT,outer=(radius+2)*UNIT,cap=2*UNIT;
+    const int limit=radius+3;
+    for(int y=-limit;y<=limit;y++)for(int x=-limit;x<=limit;x++) {
+        int distance=x*x+y*y;
+        if(distance<(radius-3)*(radius-3) || distance>(radius+3)*(radius+3))continue;
+        int coverage=0,ink=0;
+        for(int row=0;row<SAMPLES;row++)for(int col=0;col<SAMPLES;col++) {
+            int sx=x*UNIT+2*col+1-UNIT/2,sy=y*UNIT+2*row+1-UNIT/2;
+            int squared=sx*sx+sy*sy;
+            int within=squared>=inner*inner && squared<=outer*outer;
+            int filled=0;
+            if(percent) {
+                int cross=sx*end_y-sy*end_x;
+                int angle=percent==100 || (percent<=50 ? sx>=0 && cross>=0 : sx>=0 || cross>=0);
+                int a=sy+radius*UNIT,dx=sx-end_x,dy=sy-end_y;
+                filled=(within && angle) || sx*sx+a*a<=cap*cap || dx*dx+dy*dy<=cap*cap;
+            }
+            ink+=filled;coverage+=within || filled;
+        }
+        if(coverage) {
+            int tone=218*(coverage-ink)/coverage;
+            blend_pixel(cx+x,cy+y,(float)coverage/(SAMPLES*SAMPLES),tone);
+        }
+    }
+}
 static void aa_arc(int cx, int cy, int r, int start, int end, int thickness) {
     aa_arc_color(cx, cy, r, start, end, thickness, 0);
 }

@@ -18,16 +18,16 @@ typedef struct {
     WebLink link[WEB_LINKS];
     int field_count;
     WebField fields[WEB_FIELDS];
-    char next_url[WEB_URL];
+    char next_url[WEB_URL],post[WEB_POST];
 } WebPage;
 static WebPage displayed;
-static char history[WEB_HISTORY][WEB_URL],requested[WEB_URL];
+static char history[WEB_HISTORY][WEB_URL],requested[WEB_URL],requested_body[WEB_POST];
 static int history_count,history_at=-1,history_target;
 static int document_slot=-1,raster_slot=1,work_document,work_raster,work_page;
 enum {WEB_PAGE, WEB_NAVIGATE, WEB_SCRIPT};
 static int operation,error,source_slot=-1,work_source;
 static WebAction actions[WEB_ACTIONS],work_action;
-static int action_count,editing,edit_submit;
+static int action_count,editing,edit_submit,redirect_chain;
 static pid_t worker;
 
 static const char *word(const char *de,const char *en,const char *fr) {
@@ -136,17 +136,17 @@ static int render(const char *html,const char *raster,int page,WebPage *result) 
     qsort(result->link,(size_t)result->links,sizeof(result->link[0]),compare_link);
     return valid;
 }
-static int download_page(const char *url,const char *name,WebPage *result) {
+static int download_page(const char *url,const char *form,const char *name,WebPage *result) {
     char *body=malloc(WEB_BODY+WEB_URL+48);
     if(!body)return 0;
-    int ok=lumen_http_page((LumenHttpRequest){.url=url,.redirects=5,.timeout=18,.compressed=1,.user_agent=mobile_agent,
+    int ok=lumen_http_page((LumenHttpRequest){.url=url,.form_post=form,.redirects=5,.timeout=18,.compressed=1,.user_agent=mobile_agent,.cookie_jar=web_cookie_jar(),
         .allow_http=!strncmp(url,"http://",7)},body,WEB_BODY+WEB_URL+48,result->url,sizeof(result->url))==LUMEN_HTTP_OK &&
         url_valid(result->url) && *body && strlen(body)<=WEB_BODY &&
         lumen_storage_write(name,body,strlen(body));
     free(body);
     return ok;
 }
-static int begin(int kind,int page,const char *url,int target) {
+static int begin_request(int kind,int page,const char *url,int target,const char *body) {
     if(worker>0)return 0;
     if(kind==WEB_NAVIGATE ? !url_valid(url) : document_slot<0 || page<0 || page>=displayed.pages)return 0;
     if(kind==WEB_SCRIPT && (work_action.id<1 || work_action.id>=SCRIPT_NODES || action_count==WEB_ACTIONS))return 0;
@@ -154,7 +154,10 @@ static int begin(int kind,int page,const char *url,int target) {
     work_source=kind==WEB_NAVIGATE ? (source_slot==0 ? 1 : 0) : source_slot;
     work_raster=1-raster_slot;work_page=page;operation=kind;error=0;
     history_target=target;
-    if(kind==WEB_NAVIGATE)snprintf(requested,sizeof(requested),"%s",url);
+    if(kind==WEB_NAVIGATE) {
+        snprintf(requested,sizeof(requested),"%s",url);
+        snprintf(requested_body,sizeof(requested_body),"%s",body ? body : "");
+    }
     worker=lumen_worker_start();
     if(worker<0){worker=0;error=1;return 0;}
     if(!worker) {
@@ -174,7 +177,7 @@ static int begin(int kind,int page,const char *url,int target) {
                 char cached[32];stylesheet_name(cached,render_cache_slot,i);
                 lumen_storage_delete(cached);
             }
-            ok=ok && download_page(requested,source_name,result);
+            ok=ok && download_page(requested,body ? requested_body : NULL,source_name,result);
         }
         else {
             snprintf(result->title,sizeof(result->title),"%s",displayed.title);
@@ -185,7 +188,7 @@ static int begin(int kind,int page,const char *url,int target) {
             if(kind==WEB_SCRIPT){actions[action_count]=work_action;replay=action_count+1;}
             *result->title=0;
             ok=ok && web_document(source,html,result->url,result->title,actions,replay,
-                                  result->fields,&result->field_count,result->next_url);
+                                  result->fields,&result->field_count,result->next_url,result->post);
             if(!*result->title)snprintf(result->title,sizeof(result->title),"%.127s",result->url);
         }
         if(kind==WEB_PAGE) {
@@ -197,6 +200,9 @@ static int begin(int kind,int page,const char *url,int target) {
         free(result);_exit(ok ? 0 : 1);
     }
     return 1;
+}
+static int begin(int kind,int page,const char *url,int target) {
+    return begin_request(kind,page,url,target,NULL);
 }
 static void commit_navigation(void) {
     if(history_target>=0)history_at=history_target;
@@ -220,8 +226,9 @@ static void poll_worker(void) {
         next->page==work_page && (*next->next_url || next->pages>work_page);
     if(ok && *next->next_url) {
         char url[WEB_URL];snprintf(url,sizeof(url),"%s",next->next_url);
-        lumen_storage_delete("browser-result.bin");free(next);
-        if(!begin(WEB_NAVIGATE,0,url,-1))error=1;
+        lumen_storage_delete("browser-result.bin");
+        if(++redirect_chain>5 || !begin_request(WEB_NAVIGATE,0,url,-1,*next->post ? next->post : NULL))error=1;
+        free(next);
         return;
     }
     if(ok) {
@@ -287,8 +294,9 @@ static int input(const Input *in) {
     if(in->kind==INPUT_TICK || in->kind==INPUT_RESUME || in->kind==INPUT_REFRESH) {
         poll_worker();return 1;
     }
-    if(in->kind==INPUT_TEXT && in->x==1){address_input();return 1;}
+    if(in->kind==INPUT_TEXT && in->x==1){redirect_chain=0;address_input();return 1;}
     if(in->kind==INPUT_TEXT && in->x==2 && editing) {
+        redirect_chain=0;
         work_action=(WebAction){.id=editing,.kind=edit_submit ? WEB_SEARCH : WEB_EDIT};
         editing=0;
         if(lumen_string("text",work_action.value,sizeof(work_action.value)))
@@ -302,6 +310,7 @@ static int input(const Input *in) {
     if(in->kind==INPUT_PAGE){begin(WEB_PAGE,in->x,NULL,-1);return 1;}
     char action[64];
     if(!lumen_action(in,action,"clicked"))return 0;
+    redirect_chain=0;
     if(!strcmp(action,"stop"))lumen_worker_cancel(&worker);
     else if(!strcmp(action,"address") && !worker)
         lumen_request("input",word("Webadresse","Web address","Adresse web"),*displayed.url ? displayed.url : requested,1);
@@ -332,6 +341,7 @@ static int input(const Input *in) {
     return 1;
 }
 int main(void) {
+    umask(077);
     lumen_run(draw,input,NULL);
     lumen_worker_cancel(&worker);
     return 0;

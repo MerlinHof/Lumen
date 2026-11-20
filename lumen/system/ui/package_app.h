@@ -709,16 +709,7 @@ static void package_paint_frame_mode(const char *text,int mode) {
                y-radius>=STATUS_HEIGHT && y+radius<HEIGHT) {
                 if(value<0)value=0;
                 if(value>100)value=100;
-                aa_arc_color(x,y,radius,0,360,4,218);
-                if(value==100)aa_arc_color(x,y,radius,0,360,4,0);
-                else if(value) {
-                    int end=270+value*360/100;
-                    aa_arc_color(x,y,radius,270,end<360 ? end : 360,4,0);
-                    if(end>360)aa_arc_color(x,y,radius,0,end-360,4,0);
-                    double angle=end*3.141592653589793/180;
-                    aa_disc(x,y-radius,2,0);
-                    aa_disc(x+(int)lround(radius*cos(angle)),y+(int)lround(radius*sin(angle)),2,0);
-                }
+                aa_progress_ring(x,y,radius,value);
                 char percent[8];snprintf(percent,sizeof(percent),"%d%%",value);
                 type_centered(x-radius,y-radius,2*radius,2*radius,percent,UI_SECONDARY);
             }
