@@ -14,7 +14,7 @@ void engine_close(void);
 void engine_shutdown(void);
 int engine_count(void);
 enum { DOCUMENT_MENTION_LIMIT=24 };
-typedef struct {int page,offset,length;char quote[560];} DocumentMention;
+typedef struct {int page,offset,length;char quote[1440];} DocumentMention;
 int engine_mentions(const char *term,int through,DocumentMention *out,int capacity);
 int engine_reflowable(void);
 int engine_relayout(int size, int leading, int margin, int oldpage);

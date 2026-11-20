@@ -81,6 +81,19 @@ static int selector_match(const MarkupNode *node,const char *start,const char *e
     return 0;
 }
 static int complex_match(const MarkupNode *node,const char *start,const char *end) {
-    int budget=96;
-    return selector_match(node,start,end,&budget);
+    const char *group=start;
+    int brackets=0,budget=96;
+    char quote=0;
+    for(const char *p=start;p<=end;p++) {
+        if(p==end || (*p==',' && !brackets && !quote)) {
+            while(group<p && isspace((unsigned char)*group))group++;
+            if(group<p && selector_match(node,group,p,&budget))return 1;
+            group=p+1;
+        } else if(quote) {
+            if(*p==quote)quote=0;
+        } else if(*p=='[')brackets++;
+        else if(*p==']')brackets--;
+        else if(*p==34 || *p==39)quote=*p;
+    }
+    return 0;
 }

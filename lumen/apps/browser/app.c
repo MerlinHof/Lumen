@@ -13,7 +13,7 @@ typedef struct {
     char url[WEB_URL];
 } WebLink;
 typedef struct {
-    int page,pages,links;
+    int page,pages,links,http_status,readable;
     char title[128],url[WEB_URL];
     WebLink link[WEB_LINKS];
     int field_count;
@@ -49,7 +49,7 @@ static int compare_link(const void *left,const void *right) {
 static const char *render_origin;
 static int64_t render_resource_end;
 static int render_cache_slot,render_css_next;
-enum { WEB_CSS_CACHE=4 };
+enum { WEB_CSS_CACHE=8 };
 typedef struct {char url[WEB_URL],final[WEB_URL],text[WEB_CSS+1];} WebStylesheet;
 static void stylesheet_name(char out[32],int slot,int index) {
     snprintf(out,32,"browser-css-%d-%d",slot,index);
@@ -115,7 +115,7 @@ static int render(const char *html,const char *raster,int page,WebPage *result) 
     render_resource_end=script_time()+6500;
     int rendered=web_engine_render(html,raster,page,WEB_W,WEB_H,assets,fallback,metadata);
     render_origin=NULL;
-    if(!rendered || fseek(metadata,0,SEEK_SET)){fclose(metadata);return 0;}
+    if(rendered!=1 || fseek(metadata,0,SEEK_SET)){fclose(metadata);return 0;}
     char line[WEB_URL+80];
     int valid=fgets(line,sizeof(line),metadata) &&
               sscanf(line,"%d",&result->pages)==1 && result->pages>page && result->pages<=4096;
@@ -136,17 +136,17 @@ static int render(const char *html,const char *raster,int page,WebPage *result) 
     qsort(result->link,(size_t)result->links,sizeof(result->link[0]),compare_link);
     return valid;
 }
-static int download_page(const char *url,const char *form,const char *name,WebPage *result) {
+static int download_page(const char *url,const char *form,const char *origin,const char *name,WebPage *result) {
     char *body=malloc(WEB_BODY+WEB_URL+48);
     if(!body)return 0;
-    int ok=lumen_http_page((LumenHttpRequest){.url=url,.form_post=form,.redirects=5,.timeout=18,.compressed=1,.user_agent=mobile_agent,.cookie_jar=web_cookie_jar(),
-        .allow_http=!strncmp(url,"http://",7)},body,WEB_BODY+WEB_URL+48,result->url,sizeof(result->url))==LUMEN_HTTP_OK &&
-        url_valid(result->url) && *body && strlen(body)<=WEB_BODY &&
-        lumen_storage_write(name,body,strlen(body));
+    int ok=lumen_http_page_status((LumenHttpRequest){.url=url,.form_post=form,.form_origin=origin,.redirects=5,.timeout=18,.compressed=1,.user_agent=mobile_agent,.cookie_jar=web_cookie_jar(),
+        .allow_http=!strncmp(url,"http://",7)},body,WEB_BODY+WEB_URL+48,result->url,sizeof(result->url),&result->http_status)==LUMEN_HTTP_OK &&
+        url_valid(result->url) && strlen(body)<=WEB_BODY &&
+        (result->http_status>=400 || (*body && lumen_storage_write(name,body,strlen(body))));
     free(body);
     return ok;
 }
-static int begin_request(int kind,int page,const char *url,int target,const char *body) {
+static int begin_request(int kind,int page,const char *url,int target,const char *body,const char *initiator) {
     if(worker>0)return 0;
     if(kind==WEB_NAVIGATE ? !url_valid(url) : document_slot<0 || page<0 || page>=displayed.pages)return 0;
     if(kind==WEB_SCRIPT && (work_action.id<1 || work_action.id>=SCRIPT_NODES || action_count==WEB_ACTIONS))return 0;
@@ -162,11 +162,14 @@ static int begin_request(int kind,int page,const char *url,int target,const char
     if(worker<0){worker=0;error=1;return 0;}
     if(!worker) {
         alarm(35);
-        char html_name[24],raster_name[24],source_name[24],html[4096],raster[4096],source[4096];
+        char html_name[24],readable_name[32],raster_name[24],source_name[24];
+        char html[4096],readable[4096],raster[4096],source[4096];
         snprintf(html_name,sizeof(html_name),"browser-%d.html",work_document);
+        snprintf(readable_name,sizeof(readable_name),"browser-readable-%d.html",work_document);
         cache_name(raster_name,"raster",work_raster);
         cache_name(source_name,"source",work_source);
-        int ok=cache_path(raster,raster_name) && cache_path(html,html_name) && cache_path(source,source_name);
+        int ok=cache_path(raster,raster_name) && cache_path(html,html_name) &&
+               cache_path(readable,readable_name) && cache_path(source,source_name);
         WebPage *result=calloc(1,sizeof(*result));
         if(!result)_exit(1);
         result->page=work_page;
@@ -177,17 +180,23 @@ static int begin_request(int kind,int page,const char *url,int target,const char
                 char cached[32];stylesheet_name(cached,render_cache_slot,i);
                 lumen_storage_delete(cached);
             }
-            ok=ok && download_page(requested,body ? requested_body : NULL,source_name,result);
+            char origin[WEB_URL]="";
+            if(body && initiator && url_valid(initiator)) {
+                const char *host=strstr(initiator,"://")+3;
+                size_t length=(size_t)(host-initiator)+strcspn(host,"/?#");
+                snprintf(origin,sizeof(origin),"%.*s",(int)length,initiator);
+            }
+            ok=ok && download_page(requested,body ? requested_body : NULL,*origin ? origin : NULL,source_name,result);
         }
         else {
             snprintf(result->title,sizeof(result->title),"%s",displayed.title);
             snprintf(result->url,sizeof(result->url),"%s",displayed.url);
         }
-        if(kind!=WEB_PAGE) {
+        if(kind!=WEB_PAGE && result->http_status<400) {
             int replay=0;
             if(kind==WEB_SCRIPT){actions[action_count]=work_action;replay=action_count+1;}
             *result->title=0;
-            ok=ok && web_document(source,html,result->url,result->title,actions,replay,
+            ok=ok && web_document(source,html,readable,result->url,result->title,actions,replay,
                                   result->fields,&result->field_count,result->next_url,result->post);
             if(!*result->title)snprintf(result->title,sizeof(result->title),"%.127s",result->url);
         }
@@ -195,14 +204,22 @@ static int begin_request(int kind,int page,const char *url,int target,const char
             result->field_count=displayed.field_count;
             memcpy(result->fields,displayed.fields,sizeof(result->fields));
         }
-        ok=ok && (*result->next_url || render(html,raster,work_page,result)) &&
-            lumen_storage_write("browser-result.bin",result,sizeof(*result));
+        if(ok && result->http_status<400 && !*result->next_url) {
+            result->readable=kind==WEB_PAGE && displayed.readable;
+            ok=render(result->readable ? readable : html,raster,work_page,result);
+            if(!ok && !work_page && !result->readable) {
+                result->links=0;
+                result->readable=1;
+                ok=render(readable,raster,work_page,result);
+            }
+        }
+        ok=ok && lumen_storage_write("browser-result.bin",result,sizeof(*result));
         free(result);_exit(ok ? 0 : 1);
     }
     return 1;
 }
 static int begin(int kind,int page,const char *url,int target) {
-    return begin_request(kind,page,url,target,NULL);
+    return begin_request(kind,page,url,target,NULL,NULL);
 }
 static void commit_navigation(void) {
     if(history_target>=0)history_at=history_target;
@@ -223,15 +240,16 @@ static void poll_worker(void) {
     WebPage *next=malloc(sizeof(*next));
     int ok=result>0 && next && lumen_storage_read("browser-result.bin",next,sizeof(*next),&size) &&
         size==sizeof(*next) && next->links>=0 && next->links<=WEB_LINKS &&
-        next->page==work_page && (*next->next_url || next->pages>work_page);
+        next->page==work_page && (next->http_status>=400 || *next->next_url || next->pages>work_page);
     if(ok && *next->next_url) {
         char url[WEB_URL];snprintf(url,sizeof(url),"%s",next->next_url);
         lumen_storage_delete("browser-result.bin");
-        if(++redirect_chain>5 || !begin_request(WEB_NAVIGATE,0,url,-1,*next->post ? next->post : NULL))error=1;
+        if(++redirect_chain>5 || !begin_request(WEB_NAVIGATE,0,url,-1,*next->post ? next->post : NULL,next->url))error=1;
         free(next);
         return;
     }
-    if(ok) {
+    if(ok && next->http_status>=400)error=next->http_status;
+    else if(ok) {
         displayed=*next;
         document_slot=work_document;raster_slot=work_raster;
         if(operation==WEB_NAVIGATE) {
@@ -243,6 +261,13 @@ static void poll_worker(void) {
     lumen_storage_delete("browser-result.bin");
 }
 static void draw(void) {
+    char failure[96];
+    const char *problem=word("Seite nicht geladen","Page could not load","Page indisponible");
+    if(error>=400) {
+        const char *label=error==429 ? word("Zu viele Anfragen","Too many requests","Trop de requêtes") : problem;
+        snprintf(failure,sizeof(failure),"%s · HTTP %d",label,error);
+        problem=failure;
+    }
     if(*displayed.title)lumen_view_title(displayed.title);
     if(history_at>0)lumen_icon_action("previous",8,750,IC_PREV);
     if(history_at+1<history_count)lumen_icon_action("forward",55,750,IC_NEXT);
@@ -254,11 +279,11 @@ static void draw(void) {
     if(displayed.page>0)lumen_icon_action("page-prev",451,750,IC_PREV);
     if(displayed.page+1<displayed.pages)lumen_icon_action("page-next",499,750,IC_NEXT);
     if(worker>0)lumen_icon_action("stop",548,750,IC_CLOSE);
-    else if(document_slot>=0)lumen_icon_action("reload",548,750,IC_RESTART);
-    if(document_slot<0) {
+    else if(document_slot>=0 || *requested)lumen_icon_action("reload",548,750,IC_RESTART);
+    if(document_slot<0 || (error && !*displayed.url)) {
         lumen_wrapped(32,280,536,160,worker>0 ?
             word("Seite wird geladen …","Loading page…","Chargement de la page…") :
-            error ? word("Die Seite konnte nicht geladen werden.","Could not load the page.","Impossible de charger la page.") :
+            error ? problem :
             word("Eine Seite zum Lesen öffnen.","Open a page to read.","Ouvrez une page à lire."),PAINT_TITLE,4);
     } else {
         char raster[24];cache_name(raster,"raster",raster_slot);
@@ -275,7 +300,7 @@ static void draw(void) {
             ui_paint_surface(105,692,390,46,12,255,150);
             ui_paint_text(108,693,384,44,worker>0 ?
                 word("Wird geladen …","Loading…","Chargement…") :
-                word("Seite nicht geladen","Page could not load","Page indisponible"),PAINT_SECONDARY);
+                problem,PAINT_SECONDARY);
         }
     }
     if(worker>0)lumen_schedule(120);
@@ -316,7 +341,11 @@ static int input(const Input *in) {
         lumen_request("input",word("Webadresse","Web address","Adresse web"),*displayed.url ? displayed.url : requested,1);
     else if(!strcmp(action,"page-prev"))begin(WEB_PAGE,displayed.page-1,NULL,-1);
     else if(!strcmp(action,"page-next"))begin(WEB_PAGE,displayed.page+1,NULL,-1);
-    else if(!strcmp(action,"reload") && document_slot>=0)begin(WEB_NAVIGATE,0,displayed.url,history_at);
+    else if(!strcmp(action,"reload") && *requested) {
+        char url[WEB_URL];
+        snprintf(url,sizeof(url),"%s",error ? requested : displayed.url);
+        if(*url)begin(WEB_NAVIGATE,0,url,error ? -1 : history_at);
+    }
     else if(!strcmp(action,"previous") && history_at>0)begin(WEB_NAVIGATE,0,history[history_at-1],history_at-1);
     else if(!strcmp(action,"forward") && history_at+1<history_count)begin(WEB_NAVIGATE,0,history[history_at+1],history_at+1);
     else {

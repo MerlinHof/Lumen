@@ -18,6 +18,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ONLY_PNG
 #define STBI_ONLY_JPEG
+#define STBI_ONLY_GIF
 #define STBI_NO_STDIO
 #define STBI_MAX_DIMENSIONS 1600
 #define STBI_NO_SIMD
@@ -76,7 +77,8 @@ int next_rune(const unsigned char *&at) {
 Bytes decode_image(const std::string &url) {
     auto comma=url.find(',');
     if(comma==std::string::npos || url.size()>400000 ||
-       (url.compare(0,22,"data:image/png;base64,") && url.compare(0,23,"data:image/jpeg;base64,")))return {};
+       (url.compare(0,22,"data:image/png;base64,") && url.compare(0,23,"data:image/jpeg;base64,") &&
+        url.compare(0,22,"data:image/gif;base64,")))return {};
     Bytes data;
     unsigned value=0,bits=0;
     for(size_t i=comma+1;i<url.size();i++) {
@@ -137,7 +139,7 @@ class Screen final : public document_container {
         auto &result=entry->second;
         if(!added)return result;
         auto bytes=decode_image(url);
-        if(bytes.empty() && image_requests<4 && url.compare(0,5,"data:")) {
+        if(bytes.empty() && image_requests<8 && url.compare(0,5,"data:")) {
             size_t size=0;
             ++image_requests;
             std::unique_ptr<unsigned char,decltype(&std::free)> remote(
@@ -275,24 +277,47 @@ public:
     void draw_solid_fill(uint_ptr,const background_layer &layer,const web_color &color) override {
         fill(layer.is_root ? clips.front() : layer.clip_box,color,layer.border_radius.top_left_x);
     }
-    void draw_linear_gradient(uint_ptr,const background_layer &layer,const background_layer::linear_gradient &value) override {
-        if(value.color_points.empty())return;
-        auto box=fit(layer.clip_box);
-        double dx=value.end.x-value.start.x,dy=value.end.y-value.start.y,denom=dx*dx+dy*dy;
-        if(denom<=0){fill(box,value.color_points.front().color);return;}
+    template <typename Sample>
+    void draw_gradient(const background_layer &layer,const background_layer::gradient_base &gradient,Sample sample) {
+        const auto &points=gradient.color_points;
+        if(points.empty())return;
+        const auto box=fit(layer.clip_box);
         for(int y=box.top();y<box.bottom();y++)for(int x=box.left();x<box.right();x++) {
-            double t=((x-layer.origin_box.x-value.start.x)*dx+(y-layer.origin_box.y-value.start.y)*dy)/denom;
-            const auto &first=value.color_points.front(),&last=value.color_points.back();
-            t=std::clamp(t,0.,1.);
-            pixel(x,y,static_cast<int>(gray(first.color)*(1-t)+gray(last.color)*t),
-                  static_cast<int>(first.color.alpha*(1-t)+last.color.alpha*t));
+            const double position=sample(x+0.5,y+0.5);
+            const auto stop=std::upper_bound(points.begin(),points.end(),position,
+                [](double position,const auto &point){return position<point.offset;});
+            if(stop==points.begin() || stop==points.end()) {
+                const auto &color=(stop==points.begin() ? points.front() : points.back()).color;
+                pixel(x,y,gray(color),color.alpha);
+                continue;
+            }
+            const auto &left=*(stop-1), &right=*stop;
+            const double t=(position-left.offset)/(right.offset-left.offset);
+            const double left_alpha=left.color.alpha*(1-t),right_alpha=right.color.alpha*t;
+            const double alpha=left_alpha+right_alpha;
+            if(alpha>0)pixel(x,y,std::lround((gray(left.color)*left_alpha+gray(right.color)*right_alpha)/alpha),
+                             std::lround(alpha));
         }
     }
+    void draw_linear_gradient(uint_ptr,const background_layer &layer,const background_layer::linear_gradient &value) override {
+        const double dx=value.end.x-value.start.x,dy=value.end.y-value.start.y,scale=dx*dx+dy*dy;
+        if(!std::isfinite(scale) || scale<=0)return;
+        draw_gradient(layer,value,[&](double x,double y){
+            return ((x-value.start.x)*dx+(y-value.start.y)*dy)/scale;
+        });
+    }
     void draw_radial_gradient(uint_ptr,const background_layer &layer,const background_layer::radial_gradient &value) override {
-        if(!value.color_points.empty())fill(layer.clip_box,value.color_points.back().color);
+        if(!(value.radius.x>0 && value.radius.y>0))return;
+        draw_gradient(layer,value,[&](double x,double y){
+            return std::hypot((x-value.position.x)/value.radius.x,(y-value.position.y)/value.radius.y);
+        });
     }
     void draw_conic_gradient(uint_ptr,const background_layer &layer,const background_layer::conic_gradient &value) override {
-        if(!value.color_points.empty())fill(layer.clip_box,value.color_points.back().color);
+        draw_gradient(layer,value,[&](double x,double y){
+            constexpr double tau=6.283185307179586;
+            const double turn=std::atan2(x-value.position.x,value.position.y-y)/tau-value.angle/360.0;
+            return turn-std::floor(turn);
+        });
     }
     void draw_borders(uint_ptr,const borders &b,const position &box,bool) override {
         if(b.top.width>0)fill({box.x,box.y,box.width,b.top.width},b.top.color);
@@ -318,7 +343,7 @@ public:
         }
     }
     void import_css(string &text,const string &url,string &base) override {
-        if(style_requests>=4)return;
+        if(style_requests>=8)return;
         ++style_requests;
         char final[1024]={};
         std::unique_ptr<char,decltype(&std::free)> css(web_engine_stylesheet(url.c_str(),base.c_str(),final),std::free);
@@ -357,6 +382,10 @@ extern "C" int web_engine_render(const char *html,const char *raster,int page,in
         if(page>=pages || pages>4096)return 0;
         position viewport(0,0,width,height);
         doc->draw(0,0,-page*step,&viewport);
+        if(page==0) {
+            const auto range=std::minmax_element(screen.pixels.begin(),screen.pixels.end());
+            if(*range.second-*range.first<12)return 2;
+        }
         FILE *file=std::fopen(raster,"wb");
         if(!file)return 0;
         const bool written=std::fwrite(screen.pixels.data(),1,screen.pixels.size(),file)==screen.pixels.size();
@@ -365,8 +394,12 @@ extern "C" int web_engine_render(const char *html,const char *raster,int page,in
         int emitted=0;
         std::set<std::string> emitted_controls;
         bool missing_control=false;
-        for(const auto &anchor:doc->root()->select_all("a[href]")) {
-            const char *uri=anchor->get_attr("href");
+        auto targets=doc->root()->select_all("[data-lumen-action]");
+        const auto anchors=doc->root()->select_all("a[href]");
+        targets.insert(targets.end(),anchors.begin(),anchors.end());
+        for(const auto &anchor:targets) {
+            const char *uri=anchor->get_attr("data-lumen-action");
+            if(!uri)uri=anchor->get_attr("href");
             if(!uri || strpbrk(uri,"\r\n\t") || std::strlen(uri)>1023)continue;
             const bool control=!std::strncmp(uri,"lumen-",6);
             auto item=anchor->get_render_item();
@@ -415,8 +448,11 @@ extern "C" int web_engine_render(const char *html,const char *raster,int page,in
                boxes. Ask the same layout tree that receives pointer events. */
             for(int y=7;y<height;y+=15)for(int x=7;x<width;x+=15) {
                 auto element=doc->root_render()->get_element_by_point(x,y+page*step,x,y,nullptr);
-                while(element && !element->get_attr("href"))element=element->parent();
-                const char *url=element ? element->get_attr("href") : nullptr;
+                const char *url=nullptr;
+                for(;element && !url;element=element->parent()) {
+                    url=element->get_attr("data-lumen-action");
+                    if(!url)url=element->get_attr("href");
+                }
                 if(!url || std::strncmp(url,"lumen-",6) || emitted_controls.count(url))continue;
                 auto [where,inserted]=hits.try_emplace(url,Hit{x,y,x,y});
                 if(!inserted) {

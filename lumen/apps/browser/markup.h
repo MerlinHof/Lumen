@@ -1,12 +1,12 @@
 /* Translate web documents to a static HTML subset with bounded local resources. */
-enum { WEB_URL=1024, WEB_BODY=2<<20, WEB_CSS=64<<10, WEB_IMAGE=256<<10 };
-static const char *const attributes[]={"href","rel","class","id","style","alt","src","onclick","type","hidden","value","media","name","action","method","placeholder","disabled","formaction","http-equiv","aria-label","content","oninput","onchange","onsubmit","srcset","data-src","poster"};
+enum { WEB_URL=1024, WEB_BODY=3<<20, WEB_CSS=256<<10, WEB_IMAGE=256<<10 };
+static const char *const attributes[]={"href","rel","class","id","style","alt","src","onclick","type","hidden","value","media","name","action","method","placeholder","disabled","formaction","http-equiv","aria-label","content","oninput","onchange","onsubmit","srcset","data-src","poster","role","dir","lang","width","height"};
 #define WEB_ATTRIBUTES (sizeof(attributes)/sizeof(attributes[0]))
-enum { ATTR_HREF=0, ATTR_NAME=12, ATTR_ACTION, ATTR_METHOD, ATTR_PLACEHOLDER, ATTR_DISABLED, ATTR_FORM_ACTION, ATTR_HTTP_EQUIV, ATTR_ARIA_LABEL, ATTR_CONTENT, ATTR_SRCSET=24, ATTR_LAZY_SRC, ATTR_POSTER };
+enum { ATTR_HREF=0, ATTR_NAME=12, ATTR_ACTION, ATTR_METHOD, ATTR_PLACEHOLDER, ATTR_DISABLED, ATTR_FORM_ACTION, ATTR_HTTP_EQUIV, ATTR_ARIA_LABEL, ATTR_CONTENT, ATTR_SRCSET=24, ATTR_LAZY_SRC, ATTR_POSTER, ATTR_ROLE, ATTR_DIR, ATTR_LANG, ATTR_WIDTH, ATTR_HEIGHT };
 enum { WEB_EDIT, WEB_CLICK, WEB_SUBMIT, WEB_SEARCH, WEB_FIELDS=40, WEB_FIELD_TEXT=256,WEB_POST=8192 };
 typedef struct {int id,kind;char value[WEB_FIELD_TEXT];} WebAction;
 typedef struct {int id,submit;char label[80],value[WEB_FIELD_TEXT];} WebField;
-static const char mobile_agent[]="Mozilla/5.0 (Linux; Kindle; Mobile) LUMEN/7.5";
+static const char mobile_agent[]="Mozilla/5.0 (Linux; Kindle; Mobile) LUMEN/7.6";
 static int url_valid(const char *url) {
     if(strncmp(url,"http://",7) && strncmp(url,"https://",8))return 0;
     const char *host=strstr(url,"://")+3;
@@ -96,73 +96,30 @@ static void web_styles(FILE *out,MarkupNode *node,const char *base,char title[12
         web_styles(out,node->child,base,title);
     }
 }
-static const char *image_type(const unsigned char *data,size_t length,int *width,int *height) {
-    if(length>=24 && !memcmp(data,"\211PNG\r\n\032\n",8) && !memcmp(data+12,"IHDR",4)) {
-        if(data[16] || data[17] || data[20] || data[21])return NULL;
-        *width=data[18]*256+data[19];*height=data[22]*256+data[23];
-        return "png";
-    }
-    if(length<4 || data[0]!=255 || data[1]!=216)return NULL;
-    for(size_t at=2;at+3<length;) {
-        if(data[at++]!=255)return NULL;
-        while(at<length && data[at]==255)at++;
-        if(at+2>=length)return NULL;
-        unsigned marker=data[at++];
-        if(marker==0xda || marker==0xd9)return NULL;
-        size_t size=data[at]*256+data[at+1];
-        if(size<2 || size>length-at)return NULL;
-        if((marker==0xc0 || marker==0xc1 || marker==0xc2) && size>=8) {
-            *height=data[at+3]*256+data[at+4];
-            *width=data[at+5]*256+data[at+6];
-            return "jpeg";
-        }
-        at+=size;
-    }
-    return NULL;
-}
-static int web_image(FILE *out,const char *base,const char *src,const char *alt,int *remaining,int64_t network_end) {
-    char url[WEB_URL];
-    if(!*remaining || script_time()>=network_end || !web_resource_url(base,src,url))return 0;
-    --*remaining;
-    FILE *file=tmpfile();
-    if(!file)return 0;
-    unsigned char *data=malloc(WEB_IMAGE);
-    size_t length=0;
-    if(data && lumen_http_download((LumenHttpRequest){.url=url,.timeout=4,.redirects=3,.user_agent=mobile_agent,.cookie_jar=web_cookie_jar(),
-       .allow_http=!strncmp(url,"http://",7)},fileno(file),WEB_IMAGE))
-        length=fread(data,1,WEB_IMAGE,file);
-    fclose(file);
-    int width=0,height=0;
-    const char *type=length ? image_type(data,length,&width,&height) : NULL;
-    int valid=type && width>0 && width<=1600 && height>0 && height<=1600;
-    if(valid) {
-        static const char alphabet[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-        fprintf(out,"<img style=\"width:%dpx\" src=\"data:image/%s;base64,",width>WEB_VIEW_WIDTH-28 ? WEB_VIEW_WIDTH-28 : width,type);
-        for(size_t i=0;i<length;i+=3) {
-            unsigned a=data[i],b=i+1<length ? data[i+1] : 0,c=i+2<length ? data[i+2] : 0;
-            fputc(alphabet[a>>2],out);fputc(alphabet[((a&3)<<4)|(b>>4)],out);
-            fputc(i+1<length ? alphabet[((b&15)<<2)|(c>>6)] : '=',out);
-            fputc(i+2<length ? alphabet[c&63] : '=',out);
-        }
-        fputs("\" alt=\"",out);
-        if(alt)web_escape(out,alt);
-        fputs("\">",out);
-    }
-    free(data);
-    return valid;
-}
 static int safe_image_score(double pixels) {
     if(!(pixels>0 && pixels<=20000))return 1000000;
     int value=(int)pixels;
     return value>=WEB_VIEW_WIDTH ? value-WEB_VIEW_WIDTH : 30000+WEB_VIEW_WIDTH-value;
 }
-static int web_embedded_image(FILE *out,const char *src,const char *alt) {
-    if(!src || (strncmp(src,"data:image/png;base64,",22) && strncmp(src,"data:image/jpeg;base64,",23)) ||
-       strlen(src)>WEB_IMAGE*4/3+64)return 0;
-    const char *encoded=strchr(src,',')+1;
-    if(strspn(encoded,"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=")!=strlen(encoded))return 0;
-    fputs("<img src=\"",out);web_escape(out,src);
-    fputs("\" alt=\"",out);if(alt)web_escape(out,alt);fputs("\">",out);
+static void web_attribute(FILE *out,const char *name,const char *value) {
+    if(!value)return;
+    fprintf(out," %s=\"",name);web_escape(out,value);fputc('"',out);
+}
+static int web_image(FILE *out,const char *base,const char *src,const MarkupNode *node) {
+    char url[WEB_URL];
+    if(src && (!strncmp(src,"data:image/png;base64,",22) || !strncmp(src,"data:image/jpeg;base64,",23) ||
+               !strncmp(src,"data:image/gif;base64,",22))) {
+        if(strlen(src)>WEB_IMAGE*4/3+64)return 0;
+    } else {
+        if(!web_resource_url(base,src,url))return 0;
+        src=url;
+    }
+    fputs("<img",out);
+    web_attribute(out,"src",src);
+    for(int i=2;i<=5;i++)web_attribute(out,attributes[i],node->attribute[i]);
+    web_attribute(out,"width",node->attribute[ATTR_WIDTH]);
+    web_attribute(out,"height",node->attribute[ATTR_HEIGHT]);
+    fputc('>',out);
     return 1;
 }
 static const char *image_source(const MarkupNode *node,char chosen[WEB_URL]) {
@@ -193,29 +150,29 @@ static const char *image_source(const MarkupNode *node,char chosen[WEB_URL]) {
         return node->attribute[ATTR_LAZY_SRC];
     return src;
 }
-static void web_content(FILE *out,MarkupNode *node,const char *base,int *images,
+static void web_content(FILE *out,MarkupNode *node,const char *base,int readable,
                         const WebScript *script) {
     static const char *const allowed[]={"a","body","article","form","label","aside","b","blockquote","br","code","dd","div","dl","dt",
         "em","footer","h1","h2","h3","h4","h5","h6","header","hr","i","li","main","nav","ol","p","pre",
-        "section","small","span","strong","sub","sup","table","tbody","td","th","thead","tr","u","ul"};
+        "section","small","span","strong","sub","sup","button","input","table","tbody","td","th","thead","tr","u","ul",
+        "address","abbr","bdi","bdo","caption","cite","del","details","dfn","figcaption","figure","hgroup",
+        "ins","kbd","mark","picture","q","ruby","rt","rp","s","samp","summary","time","var","wbr","tfoot"};
     static const char *const omit[]={"head","script","style","template","svg","math","iframe","video",
-        "audio","select","noscript"};
+        "audio","select","noscript","object","embed","source","canvas"};
     for(;node;node=node->next) {
         if(node->text){web_escape(out,node->text);continue;}
         const char *tag=node->tag;
         if(!tag || node->attribute[9])continue;
+        if(!strcmp(tag,"html")){web_content(out,node->child,base,readable,script);continue;}
         if(!strcmp(tag,"video")) {
-            web_image(out,base,node->attribute[ATTR_POSTER],node->attribute[ATTR_ARIA_LABEL],images,
-                      script ? script->network_end : 0);
+            if(!readable)web_image(out,base,node->attribute[ATTR_POSTER],node);
             continue;
         }
         if(permitted(tag,strlen(tag),omit,sizeof(omit)/sizeof(*omit)))continue;
         if(!strcmp(tag,"img")) {
             char chosen[WEB_URL]="";
             const char *src=image_source(node,chosen);
-            if(!web_embedded_image(out,src,node->attribute[5]) &&
-               !web_image(out,base,src,node->attribute[5],images,script ? script->network_end : 0) &&
-               node->attribute[5] && *node->attribute[5]) {
+            if((readable || !web_image(out,base,src,node)) && node->attribute[5] && *node->attribute[5]) {
                 fputs("<span>[",out);web_escape(out,node->attribute[5]);fputs("]</span>",out);
             }
             continue;
@@ -223,53 +180,69 @@ static void web_content(FILE *out,MarkupNode *node,const char *base,int *images,
         int control=script_action(script,node);
         int field=script_node_id(script,node);
         if(form_editable(node) && field) {
-            fputs("<a class=\"lumen-field",out);
-            if(node->attribute[2]){fputc(' ',out);web_escape(out,node->attribute[2]);}
-            fputc('"',out);
-            if(node->attribute[3]){fputs(" id=\"",out);web_escape(out,node->attribute[3]);fputc('"',out);}
-            fprintf(out," href=\"lumen-field:%d\">",field);
             const char *value=node->attribute[10],*placeholder=node->attribute[ATTR_PLACEHOLDER];
-            if(value && *value)web_escape(out,value);
-            else if(placeholder && *placeholder)web_escape(out,placeholder);
-            else if(node->attribute[ATTR_ARIA_LABEL])web_escape(out,node->attribute[ATTR_ARIA_LABEL]);
-            else fputs("Enter text",out);
-            fputs("</a>",out);
+            const char *label=value && *value ? value : placeholder && *placeholder ? placeholder :
+                node->attribute[ATTR_ARIA_LABEL];
+            if(!label || !*label)label="Enter text";
+            fprintf(out,"<%s class=\"lumen-field",tag);
+            if(!readable && node->attribute[2]){fputc(' ',out);web_escape(out,node->attribute[2]);}
+            fprintf(out,"\" data-lumen-action=\"lumen-field:%d\"",field);
+            web_attribute(out,"id",node->attribute[3]);
+            web_attribute(out,"name",node->attribute[ATTR_NAME]);
+            web_attribute(out,"type",node->attribute[8]);
+            web_attribute(out,"role",node->attribute[ATTR_ROLE]);
+            web_attribute(out,"data-lumen-label",label);
+            if(!readable)web_attribute(out,"style",node->attribute[4]);
+            fputc('>',out);
+            if(!strcmp(tag,"textarea"))fputs("</textarea>",out);
             continue;
         }
         if(!strcmp(tag,"input") && !form_submit_control(node))continue;
         int submit=field && form_submit_control(node) && form_owner(node);
         const char *original=tag;
-        if(!strcmp(tag,"button") || submit)tag="a";
+
         int present=permitted(tag,strlen(tag),allowed,sizeof(allowed)/sizeof(*allowed));
-        int self_closing=present && (!strcmp(tag,"br") || !strcmp(tag,"hr"));
-        if(control && strcmp(tag,"a"))fprintf(out,"<a href=\"lumen-control:%d\">",control);
+        if(!present && !readable && strchr(tag,'-') && strlen(tag)<=80 &&
+           strspn(tag,"abcdefghijklmnopqrstuvwxyz0123456789-")==strlen(tag))present=1;
+        int self_closing=present && (!strcmp(tag,"br") || !strcmp(tag,"hr") || !strcmp(tag,"wbr") || !strcmp(tag,"input"));
+
         if(present) {
             fprintf(out,"<%s",tag);
             if(!strcmp(tag,"a")) {
                 char url[WEB_URL];
                 const char *ref=node->attribute[0];
-                if(submit)fprintf(out," href=\"lumen-submit:%d\"",field);
-                else if(control)fprintf(out," href=\"lumen-control:%d\"",control);
+                if(control)fprintf(out," href=\"lumen-control:%d\"",control);
                 else if(url_join(base,ref,url)) {
                     fputs(" href=\"",out);web_escape(out,*ref=='#' ? ref : url);fputc('"',out);
                 }
+            } else if(submit) {
+                fprintf(out," data-lumen-action=\"lumen-submit:%d\"",field);
+            } else if(control && strcmp(tag,"body")) {
+                fprintf(out," data-lumen-action=\"lumen-control:%d\"",control);
             }
-            for(int field=2;field<=3;field++)if(node->attribute[field]) {
-                fprintf(out," %s=\"",attributes[field]);web_escape(out,node->attribute[field]);fputc('"',out);
+            web_attribute(out,"id",node->attribute[3]);
+            if(!readable) {
+                web_attribute(out,"class",node->attribute[2]);
+                web_attribute(out,"style",node->attribute[4]);
             }
-            if(node->attribute[4]) {
-                const char *style=node->attribute[4];
-                fputs(" style=\"",out);web_escape(out,style);fputc('"',out);
+            web_attribute(out,"role",node->attribute[ATTR_ROLE]);
+            if(!strcmp(tag,"input") || !strcmp(tag,"button"))web_attribute(out,"type",node->attribute[8]);
+            web_attribute(out,"dir",node->attribute[ATTR_DIR]);
+            web_attribute(out,"lang",node->attribute[ATTR_LANG]);
+            if((!strcmp(original,"button") || submit) && (readable || !node->attribute[2]))
+                fputs(" class=\"lumen-button\"",out);
+            if(submit && !strcmp(tag,"input")) {
+                const char *label=node->attribute[10] ? node->attribute[10] : node->attribute[ATTR_ARIA_LABEL];
+                web_attribute(out,"data-lumen-label",label && *label ? label : "Go");
             }
-            if((!strcmp(original,"button") || submit) && !node->attribute[2])fputs(" class=\"lumen-button\"",out);
             fputc('>',out);
         }
-        if(submit && !form_text(node->child)) {
+        if(submit && !self_closing && !form_text(node->child)) {
             const char *label=node->attribute[10] ? node->attribute[10] : node->attribute[ATTR_ARIA_LABEL];
             web_escape(out,label && *label ? label : "Go");
-        } else web_content(out,node->child,base,images,script);
+        } else web_content(out,node->child,base,readable,script);
         if(present && !self_closing)fprintf(out,"</%s>",tag);
-        if(control && strcmp(tag,"a"))fputs("</a>",out);
+
     }
 }
 static int web_meta_refresh(MarkupNode *node,const char *base,char next[WEB_URL]) {
@@ -301,12 +274,41 @@ static int web_meta_refresh(MarkupNode *node,const char *base,char next[WEB_URL]
     }
     return 0;
 }
-static int web_document(const char *source,const char *clean,const char *url,char title[128],const WebAction *actions,int count,
+static int web_write(const char *path,MarkupNode *root,const char *url,char title[128],
+                     const WebScript *script,int readable) {
+    FILE *out=fopen(path,"wb");
+    if(!out)return 0;
+    fputs("<!DOCTYPE html><html",out);
+    web_attribute(out,"lang",root->attribute[ATTR_LANG]);
+    web_attribute(out,"dir",root->attribute[ATTR_DIR]);
+    web_attribute(out,"id",root->attribute[3]);
+    if(!readable) {
+        web_attribute(out,"class",root->attribute[2]);
+        web_attribute(out,"style",root->attribute[4]);
+    }
+    fputs("><head><meta charset=\"UTF-8\"><style>"
+          "body{font-family:sans-serif;line-height:1.45;color:#161616;margin:10px;}"
+          "a{color:#222;text-decoration:underline;}pre{white-space:pre-wrap;}"
+          "img{max-width:100%;height:auto;}h1,h2,h3{line-height:1.2;}"
+          "td,th{padding:4px;} .lumen-button{display:inline-block;background:#e8e8e8;padding:7px 12px;}"
+          ".lumen-field{display:inline-block;background:#f2f2f2;border:1px solid #aaa;"
+          "border-radius:5px;padding:8px 16px;min-width:150px;text-decoration:none;}"
+          "[data-lumen-label]::before{content:attr(data-lumen-label);}</style>",out);
+    if(!readable)web_styles(out,root,url,title);
+    fputs("</head>",out);
+    if(readable) {
+        fputs("<h1>",out);web_escape(out,*title ? title : url);fputs("</h1>",out);
+    }
+    web_content(out,root,url,readable,script);
+    fputs("</html>",out);
+    int ok=!ferror(out);
+    if(fclose(out))ok=0;
+    return ok;
+}
+static int web_document(const char *source,const char *clean,const char *readable,const char *url,char title[128],const WebAction *actions,int count,
                         WebField fields[WEB_FIELDS],int *field_count,char next_url[WEB_URL],char post[WEB_POST]) {
     MarkupNode *root=markup_load(source,1,attributes,WEB_ATTRIBUTES);
     if(!root)return 0;
-    FILE *out=fopen(clean,"wb");
-    if(!out){markup_free(root);return 0;}
     const int64_t network_end=script_time()+7500;
     WebScript *script=script_run(root,url,actions,count,network_end,next_url,post);
     if(!*next_url && !count)web_meta_refresh(root,url,next_url);
@@ -326,20 +328,8 @@ static int web_document(const char *source,const char *clean,const char *url,cha
         snprintf(field->label,sizeof(field->label),"%s",label);
         snprintf(field->value,sizeof(field->value),"%s",node->attribute[10] ? node->attribute[10] : "");
     }
-    fputs("<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><style>"
-          "body{font-family:sans-serif;line-height:1.45;color:#161616;margin:10px;}"
-          "a{color:#222;text-decoration:underline;}pre{white-space:pre-wrap;}"
-          "img{max-width:100%;height:auto;}h1,h2,h3{line-height:1.2;}"
-          "td,th{padding:4px;} .lumen-button{display:inline-block;background:#e8e8e8;padding:7px 12px;}"
-          ".lumen-field{display:inline-block;background:#f2f2f2;border:1px solid #aaa;"
-          "border-radius:5px;padding:8px 16px;min-width:150px;text-decoration:none;}</style>",out);
-    web_styles(out,root,url,title);
-    fputs("</head>",out);
-    int images=6;
-    web_content(out,root,url,&images,script);
-    fputs("</html>",out);
-    int ok=!ferror(out);
-    if(fclose(out))ok=0;
+    int ok=*next_url || (web_write(clean,root,url,title,script,0) &&
+                         web_write(readable,root,url,title,script,1));
     script_release(script);
     markup_free(root);
     return ok;

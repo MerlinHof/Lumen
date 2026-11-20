@@ -36,6 +36,7 @@ class Fixture(BaseHTTPRequestHandler):
         if self.path=='/preferences':
             request=self.rfile.read(int(self.headers['Content-Length'])).decode()
             assert parse_qs(request)=={'state':['ready']},request
+            assert self.headers.get('Origin')==f'http://127.0.0.1:{self.server.server_port}'
             assert 'stage=ZG9uZQ==' in self.headers.get('Cookie','')
             self.send_response(303)
             self.send_header('Location','/finished')
@@ -97,6 +98,14 @@ class Fixture(BaseHTTPRequestHandler):
             '/receipt': ('text/html', b'<title>Search results</title><p>Found a book.</p>'
                          b'<form action="/preferences" method="post"><input type="hidden" name="state" '
                          b'value="ready"><button>Continue</button></form>'),
+            '/css-hidden': ('text/html', b'<title>Readable recovery</title><style>body{display:none}</style>'
+                         b'<body><main><h1>Recovered fixture</h1><a href="/limited">Open link</a></main></body>'),
+            '/xhr': ('text/html', b'''<title>Request pending</title><p id="note">Original</p><script>
+                const uri=new URL('/xhr-data',location.href);uri.searchParams.set('q','ink & paper');
+                const xhr=new XMLHttpRequest();xhr.open('GET',uri);xhr.onload=()=>{
+                    if(xhr.status===200){document.title='XHR ready';document.querySelector('#note').textContent=xhr.responseText;}
+                };xhr.send();</script>'''),
+            '/xhr-data': ('text/plain', b'Fetched fixture'),
             '/finished': ('text/html', b'<title>Submission complete</title>'),
             '/api/states': ('application/json', json.dumps([
                 dict(entity_id='sensor.room', state='23', attributes=dict(unit_of_measurement='C')),
@@ -104,6 +113,11 @@ class Fixture(BaseHTTPRequestHandler):
                 dict(entity_id='switch.office', state='off', attributes={}),
             ]).encode())
         }
+        if request.path=='/limited':
+            self.send_error(429)
+            return
+        if request.path=='/xhr-data':
+            assert parse_qs(request.query)=={'q':['ink & paper']}
         if request.path=='/catalog':
             assert parse_qs(request.query)=={'q':['ink & paper'],'src':['book']}
         if request.path=='/receipt':
@@ -206,8 +220,8 @@ with ThreadingHTTPServer(('127.0.0.1',0),Fixture) as server, TemporaryDirectory(
         assert 'Async update' in clean
         assert 'JavaScript ran' in clean and 'Reading on Kindle' not in clean
         assert 'width:80vw' in clean and 'display:flex' in clean and 'class="article"' in clean
-        assert 'lumen-control:' in clean
-        assert 'data:image/png;base64,' in clean
+        assert 'lumen-control:' in clean and '<input class="lumen-field"' in clean
+        assert f'src="{origin}/article/picture.png"' in clean
         assert f'href="{origin}/article/next"' in clean
         pixels=(browser/'browser-raster-0').read_bytes()
         assert len(pixels)==584*686 and min(pixels)<128 and max(pixels)==255
@@ -230,6 +244,16 @@ with ThreadingHTTPServer(('127.0.0.1',0),Fixture) as server, TemporaryDirectory(
         app.wait(lambda ui: label(ui,'Search results'))
         app.click('link:0')
         app.wait(lambda ui: label(ui,'Submission complete'))
+        app.send('text',action=1,text=origin+'/xhr')
+        app.wait(lambda ui: label(ui,'XHR ready'))
+        assert any('Fetched fixture' in f.read_text() for f in browser.glob('browser-[01].html'))
+        app.send('text',action=1,text=origin+'/css-hidden')
+        frame=app.wait(lambda ui: label(ui,'Readable recovery'))
+        raster=next(c['text'] for c in frame if c.get('type')=='bitmap')
+        assert min((browser/raster).read_bytes())<128
+        app.click('link:0')
+        frame=app.wait(lambda ui: label(ui,'Too many requests · HTTP 429'))
+        assert label(frame,'Readable recovery') and label(frame,raster)
     finally:
         app.close()
     print('PASS standalone Browser renders HTML and CSS, runs JavaScript and responsive layout, follows redirects and keeps navigation history.')

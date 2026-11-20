@@ -573,38 +573,87 @@ static char *mention_page_text(int number) {
     fz_catch(ctx) {free(text);text=NULL;}
     return text;
 }
+static int mention_word(const char *start,const char *end) {
+    while(start<end) {
+        int rune;
+        start+=fz_chartorune(&rune,start);
+        if(word_rune(rune))return 1;
+    }
+    return 0;
+}
+static const char *mention_left(const char *start,const char *end,int *remaining) {
+    while(end>start && *remaining) {
+        while(end>start && end[-1]==' ')end--;
+        const char *word=end;
+        while(end>start && end[-1]!=' ')end--;
+        *remaining-=mention_word(end,word);
+    }
+    return end;
+}
+static const char *mention_right(const char *start,int *remaining) {
+    while(*start && *remaining) {
+        while(*start==' ')start++;
+        const char *word=start;
+        while(*start && *start!=' ')start++;
+        *remaining-=mention_word(word,start);
+    }
+    return start;
+}
+static int mention_side(char out[640],const char *first,const char *last,int page,int step,
+                        const char *adjacent) {
+    int remaining=20,used=0;
+    for(int distance=0;distance<=8 && remaining;distance++) {
+        char *extra=distance>1 ? mention_page_text(page+distance*step) : NULL;
+        if(distance) {
+            first=distance==1 ? adjacent : extra;
+            if(!first)break;
+            last=first+strlen(first);
+        }
+        if(step<0)first=mention_left(first,last,&remaining);
+        else last=mention_right(first,&remaining);
+        size_t bytes=(size_t)(last-first);
+        if(bytes) {
+            size_t room=639-used-(distance!=0);
+            if(bytes>room) {
+                if(step<0) {
+                    first=last-room;
+                    while(first<last && ((unsigned char)*first&192)==128)first++;
+                } else {
+                    last=first+room;
+                    while(last>first && ((unsigned char)*last&192)==128)last--;
+                }
+                bytes=(size_t)(last-first);
+                remaining=0;
+            }
+            if(bytes) {
+                if(step<0) {
+                    memmove(out+bytes+(used!=0),out,(size_t)used);
+                    memcpy(out,first,bytes);
+                    if(used)out[bytes]=' ';
+                    used+=(int)bytes+(used!=0);
+                } else {
+                    if(used || distance)out[used++]=' ';
+                    memcpy(out+used,first,bytes);
+                    used+=(int)bytes;
+                }
+                if(step<0 && distance && used==(int)bytes)out[used++]=' ';
+            }
+        }
+        free(extra);
+        if(used>=638)break;
+    }
+    out[used]=0;
+    return used;
+}
 static void mention_context(DocumentMention *result,int page,const char *match,const char *last,
                             const char *text,const char *previous,const char *next) {
-    const char *start=match,*end=last,*tail=previous,*head=next;
-    int before=50,after=50,rune;
-    while(start>text && before>0) {
-        do start--;while(start>text && ((unsigned char)*start&192)==128);
-        before--;
-    }
-    const char *tail_end=tail+strlen(tail);
-    tail=tail_end;
-    if(before>0 && tail>previous) {
-        before--;
-        while(tail>previous && before>0) {
-            do tail--;while(tail>previous && ((unsigned char)*tail&192)==128);
-            before--;
-        }
-    }
-    while(*end && after>0){end+=fz_chartorune(&rune,end);after--;}
-    const char *head_end=head;
-    if(after>0 && *head) {
-        after--;
-        while(*head_end && after>0){head_end+=fz_chartorune(&rune,head_end);after--;}
-    }
-    char *out=result->quote;
-    memcpy(out,"... ",4);out+=4;
-    if(tail<tail_end){size_t n=(size_t)(tail_end-tail);memcpy(out,tail,n);out+=n;*out++=' ';}
-    size_t n=(size_t)(end-start);
-    result->page=page;result->offset=(int)(out-result->quote)+(int)(match-start);
+    char left[640],right[640];
+    int before=mention_side(left,text,match,page,-1,previous);
+    mention_side(right,last,last,page,1,next);
+    result->page=page;
+    result->offset=4+before;
     result->length=(int)(last-match);
-    memcpy(out,start,n);out+=n;
-    if(head<head_end){*out++=' ';n=(size_t)(head_end-head);memcpy(out,head,n);out+=n;}
-    memcpy(out," ...",5);
+    snprintf(result->quote,sizeof(result->quote),"... %s%.*s%s ...",left,result->length,match,right);
 }
 /* Scan once to populate a small pager, keeping adjacent pages for context. */
 int engine_mentions(const char *term,int through,DocumentMention *out,int capacity) {

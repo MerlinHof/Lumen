@@ -5,7 +5,7 @@ enum {BOOK,CONTENTS,SETTINGS,CONTEXT,SELECTION};
 static int context_action=100,mention_state,wiki_state,mention_index,mention_count,selection_top,selection_bottom;
 static char selected_text[2048];
 static char context_term[129],wiki_title[180],wiki_extract[2600];
-static struct {char quote[560];int offset,length;} mentions[24];
+static struct {char quote[1440];int offset,length;} mentions[24];
 static int private_preferences=1,preferences_loaded;
 static int view,chrome,page,total,preferences[10],settings_page,category,list_page,count,confirm=-1;
 static char title[384],labels[8][768];
@@ -144,7 +144,7 @@ static void context_draw(void) {
     snprintf(label,sizeof(label),"%s",word("Erwähnungen","Mentions","Mentions"));
     lumen_text(40,235,520,31,label,PAINT_SECONDARY,-1,1);
     if(mention_state==2) {
-        lumen_excerpt(40,273,515,182,mentions[mention_index].quote,7,
+        lumen_excerpt(40,273,515,184,mentions[mention_index].quote,10,
                       mentions[mention_index].offset,mentions[mention_index].length);
         lumen_pager(459,mention_index,mention_count);
     } else lumen_wrapped(40,273,515,95,mention_state==1 ?

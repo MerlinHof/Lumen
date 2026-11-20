@@ -21,12 +21,14 @@ typedef struct {
     const char *bearer;
     const char *json;
     const char *form_post;
+    const char *form_origin;
     int timeout;
     int connect_timeout;
     int redirects;
     int allow_http;
     int compressed;
     int report_url;
+    int report_status;
     int redirect_target;
     const char *user_agent;
     const char *cookie_jar;
@@ -69,7 +71,7 @@ static inline int lumen_http_quote(FILE *config,const char *value) {
 static inline pid_t lumen_http_start(LumenHttpRequest request,int output,size_t limit,
                                     int file_limit) {
     const char *url=request.url;
-    if(!limit || !url || strpbrk(url,"\r\n\t \"\\") || request.timeout<0 || request.timeout>180 ||
+    if(!limit || (request.report_status && !request.report_url) || !url || strpbrk(url,"\r\n\t \"\\") || request.timeout<0 || request.timeout>180 ||
        request.connect_timeout<0 || request.connect_timeout>30 ||
        request.redirects<0 || request.redirects>8 ||
        (strncmp(url,"https://",8) && (!request.allow_http || strncmp(url,"http://",7))))return -1;
@@ -80,6 +82,8 @@ static inline pid_t lumen_http_start(LumenHttpRequest request,int output,size_t 
        request.cookie_jar[0]!='/' || strpbrk(request.cookie_jar,"\r\n")))return -1;
     if(request.form_post && (request.json || strlen(request.form_post)>8191 ||
        *request.form_post=='@' || strpbrk(request.form_post,"\r\n")))return -1;
+    if(request.form_origin && (!request.form_post || strlen(request.form_origin)>1023 ||
+       strpbrk(request.form_origin,"\r\n\t")))return -1;
     int secured=request.bearer!=NULL;
     if(secured && (!*request.bearer || strpbrk(request.bearer,"\r\n\t \"\\") ||
                    request.redirects))return -1;
@@ -100,6 +104,8 @@ static inline pid_t lumen_http_start(LumenHttpRequest request,int output,size_t 
         if(ok && request.form_post)
             ok=fputs("header = \"Content-Type: application/x-www-form-urlencoded\"\ndata-binary = \"",config)>=0 &&
                lumen_http_quote(config,request.form_post);
+        if(ok && request.form_origin)
+            ok=fputs("header = \"Origin: ",config)>=0 && lumen_http_quote(config,request.form_origin);
         if(!ok || fflush(config) || fseek(config,0,SEEK_SET)){fclose(config);return -1;}
     }
     char seconds[16],connect[16],bytes[24],redirects[8];
@@ -108,7 +114,7 @@ static inline pid_t lumen_http_start(LumenHttpRequest request,int output,size_t 
     snprintf(bytes,sizeof(bytes),"%zu",limit);
     snprintf(redirects,sizeof(redirects),"%d",request.redirects);
     const char *protocols=request.allow_http ? "=http,https" : "=https";
-    const char *args[40]={"curl","-q","--silent","--fail","--proto",protocols,
+    const char *args[40]={"curl","-q","--silent",request.report_status ? "--show-error" : "--fail","--proto",protocols,
         "--proto-redir",protocols,"--connect-timeout",connect,"--max-time",seconds,
         "--max-filesize",bytes,"--globoff","--user-agent",request.user_agent ?
         request.user_agent : "LUMEN Kindle Reader (https://github.com/MerlinHof/Lumen)"};
@@ -122,7 +128,8 @@ static inline pid_t lumen_http_start(LumenHttpRequest request,int output,size_t 
     }
     if(request.report_url) {
         args[count++]="--write-out";
-        args[count++]="\nLUMEN-EFFECTIVE-URL:%{url_effective}\n";
+        args[count++]=request.report_status ? "\nLUMEN-EFFECTIVE-URL:%{url_effective}\t%{http_code}\n" :
+            "\nLUMEN-EFFECTIVE-URL:%{url_effective}\n";
     }
     if(request.redirect_target) {
         args[count++]="--output";args[count++]="/dev/null";
@@ -228,11 +235,13 @@ static inline int lumen_http_download(LumenHttpRequest request,int fd,size_t lim
 }
 
 /* The final URL is needed to resolve relative links after a redirect. */
-static inline LumenHttpResult lumen_http_page(LumenHttpRequest request,char *body,size_t capacity,
-                                             char *url,size_t url_capacity) {
+static inline LumenHttpResult lumen_http_page_status(LumenHttpRequest request,char *body,size_t capacity,
+                                                    char *url,size_t url_capacity,int *status) {
     if(!url || !url_capacity)return LUMEN_HTTP_INVALID;
     *url=0;
     request.report_url=1;
+    request.report_status=status!=NULL;
+    if(status)*status=0;
     LumenHttpResult result=lumen_http_text_result(request,body,capacity);
     if(result!=LUMEN_HTTP_OK)return result;
     const char marker[]="\nLUMEN-EFFECTIVE-URL:";
@@ -241,12 +250,22 @@ static inline LumenHttpResult lumen_http_page(LumenHttpRequest request,char *bod
     *line=0;
     char *start=strrchr(body,'\n');
     if(!start || strncmp(start,marker,sizeof(marker)-1))return LUMEN_HTTP_BAD_TEXT;
-    const char *address=start+sizeof(marker)-1;
+    char *address=start+sizeof(marker)-1;
+    if(status) {
+        char *code=strrchr(address,'\t');
+        if(!code || strlen(code+1)!=3 || strspn(code+1,"0123456789")!=3)return LUMEN_HTTP_BAD_TEXT;
+        *status=atoi(code+1);
+        *code=0;
+    }
     size_t length=strlen(address);
     if(!length || length>=url_capacity)return LUMEN_HTTP_BAD_TEXT;
     memcpy(url,address,length+1);
     *start=0;
     return LUMEN_HTTP_OK;
+}
+static inline LumenHttpResult lumen_http_page(LumenHttpRequest request,char *body,size_t capacity,
+                                             char *url,size_t url_capacity) {
+    return lumen_http_page_status(request,body,capacity,url,url_capacity,NULL);
 }
 /* Resolve an HTTP-to-HTTPS upgrade without sending credentials to the
    cleartext endpoint. An explicit configured HTTP endpoint still works. */

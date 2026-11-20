@@ -268,13 +268,15 @@ int main(int argc, char **argv) {
     tap17(550,95);assert(strstr(app_process_frame(),"form_choice"));shot17("llm-settings");
     tap17(20,20);
     shot17("llm");
-    reader_markdown17("Markdown test", "# Heading\n\nDarcyville thrived. Mr. Darcy arrived silently. A **bold** paragraph. When Darcy returned, there were still good reasons to wait for the last train home.\n\n- One\n- Two\n", active_app());
+    reader_markdown17("Markdown test", "# Heading\n\nDarcyville thrived. Mr. Darcy arrived silently. A **bold** paragraph. When Darcy returned, there were still good reasons to wait for the last train home. Afterward a visitor opened one window toward the quiet lane.\n\n- One\n- Two\n", active_app());
     DocumentMention mentions[4];
     assert(engine_mentions("Darcy",0,mentions,4)==2);
     assert(strstr(mentions[0].quote,"Darcyville thrived. Mr. Darcy arrived silently."));
     assert(mentions[0].length==5 && !strncmp(mentions[0].quote+mentions[0].offset,"Darcy",5));
     assert(mentions[1].length==5 && strstr(mentions[1].quote,"Darcy returned"));
-    assert(strlen(mentions[1].quote)-mentions[1].offset-mentions[1].length-4==50);
+    assert(strstr(mentions[1].quote,"train home. Afterward a visitor opened one window toward ..."));
+    assert(!strstr(mentions[1].quote,"quiet lane"));
+    assert(strstr(mentions[0].quote,"paragraph. When Darcy returned,"));
     assert(!strncmp(mentions[0].quote,"... ",4) &&
         !strcmp(mentions[0].quote+strlen(mentions[0].quote)-4," ..."));
     assert(engine_mentions("Head",0,mentions,4)==0);

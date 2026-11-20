@@ -1,7 +1,7 @@
 #include "quickjs.h"
 #include <time.h>
 
-enum { SCRIPT_NODES=2048, SCRIPT_SOURCE=128<<10, SCRIPT_CHANGES=128 };
+enum { SCRIPT_NODES=4096, SCRIPT_SOURCE=384<<10, SCRIPT_CHANGES=128 };
 typedef struct {
     JSContext *context;
     MarkupNode *nodes[SCRIPT_NODES],*detached[SCRIPT_CHANGES];
@@ -55,7 +55,7 @@ static inline JSValue script_lookup(JSContext *js,JSValueConst self,int argc,JSV
     if(ancestor<0 || ancestor>script->count)ancestor=0;
     for(int i=1;length<=95 && i<=script->count;i++) {
         MarkupNode *node=script->nodes[i];
-        if(!script_visible(node) || !complex_match(node,selector,selector+length))continue;
+        if((!ancestor && !script_visible(node)) || !complex_match(node,selector,selector+length))continue;
         if(ancestor) {
             MarkupNode *p=node->parent;
             while(p && p!=script->nodes[ancestor])p=p->parent;
@@ -171,7 +171,7 @@ static JSValue script_create(JSContext *js,JSValueConst self,int argc,JSValueCon
     script->detached[script->changes++]=node;
     return JS_NewInt32(js,script_index(script,node));
 }
-static JSValue script_append(JSContext *js,JSValueConst self,int argc,JSValueConst *argv) {
+static JSValue script_insert(JSContext *js,JSValueConst self,int argc,JSValueConst *argv) {
     (void)self;
     WebScript *script=JS_GetContextOpaque(js);
     int parent=0,child=0;
@@ -179,14 +179,44 @@ static JSValue script_append(JSContext *js,JSValueConst self,int argc,JSValueCon
        parent<1 || parent>script->count || child<1 || child>script->count)return JS_UNDEFINED;
     MarkupNode *node=script->nodes[child],*target=script->nodes[parent];
     for(MarkupNode *p=target;p;p=p->parent)if(p==node)return JS_UNDEFINED;
-    for(int i=0;i<script->changes;i++)if(script->detached[i]==node && !node->parent && !node->next) {
-        MarkupNode **link=&target->child;
-        while(*link)link=&(*link)->next;
-        *link=node;
-        node->parent=target;
-        script->detached[i]=NULL;
-        break;
+    int before=0;
+    if(argc>2)JS_ToInt32(js,&before,argv[2]);
+    if(before<0 || before>script->count || before==child)return JS_UNDEFINED;
+    MarkupNode *reference=before ? script->nodes[before] : NULL;
+    if(reference && reference->parent!=target)return JS_UNDEFINED;
+    if(node->parent) {
+        MarkupNode **old=&node->parent->child;
+        while(*old!=node)old=&(*old)->next;
+        *old=node->next;
+    } else {
+        int found=0;
+        for(int i=0;i<script->changes;i++)if(script->detached[i]==node && !node->next) {
+            script->detached[i]=NULL;
+            found=1;
+            break;
+        }
+        if(!found)return JS_UNDEFINED;
     }
+    MarkupNode **link=&target->child;
+    while(*link && *link!=reference)link=&(*link)->next;
+    node->next=*link;
+    *link=node;
+    node->parent=target;
+    return JS_UNDEFINED;
+}
+static JSValue script_remove(JSContext *js,JSValueConst self,int argc,JSValueConst *argv) {
+    (void)self;
+    WebScript *script=JS_GetContextOpaque(js);
+    int id=0;
+    if(!argc || JS_ToInt32(js,&id,argv[0]) || id<1 || id>script->count ||
+       script->changes==SCRIPT_CHANGES)return JS_UNDEFINED;
+    MarkupNode *node=script->nodes[id];
+    if(!node->parent)return JS_UNDEFINED;
+    MarkupNode **link=&node->parent->child;
+    while(*link!=node)link=&(*link)->next;
+    *link=node->next;
+    node->parent=node->next=NULL;
+    script->detached[script->changes++]=node;
     return JS_UNDEFINED;
 }
 static JSValue script_clickable(JSContext *js,JSValueConst self,int argc,JSValueConst *argv) {
@@ -201,7 +231,7 @@ static JSValue script_clickable(JSContext *js,JSValueConst self,int argc,JSValue
 static JSValue script_fetch(JSContext *js,JSValueConst self,int argc,JSValueConst *argv) {
     (void)self;
     WebScript *script=JS_GetContextOpaque(js);
-    if(!argc || script->requests>=3 || script_time()>=script->network_end)return JS_NULL;
+    if(!argc || script->requests>=6 || script_time()>=script->network_end)return JS_NULL;
     const char *ref=JS_ToCString(js,argv[0]);
     char url[WEB_URL];
     int valid=ref && web_resource_url(script->base,ref,url) && same_origin(script->base,url);
@@ -210,9 +240,17 @@ static JSValue script_fetch(JSContext *js,JSValueConst self,int argc,JSValueCons
     script->requests++;
     char *body=malloc(SCRIPT_SOURCE+1);
     if(!body)return JS_NULL;
-    int ok=lumen_http_text((LumenHttpRequest){.url=url,.timeout=2,.connect_timeout=2,.compressed=1,
-        .allow_http=!strncmp(url,"http://",7)},body,SCRIPT_SOURCE+1);
-    JSValue result=ok ? JS_NewString(js,body) : JS_NULL;
+    char final[WEB_URL];
+    int status;
+    int ok=lumen_http_page_status((LumenHttpRequest){.url=url,.timeout=2,.connect_timeout=2,.compressed=1,
+        .user_agent=mobile_agent,.cookie_jar=web_cookie_jar(),.allow_http=!strncmp(url,"http://",7)},
+        body,SCRIPT_SOURCE+1,final,sizeof(final),&status)==LUMEN_HTTP_OK;
+    JSValue result=ok ? JS_NewArray(js) : JS_NULL;
+    if(ok) {
+        JS_SetPropertyUint32(js,result,0,JS_NewString(js,body));
+        JS_SetPropertyUint32(js,result,1,JS_NewInt32(js,status));
+        JS_SetPropertyUint32(js,result,2,JS_NewString(js,final));
+    }
     free(body);
     return result;
 }
@@ -228,6 +266,16 @@ static JSValue script_cookie(JSContext *js,JSValueConst self,int argc,JSValueCon
     char result[4096];
     web_cookie_read(script->base,result);
     return JS_NewString(js,result);
+}
+static JSValue script_resolve(JSContext *js,JSValueConst self,int argc,JSValueConst *argv) {
+    (void)self;
+    if(argc<2)return JS_NULL;
+    const char *ref=JS_ToCString(js,argv[0]),*base=JS_ToCString(js,argv[1]);
+    char url[WEB_URL];
+    int valid=ref && base && (url_valid(ref) || (url_valid(base) && url_join(base,ref,url)));
+    JSValue result=valid ? JS_NewString(js,url_valid(ref) ? ref : url) : JS_NULL;
+    JS_FreeCString(js,ref);JS_FreeCString(js,base);
+    return result;
 }
 static JSValue script_navigate(JSContext *js,JSValueConst self,int argc,JSValueConst *argv) {
     (void)self;
@@ -287,96 +335,23 @@ static void script_eval(WebScript *script,const char *code,const char *name,int 
     if(JS_IsException(value))JS_FreeValue(script->context,JS_GetException(script->context));
     JS_FreeValue(script->context,value);
 }
-static const char dom_init[]=
-"((g)=>{"
-"const lookup=g._find,get=g._get,set=g._set,make=g._make,append=g._append,active=g._active,pull=g._fetch,cookie=g._cookie,navigate=g._navigate;"
-"const nodes=new Map(), events=new Map(); let ready=[], timers=[];"
-"const select=(s,p)=>lookup(s,p).map(wrap);"
-"function wrap(i){if(!i)return null;if(nodes.has(i))return nodes.get(i);"
-"const e={getAttribute:n=>get(i,n),setAttribute:(n,v)=>set(i,n,String(v)),"
-"removeAttribute:n=>set(i,n,null),hasAttribute:n=>get(i,n)!==null,"
-"querySelector:s=>select(s,i)[0]||null,querySelectorAll:s=>select(s,i),matches:s=>select(s,0).includes(e),"
-"closest:s=>{for(let n=e;n;n=n.parentNode)if(n.matches(s))return n;return null;},"
-"get children(){return select('*',i).filter(n=>n.parentNode===e);},"
-"appendChild:n=>{if(n)append(i,n._key);return n;},"
-"addEventListener:(n,f)=>{if(['click','input','change','submit'].includes(n)&&typeof f==='function'){"
-"const k=i+':'+n,a=events.get(k)||[];if(a.length<24)a.push(f);events.set(k,a);if(n==='click')active(i);}},"
-"click:()=>dispatch(i),get parentNode(){return wrap(get(i,'parent'));},"
-"get tagName(){return get(i,'tagName').toUpperCase();}};"
-"Object.defineProperty(e,'_key',{value:i});"
-"for(const n of ['textContent','innerHTML','className','id','href','src','value','hidden','onclick','oninput','onchange','onsubmit'])"
-"Object.defineProperty(e,n,{get:()=>n==='onclick'?null:n==='hidden'?get(i,n)!==null:get(i,n)||'',"
-"set:v=>{if(n.startsWith('on')&&typeof v==='function')e.addEventListener(n.slice(2),v);"
-"else set(i,n,n==='hidden'&&!v?null:String(v));}});"
-"e.classList={contains:n=>e.className.split(/\\s+/).includes(n),add:(...a)=>{"
-"e.className=[...new Set(e.className.split(/\\s+/).concat(a))].filter(Boolean).join(' ');},"
-"remove:(...a)=>{e.className=e.className.split(/\\s+/).filter(n=>!a.includes(n)).join(' ');},"
-"toggle:(n,f)=>{let on=f===undefined||f===null?!e.classList.contains(n):f;e.classList[on?'add':'remove'](n);return on;}};"
-"e.style=new Proxy({}, {get:(_,n)=>n==='cssText'?get(i,'style')||'':'',set:(_,n,v)=>{"
-"const k=String(n).replace(/[A-Z]/g,m=>'-'+m.toLowerCase());"
-"set(i,'style',n==='cssText'?String(v):(get(i,'style')||'')+';'+k+':'+v);return true;}});"
-"nodes.set(i,e);return e;}"
-"function dispatch(i,type='click'){const e=wrap(i);if(!e)return true;let cancel=false;"
-"const evt={type,target:e,currentTarget:e,preventDefault(){cancel=true;}};"
-"for(const f of events.get(i+':'+type)||[])try{f.call(e,evt)}catch(_){};"
-"const h=get(i,'on'+type);if(h)try{if(Function('event',h).call(e,evt)===false)cancel=true;}catch(_){};"
-"return !cancel;}"
-"g.document={get body(){return select('body',0)[0]||null;},get documentElement(){return select('html',0)[0]||null;},"
-"getElementById:n=>select('#'+n,0)[0]||null,querySelector:n=>select(n,0)[0]||null,"
-"querySelectorAll:n=>select(n,0),getElementsByClassName:n=>select('.'+n,0),getElementsByTagName:n=>select(n,0),"
-"createElement:n=>wrap(make(String(n).toLowerCase())),readyState:'loading',"
-"get forms(){return select('form',0);},"
-"addEventListener:(n,f)=>{if(n==='DOMContentLoaded'&&typeof f==='function'&&ready.length<24)ready.push(f);}};"
-"g.window=g;g.self=g;g.innerWidth=g._viewportWidth;g.innerHeight=g._viewportHeight;"
-"const href=g._pageUrl;const m=href.match(/^(https?:)\\/\\/([^/?#]+)([^?#]*)(\\?[^#]*)?(#.*)?$/);"
-"const loc=m?{protocol:m[1],host:m[2],hostname:m[2].split(':')[0],"
-"origin:m[1]+'//'+m[2],pathname:m[3]||'/',search:m[4]||'',hash:m[5]||''}:{};"
-"loc.assign=loc.replace=v=>navigate(String(v));loc.toString=()=>href;"
-"Object.defineProperty(loc,'href',{get:()=>href,set:v=>navigate(String(v))});"
-"for(const target of [g,g.document])Object.defineProperty(target,'location',{get:()=>loc,set:v=>navigate(String(v))});"
-"g.document.URL=href;Object.defineProperty(g.document,'cookie',{get:()=>cookie(),set:v=>cookie(String(v))});"
-"function storage(){const data=new Map();return {get length(){return data.size;},"
-"getItem:k=>data.get(String(k))??null,setItem:(k,v)=>{if(data.size<64)data.set(String(k),String(v));},"
-"removeItem:k=>data.delete(String(k)),clear:()=>data.clear(),key:i=>[...data.keys()][i]??null};}"
-"g.sessionStorage=storage();g.localStorage=storage();"
-"g.document.hidden=false;g.document.removeEventListener=()=>{};g.removeEventListener=()=>{};"
-"Object.defineProperty(g.document,'title',{get:()=>select('title',0)[0]?.textContent||'',"
-"set:v=>{const el=select('title',0)[0];if(el)el.textContent=String(v);}});"
-"g.navigator={userAgent:g._userAgent,language:g._language,onLine:true,maxTouchPoints:1};"
-"const started=Date.now();g.performance={now:()=>Date.now()-started,timeOrigin:started};"
-"g.navigator.sendBeacon=()=>false;"
-"const digits='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';"
-"g.btoa=v=>{const s=String(v);let out='';for(let i=0;i<s.length;i+=3){"
-"const a=s.charCodeAt(i),b=s.charCodeAt(i+1)|0,c=s.charCodeAt(i+2)|0;"
-"if(a>255||b>255||c>255)throw new TypeError('Invalid character');"
-"out+=digits[a>>2]+digits[((a&3)<<4)|(b>>4)]+(i+1<s.length?digits[((b&15)<<2)|(c>>6)]:'=')+"
-"(i+2<s.length?digits[c&63]:'=');}return out;};"
-"g.atob=v=>{const s=String(v).replace(/\\s/g,'').replace(/=+$/,'');let out='',bits=0,n=0;"
-"for(const c of s){const x=digits.indexOf(c);if(x<0)throw new TypeError('Invalid base64');"
-"n=(n<<6)|x;bits+=6;if(bits>=8){bits-=8;out+=String.fromCharCode((n>>bits)&255);}}return out;};"
-"g.Event=class{constructor(type,opts={}){this.type=type;this.bubbles=!!opts.bubbles;this.defaultPrevented=false;}"
-"preventDefault(){this.defaultPrevented=true;}};"
-"g.CustomEvent=class extends g.Event{constructor(type,opts={}){super(type,opts);this.detail=opts.detail;}};"
-"g.addEventListener=(n,f)=>{if(n==='load')document.addEventListener('DOMContentLoaded',f);};"
-"g.console={log(){},warn(){},error(){}};"
-"g.fetch=async(input,opts)=>{if(opts&&opts.method&&String(opts.method).toUpperCase()!=='GET')"
-"throw new TypeError('Only GET requests are available');"
-"const text=pull(String(input));if(text===null)throw new TypeError('Network request failed');"
-"return {ok:true,status:200,text:async()=>text,json:async()=>JSON.parse(text)};};"
-"g.setTimeout=(f,ms,...args)=>{if(typeof f!=='function'||ms>1000||timers.length>=24)return 0;"
-"timers.push(()=>f(...args));return timers.length;};"
-"g.clearTimeout=i=>{if(i>0&&i<=timers.length)timers[i-1]=null;};"
-"g.requestAnimationFrame=f=>g.setTimeout(()=>f(0),0);"
-"g._drain=()=>{const list=timers;timers=[];for(const f of list)if(f)try{f()}catch(_){};};"
-"g.document.createEvent=()=>({initEvent(type,bubbles,cancelable){Object.assign(this,{type,bubbles,cancelable});}});"
-"g._ready=()=>{document.readyState='complete';for(const f of ready)try{f.call(document)}catch(_){};ready=[];"
-"if(typeof g.onload==='function')try{g.onload()}catch(_){};};"
-"g._click=dispatch;"
-"for(const n of ['_find','_get','_set','_make','_append','_active','_fetch','_pageUrl','_userAgent','_language','_viewportWidth','_viewportHeight','_cookie','_navigate'])delete g[n];"
-"})(globalThis);";
+static char *script_bootstrap(void) {
+    const char *assets=getenv("LUMEN_APP_ASSETS");
+    char path[4096];
+    if(!assets || snprintf(path,sizeof(path),"%s/assets/dom.js",assets)>=(int)sizeof(path))return NULL;
+    FILE *file=fopen(path,"rb");
+    if(!file)return NULL;
+    char *code=malloc(SCRIPT_SOURCE+1);
+    size_t length=code ? fread(code,1,SCRIPT_SOURCE,file) : 0;
+    int ok=length && length<SCRIPT_SOURCE && !ferror(file);
+    fclose(file);
+    if(!ok){free(code);return NULL;}
+    code[length]=0;
+    return code;
+}
 
 static void script_tree(WebScript *script,MarkupNode *node,const char *base) {
-    for(;node && script->inline_count<12;node=node->next) {
+    for(;node && script->inline_count<32;node=node->next) {
         if(!node->tag)continue;
         if(!strcmp(node->tag,"script")) {
             const char *type=node->attribute[8];
@@ -385,7 +360,7 @@ static void script_tree(WebScript *script,MarkupNode *node,const char *base) {
             script->inline_count++;
             if(node->attribute[6]) {
                 char url[WEB_URL];
-                if(script->remote_count>=3 || script_time()>=script->network_end ||
+                if(script->remote_count>=6 || script_time()>=script->network_end ||
                    !web_resource_url(base,node->attribute[6],url))continue;
                 script->remote_count++;
                 char *body=malloc(SCRIPT_SOURCE+1);
@@ -487,7 +462,7 @@ static WebScript *script_run(MarkupNode *root,const char *base,const WebAction *
     script_index_tree(script,root);
     JSRuntime *runtime=JS_NewRuntime();
     if(!runtime)return script;
-    JS_SetMemoryLimit(runtime,8<<20);
+    JS_SetMemoryLimit(runtime,12<<20);
     JS_SetMaxStackSize(runtime,256<<10);
     JS_SetInterruptHandler(runtime,script_timeout,script);
     JS_SetModuleLoaderFunc(runtime,script_module_name,script_module_load,script);
@@ -498,7 +473,7 @@ static WebScript *script_run(MarkupNode *root,const char *base,const WebAction *
         JSValue globals=JS_GetGlobalObject(js);
         const struct {const char *name;JSCFunction *call;int args;} bindings[]={
             {"_find",script_lookup,2},{"_get",script_get,2},{"_set",script_set,3},
-            {"_make",script_create,1},{"_append",script_append,2},{"_active",script_clickable,1},
+            {"_make",script_create,1},{"_insert",script_insert,3},{"_remove",script_remove,1},{"_resolve",script_resolve,2},{"_active",script_clickable,1},
             {"_fetch",script_fetch,1},{"_cookie",script_cookie,1},{"_navigate",script_navigate,1}
         };
         for(size_t i=0;i<sizeof(bindings)/sizeof(*bindings);i++)
@@ -510,7 +485,9 @@ static WebScript *script_run(MarkupNode *root,const char *base,const WebAction *
         JS_SetPropertyStr(js,globals,"_viewportWidth",JS_NewInt32(js,WEB_VIEW_WIDTH));
         JS_SetPropertyStr(js,globals,"_viewportHeight",JS_NewInt32(js,WEB_VIEW_HEIGHT));
         script->deadline=script_time()+180;
-        script_eval(script,dom_init,"lumen-dom",JS_EVAL_TYPE_GLOBAL);
+        char *bootstrap=script_bootstrap();
+        script_eval(script,bootstrap,"lumen-dom",JS_EVAL_TYPE_GLOBAL);
+        free(bootstrap);
         JSValue ready=JS_GetPropertyStr(js,globals,"_ready");
         JSValue click=JS_GetPropertyStr(js,globals,"_click");
         JSValue drain=JS_GetPropertyStr(js,globals,"_drain");
