@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <strings.h>
 #include "markup.h"
+#include "web_engine.h"
 
 enum { WEB_X=8, WEB_Y=56, WEB_W=WEB_VIEW_WIDTH, WEB_H=WEB_VIEW_HEIGHT, WEB_LINKS=64, WEB_HISTORY=32, WEB_ACTIONS=96 };
 typedef struct {
@@ -45,28 +46,78 @@ static int compare_link(const void *left,const void *right) {
     const WebLink *a=left,*b=right;
     return a->y!=b->y ? a->y-b->y : a->x-b->x;
 }
-static int render(const char *html,const char *raster,int page,WebPage *result) {
-    const char *tool=getenv("LUMEN_DOCUMENT_TOOL");
-    if(!tool || !*tool)return 0;
-    char index[16],width[16],height[16];
-    snprintf(index,sizeof(index),"%d",page);
-    snprintf(width,sizeof(width),"%d",WEB_W);
-    snprintf(height,sizeof(height),"%d",WEB_H);
-    int output[2];
-    if(pipe(output))return 0;
-    pid_t child=lumen_worker_start();
-    if(!child) {
-        close(output[0]);
-        if(dup2(output[1],STDOUT_FILENO)<0)_exit(1);
-        close(output[1]);
-        execl(tool,tool,"--render-document",html,index,width,height,raster,(char *)NULL);
-        _exit(1);
+static const char *render_origin;
+static int64_t render_resource_end;
+static int render_cache_slot,render_css_next;
+enum { WEB_CSS_CACHE=4 };
+typedef struct {char url[WEB_URL],final[WEB_URL],text[WEB_CSS+1];} WebStylesheet;
+static void stylesheet_name(char out[32],int slot,int index) {
+    snprintf(out,32,"browser-css-%d-%d",slot,index);
+}
+char *web_engine_stylesheet(const char *ref,const char *base,char final[1024]) {
+    if(!render_origin || !web_resource_url(base && url_valid(base) ? base : render_origin,ref,final))return NULL;
+    WebStylesheet *sheet=malloc(sizeof(*sheet));
+    if(!sheet)return NULL;
+    char name[32];
+    for(int i=0;i<WEB_CSS_CACHE;i++) {
+        stylesheet_name(name,render_cache_slot,i);
+        size_t bytes=0;
+        if(lumen_storage_read(name,sheet,sizeof(*sheet),&bytes) && bytes>2*WEB_URL &&
+           sheet->url[WEB_URL-1]==0 && !strcmp(sheet->url,final) &&
+           sheet->final[WEB_URL-1]==0 && sheet->text[bytes-2*WEB_URL-1]==0) {
+            snprintf(final,WEB_URL,"%s",sheet->final);
+            char *body=strdup(sheet->text);
+            free(sheet);
+            return body;
+        }
     }
-    close(output[1]);
-    FILE *metadata=fdopen(output[0],"r");
-    if(!metadata){close(output[0]);wait_success(child);return 0;}
+    memset(sheet,0,2*WEB_URL);
+    snprintf(sheet->url,WEB_URL,"%s",final);
+    char *body=script_time()<render_resource_end ? malloc(WEB_CSS+WEB_URL+48) : NULL;
+    if(body && lumen_http_page((LumenHttpRequest){.url=final,.timeout=4,.redirects=3,.compressed=1,
+             .allow_http=!strncmp(final,"http://",7),.user_agent=mobile_agent},body,
+             WEB_CSS+WEB_URL+48,sheet->final,WEB_URL)==LUMEN_HTTP_OK &&
+             strlen(body)<=WEB_CSS && url_valid(sheet->final)) {
+        size_t bytes=strlen(body)+1;
+        memcpy(sheet->text,body,bytes);
+        stylesheet_name(name,render_cache_slot,render_css_next++%WEB_CSS_CACHE);
+        lumen_storage_write(name,sheet,2*WEB_URL+bytes);
+        snprintf(final,WEB_URL,"%s",sheet->final);
+        free(sheet);
+        return body;
+    }
+    free(sheet);free(body);
+    return NULL;
+}
+unsigned char *web_engine_image(const char *ref,const char *base,size_t *length) {
+    char url[WEB_URL];
+    *length=0;
+    if(!render_origin || script_time()>=render_resource_end ||
+       !web_resource_url(base && url_valid(base) ? base : render_origin,ref,url))return NULL;
+    FILE *file=tmpfile();
+    if(!file)return NULL;
+    unsigned char *buffer=malloc(WEB_IMAGE);
+    if(buffer && lumen_http_download((LumenHttpRequest){.url=url,.timeout=3,.redirects=2,
+       .allow_http=!strncmp(url,"http://",7),.user_agent=mobile_agent},fileno(file),WEB_IMAGE))
+        *length=fread(buffer,1,WEB_IMAGE,file);
+    fclose(file);
+    if(!*length){free(buffer);buffer=NULL;}
+    return buffer;
+}
+static int render(const char *html,const char *raster,int page,WebPage *result) {
+    FILE *metadata=tmpfile();
+    if(!metadata)return 0;
+    const char *assets=getenv("LUMEN_APP_ASSETS");
+    const char *legacy=getenv("LUMEN_LEGACY_DATA");
+    char fallback[4096]="";
+    if(legacy)snprintf(fallback,sizeof(fallback),"%s/../fonts/DroidSansFallbackFull.ttf",legacy);
+    render_origin=result->url;
+    render_resource_end=script_time()+6500;
+    int rendered=web_engine_render(html,raster,page,WEB_W,WEB_H,assets,fallback,metadata);
+    render_origin=NULL;
+    if(!rendered || fseek(metadata,0,SEEK_SET)){fclose(metadata);return 0;}
     char line[WEB_URL+80];
-    int valid=child>0 && fgets(line,sizeof(line),metadata) &&
+    int valid=fgets(line,sizeof(line),metadata) &&
               sscanf(line,"%d",&result->pages)==1 && result->pages>page && result->pages<=4096;
     while(fgets(line,sizeof(line),metadata)) {
         if(!valid || result->links==WEB_LINKS)continue;
@@ -83,7 +134,7 @@ static int render(const char *html,const char *raster,int page,WebPage *result) 
     }
     fclose(metadata);
     qsort(result->link,(size_t)result->links,sizeof(result->link[0]),compare_link);
-    return wait_success(child) && valid;
+    return valid;
 }
 static int download_page(const char *url,const char *name,WebPage *result) {
     char *body=malloc(WEB_BODY+WEB_URL+48);
@@ -107,6 +158,7 @@ static int begin(int kind,int page,const char *url,int target) {
     worker=lumen_worker_start();
     if(worker<0){worker=0;error=1;return 0;}
     if(!worker) {
+        alarm(35);
         char html_name[24],raster_name[24],source_name[24],html[4096],raster[4096],source[4096];
         snprintf(html_name,sizeof(html_name),"browser-%d.html",work_document);
         cache_name(raster_name,"raster",work_raster);
@@ -115,7 +167,15 @@ static int begin(int kind,int page,const char *url,int target) {
         WebPage *result=calloc(1,sizeof(*result));
         if(!result)_exit(1);
         result->page=work_page;
-        if(kind==WEB_NAVIGATE)ok=ok && download_page(requested,source_name,result);
+        render_cache_slot=work_source;
+        render_css_next=0;
+        if(kind==WEB_NAVIGATE) {
+            for(int i=0;i<WEB_CSS_CACHE;i++) {
+                char cached[32];stylesheet_name(cached,render_cache_slot,i);
+                lumen_storage_delete(cached);
+            }
+            ok=ok && download_page(requested,source_name,result);
+        }
         else {
             snprintf(result->title,sizeof(result->title),"%s",displayed.title);
             snprintf(result->url,sizeof(result->url),"%s",displayed.url);
@@ -183,7 +243,7 @@ static void draw(void) {
     const char *separator=strstr(address,"://");
     if(separator)address=separator+3;
     lumen_button_action("address",103,750,344,44,*address ? address :
-        word("Adresse oder Suche","Address or search","Adresse ou recherche"),0);
+        word("Webadresse","Web address","Adresse web"),0);
     if(displayed.page>0)lumen_icon_action("page-prev",451,750,IC_PREV);
     if(displayed.page+1<displayed.pages)lumen_icon_action("page-next",499,750,IC_NEXT);
     if(worker>0)lumen_icon_action("stop",548,750,IC_CLOSE);
@@ -220,15 +280,7 @@ static void address_input(void) {
     size_t n=strlen(value);
     while(n && isspace((unsigned char)value[n-1]))value[--n]=0;
     if(!*value)return;
-    const char *slash=strchr(value,'/');
-    const char *dot=strchr(value,'.');
-    int size;
-    if(!strstr(value,"://") && ((!dot && strcmp(value,"localhost")) ||
-       (slash && dot && dot>slash) || strpbrk(value," \t"))) {
-        char query[WEB_URL-45];
-        if(!lumen_url_encode(value,query,sizeof(query))){error=1;return;}
-        size=snprintf(url,sizeof(url),"https://www.google.com/search?q=%s",query);
-    } else size=snprintf(url,sizeof(url),"%s%s",strstr(value,"://") ? "" : "https://",value);
+    int size=snprintf(url,sizeof(url),"%s%s",strstr(value,"://") ? "" : "https://",value);
     if(size<0 || size>=sizeof(url) || !begin(WEB_NAVIGATE,0,url,-1))error=1;
 }
 static int input(const Input *in) {

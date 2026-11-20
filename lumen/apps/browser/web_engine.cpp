@@ -1,0 +1,400 @@
+#include <litehtml.h>
+#include <litehtml/render_item.h>
+#include <algorithm>
+#include <cmath>
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <fstream>
+#include <iterator>
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
+
+#define STB_TRUETYPE_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_ONLY_PNG
+#define STBI_ONLY_JPEG
+#define STBI_NO_STDIO
+#define STBI_MAX_DIMENSIONS 1600
+#define STBI_NO_SIMD
+#include "stb_truetype.h"
+#include "stb_image.h"
+#include "web_engine.h"
+
+using namespace litehtml;
+
+namespace {
+using Bytes=std::vector<unsigned char>;
+
+Bytes read_file(const char *path,size_t limit) {
+    std::ifstream stream(path,std::ios::binary|std::ios::ate);
+    const auto length=stream.tellg();
+    if(length<=0 || static_cast<unsigned long long>(length)>limit)return {};
+    Bytes contents(static_cast<size_t>(length));
+    stream.seekg(0);
+    if(!stream.read(reinterpret_cast<char *>(contents.data()),length))return {};
+    return contents;
+}
+struct Face {
+    Bytes data;
+    stbtt_fontinfo font{};
+    bool load(const std::string &file) {
+        data=read_file(file.c_str(),4u<<20);
+        return !data.empty() && stbtt_InitFont(&font,data.data(),0);
+    }
+};
+struct Font {
+    const stbtt_fontinfo *face;
+    float scale;
+    int ascent,weight;
+    bool underline,italic;
+};
+struct Image {
+    std::unique_ptr<unsigned char,decltype(&stbi_image_free)> pixels{nullptr,stbi_image_free};
+    int width=0,height=0;
+};
+
+int gray(web_color color) { return (54*color.red+183*color.green+19*color.blue)>>8; }
+
+int next_rune(const unsigned char *&at) {
+    unsigned value=*at++;
+    if(value<128)return value;
+    int count=value>=0xf0 && value<0xf5 ? 3 : value>=0xe0 && value<0xf0 ? 2 : value>=0xc2 && value<0xe0 ? 1 : 0;
+    if(!count)return 0xfffd;
+    value&=(1u<<(6-count))-1;
+    while(count--) {
+        if((*at&192)!=128)return 0xfffd;
+        value=(value<<6)|(*at++&63);
+    }
+    return value>0x10ffff || (value>=0xd800 && value<=0xdfff) ? 0xfffd : value;
+}
+
+Bytes decode_image(const std::string &url) {
+    auto comma=url.find(',');
+    if(comma==std::string::npos || url.size()>400000 ||
+       (url.compare(0,22,"data:image/png;base64,") && url.compare(0,23,"data:image/jpeg;base64,")))return {};
+    Bytes data;
+    unsigned value=0,bits=0;
+    for(size_t i=comma+1;i<url.size();i++) {
+        unsigned c=url[i],n;
+        if(c>='A' && c<='Z')n=c-'A';
+        else if(c>='a' && c<='z')n=c-'a'+26;
+        else if(c>='0' && c<='9')n=c-'0'+52;
+        else if(c=='+' || c=='/')n=c=='+' ? 62 : 63;
+        else if(c=='=')break;
+        else return {};
+        value=(value<<6)|n;
+        bits+=6;
+        if(bits>=8){bits-=8;data.push_back(static_cast<unsigned char>(value>>bits));}
+    }
+    return data;
+}
+
+class Screen final : public document_container {
+    Face sans,serif,cjk;
+    bool has_serif=false,has_cjk=false;
+    int width,height;
+    std::map<std::string,Image> images;
+    std::vector<position> clips;
+    unsigned image_requests=0,style_requests=0;
+
+    position fit(position box) const {
+        const auto &clip=clips.back();
+        if(!std::isfinite(box.x) || !std::isfinite(box.y) ||
+           !std::isfinite(box.width) || !std::isfinite(box.height))return {};
+        pixel_t left=std::min(clip.right(),std::max(box.left(),clip.left()));
+        pixel_t top=std::min(clip.bottom(),std::max(box.top(),clip.top()));
+        return {left,top,std::max(0.f,std::min(box.right(),clip.right())-left),
+                         std::max(0.f,std::min(box.bottom(),clip.bottom())-top)};
+    }
+    void pixel(int x,int y,int tone,int alpha) {
+        if(!alpha)return;
+        const auto &clip=clips.back();
+        if(x<clip.left() || x>=clip.right() || y<clip.top() || y>=clip.bottom())return;
+        auto &p=pixels[static_cast<size_t>(y)*width+x];
+        p=static_cast<unsigned char>((p*(255-alpha)+tone*alpha+127)/255);
+    }
+    void fill(position box,web_color color,int radius=0) {
+        if(!color.alpha)return;
+        position bounded=fit(box);
+        int tone=gray(color);
+        radius=std::clamp(radius,0,std::max(0,int(std::min(box.width,box.height)/2)));
+        for(int y=bounded.top();y<bounded.bottom();y++)for(int x=bounded.left();x<bounded.right();x++) {
+            if(radius) {
+                int dx=std::max({box.left()+radius-x, x-(box.right()-radius-1),0.f});
+                int dy=std::max({box.top()+radius-y, y-(box.bottom()-radius-1),0.f});
+                if(dx && dy && dx*dx+dy*dy>radius*radius)continue;
+            }
+            pixel(x,y,tone,color.alpha);
+        }
+    }
+    Image &image(const std::string &url,const char *base) {
+        auto [entry,added]=images.try_emplace(url);
+        auto &result=entry->second;
+        if(!added)return result;
+        auto bytes=decode_image(url);
+        if(bytes.empty() && image_requests<4 && url.compare(0,5,"data:")) {
+            size_t size=0;
+            ++image_requests;
+            std::unique_ptr<unsigned char,decltype(&std::free)> remote(
+                web_engine_image(url.c_str(),base,&size),std::free);
+            if(remote && size<=256u*1024)bytes.assign(remote.get(),remote.get()+size);
+        }
+        if(bytes.empty())return result;
+        int channels=0;
+        if(!stbi_info_from_memory(bytes.data(),static_cast<int>(bytes.size()),&result.width,&result.height,&channels) ||
+           result.width<1 || result.height<1 || result.width>1600 || result.height>1600) {
+            result.width=result.height=0;return result;
+        }
+        result.pixels.reset(stbi_load_from_memory(bytes.data(),static_cast<int>(bytes.size()),
+                                                  &result.width,&result.height,&channels,2));
+        if(!result.pixels)result.width=result.height=0;
+        return result;
+    }
+    const stbtt_fontinfo *face_for(const Font &font,int code) const {
+        if(has_cjk && code>255 && !stbtt_FindGlyphIndex(font.face,code) &&
+           stbtt_FindGlyphIndex(&cjk.font,code))return &cjk.font;
+        return font.face;
+    }
+public:
+    Bytes pixels;
+    bool ready=false;
+    explicit Screen(int w,int h,const std::string &assets,const char *fallback) :
+        width(w),height(h),pixels(static_cast<size_t>(w)*h,255) {
+        ready=sans.load(assets+"/assets/NotoSans-Regular.otf");
+        has_serif=serif.load(assets+"/assets/NotoSerif-Regular.otf");
+        if(fallback && *fallback)has_cjk=cjk.load(fallback);
+        clips.emplace_back(0,0,w,h);
+    }
+    uint_ptr create_font(const font_description &style,const document *,font_metrics *metrics) override {
+        int size=std::isfinite(style.size) ? static_cast<int>(std::clamp(style.size,6.f,112.f)) : 17;
+        const auto *face=has_serif && style.family.find("serif")!=std::string::npos &&
+            style.family.find("sans")==std::string::npos ? &serif.font : &sans.font;
+        float scale=stbtt_ScaleForMappingEmToPixels(face,static_cast<float>(size));
+        int asc,des,gap;
+        stbtt_GetFontVMetrics(face,&asc,&des,&gap);
+        auto *font=new Font{face,scale,static_cast<int>(std::ceil(asc*scale)),style.weight,
+            (style.decoration_line&text_decoration_line_underline)!=0,style.style==font_style_italic};
+        metrics->font_size=size;
+        metrics->ascent=font->ascent;
+        metrics->descent=static_cast<int>(std::ceil(-des*scale));
+        metrics->height=std::max<float>(size,metrics->ascent+metrics->descent);
+        metrics->x_height=size/2;
+        metrics->ch_width=text_width("0",reinterpret_cast<uint_ptr>(font));
+        metrics->draw_spaces=false;
+        return reinterpret_cast<uint_ptr>(font);
+    }
+    void delete_font(uint_ptr handle) override {delete reinterpret_cast<Font *>(handle);}
+    pixel_t text_width(const char *text,uint_ptr handle) override {
+        if(!handle || !text)return 0;
+        const auto &font=*reinterpret_cast<Font *>(handle);
+        auto p=reinterpret_cast<const unsigned char *>(text);
+        float width=0;
+        for(int previous=0;*p;) {
+            int code=next_rune(p),advance,bearing;
+            const auto *face=face_for(font,code);
+            stbtt_GetCodepointHMetrics(face,code,&advance,&bearing);
+            if(previous && face==font.face)width+=stbtt_GetCodepointKernAdvance(face,previous,code)*font.scale;
+            width+=advance*font.scale;
+            previous=code;
+        }
+        return static_cast<pixel_t>(std::ceil(width));
+    }
+    void draw_text(uint_ptr,const char *text,uint_ptr handle,web_color color,const position &box) override {
+        auto visible=fit(box);
+        if(!handle || !text || visible.height<=0 || visible.width<=0 ||
+           box.x<-100000 || box.y<-100000)return;
+        const auto &font=*reinterpret_cast<Font *>(handle);
+        auto p=reinterpret_cast<const unsigned char *>(text);
+        float pen=static_cast<float>(box.x);
+        int baseline=box.y+font.ascent,value=gray(color);
+        for(int previous=0;*p;) {
+            int code=next_rune(p),w,h,x0,y0,advance,bearing;
+            const auto *face=face_for(font,code);
+            if(previous && face==font.face)pen+=stbtt_GetCodepointKernAdvance(face,previous,code)*font.scale;
+            const int x=static_cast<int>(std::lround(pen));
+            auto *bitmap=stbtt_GetCodepointBitmap(face,font.scale,font.scale,code,&w,&h,&x0,&y0);
+            if(bitmap) {
+                for(int row=0;row<h;row++)for(int col=0;col<w;col++) {
+                    int alpha=bitmap[row*w+col]*color.alpha/255;
+                    int slant=font.italic ? std::max(0,-(y0+row)/5) : 0;
+                    pixel(x+x0+col+slant,baseline+y0+row,value,alpha);
+                    if(font.weight>=650)pixel(x+x0+col+slant+1,baseline+y0+row,value,alpha/2);
+                }
+                stbtt_FreeBitmap(bitmap,nullptr);
+            }
+            stbtt_GetCodepointHMetrics(face,code,&advance,&bearing);
+            pen+=advance*font.scale;
+            previous=code;
+        }
+        if(font.underline)fill(position(box.x,baseline+2,std::max(0.f,pen-box.x),1),color);
+    }
+    pixel_t pt_to_px(float pt) const override {return static_cast<pixel_t>(std::lround(pt*4/3));}
+    pixel_t get_default_font_size() const override {return 17;}
+    const char *get_default_font_name() const override {return "sans-serif";}
+    void draw_list_marker(uint_ptr hdc,const list_marker &marker) override {
+        if(marker.image.size())return;
+        if(marker.marker_type==list_style_type_decimal && marker.font) {
+            auto text=std::to_string(marker.index)+".";
+            draw_text(hdc,text.c_str(),marker.font,marker.color,marker.pos);
+        } else {
+            int size=std::max(2,int(std::min(marker.pos.width,marker.pos.height)/3));
+            fill(position(marker.pos.x,marker.pos.y+marker.pos.height/2-size/2,size,size),marker.color,size/2);
+        }
+    }
+    void load_image(const char *src,const char *base,bool) override {if(src)image(src,base);}
+    void get_image_size(const char *src,const char *base,size &size) override {
+        auto &r=image(src ? src : "",base);
+        size.width=r.width;size.height=r.height;
+    }
+    void draw_image(uint_ptr,const background_layer &layer,const std::string &url,const std::string &base) override {
+        auto &r=image(url,base.c_str());
+        const auto &box=layer.origin_box;
+        if(!std::isfinite(box.x) || !std::isfinite(box.y) || std::fabs(box.x)>100000 ||
+           std::fabs(box.y)>100000 || !(box.width>0 && box.width<=100000) ||
+           !(box.height>0 && box.height<=100000))return;
+        const int w=static_cast<int>(box.width),h=static_cast<int>(box.height);
+        if(!r.pixels || w<=0 || h<=0)return;
+        auto bounded=fit(layer.clip_box);
+        for(int y=bounded.top();y<bounded.bottom();y++)for(int x=bounded.left();x<bounded.right();x++) {
+            int sx=x-box.x,sy=y-box.y;
+            if(layer.repeat==background_repeat_repeat || layer.repeat==background_repeat_repeat_x)
+                sx=(sx%w+w)%w;
+            if(layer.repeat==background_repeat_repeat || layer.repeat==background_repeat_repeat_y)
+                sy=(sy%h+h)%h;
+            if(sx<0 || sx>=w || sy<0 || sy>=h)continue;
+            const size_t index=2u*(static_cast<size_t>(sy)*r.height/h*r.width+
+                                    static_cast<size_t>(sx)*r.width/w);
+            pixel(x,y,r.pixels.get()[index],r.pixels.get()[index+1]);
+        }
+    }
+    void draw_solid_fill(uint_ptr,const background_layer &layer,const web_color &color) override {
+        fill(layer.is_root ? clips.front() : layer.clip_box,color,layer.border_radius.top_left_x);
+    }
+    void draw_linear_gradient(uint_ptr,const background_layer &layer,const background_layer::linear_gradient &value) override {
+        if(value.color_points.empty())return;
+        auto box=fit(layer.clip_box);
+        double dx=value.end.x-value.start.x,dy=value.end.y-value.start.y,denom=dx*dx+dy*dy;
+        if(denom<=0){fill(box,value.color_points.front().color);return;}
+        for(int y=box.top();y<box.bottom();y++)for(int x=box.left();x<box.right();x++) {
+            double t=((x-layer.origin_box.x-value.start.x)*dx+(y-layer.origin_box.y-value.start.y)*dy)/denom;
+            const auto &first=value.color_points.front(),&last=value.color_points.back();
+            t=std::clamp(t,0.,1.);
+            pixel(x,y,static_cast<int>(gray(first.color)*(1-t)+gray(last.color)*t),
+                  static_cast<int>(first.color.alpha*(1-t)+last.color.alpha*t));
+        }
+    }
+    void draw_radial_gradient(uint_ptr,const background_layer &layer,const background_layer::radial_gradient &value) override {
+        if(!value.color_points.empty())fill(layer.clip_box,value.color_points.back().color);
+    }
+    void draw_conic_gradient(uint_ptr,const background_layer &layer,const background_layer::conic_gradient &value) override {
+        if(!value.color_points.empty())fill(layer.clip_box,value.color_points.back().color);
+    }
+    void draw_borders(uint_ptr,const borders &b,const position &box,bool) override {
+        if(b.top.width>0)fill({box.x,box.y,box.width,b.top.width},b.top.color);
+        if(b.bottom.width>0)fill({box.x,box.bottom()-b.bottom.width,box.width,b.bottom.width},b.bottom.color);
+        if(b.left.width>0)fill({box.x,box.y,b.left.width,box.height},b.left.color);
+        if(b.right.width>0)fill({box.right()-b.right.width,box.y,b.right.width,box.height},b.right.color);
+    }
+    void set_caption(const char *) override {}
+    void set_base_url(const char *) override {}
+    void link(const std::shared_ptr<document> &,const element::ptr &) override {}
+    void on_anchor_click(const char *,const element::ptr &) override {}
+    void on_mouse_event(const element::ptr &,mouse_event) override {}
+    void set_cursor(const char *) override {}
+    void transform_text(string &text,text_transform transform) override {
+        bool capital=true;
+        for(char &c:text) {
+            unsigned u=static_cast<unsigned char>(c);
+            if(u>=128){capital=false;continue;}
+            if(transform==text_transform_uppercase || (transform==text_transform_capitalize && capital))
+                c=static_cast<char>(std::toupper(u));
+            else if(transform==text_transform_lowercase)c=static_cast<char>(std::tolower(u));
+            capital=std::isspace(u)!=0;
+        }
+    }
+    void import_css(string &text,const string &url,string &base) override {
+        if(style_requests>=4)return;
+        ++style_requests;
+        char final[1024]={};
+        std::unique_ptr<char,decltype(&std::free)> css(web_engine_stylesheet(url.c_str(),base.c_str(),final),std::free);
+        if(css){text=css.get();base=final;}
+    }
+    void set_clip(const position &box,const border_radiuses &) override {clips.push_back(fit(box));}
+    void del_clip() override {if(clips.size()>1)clips.pop_back();}
+    void get_viewport(position &box) const override {box=position(0,0,width,height);}
+    element::ptr create_element(const char *,const string_map &,const std::shared_ptr<document> &) override {return nullptr;}
+    void get_media_features(media_features &media) const override {
+        media.type=media_type_screen;
+        media.width=media.device_width=width;
+        media.height=media.device_height=height;
+        media.resolution=96;media.monochrome=8;
+    }
+    void get_language(string &language,string &culture) const override {language="en";culture="en";}
+};
+
+}
+
+extern "C" int web_engine_render(const char *html,const char *raster,int page,int width,int height,
+                                 const char *assets,const char *fallback,FILE *metadata) {
+    if(!assets || page<0 || width<64 || width>600 || height<64 || height>800)return 0;
+    try {
+        const auto bytes=read_file(html,8u<<20);
+        if(bytes.empty())return 0;
+        Screen screen(width,height,assets,fallback);
+        if(!screen.ready)return 0;
+        const std::string content(bytes.begin(),bytes.end());
+        auto doc=document::createFromString(estring(content),&screen);
+        if(!doc || !doc->root())return 0;
+        doc->render(width);
+        const int step=height-24;
+        if(!std::isfinite(doc->height()) || doc->height()>4096.f*step)return 0;
+        int pages=1+(std::max(0,static_cast<int>(std::ceil(doc->height()))-height)+step-1)/step;
+        if(page>=pages || pages>4096)return 0;
+        position viewport(0,0,width,height);
+        doc->draw(0,0,-page*step,&viewport);
+        FILE *file=std::fopen(raster,"wb");
+        if(!file)return 0;
+        const bool written=std::fwrite(screen.pixels.data(),1,screen.pixels.size(),file)==screen.pixels.size();
+        if(std::fclose(file) || !written)return 0;
+        std::fprintf(metadata,"%d\n",pages);
+        int emitted=0;
+        for(const auto &anchor:doc->root()->select_all("a[href]")) {
+            const char *uri=anchor->get_attr("href");
+            if(!uri || strpbrk(uri,"\r\n\t") || std::strlen(uri)>1023 || !anchor->get_render_item())continue;
+            std::string jump;
+            if(*uri=='#') {
+                for(const auto &target:doc->root()->select_all("[id]")) {
+                    const char *id=target->get_attr("id");
+                    if(id && !strcmp(id,uri+1)) {
+                        float y=target->get_placement().y;
+                        if(std::isfinite(y))jump="#"+std::to_string(static_cast<int>(std::clamp(y/step,0.f,float(pages-1))));
+                        break;
+                    }
+                }
+                if(jump.empty())continue;
+                uri=jump.c_str();
+            }
+            position::vector boxes;
+            anchor->get_render_item()->get_rendering_boxes(boxes);
+            for(const auto &box:boxes) {
+                if(!std::isfinite(box.left()) || !std::isfinite(box.right()) ||
+                   !std::isfinite(box.top()) || !std::isfinite(box.bottom()))continue;
+                int x=static_cast<int>(std::clamp(std::floor(box.left()),0.f,float(width)));
+                int y=static_cast<int>(std::clamp(std::floor(box.top())-page*step,0.f,float(height)));
+                int right=static_cast<int>(std::clamp(std::ceil(box.right()),0.f,float(width)));
+                int bottom=static_cast<int>(std::clamp(std::ceil(box.bottom())-page*step,0.f,float(height)));
+                if(emitted<64 && x<right && y<bottom) {
+                    std::fprintf(metadata,"%d\t%d\t%d\t%d\t%s\n",x,y,right,bottom,uri);
+                    emitted++;
+                }
+            }
+        }
+        return !std::ferror(metadata);
+    } catch(const std::exception &) {
+        return 0;
+    }
+}

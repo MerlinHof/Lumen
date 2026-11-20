@@ -1,5 +1,7 @@
 # Changelog
 
+- [7.4](releases/7.4.md) · On-device litehtml Browser with native CSS layout, stylesheet caching, and JavaScript modules.
+
 - [7.3](releases/7.3.md) · Compact Browser with web forms, Library progress rows, Reader mentions, and live Home Assistant history.
 
 - [7.2](releases/7.2.md) · Browser JavaScript and responsive columns, Library shelf, fast rounded touch feedback, and Home Assistant history.

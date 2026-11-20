@@ -352,9 +352,10 @@ Use `lumen_progress_ring(x, y, radius, percent)` for clockwise reading or
 task progress with a centered percentage. `lumen_popup_y` in
 `lumen_geometry.h` places a popup beside a visible selection.
 
-The Browser declares its pinned QuickJS build dependency in its manifest. The
-package links QuickJS directly, and its JavaScript bindings live inside the app.
-Neither the shared renderer nor the LUMEN host interprets page scripts.
+Browser declares pinned QuickJS and litehtml build dependencies. The package
+links both directly. Its JavaScript bindings and grayscale viewport live in the
+app and run on Kindle. The shared document renderer remains available to other
+apps through the SDK.
 HTTP workers can specify a user agent when a service negotiates content.
 `lumen_http_same_host_tls` checks for an exact HTTPS upgrade without sending
 a token to the probe endpoint.

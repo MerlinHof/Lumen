@@ -1,4 +1,6 @@
 {
+  "litehtml": { "version": "0.10", "url": "https://codeload.github.com/litehtml/litehtml/tar.gz/refs/tags/v0.10", "sha256": "7700eced92847d34ad9846b138cf195a9c974b519be70de58797880ae9da649e" },
+  "stb": { "version": "6b5799bae8a1fe3792691ef4b72ae26434c3e799", "url": "https://codeload.github.com/nothings/stb/tar.gz/6b5799bae8a1fe3792691ef4b72ae26434c3e799", "sha256": "87e9ecd2d2e0cb8fa35bf5a93ea6ca3999595ea4f0a4738ed1aac0a34cbd4da9" },
   "quickjs": { "version": "2026-06-04", "url": "https://bellard.org/quickjs/quickjs-2026-06-04.tar.xz", "sha256": "b376e839b322978313d929fd20663b11ba58b75df5a46c126dd19ea2fa70ad2a" },
   "mupdf": {
     "version": "1.28.5",

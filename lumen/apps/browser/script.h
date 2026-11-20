@@ -10,7 +10,7 @@ typedef struct {
     size_t changed_bytes;
     int64_t deadline,network_end;
     const char *base;
-    int requests;
+    int requests,modules;
 } WebScript;
 
 static int64_t script_time(void) {
@@ -215,11 +215,50 @@ static JSValue script_fetch(JSContext *js,JSValueConst self,int argc,JSValueCons
     free(body);
     return result;
 }
-static void script_eval(WebScript *script,const char *code,const char *name) {
+static char *script_module_name(JSContext *js,const char *parent,const char *name,void *opaque) {
+    WebScript *script=opaque;
+    char url[WEB_URL];
+    if(!strstr(name,"://") && *name!='.' && *name!='/') {
+        JS_ThrowReferenceError(js,"Unsupported module specifier");
+        return NULL;
+    }
+    if(!web_resource_url(url_valid(parent) ? parent : script->base,name,url)) {
+        JS_ThrowReferenceError(js,"Unsupported module address");
+        return NULL;
+    }
+    size_t length=strlen(url)+1;
+    char *copy=js_malloc(js,length);
+    if(copy)memcpy(copy,url,length);
+    return copy;
+}
+static JSModuleDef *script_module_load(JSContext *js,const char *url,void *opaque) {
+    WebScript *script=opaque;
+    if(!url_valid(url) || script->modules>=8 || script_time()>=script->network_end) {
+        JS_ThrowReferenceError(js,"Module is unavailable");
+        return NULL;
+    }
+    script->modules++;
+    char *body=malloc(SCRIPT_SOURCE+1);
+    int ok=body && lumen_http_text((LumenHttpRequest){.url=url,.timeout=3,.redirects=2,.compressed=1,
+         .user_agent=mobile_agent,.allow_http=!strncmp(url,"http://",7)},body,SCRIPT_SOURCE+1);
+    if(!ok) {
+        free(body);JS_ThrowReferenceError(js,"Unable to load module");return NULL;
+    }
+    JSValue result=JS_Eval(js,body,strlen(body),url,JS_EVAL_TYPE_MODULE|JS_EVAL_FLAG_COMPILE_ONLY);
+    free(body);
+    if(JS_IsException(result))return NULL;
+    JSModuleDef *module=JS_VALUE_GET_PTR(result);
+    JSValue meta=JS_GetImportMeta(js,module);
+    JS_SetPropertyStr(js,meta,"url",JS_NewString(js,url));
+    JS_FreeValue(js,meta);
+    JS_FreeValue(js,result);
+    return module;
+}
+static void script_eval(WebScript *script,const char *code,const char *name,int flags) {
     if(!code || script_time()>=script->deadline)return;
     size_t length=strlen(code);
     if(length>SCRIPT_SOURCE)return;
-    JSValue value=JS_Eval(script->context,code,length,name,JS_EVAL_TYPE_GLOBAL);
+    JSValue value=JS_Eval(script->context,code,length,name,flags);
     if(JS_IsException(value))JS_FreeValue(script->context,JS_GetException(script->context));
     JS_FreeValue(script->context,value);
 }
@@ -260,7 +299,18 @@ static const char dom_init[]=
 "querySelectorAll:n=>select(n,0),getElementsByClassName:n=>select('.'+n,0),getElementsByTagName:n=>select(n,0),"
 "createElement:n=>wrap(make(String(n).toLowerCase())),readyState:'loading',"
 "addEventListener:(n,f)=>{if(n==='DOMContentLoaded'&&typeof f==='function'&&ready.length<24)ready.push(f);}};"
-"g.window=g;g.self=g;g.innerWidth=544;g.innerHeight=560;"
+"g.window=g;g.self=g;g.innerWidth=g._viewportWidth;g.innerHeight=g._viewportHeight;"
+"const href=g._pageUrl;const m=href.match(/^(https?:)\\/\\/([^/?#]+)([^?#]*)(\\?[^#]*)?(#.*)?$/);"
+"g.location=m?{href,protocol:m[1],host:m[2],hostname:m[2].split(':')[0],"
+"origin:m[1]+'//'+m[2],pathname:m[3]||'/',search:m[4]||'',hash:m[5]||'',toString:()=>href}:{href};"
+"g.document.location=g.location;g.document.URL=href;"
+"Object.defineProperty(g.document,'title',{get:()=>select('title',0)[0]?.textContent||'',"
+"set:v=>{const el=select('title',0)[0];if(el)el.textContent=String(v);}});"
+"g.navigator={userAgent:g._userAgent,language:g._language,onLine:true,maxTouchPoints:1};"
+"g.performance={now:()=>Date.now()};"
+"g.Event=class{constructor(type,opts={}){this.type=type;this.bubbles=!!opts.bubbles;this.defaultPrevented=false;}"
+"preventDefault(){this.defaultPrevented=true;}};"
+"g.CustomEvent=class extends g.Event{constructor(type,opts={}){super(type,opts);this.detail=opts.detail;}};"
 "g.addEventListener=(n,f)=>{if(n==='load')document.addEventListener('DOMContentLoaded',f);};"
 "g.console={log(){},warn(){},error(){}};"
 "g.fetch=async(input,opts)=>{if(opts&&opts.method&&String(opts.method).toUpperCase()!=='GET')"
@@ -274,7 +324,7 @@ static const char dom_init[]=
 "g._drain=()=>{const list=timers;timers=[];for(const f of list)if(f)try{f()}catch(_){};};"
 "g._ready=()=>{document.readyState='complete';for(const f of ready)try{f.call(document)}catch(_){};ready=[];};"
 "g._click=dispatch;"
-"for(const n of ['_find','_get','_set','_make','_append','_active','_fetch'])delete g[n];"
+"for(const n of ['_find','_get','_set','_make','_append','_active','_fetch','_pageUrl','_userAgent','_language','_viewportWidth','_viewportHeight'])delete g[n];"
 "})(globalThis);";
 
 static void script_tree(WebScript *script,MarkupNode *node,const char *base) {
@@ -282,7 +332,8 @@ static void script_tree(WebScript *script,MarkupNode *node,const char *base) {
         if(!node->tag)continue;
         if(!strcmp(node->tag,"script")) {
             const char *type=node->attribute[8];
-            if(type && *type && strcasecmp(type,"text/javascript") && strcasecmp(type,"application/javascript"))continue;
+            int module=type && !strcasecmp(type,"module");
+            if(type && *type && !module && strcasecmp(type,"text/javascript") && strcasecmp(type,"application/javascript"))continue;
             script->inline_count++;
             if(node->attribute[6]) {
                 char url[WEB_URL];
@@ -293,12 +344,12 @@ static void script_tree(WebScript *script,MarkupNode *node,const char *base) {
                 if(body && lumen_http_text((LumenHttpRequest){.url=url,.timeout=3,.redirects=2,.compressed=1,.user_agent=mobile_agent,
                         .allow_http=!strncmp(url,"http://",7)},body,SCRIPT_SOURCE+1)) {
                     script->deadline=script_time()+180;
-                    script_eval(script,body,url);
+                    script_eval(script,body,url,module ? JS_EVAL_TYPE_MODULE : JS_EVAL_TYPE_GLOBAL);
                 }
                 free(body);
             } else for(MarkupNode *child=node->child;child;child=child->next) {
                 script->deadline=script_time()+180;
-                script_eval(script,child->text,"page-script");
+                script_eval(script,child->text,base,module ? JS_EVAL_TYPE_MODULE : JS_EVAL_TYPE_GLOBAL);
             }
         } else script_tree(script,node->child,base);
     }
@@ -310,6 +361,14 @@ static int form_editable(const MarkupNode *node) {
     return !strcmp(node->tag,"input") && (!type || !*type || !strcasecmp(type,"text") ||
         !strcasecmp(type,"search") || !strcasecmp(type,"email") || !strcasecmp(type,"url") ||
         !strcasecmp(type,"tel") || !strcasecmp(type,"number"));
+}
+static int form_field_count(const MarkupNode *node) {
+    int count=0;
+    for(;node && count<2;node=node->next) {
+        count+=form_editable(node);
+        count+=form_field_count(node->child);
+    }
+    return count;
 }
 static int form_text(const MarkupNode *node) {
     for(;node;node=node->next) {
@@ -379,6 +438,7 @@ static WebScript *script_run(MarkupNode *root,const char *base,const WebAction *
     JS_SetMemoryLimit(runtime,8<<20);
     JS_SetMaxStackSize(runtime,256<<10);
     JS_SetInterruptHandler(runtime,script_timeout,script);
+    JS_SetModuleLoaderFunc(runtime,script_module_name,script_module_load,script);
     JSContext *js=JS_NewContext(runtime);
     if(js) {
         script->context=js;
@@ -391,8 +451,14 @@ static WebScript *script_run(MarkupNode *root,const char *base,const WebAction *
         };
         for(size_t i=0;i<sizeof(bindings)/sizeof(*bindings);i++)
             JS_SetPropertyStr(js,globals,bindings[i].name,JS_NewCFunction(js,bindings[i].call,bindings[i].name,bindings[i].args));
+        JS_SetPropertyStr(js,globals,"_pageUrl",JS_NewString(js,base));
+        JS_SetPropertyStr(js,globals,"_userAgent",JS_NewString(js,mobile_agent));
+        const char *language=lumen_language==1 ? "en" : lumen_language==2 ? "fr" : "de";
+        JS_SetPropertyStr(js,globals,"_language",JS_NewString(js,language));
+        JS_SetPropertyStr(js,globals,"_viewportWidth",JS_NewInt32(js,WEB_VIEW_WIDTH));
+        JS_SetPropertyStr(js,globals,"_viewportHeight",JS_NewInt32(js,WEB_VIEW_HEIGHT));
         script->deadline=script_time()+180;
-        script_eval(script,dom_init,"lumen-dom");
+        script_eval(script,dom_init,"lumen-dom",JS_EVAL_TYPE_GLOBAL);
         JSValue ready=JS_GetPropertyStr(js,globals,"_ready");
         JSValue click=JS_GetPropertyStr(js,globals,"_click");
         JSValue drain=JS_GetPropertyStr(js,globals,"_drain");

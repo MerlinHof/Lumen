@@ -2,6 +2,7 @@
 """Build one independent app; the LUMEN system is never compiled or linked."""
 import argparse,hashlib,json,os,re,shlex,shutil,subprocess,zipfile
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 HERE=Path(__file__).resolve().parent
 ROOT=HERE.parent
 
@@ -75,28 +76,52 @@ def build_app(manifest,target='kindle',output=None):
     if not source or not all(isinstance(path,str) for path in source):
         raise ValueError('An app needs at least one source file')
     native=meta.pop('native_dependencies',[])
-    if native:
-        if native!=['quickjs']:
-            raise ValueError('Unknown native app dependency')
-        quickjs=ROOT/'.local/deps/quickjs'
+    if not isinstance(native,list) or set(native)-{'quickjs','litehtml'}:
+        raise ValueError('Unknown native app dependency')
+    deps=ROOT/'.local/deps'
+    cflags=[]
+    if 'quickjs' in native:
+        quickjs=deps/'quickjs'
         if not (quickjs/'VERSION').is_file():
             raise RuntimeError('QuickJS missing. Run python3 tools/setup.py '+target)
         version=(quickjs/'VERSION').read_text().strip()
-        flags+=['-I'+str(quickjs),'-D_GNU_SOURCE',f'-DCONFIG_VERSION="{version}"']
+        cflags+=['-I'+str(quickjs),'-D_GNU_SOURCE',f'-DCONFIG_VERSION="{version}"']
         source.extend(str(quickjs/name) for name in ('quickjs.c','dtoa.c','libregexp.c','libunicode.c','cutils.c'))
+    if 'litehtml' in native:
+        litehtml=deps/'litehtml'
+        stb=deps/'stb'
+        if not (litehtml/'CMakeLists.txt').is_file() or not (stb/'stb_truetype.h').is_file():
+            raise RuntimeError('Browser layout dependencies missing. Run python3 tools/setup.py '+target)
+        gumbo=litehtml/'src/gumbo'
+        flags+=['-I'+str(path) for path in (litehtml/'include',litehtml/'include/litehtml',
+                                            litehtml/'src',gumbo/'include',gumbo/'include/gumbo',stb)]
+        # These are the pinned upstream CMake target source lists.
+        for directory,variable in ((litehtml,'SOURCE_LITEHTML'),(gumbo,'SOURCE_GUMBO')):
+            configuration=(directory/'CMakeLists.txt').read_text()
+            listing=re.search(r'set\('+variable+r'\s+([^)]+)\)',configuration).group(1)
+            source.extend(str(directory/name) for name in listing.split())
     cache=out/'.objects';cache.mkdir(exist_ok=True)
     binary=out/'app'
-    objects=[]
-    for index,path in enumerate(source):
+    cxx=['clang++'] if target=='host' else [compiler,'c++',*command[2:]]
+    def compile_unit(listing):
+        index,path=listing
         src=(folder/path).resolve()
         obj=cache/f'{index}.o';dep=obj.with_suffix('.d');signature=obj.with_suffix('.json')
-        argv=command+flags+['-MMD','-MF',str(dep),'-c',str(src),'-o',str(obj)]
+        cpp=src.suffix in ('.cc','.cpp','.cxx')
+        argv=(cxx if cpp else command)+flags+(['-std=c++17'] if cpp else cflags)+[
+            '-MMD','-MF',str(dep),'-c',str(src),'-o',str(obj)]
         if stale(obj,dep,signature,argv):
             signature.unlink(missing_ok=True)
             subprocess.run(argv,check=True,env=env)
             signature.write_text(json.dumps(argv))
-        objects.append(obj)
-    argv=command+([ '-static','-s'] if target=='kindle' else [])+list(map(str,objects))+['-lm','-o',str(binary)]
+        return obj
+    if 'litehtml' in native:
+        with ThreadPoolExecutor(max_workers=6) as pool:objects=list(pool.map(compile_unit,enumerate(source)))
+    else:
+        objects=list(map(compile_unit,enumerate(source)))
+    link=cxx if any(Path(path).suffix in ('.cc','.cpp','.cxx') for path in source) else command
+    argv=link+(['-static','-s','-Wl,--gc-sections'] if target=='kindle' and link==cxx else
+               ['-static','-s'] if target=='kindle' else [])+list(map(str,objects))+['-lm','-o',str(binary)]
     link_signature=cache/'link.json'
     if not binary.is_file() or changed(link_signature,argv) or any(
             obj.stat().st_mtime_ns>binary.stat().st_mtime_ns for obj in objects):

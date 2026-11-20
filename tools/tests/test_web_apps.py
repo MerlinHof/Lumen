@@ -50,10 +50,11 @@ class Fixture(BaseHTTPRequestHandler):
             return
         pages = {
             '/article/start': ('text/html', b'''<!doctype html><html><head>
-                <title>Browser fixture</title><link rel="stylesheet" href="base.css">
+                <title>Module pending</title><link rel="stylesheet" href="base.css">
                 <style>.story {font-style:italic}
                 .cards {display:block} @media screen and (max-width: 600px) {
-                .cards {display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+                .cards {display:flex;gap:10px} .cards section {width:45%;min-height:32px}
+                .cards section:first-child {background:#aaa} .cards section:last-child {background:#bbb}
                 .story {background-color:#ddd;width:80vw}}
                 @media (min-width: 900px) {.story {color:#008}}</style></head>
                 <body><p id="headline" class="story" style="padding:7px">Reading on Kindle</p>
@@ -61,8 +62,10 @@ class Fixture(BaseHTTPRequestHandler):
                 <div class="cards"><section>Left column</section><section>Right column</section></div>
                 <button id="count">Count</button><div id="result"></div><p id="async"></p>
                 <form action="/catalog"><input name="q" placeholder="Search fixture">
-                <input name="src" value="book" type="hidden"><button>Go</button></form>
+                <input name="src" value="book" type="hidden"><input name="extra" placeholder="Optional"><button>Go</button></form>
                 <script src="fixture.js"></script>
+                <script type="module">import {caption} from './lib.js';
+                document.title=caption; document.body.classList.add(location.pathname.split('/')[1]);</script>
                 <script>let count=0; document.querySelector('#headline').textContent='JavaScript ran';
                 document.getElementById('count').addEventListener('click',()=>{
                     document.querySelector('#result').innerHTML='<strong>Count '+(++count)+'</strong>';
@@ -73,6 +76,7 @@ class Fixture(BaseHTTPRequestHandler):
                     const response=await fetch('message.json');
                     document.querySelector('body #async').textContent=(await response.json()).message;
                 },0));'''),
+            '/article/lib.js': ('application/javascript', b'export const caption="Browser fixture";'),
             '/article/message.json': ('application/json', b'{"message":"Async update"}'),
             '/article/base.css': ('text/css', b'.story { color:#555; margin:20px; }'),
             '/article/next': ('text/html', b'<title>Next fixture</title><p>A second page.</p>'),
@@ -123,7 +127,8 @@ class App:
             [str(ROOT/'build/apps/host'/key/'app')], stdin=subprocess.PIPE,
             stdout=subprocess.PIPE, text=True,
             env=dict(os.environ, LUMEN_APP_DATA=str(folder),
-                     LUMEN_DOCUMENT_TOOL=str(ROOT/'build/host/lumen-host')))
+                     LUMEN_DOCUMENT_TOOL=str(ROOT/'build/host/lumen-host'),
+                     LUMEN_APP_ASSETS=str(ROOT/'lumen/apps/browser')))
         Thread(target=self.read, daemon=True).start()
         self.send('open', language=1)
 
@@ -177,17 +182,17 @@ with ThreadingHTTPServer(('127.0.0.1',0),Fixture) as server, TemporaryDirectory(
         commands=app.wait(lambda ui: label(ui,'Browser fixture'))
         assert any(c.get('id')=='link:0' for c in commands), commands
         clean=(browser/'browser-0.html').read_text()
-        assert 'color:#555;' in clean and 'font-style:italic;' in clean
-        assert 'padding:7px;' in clean and 'while(true)' not in clean
+        assert 'base.css' in clean and 'font-style:italic' in clean
+        assert 'padding:7px' in clean and 'while(true)' not in clean
         assert 'Async update' in clean
         assert 'JavaScript ran' in clean and 'Reading on Kindle' not in clean
-        assert 'width:467.2px;' in clean and 'background-color:#ddd;' in clean and 'color:#008;' not in clean
-        assert 'Left column</section></td><td' in clean and 'padding:5px;' in clean
+        assert 'width:80vw' in clean and 'display:flex' in clean and 'class="article"' in clean
         assert 'lumen-control:' in clean
         assert 'data:image/png;base64,' in clean
         assert f'href="{origin}/article/next"' in clean
         pixels=(browser/'browser-raster-0').read_bytes()
         assert len(pixels)==584*686 and min(pixels)<128 and max(pixels)==255
+        assert any(170 in pixels[y*584:(y+1)*584] and 187 in pixels[y*584:(y+1)*584] for y in range(686))
         app.click('link:1')
         app.wait(lambda ui: any(c.get('text')=='browser-raster-1' for c in ui))
         assert '<strong>Count 1</strong>' in (browser/'browser-1.html').read_text()
@@ -202,7 +207,7 @@ with ThreadingHTTPServer(('127.0.0.1',0),Fixture) as server, TemporaryDirectory(
         app.send('text',action=2,text='ink & paper')
         app.wait(lambda ui: any(c.get('text')=='browser-raster-1' and c.get('type')=='bitmap' for c in ui))
         assert 'ink &amp; paper' in (browser/'browser-1.html').read_text()
-        app.click('link:3')
+        app.click('link:4')
         app.wait(lambda ui: label(ui,'Search results'))
     finally:
         app.close()

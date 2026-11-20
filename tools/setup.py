@@ -26,10 +26,13 @@ def setup(target):
     mupdf=deps/'mupdf'
     if not mupdf.exists():
         data=lock['mupdf'];archive=cache/('mupdf-'+data['version']+'-source.tar.gz');download(data['url'],archive,data['sha256']);extract(archive,mupdf)
-    quickjs=deps/'quickjs'
-    if not quickjs.exists():
-        data=lock['quickjs'];archive=cache/('quickjs-'+data['version']+'.tar.xz')
-        download(data['url'],archive,data['sha256']);extract(archive,quickjs)
+    for name,extension in (('quickjs','tar.xz'),('litehtml','tar.gz'),('stb','tar.gz')):
+        location=deps/name
+        if not location.exists():
+            data=lock[name]
+            archive=cache/(name+'-'+data['version']+'.'+extension)
+            download(data['url'],archive,data['sha256'])
+            extract(archive,location)
     zig=deps/'zig'
     if target=='kindle' and not zig.exists():
         system={'Darwin':'macos','Linux':'linux'}[platform.system()];arch={'arm64':'aarch64','aarch64':'aarch64','x86_64':'x86_64'}[platform.machine()]
