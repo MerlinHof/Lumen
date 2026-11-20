@@ -1,24 +1,20 @@
-/* Shared selection preview and action layout for editable text. */
-enum { EDIT_SELECTION_Y = 246 };
-static void selection_menu_draw(int y, const char *text, const char *const actions[5]) {
-    raised_surface(19, y, 558, 258);
-    wrapped_raw(35, y + 18, text, &small, 526, 3);
-    button_h(35, y + 116, 165, 48, actions[0], 0);
-    button_h(217, y + 116, 165, 48, actions[1], 0);
-    button_h(399, y + 116, 160, 48, actions[2], 0);
-    button_h(35, y + 189, 250, 48, actions[3], 0);
-    button_h(310, y + 189, 250, 48, actions[4], 0);
+#include "../../../tools/sdk/lumen_geometry.h"
+
+/* Shared editable-text popup. The same geometry drives drawing and touch. */
+enum { EDIT_SELECTION_HEIGHT=158 };
+static void selection_menu_draw(int y,const char *text,const char *const actions[4]) {
+    raised_surface(20,y,556,EDIT_SELECTION_HEIGHT);
+    label_ellipsis(35,y+4,474,41,text,&small,0);
+    icon_button(521,y+1,IC_CLOSE);
+    for(int i=0;i<4;i++)
+        button_h(35+i%2*272,y+46+i/2*52,252,44,actions[i],0);
 }
-static int selection_menu_action(int top, int x, int y) {
-    y -= top;
-    if (y >= 116 && y < 164) {
-        if (x >= 35 && x < 200) return 0;
-        if (x >= 217 && x < 382) return 1;
-        if (x >= 399 && x < 559) return 2;
-    }
-    if (y >= 189 && y < 237) {
-        if (x >= 35 && x < 285) return 3;
-        if (x >= 310 && x < 560) return 4;
+static int selection_menu_action(int top,int x,int y) {
+    y-=top;
+    if(x>=521 && x<565 && y>=1 && y<45)return 4;
+    for(int i=0;i<4;i++) {
+        int left=35+i%2*272,row=46+i/2*52;
+        if(x>=left && x<left+252 && y>=row && y<row+44)return i;
     }
     return -1;
 }

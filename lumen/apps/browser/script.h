@@ -233,14 +233,14 @@ static const char dom_init[]=
 "removeAttribute:n=>set(i,n,null),hasAttribute:n=>get(i,n)!==null,"
 "querySelector:s=>select(s,i)[0]||null,querySelectorAll:s=>select(s,i),"
 "appendChild:n=>{if(n)append(i,n._key);return n;},"
-"addEventListener:(n,f)=>{if(n==='click'&&typeof f==='function'){"
-"const a=events.get(i)||[];if(a.length<24)a.push(f);events.set(i,a);active(i);}},"
+"addEventListener:(n,f)=>{if(['click','input','change','submit'].includes(n)&&typeof f==='function'){"
+"const k=i+':'+n,a=events.get(k)||[];if(a.length<24)a.push(f);events.set(k,a);if(n==='click')active(i);}},"
 "click:()=>dispatch(i),get parentNode(){return wrap(get(i,'parent'));},"
 "get tagName(){return get(i,'tagName').toUpperCase();}};"
 "Object.defineProperty(e,'_key',{value:i});"
-"for(const n of ['textContent','innerHTML','className','id','href','src','value','hidden','onclick'])"
+"for(const n of ['textContent','innerHTML','className','id','href','src','value','hidden','onclick','oninput','onchange','onsubmit'])"
 "Object.defineProperty(e,n,{get:()=>n==='onclick'?null:n==='hidden'?get(i,n)!==null:get(i,n)||'',"
-"set:v=>{if(n==='onclick'&&typeof v==='function')e.addEventListener('click',v);"
+"set:v=>{if(n.startsWith('on')&&typeof v==='function')e.addEventListener(n.slice(2),v);"
 "else set(i,n,n==='hidden'&&!v?null:String(v));}});"
 "e.classList={contains:n=>e.className.split(/\\s+/).includes(n),add:(...a)=>{"
 "e.className=[...new Set(e.className.split(/\\s+/).concat(a))].filter(Boolean).join(' ');},"
@@ -250,9 +250,11 @@ static const char dom_init[]=
 "const k=String(n).replace(/[A-Z]/g,m=>'-'+m.toLowerCase());"
 "set(i,'style',n==='cssText'?String(v):(get(i,'style')||'')+';'+k+':'+v);return true;}});"
 "nodes.set(i,e);return e;}"
-"function dispatch(i){const e=wrap(i);if(!e)return;const evt={type:'click',target:e,currentTarget:e,preventDefault(){}};"
-"for(const f of events.get(i)||[])try{f.call(e,evt)}catch(_){};"
-"const h=get(i,'onclick');if(h)try{Function('event',h).call(e,evt)}catch(_){};}"
+"function dispatch(i,type='click'){const e=wrap(i);if(!e)return true;let cancel=false;"
+"const evt={type,target:e,currentTarget:e,preventDefault(){cancel=true;}};"
+"for(const f of events.get(i+':'+type)||[])try{f.call(e,evt)}catch(_){};"
+"const h=get(i,'on'+type);if(h)try{if(Function('event',h).call(e,evt)===false)cancel=true;}catch(_){};"
+"return !cancel;}"
 "g.document={get body(){return select('body',0)[0]||null;},get documentElement(){return select('html',0)[0]||null;},"
 "getElementById:n=>select('#'+n,0)[0]||null,querySelector:n=>select(n,0)[0]||null,"
 "querySelectorAll:n=>select(n,0),getElementsByClassName:n=>select('.'+n,0),getElementsByTagName:n=>select(n,0),"
@@ -288,7 +290,7 @@ static void script_tree(WebScript *script,MarkupNode *node,const char *base) {
                    !web_resource_url(base,node->attribute[6],url))continue;
                 script->remote_count++;
                 char *body=malloc(SCRIPT_SOURCE+1);
-                if(body && lumen_http_text((LumenHttpRequest){.url=url,.timeout=3,.redirects=2,.compressed=1,
+                if(body && lumen_http_text((LumenHttpRequest){.url=url,.timeout=3,.redirects=2,.compressed=1,.user_agent=mobile_agent,
                         .allow_http=!strncmp(url,"http://",7)},body,SCRIPT_SOURCE+1)) {
                     script->deadline=script_time()+180;
                     script_eval(script,body,url);
@@ -301,7 +303,73 @@ static void script_tree(WebScript *script,MarkupNode *node,const char *base) {
         } else script_tree(script,node->child,base);
     }
 }
-static WebScript *script_run(MarkupNode *root,const char *base,const int *actions,int count,int64_t network_end) {
+static int form_editable(const MarkupNode *node) {
+    if(!node || !node->tag || node->attribute[9] || node->attribute[ATTR_DISABLED])return 0;
+    if(!strcmp(node->tag,"textarea"))return 1;
+    const char *type=node->attribute[8];
+    return !strcmp(node->tag,"input") && (!type || !*type || !strcasecmp(type,"text") ||
+        !strcasecmp(type,"search") || !strcasecmp(type,"email") || !strcasecmp(type,"url") ||
+        !strcasecmp(type,"tel") || !strcasecmp(type,"number"));
+}
+static int form_text(const MarkupNode *node) {
+    for(;node;node=node->next) {
+        if(node->text && node->text[strspn(node->text," \r\n\t")])return 1;
+        if(node->tag && !strcmp(node->tag,"svg"))continue;
+        if(form_text(node->child))return 1;
+    }
+    return 0;
+}
+static int form_submit_control(const MarkupNode *node) {
+    const char *type=node->attribute[8];
+    return (!strcmp(node->tag,"button") && (!type || !*type || !strcasecmp(type,"submit"))) ||
+        (!strcmp(node->tag,"input") && type && !strcasecmp(type,"submit"));
+}
+static const MarkupNode *form_owner(const MarkupNode *node) {
+    for(node=node->parent;node;node=node->parent)
+        if(node->tag && !strcmp(node->tag,"form"))return node;
+    return NULL;
+}
+static int form_parameters(MarkupNode *node,const MarkupNode *submit,char *out,size_t size,int *count) {
+    for(;node;node=node->next) {
+        if(node->tag && node->attribute[ATTR_NAME] && !node->attribute[ATTR_DISABLED]) {
+            const char *type=node->attribute[8];
+            if(form_editable(node) || node==submit || (!strcmp(node->tag,"input") && type && !strcasecmp(type,"hidden"))) {
+                char name[128],value[WEB_FIELD_TEXT*3];
+                if(!lumen_url_encode(node->attribute[ATTR_NAME],name,sizeof(name)) ||
+                   !lumen_url_encode(node->attribute[10] ? node->attribute[10] : "",value,sizeof(value)))return 0;
+                size_t used=strlen(out);
+                int bytes=snprintf(out+used,size-used,"%c%s=%s",*count ? '&' : '?',name,value);
+                if(bytes<0 || bytes>=(int)(size-used))return 0;
+                (*count)++;
+            }
+        }
+        if(!form_parameters(node->child,submit,out,size,count))return 0;
+    }
+    return 1;
+}
+static void form_target(const char *base,MarkupNode *submit,char out[WEB_URL]) {
+    const MarkupNode *form=form_owner(submit);
+    if(!form)return;
+    const char *method=form->attribute[ATTR_METHOD];
+    if(method && *method && strcasecmp(method,"get"))return;
+    const char *action=submit->attribute[ATTR_FORM_ACTION];
+    if(!action)action=form->attribute[ATTR_ACTION];
+    if(action && *action) {if(!url_join(base,action,out))return;}
+    else snprintf(out,WEB_URL,"%s",base);
+    out[strcspn(out,"?#")]=0;
+    int count=0;
+    if(!form_parameters(form->child,submit,out,WEB_URL,&count))*out=0;
+}
+static int script_event(WebScript *script,JSValue dispatch,int id,const char *event) {
+    JSContext *js=script->context;
+    JSValue args[]={JS_NewInt32(js,id),JS_NewString(js,event)};
+    JSValue result=JS_Call(js,dispatch,JS_UNDEFINED,2,args);
+    int allowed=!JS_IsException(result) && JS_ToBool(js,result)>0;
+    if(JS_IsException(result))JS_FreeValue(js,JS_GetException(js));
+    JS_FreeValue(js,args[1]);JS_FreeValue(js,result);
+    return allowed;
+}
+static WebScript *script_run(MarkupNode *root,const char *base,const WebAction *actions,int count,int64_t network_end,char next_url[WEB_URL]) {
     WebScript *script=calloc(1,sizeof(*script));
     if(!script)return NULL;
     script->network_end=network_end;script->base=base;
@@ -337,10 +405,22 @@ static WebScript *script_run(MarkupNode *root,const char *base,const int *action
         JS_FreeValue(js,result);
         for(int i=-1;i<count && script_time()<deadline;i++) {
             if(i>=0) {
-                JSValue index=JS_NewInt32(js,actions[i]);
-                result=JS_Call(js,click,JS_UNDEFINED,1,&index);
-                if(JS_IsException(result))JS_FreeValue(js,JS_GetException(js));
-                JS_FreeValue(js,result);
+                const WebAction *action=&actions[i];
+                if(action->id<1 || action->id>script->count)continue;
+                MarkupNode *node=script->nodes[action->id];
+                if((action->kind==WEB_EDIT || action->kind==WEB_SEARCH) && form_editable(node)) {
+                    char *copy=strdup(action->value);
+                    if(copy){free(node->attribute[10]);node->attribute[10]=copy;}
+                    script_event(script,click,action->id,"input");
+                    script_event(script,click,action->id,"change");
+                }
+                int submit=action->kind==WEB_SEARCH;
+                if(action->kind==WEB_SUBMIT || action->kind==WEB_CLICK)
+                    submit=script_event(script,click,action->id,"click") && action->kind==WEB_SUBMIT;
+                if(submit) {
+                    int form=script_index(script,(MarkupNode *)form_owner(node));
+                    if(form && script_event(script,click,form,"submit"))form_target(base,node,next_url);
+                }
             }
             for(int pass=0;pass<2 && script_time()<deadline;pass++) {
                 result=JS_Call(js,drain,JS_UNDEFINED,0,NULL);
@@ -358,6 +438,10 @@ static WebScript *script_run(MarkupNode *root,const char *base,const int *action
     }
     JS_FreeRuntime(runtime);
     return script;
+}
+static int script_node_id(const WebScript *script,const MarkupNode *node) {
+    if(script)for(int i=1;i<=script->count;i++)if(script->nodes[i]==node)return i;
+    return 0;
 }
 static int script_action(const WebScript *script,const MarkupNode *node) {
     if(script)for(int i=1;i<=script->count;i++)

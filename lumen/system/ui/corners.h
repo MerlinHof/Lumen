@@ -45,8 +45,7 @@ static void paint_corner_pixel(int x, int y, int coverage, int color) {
     unsigned char *pixel = &ui_pixels[y*WIDTH+x];
     *pixel = corner_blend(*pixel, color, coverage);
 }
-static void rounded_surface(int x, int y, int w, int h, int r, int color, int sides) {
-    int profile = rounding_profile();
+static void rounded_surface_profile(int x, int y, int w, int h, int r, int color, int sides,int profile) {
     if (w <= 0 || h <= 0) return;
     if (r > MAX_CORNER_RADIUS) r = MAX_CORNER_RADIUS;
     if (r > w/2) r = w/2;
@@ -78,6 +77,12 @@ static void rounded_surface(int x, int y, int w, int h, int r, int color, int si
             }
         }
     }
+}
+static void rounded_surface(int x,int y,int w,int h,int r,int color,int sides) {
+    rounded_surface_profile(x,y,w,h,r,color,sides,rounding_profile());
+}
+static void capsule_surface(int x,int y,int w,int h,int color) {
+    rounded_surface_profile(x,y,w,h,h/2,color,3,CORNER_CIRCLE);
 }
 static void control_surface(int x, int y, int w, int h, int r, int color) {
     rounded_surface(x, y, w, h, r, color, 3);

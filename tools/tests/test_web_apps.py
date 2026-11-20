@@ -60,6 +60,8 @@ class Fixture(BaseHTTPRequestHandler):
                 <img src="picture.png" alt="Photo"><a href="next">Next page</a>
                 <div class="cards"><section>Left column</section><section>Right column</section></div>
                 <button id="count">Count</button><div id="result"></div><p id="async"></p>
+                <form action="/catalog"><input name="q" placeholder="Search fixture">
+                <input name="src" value="book" type="hidden"><button>Go</button></form>
                 <script src="fixture.js"></script>
                 <script>let count=0; document.querySelector('#headline').textContent='JavaScript ran';
                 document.getElementById('count').addEventListener('click',()=>{
@@ -74,12 +76,15 @@ class Fixture(BaseHTTPRequestHandler):
             '/article/message.json': ('application/json', b'{"message":"Async update"}'),
             '/article/base.css': ('text/css', b'.story { color:#555; margin:20px; }'),
             '/article/next': ('text/html', b'<title>Next fixture</title><p>A second page.</p>'),
+            '/catalog': ('text/html', b'<title>Search results</title><p>Found a book.</p>'),
             '/api/states': ('application/json', json.dumps([
                 dict(entity_id='sensor.room', state='23', attributes=dict(unit_of_measurement='C')),
                 dict(entity_id='sensor.mode', state='idle', attributes={}),
                 dict(entity_id='switch.office', state='off', attributes={}),
             ]).encode())
         }
+        if request.path=='/catalog':
+            assert parse_qs(request.query)=={'q':['ink & paper'],'src':['book']}
         if request.path.startswith('/api/history/period/'):
             if self.headers.get('Authorization') != 'Bearer fixture-token':
                 self.send_error(401)
@@ -176,13 +181,13 @@ with ThreadingHTTPServer(('127.0.0.1',0),Fixture) as server, TemporaryDirectory(
         assert 'padding:7px;' in clean and 'while(true)' not in clean
         assert 'Async update' in clean
         assert 'JavaScript ran' in clean and 'Reading on Kindle' not in clean
-        assert 'width:435.2px;' in clean and 'background-color:#ddd;' in clean and 'color:#008;' not in clean
+        assert 'width:467.2px;' in clean and 'background-color:#ddd;' in clean and 'color:#008;' not in clean
         assert 'Left column</section></td><td' in clean and 'padding:5px;' in clean
         assert 'lumen-control:' in clean
         assert 'data:image/png;base64,' in clean
         assert f'href="{origin}/article/next"' in clean
         pixels=(browser/'browser-raster-0').read_bytes()
-        assert len(pixels)==544*560 and min(pixels)<128 and max(pixels)==255
+        assert len(pixels)==584*686 and min(pixels)<128 and max(pixels)==255
         app.click('link:1')
         app.wait(lambda ui: any(c.get('text')=='browser-raster-1' for c in ui))
         assert '<strong>Count 1</strong>' in (browser/'browser-1.html').read_text()
@@ -193,6 +198,12 @@ with ThreadingHTTPServer(('127.0.0.1',0),Fixture) as server, TemporaryDirectory(
         app.wait(lambda ui: label(ui,'Next fixture'))
         app.click('previous')
         app.wait(lambda ui: label(ui,'Browser fixture'))
+        app.click('link:2')
+        app.send('text',action=2,text='ink & paper')
+        app.wait(lambda ui: any(c.get('text')=='browser-raster-1' and c.get('type')=='bitmap' for c in ui))
+        assert 'ink &amp; paper' in (browser/'browser-1.html').read_text()
+        app.click('link:3')
+        app.wait(lambda ui: label(ui,'Search results'))
     finally:
         app.close()
     print('PASS standalone Browser renders HTML and CSS, runs JavaScript and responsive layout, follows redirects and keeps navigation history.')

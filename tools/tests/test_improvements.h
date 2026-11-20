@@ -25,7 +25,7 @@ static void improvements_tests(void) {
     release.kind = INPUT_TAP;
     ui_input(&release);
     assert(editor_ui.clip_active == 2);
-    Input copy = {.kind = INPUT_TAP, .x = 100, .y = 380};
+    Input copy = {.kind = INPUT_TAP, .x = 100, .y = clipboard_menu_y()+64};
     ui_input(&copy);
     assert(!strcmp(clipboard_text, "these"));
     editor_ui.keyboard = 0;

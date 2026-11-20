@@ -30,7 +30,7 @@ static int reader_set_value(int id,int value) {
     apply_reading_settings();
     return 1;
 }
-typedef struct {int page,offset,length;char quote[1200];} DocumentExcerpt;
+typedef struct {int count;DocumentMention matches[DOCUMENT_MENTION_LIMIT];} DocumentExcerpt;
 static struct {pid_t child;int fd,action;int64_t due;size_t received;DocumentExcerpt result;} document_excerpt={.fd=-1};
 static void document_excerpt_close(void) {
     if(document_excerpt.fd>=0)close(document_excerpt.fd);
@@ -50,7 +50,7 @@ static int document_excerpt_start(const char *term,int action) {
         close(out[0]);
         app_process_detach_inherited();
         DocumentExcerpt result={0};
-        result.page=engine_first_mention(term,page,result.quote,sizeof(result.quote),&result.offset,&result.length);
+        result.count=engine_mentions(term,page,result.matches,DOCUMENT_MENTION_LIMIT);
         ssize_t written=write(out[1],&result,sizeof(result));
         _exit(written==(ssize_t)sizeof(result) ? 0 : 1);
     }
@@ -72,16 +72,19 @@ static void document_excerpt_poll(void) {
        (got>0 || (got<0 && (errno==EAGAIN || errno==EINTR))) &&
        extra_millis()<document_excerpt.due)return;
     DocumentExcerpt result=*pending;
-    int ok=document_excerpt.received==sizeof(result) && result.page>=0;
+    int ok=document_excerpt.received==sizeof(result) && result.count>0 && result.count<=DOCUMENT_MENTION_LIMIT;
     int action=document_excerpt.action;
     document_excerpt_close();
     if(!ok){package_acknowledge(action,0);return;}
     char *message=NULL;size_t length=0;
     FILE *out=package_reply(&message,&length,action,1);
     if(out) {
-        fprintf(out,",\"mention_page\":%d,\"match_offset\":%d,\"match_length\":%d",
-                result.page+1,result.offset,result.length);
-        package_field(out,"quote",result.quote);
+        fprintf(out,",\"mention_count\":%d",result.count);
+        for(int i=0;i<result.count;i++) {
+            char key[20];snprintf(key,sizeof(key),"quote%d",i);
+            package_field(out,key,result.matches[i].quote);
+            fprintf(out,",\"offset%d\":%d,\"length%d\":%d",i,result.matches[i].offset,i,result.matches[i].length);
+        }
         package_reply_end(out,&message);
     }
 }
@@ -110,7 +113,7 @@ static int document_selection_operation(const char *operation,int action) {
 static int package_document(const char *operation,const char *data,int action) {
     if(active_app()!=document_provider())return 0;
     if(!strncmp(operation,"selection_",10))return document_selection_operation(operation,action);
-    if(!strcmp(operation,"first_mention"))return document_excerpt_start(data,action);
+    if(!strcmp(operation,"mentions"))return document_excerpt_start(data,action);
     if(!strcmp(operation,"setting")) {
         int field,value;char tail;
         if(sscanf(data,"%d %d %c",&field,&value,&tail)!=2 || !reader_set_value(field,value))

@@ -1,9 +1,11 @@
 #include "lumen_app.h"
+#include "lumen_geometry.h"
 
 enum {BOOK,CONTENTS,SETTINGS,CONTEXT,SELECTION};
-static int context_action=100,mention_state,wiki_state,mention_page,mention_offset,mention_length,mention_expanded;
+static int context_action=100,mention_state,wiki_state,mention_index,mention_count,selection_top,selection_bottom;
 static char selected_text[2048];
-static char context_term[129],mention_quote[1200],wiki_title[180],wiki_extract[2600];
+static char context_term[129],wiki_title[180],wiki_extract[2600];
+static struct {char quote[560];int offset,length;} mentions[24];
 static int private_preferences=1,preferences_loaded;
 static int view,chrome,page,total,preferences[10],settings_page,category,list_page,count,confirm=-1;
 static char title[384],labels[8][768];
@@ -123,37 +125,28 @@ static void context_open(const char *text,int lookup) {
     while(size && strchr(".,;:!? ",context_term[size-1]))context_term[--size]=0;
     if(!size)return;
     context_action=context_action>=99000 ? 100 : context_action+2;
-    mention_state=1;wiki_state=mention_page=0;
-    mention_expanded=0;
-    mention_quote[0]=wiki_title[0]=wiki_extract[0]=0;
+    mention_state=1;wiki_state=mention_index=mention_count=0;
+    wiki_title[0]=wiki_extract[0]=0;
     view=CONTEXT;lumen_back=1;
-    request("first_mention",context_term,context_action);
+    request("mentions",context_term,context_action);
     if(lookup) {
         wiki_state=1;
         lumen_app_service("lumen.wikipedia","summary",context_term,context_action+1);
     }
 }
 static void context_draw(void) {
-    if(mention_expanded) {
-        lumen_form(word("Erste Erwähnung","First mention","Première mention"));
-        char page_label[48];
-        snprintf(page_label,sizeof(page_label),"%s %d",word("Seite","Page","Page"),mention_page);
-        lumen_form_text(page_label,PAINT_SECONDARY);
-        lumen_form_excerpt(mention_quote,mention_offset,mention_length);
-        lumen_component_button("context-passage",word("Zurück zur Suche","Back to lookup","Retour à la recherche"),0);
-        return;
-    }
     lumen_document_page(0);
     ui_paint_surface(20,124,560,616,16,255,105);
     lumen_text(40,165,470,50,context_term,PAINT_HEADING,0,1);
     lumen_icon_action("context-close",515,159,IC_CLOSE);
     lumen_list_divider(40,222,560);
     char label[96];
-    snprintf(label,sizeof(label),"%s",word("Erste Erwähnung","First mention","Première mention"));
+    snprintf(label,sizeof(label),"%s",word("Erwähnungen","Mentions","Mentions"));
     lumen_text(40,235,520,31,label,PAINT_SECONDARY,-1,1);
     if(mention_state==2) {
-        lumen_excerpt(40,273,515,235,mention_quote,9,mention_offset,mention_length);
-        lumen_custom_action("context-passage",40,273,515,231);
+        lumen_excerpt(40,273,515,182,mentions[mention_index].quote,7,
+                      mentions[mention_index].offset,mentions[mention_index].length);
+        lumen_pager(459,mention_index,mention_count);
     } else lumen_wrapped(40,273,515,95,mention_state==1 ?
         word("Buch wird durchsucht …","Searching the book…","Recherche dans le livre…") :
         word("Keine passende Textstelle gefunden.","No matching passage found.","Aucun passage correspondant."),
@@ -175,13 +168,14 @@ static void context_draw(void) {
 }
 static void selection_draw(void) {
     lumen_document_page(0);
-    ui_paint_surface(19,515,558,258,16,255,100);
-    lumen_wrapped(35,533,526,82,selected_text,PAINT_BODY,3);
-    lumen_button_action("selection-copy",35,631,165,48,word("Kopieren","Copy","Copier"),0);
-    lumen_button_action("selection-context",217,631,165,48,word("Kontext + Wiki","Context + Wiki","Contexte + Wiki"),0);
-    lumen_button_action("selection-dictionary",399,631,160,48,word("Wörterbuch","Dictionary","Dictionnaire"),0);
-    lumen_button_action("selection-mark",35,704,250,48,word("Markieren","Highlight","Surligner"),0);
-    lumen_button_action("selection-close",310,704,250,48,word("Schließen","Close","Fermer"),0);
+    int y=lumen_popup_y(selection_top,selection_bottom,60,790,161);
+    ui_paint_surface(20,y,560,161,14,255,100);
+    lumen_text(36,y+5,490,39,selected_text,PAINT_SECONDARY,-1,1);
+    lumen_icon_action("selection-close",525,y+1,IC_CLOSE);
+    lumen_button_action("selection-copy",35,y+49,255,45,word("Kopieren","Copy","Copier"),0);
+    lumen_button_action("selection-context",310,y+49,255,45,word("Kontext + Wiki","Context + Wiki","Contexte + Wiki"),0);
+    lumen_button_action("selection-dictionary",35,y+103,255,45,word("Wörterbuch","Dictionary","Dictionnaire"),0);
+    lumen_button_action("selection-mark",310,y+103,255,45,word("Markieren","Highlight","Surligner"),0);
 }
 static void selection_close(void) {
     view=BOOK;chrome=lumen_back=0;
@@ -274,7 +268,6 @@ static int index_for(const char *id,const char *prefix) {
 static int activate(const char *id) {
     if(view==CONTEXT) {
         if(!strcmp(id,"context-close"))show(BOOK);
-        else if(!strcmp(id,"context-passage") && mention_state==2)mention_expanded=!mention_expanded;
         else if(!strcmp(id,"context-wiki") && wiki_state!=1) {
             wiki_state=1;
             lumen_app_service("lumen.wikipedia","summary",context_term,context_action+1);
@@ -341,16 +334,19 @@ static int input(const Input *in) {
            (!strcmp(operation,"document-selection") || !strcmp(operation,"selection-context"))) {
             if(!lumen_string("text",selected_text,sizeof(selected_text)) || !*selected_text)return 1;
             if(!strcmp(operation,"selection-context"))context_open(selected_text,lumen_number("lookup"));
-            else {view=SELECTION;lumen_back=1;}
+            else {selection_top=lumen_number("top");selection_bottom=lumen_number("bottom");view=SELECTION;lumen_back=1;}
             return 1;
         }
         view=BOOK;chrome=0;lumen_back=0;lumen_ready=0;state();return 1;
     }
     if(in->kind==INPUT_BACK && view==SELECTION){selection_close();return 1;}
-    if(in->kind==INPUT_BACK && view==CONTEXT && mention_expanded){mention_expanded=0;return 1;}
     if(in->kind==INPUT_BACK && view!=BOOK){if(confirm>=0)confirm=-1;else show(BOOK);return 1;}
     if(in->kind==INPUT_PAGE) {
-        if(view==CONTEXT || view==SELECTION)return 1;
+        if(view==CONTEXT) {
+            if(in->x>=0 && in->x<mention_count)mention_index=in->x;
+            return 1;
+        }
+        if(view==SELECTION)return 1;
         if(view==SETTINGS)settings_page=in->x;
         else if(view==CONTENTS){list_page=in->x;contents();}
         else if(total)number("goto",in->x,1);
@@ -378,13 +374,16 @@ static int input(const Input *in) {
         if(in->x>=100) {
             if(view!=CONTEXT)return 1;
             if(in->x==context_action) {
-                mention_state=3;
-                if(in->y && wire_bounded_string("quote",mention_quote,sizeof(mention_quote))) {
-                    mention_page=lumen_number("mention_page");
-                    mention_offset=lumen_number("match_offset");
-                    mention_length=lumen_number("match_length");
-                    mention_state=2;
+                mention_count=lumen_number("mention_count");
+                if(!in->y || mention_count<1 || mention_count>(int)(sizeof(mentions)/sizeof(*mentions)))mention_count=0;
+                for(int i=0;i<mention_count;i++) {
+                    char key[20];
+                    snprintf(key,sizeof(key),"quote%d",i);
+                    if(!wire_bounded_string(key,mentions[i].quote,sizeof(mentions[i].quote))){mention_count=i;break;}
+                    snprintf(key,sizeof(key),"offset%d",i);mentions[i].offset=lumen_number(key);
+                    snprintf(key,sizeof(key),"length%d",i);mentions[i].length=lumen_number(key);
                 }
+                mention_state=mention_count ? 2 : 3;
             } else if(in->x==context_action+1) {
                 char data[2850];
                 wiki_state=3;

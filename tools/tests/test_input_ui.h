@@ -30,10 +30,10 @@ static void input_tests18(void) {
     options[OPT_KEYBOARD_LANGUAGE]=0;
     open_keyboard(0,"Search","copy me");ui_draw();
     Input hold={.kind=INPUT_HOLD,.x=40,.y=476};ui_input(&hold);assert(editor_ui.clip_active==1);Input release={.kind=INPUT_TAP,.x=hold.x,.y=hold.y};ui_input(&release);assert(editor_ui.clip_active==2);
-    Input all={.kind=INPUT_TAP,.x=250,.y=380};ui_input(&all);assert(clip_e==(int)strlen(editor_ui.edit));
-    Input copy={.kind=INPUT_TAP,.x=100,.y=380};ui_input(&copy);assert(!strcmp(clipboard_text,"copy me")&&!editor_ui.clip_active);
+    Input all={.kind=INPUT_TAP,.x=350,.y=clipboard_menu_y()+64};ui_input(&all);assert(clip_e==(int)strlen(editor_ui.edit));
+    Input copy={.kind=INPUT_TAP,.x=100,.y=clipboard_menu_y()+64};ui_input(&copy);assert(!strcmp(clipboard_text,"copy me")&&!editor_ui.clip_active);
     open_keyboard(0,"Search","");ui_draw();hold.x=28;ui_input(&hold);assert(editor_ui.clip_active==1&&editor_ui.note_cursor==0);release.x=hold.x;ui_input(&release);
-    Input paste={.kind=INPUT_TAP,.x=400,.y=450};ui_input(&paste);assert(!strcmp(editor_ui.edit,"copy me"));
+    Input paste={.kind=INPUT_TAP,.x=400,.y=clipboard_menu_y()+118};ui_input(&paste);assert(!strcmp(editor_ui.edit,"copy me"));
     open_keyboard(5,"Password","secret");ui_draw();ui_input(&hold);assert(!editor_ui.clip_active);
     editor_ui.keyboard=0;
     open_keyboard(0,"Search","");ui_draw();

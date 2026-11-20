@@ -525,8 +525,9 @@ static void package_paint_frame_mode(const char *text,int mode) {
                 if(value>100)value=100;
                 int progress_y=author_y+(*author ? body_font->h : 0)+9;
                 int length=w-62;
-                rect(x,progress_y+11,length,3,232);
-                rect(x,progress_y+11,length*value/100,3,0);
+                int track=progress_y+8;
+                capsule_surface(x,track,length,7,222);
+                if(value>0)capsule_surface(x,track,(length-7)*value/100+7,7,0);
                 char percent[8];
                 snprintf(percent,sizeof(percent),"%d%%",value);
                 drawtext_raw(x+length+10,progress_y-1,percent,body_font,52);
@@ -701,6 +702,26 @@ static void package_paint_frame_mode(const char *text,int mode) {
             int family=package_value(&j,item,"family"),size=package_value(&j,item,"size"),gray=package_value(&j,item,"gray");
             if(family>=0 && family<=1 && size>=16 && size<=160 && gray>=0 && gray<=255 && strlen(label)<80)
                 type_display(x,y,w,h,label,family,size,gray);
+        }
+        else if(!strcmp(type,"progress_ring")) {
+            int radius=package_value(&j,item,"radius"),value=package_value(&j,item,"value");
+            if(radius>=18 && radius<=50 && x-radius>=0 && x+radius<WIDTH &&
+               y-radius>=STATUS_HEIGHT && y+radius<HEIGHT) {
+                if(value<0)value=0;
+                if(value>100)value=100;
+                aa_arc_color(x,y,radius,0,360,4,218);
+                if(value==100)aa_arc_color(x,y,radius,0,360,4,0);
+                else if(value) {
+                    int end=270+value*360/100;
+                    aa_arc_color(x,y,radius,270,end<360 ? end : 360,4,0);
+                    if(end>360)aa_arc_color(x,y,radius,0,end-360,4,0);
+                    double angle=end*3.141592653589793/180;
+                    aa_disc(x,y-radius,2,0);
+                    aa_disc(x+(int)lround(radius*cos(angle)),y+(int)lround(radius*sin(angle)),2,0);
+                }
+                char percent[8];snprintf(percent,sizeof(percent),"%d%%",value);
+                type_centered(x-radius,y-radius,2*radius,2*radius,percent,UI_SECONDARY);
+            }
         }
         else if(!strcmp(type,"ring")){int r=package_value(&j,item,"radius"),weight=package_value(&j,item,"weight");if(r>0&&r<=300&&weight>0&&weight<=24)ui_paint_ring(x,y,r,weight);}
     }

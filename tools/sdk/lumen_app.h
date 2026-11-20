@@ -207,6 +207,9 @@ static inline void lumen_book_progress(int x,int y,int w,const char *title,const
 static void lumen_book_label(int x,int y,int w,const char *title,const char *author) {
  lumen_book_progress(x,y,w,title,author,-1);
 }
+static inline void lumen_progress_ring(int x,int y,int radius,int percent) {
+ lumen_cmd("progress_ring",x,y,radius*2,radius*2);printf(",\"radius\":%d,\"value\":%d}",radius,percent);
+}
 static inline void lumen_cover_asset(int x,int y,int w,int h,const char *name,const char *title) {
  lumen_cmd("cover_asset",x,y,w,h);fputs(",\"asset\":",stdout);lumen_json(name);
  fputs(",\"text\":",stdout);lumen_json(title);putchar('}');

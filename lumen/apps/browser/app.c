@@ -6,7 +6,7 @@
 #include <strings.h>
 #include "markup.h"
 
-enum { WEB_X=28, WEB_Y=181, WEB_W=WEB_VIEW_WIDTH, WEB_H=WEB_VIEW_HEIGHT, WEB_LINKS=64, WEB_HISTORY=32, WEB_ACTIONS=96 };
+enum { WEB_X=8, WEB_Y=56, WEB_W=WEB_VIEW_WIDTH, WEB_H=WEB_VIEW_HEIGHT, WEB_LINKS=64, WEB_HISTORY=32, WEB_ACTIONS=96 };
 typedef struct {
     int x,y,w,h;
     char url[WEB_URL];
@@ -15,6 +15,9 @@ typedef struct {
     int page,pages,links;
     char title[128],url[WEB_URL];
     WebLink link[WEB_LINKS];
+    int field_count;
+    WebField fields[WEB_FIELDS];
+    char next_url[WEB_URL];
 } WebPage;
 static WebPage displayed;
 static char history[WEB_HISTORY][WEB_URL],requested[WEB_URL];
@@ -22,7 +25,8 @@ static int history_count,history_at=-1,history_target;
 static int document_slot=-1,raster_slot=1,work_document,work_raster,work_page;
 enum {WEB_PAGE, WEB_NAVIGATE, WEB_SCRIPT};
 static int operation,error,source_slot=-1,work_source;
-static int actions[WEB_ACTIONS],action_count,work_action;
+static WebAction actions[WEB_ACTIONS],work_action;
+static int action_count,editing,edit_submit;
 static pid_t worker;
 
 static const char *word(const char *de,const char *en,const char *fr) {
@@ -71,7 +75,8 @@ static int render(const char *html,const char *raster,int page,WebPage *result) 
            x<0 || y<0 || right>WEB_W || bottom>WEB_H || right<=x || bottom<=y)continue;
         char *target=line+offset;
         target[strcspn(target,"\r\n")]=0;
-        if(*target!='#' && strncmp(target,"lumen-control:",14) && !url_valid(target))continue;
+        if(*target!='#' && strncmp(target,"lumen-control:",14) &&
+           strncmp(target,"lumen-field:",12) && strncmp(target,"lumen-submit:",13) && !url_valid(target))continue;
         WebLink *link=&result->link[result->links++];
         *link=(WebLink){x,y,right-x,bottom-y,""};
         snprintf(link->url,sizeof(link->url),"%s",target);
@@ -83,7 +88,7 @@ static int render(const char *html,const char *raster,int page,WebPage *result) 
 static int download_page(const char *url,const char *name,WebPage *result) {
     char *body=malloc(WEB_BODY+WEB_URL+48);
     if(!body)return 0;
-    int ok=lumen_http_page((LumenHttpRequest){.url=url,.redirects=5,.timeout=18,.compressed=1,
+    int ok=lumen_http_page((LumenHttpRequest){.url=url,.redirects=5,.timeout=18,.compressed=1,.user_agent=mobile_agent,
         .allow_http=!strncmp(url,"http://",7)},body,WEB_BODY+WEB_URL+48,result->url,sizeof(result->url))==LUMEN_HTTP_OK &&
         url_valid(result->url) && *body && strlen(body)<=WEB_BODY &&
         lumen_storage_write(name,body,strlen(body));
@@ -93,11 +98,11 @@ static int download_page(const char *url,const char *name,WebPage *result) {
 static int begin(int kind,int page,const char *url,int target) {
     if(worker>0)return 0;
     if(kind==WEB_NAVIGATE ? !url_valid(url) : document_slot<0 || page<0 || page>=displayed.pages)return 0;
-    if(kind==WEB_SCRIPT && (target<1 || target>=SCRIPT_NODES || action_count==WEB_ACTIONS))return 0;
+    if(kind==WEB_SCRIPT && (work_action.id<1 || work_action.id>=SCRIPT_NODES || action_count==WEB_ACTIONS))return 0;
     work_document=kind==WEB_PAGE ? document_slot : document_slot==0 ? 1 : 0;
     work_source=kind==WEB_NAVIGATE ? (source_slot==0 ? 1 : 0) : source_slot;
     work_raster=1-raster_slot;work_page=page;operation=kind;error=0;
-    history_target=target;work_action=target;
+    history_target=target;
     if(kind==WEB_NAVIGATE)snprintf(requested,sizeof(requested),"%s",url);
     worker=lumen_worker_start();
     if(worker<0){worker=0;error=1;return 0;}
@@ -119,10 +124,15 @@ static int begin(int kind,int page,const char *url,int target) {
             int replay=0;
             if(kind==WEB_SCRIPT){actions[action_count]=work_action;replay=action_count+1;}
             *result->title=0;
-            ok=ok && web_document(source,html,result->url,result->title,actions,replay);
+            ok=ok && web_document(source,html,result->url,result->title,actions,replay,
+                                  result->fields,&result->field_count,result->next_url);
             if(!*result->title)snprintf(result->title,sizeof(result->title),"%.127s",result->url);
         }
-        ok=ok && render(html,raster,work_page,result) &&
+        if(kind==WEB_PAGE) {
+            result->field_count=displayed.field_count;
+            memcpy(result->fields,displayed.fields,sizeof(result->fields));
+        }
+        ok=ok && (*result->next_url || render(html,raster,work_page,result)) &&
             lumen_storage_write("browser-result.bin",result,sizeof(*result));
         free(result);_exit(ok ? 0 : 1);
     }
@@ -147,7 +157,13 @@ static void poll_worker(void) {
     WebPage *next=malloc(sizeof(*next));
     int ok=result>0 && next && lumen_storage_read("browser-result.bin",next,sizeof(*next),&size) &&
         size==sizeof(*next) && next->links>=0 && next->links<=WEB_LINKS &&
-        next->page==work_page && next->pages>work_page;
+        next->page==work_page && (*next->next_url || next->pages>work_page);
+    if(ok && *next->next_url) {
+        char url[WEB_URL];snprintf(url,sizeof(url),"%s",next->next_url);
+        lumen_storage_delete("browser-result.bin");free(next);
+        if(!begin(WEB_NAVIGATE,0,url,-1))error=1;
+        return;
+    }
     if(ok) {
         displayed=*next;
         document_slot=work_document;raster_slot=work_raster;
@@ -160,14 +176,18 @@ static void poll_worker(void) {
     lumen_storage_delete("browser-result.bin");
 }
 static void draw(void) {
-    ui_paint_heading("Browser",3);
     if(*displayed.title)lumen_view_title(displayed.title);
-    if(worker>0)lumen_icon_action("stop",528,74,IC_CLOSE);
-    else if(document_slot>=0)lumen_icon_action("reload",528,74,IC_RESTART);
-    if(history_at>0)lumen_icon_action("previous",408,74,IC_PREV);
-    if(history_at+1<history_count)lumen_icon_action("forward",468,74,IC_NEXT);
-    lumen_button_action("address",28,127,544,45,*displayed.url ? displayed.url :
-        word("Webadresse eingeben","Enter a web address","Saisir une adresse web"),0);
+    if(history_at>0)lumen_icon_action("previous",8,750,IC_PREV);
+    if(history_at+1<history_count)lumen_icon_action("forward",55,750,IC_NEXT);
+    const char *address=*displayed.url ? displayed.url : requested;
+    const char *separator=strstr(address,"://");
+    if(separator)address=separator+3;
+    lumen_button_action("address",103,750,344,44,*address ? address :
+        word("Adresse oder Suche","Address or search","Adresse ou recherche"),0);
+    if(displayed.page>0)lumen_icon_action("page-prev",451,750,IC_PREV);
+    if(displayed.page+1<displayed.pages)lumen_icon_action("page-next",499,750,IC_NEXT);
+    if(worker>0)lumen_icon_action("stop",548,750,IC_CLOSE);
+    else if(document_slot>=0)lumen_icon_action("reload",548,750,IC_RESTART);
     if(document_slot<0) {
         lumen_wrapped(32,280,536,160,worker>0 ?
             word("Seite wird geladen …","Loading page…","Chargement de la page…") :
@@ -184,7 +204,6 @@ static void draw(void) {
             int y=link->y+h>WEB_H ? WEB_H-h : link->y;
             lumen_index_action("link",i,WEB_X+x,top+y,w,h);
         }
-        lumen_pager(756,displayed.page,displayed.pages);
         if(worker>0 || error) {
             ui_paint_surface(105,692,390,46,12,255,150);
             ui_paint_text(108,693,384,44,worker>0 ?
@@ -200,7 +219,16 @@ static void address_input(void) {
     char *value=address+strspn(address," \t");
     size_t n=strlen(value);
     while(n && isspace((unsigned char)value[n-1]))value[--n]=0;
-    int size=snprintf(url,sizeof(url),"%s%s",strstr(value,"://") ? "" : "https://",value);
+    if(!*value)return;
+    const char *slash=strchr(value,'/');
+    const char *dot=strchr(value,'.');
+    int size;
+    if(!strstr(value,"://") && ((!dot && strcmp(value,"localhost")) ||
+       (slash && dot && dot>slash) || strpbrk(value," \t"))) {
+        char query[WEB_URL-45];
+        if(!lumen_url_encode(value,query,sizeof(query))){error=1;return;}
+        size=snprintf(url,sizeof(url),"https://www.google.com/search?q=%s",query);
+    } else size=snprintf(url,sizeof(url),"%s%s",strstr(value,"://") ? "" : "https://",value);
     if(size<0 || size>=sizeof(url) || !begin(WEB_NAVIGATE,0,url,-1))error=1;
 }
 static int input(const Input *in) {
@@ -208,12 +236,25 @@ static int input(const Input *in) {
         poll_worker();return 1;
     }
     if(in->kind==INPUT_TEXT && in->x==1){address_input();return 1;}
+    if(in->kind==INPUT_TEXT && in->x==2 && editing) {
+        work_action=(WebAction){.id=editing,.kind=edit_submit ? WEB_SEARCH : WEB_EDIT};
+        editing=0;
+        if(lumen_string("text",work_action.value,sizeof(work_action.value)))
+            begin(WEB_SCRIPT,displayed.page,NULL,-1);
+        return 1;
+    }
+    if(in->kind==INPUT_SWIPE && (abs(in->dy)>50 || abs(in->dx)>50)) {
+        int delta=(abs(in->dx)>abs(in->dy) ? in->dx : in->dy)<0 ? 1 : -1;
+        begin(WEB_PAGE,displayed.page+delta,NULL,-1);return 1;
+    }
     if(in->kind==INPUT_PAGE){begin(WEB_PAGE,in->x,NULL,-1);return 1;}
     char action[64];
     if(!lumen_action(in,action,"clicked"))return 0;
     if(!strcmp(action,"stop"))lumen_worker_cancel(&worker);
     else if(!strcmp(action,"address") && !worker)
         lumen_request("input",word("Webadresse","Web address","Adresse web"),*displayed.url ? displayed.url : requested,1);
+    else if(!strcmp(action,"page-prev"))begin(WEB_PAGE,displayed.page-1,NULL,-1);
+    else if(!strcmp(action,"page-next"))begin(WEB_PAGE,displayed.page+1,NULL,-1);
     else if(!strcmp(action,"reload") && document_slot>=0)begin(WEB_NAVIGATE,0,displayed.url,history_at);
     else if(!strcmp(action,"previous") && history_at>0)begin(WEB_NAVIGATE,0,history[history_at-1],history_at-1);
     else if(!strcmp(action,"forward") && history_at+1<history_count)begin(WEB_NAVIGATE,0,history[history_at+1],history_at+1);
@@ -222,8 +263,17 @@ static int input(const Input *in) {
         if(link>=0) {
             const char *url=displayed.link[link].url;
             if(*url=='#')begin(WEB_PAGE,atoi(url+1),NULL,-1);
-            else if(!strncmp(url,"lumen-control:",14)) {
-                if(!begin(WEB_SCRIPT,displayed.page,NULL,atoi(url+14)))error=1;
+            else if(!strncmp(url,"lumen-field:",12)) {
+                int id=atoi(url+12);
+                for(int i=0;i<displayed.field_count;i++)if(displayed.fields[i].id==id) {
+                    editing=id;edit_submit=displayed.fields[i].submit;
+                    lumen_request("input",displayed.fields[i].label,displayed.fields[i].value,2);
+                    break;
+                }
+            } else if(!strncmp(url,"lumen-control:",14) || !strncmp(url,"lumen-submit:",13)) {
+                int submit=url[6]=='s';
+                work_action=(WebAction){.id=atoi(url+(submit ? 13 : 14)),.kind=submit ? WEB_SUBMIT : WEB_CLICK};
+                if(!begin(WEB_SCRIPT,displayed.page,NULL,-1))error=1;
             } else begin(WEB_NAVIGATE,0,url,-1);
         }
     }

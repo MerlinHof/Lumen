@@ -39,7 +39,7 @@ be disabled under **Settings → System → Management**.
 | Setting | Default |
 |---|---|
 | Reader text | 24 px, Charis, left aligned |
-| Library | Grid; recently read first |
+| Library | Progress list with Continue Reading first |
 | System / keyboard | German / independent German QWERTZ |
 | Home | Illustrated first page, then a full app grid; engraved icons |
 | Time | Automatic network sync; Berlin time zone |

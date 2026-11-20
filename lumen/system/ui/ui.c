@@ -801,9 +801,9 @@ static void cover_draw(Book *b, int x, int y, int w, int h, int fill) {
     library_cover_path(b, path, sizeof(path));
     char hd[2048];
     snprintf(hd, sizeof(hd), "%s/covers/%016llx.hi.pgm", data_root, (unsigned long long)b->id);
-    FILE *f = fopen(hd, "rb");
-    if (!f)
-        f = fopen(path, "rb");
+    int small=!fill && w<=75 && h<=105;
+    FILE *f = fopen(small ? path : hd, "rb");
+    if (!f)f=fopen(small ? hd : path, "rb");
     cover_draw_file(b,x,y,w,h,fill,f);
 }
 static void cover_size(Book *b, int x, int y, int w, int h) {
@@ -1495,6 +1495,14 @@ static int ui_dispatch_input(const Input *in) {
                 if(stream) {
                     fputs("{\"event\":\"intent\",\"operation\":\"document-selection\",\"text\":",stream);
                     json_escape16(stream,reader_ui.selection.text);
+                    int top=HEIGHT,bottom=0;
+                    for(int i=0;i<reader_ui.selection.count;i++) {
+                        TextRect r=reader_ui.selection.rects[i];
+                        int y0=(int)floorf(r.y0)+12,y1=(int)ceilf(r.y1)+12;
+                        if(y0<top)top=y0;
+                        if(y1>bottom)bottom=y1;
+                    }
+                    fprintf(stream,",\"top\":%d,\"bottom\":%d",top,bottom);
                     fputc('}',stream);
                     if(!fclose(stream))app_process_send(event);
                     free(event);

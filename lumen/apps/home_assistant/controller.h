@@ -5,18 +5,16 @@
 /* Parse in the network worker so a busy recorder response never delays app input. */
 static pid_t ha_history_worker(const char *endpoint,const char *ids) {
     if(!ha_url_valid(ha_url) || !ha_token_valid(ha_token))return 0;
-    char url[2304];
-    size_t base=strlen(ha_url);
-    while(base && ha_url[base-1]=='/')base--;
-    if(snprintf(url,sizeof(url),"%.*s%s",(int)base,ha_url,endpoint)>=(int)sizeof(url))return 0;
     pid_t child=lumen_worker_start();
     if(child)return child>0 ? child : 0;
+    char url[2304];
+    if(!ha_endpoint(url,endpoint))_exit(1);
     const size_t limit=8u*1024*1024+1;
     char *body=malloc(limit);
     if(!body)_exit(1);
     HAHistory points[8];
     LumenHttpRequest request={.url=url,.bearer=ha_token,.timeout=20,.connect_timeout=5,
-        .allow_http=!strncmp(ha_url,"http://",7)};
+        .allow_http=!strncmp(url,"http://",7)};
     int ok=lumen_http_text(request,body,limit) && ha_history_decode(body,ids,points);
     if(!ok) {
         /* Compatibility path for proxies and older recorder endpoints. */
@@ -109,10 +107,16 @@ static void ha_device(Device *device,const HAEntity *entity,int detail) {
     snprintf(device->name,sizeof(device->name),"%s",entity->name);
     snprintf(device->value,sizeof(device->value),"%s",entity->state);
     snprintf(device->unit,sizeof(device->unit),"%s",entity->unit);
-    const HAHistory *series=detail && !strcmp(ha_history_key,entity->id) ? ha_history : ha_preview;
-    for(int i=0;i<8;i++) {
-        const HAHistory *history=&series[i];
-        if(strcmp(history->id,entity->id))continue;
+    const HAHistory *history=NULL;
+    if(detail && !strcmp(ha_history_key,entity->id))
+        for(int i=0;i<8;i++)if(ha_history[i].count && !strcmp(ha_history[i].id,entity->id)) {
+            history=&ha_history[i];break;
+        }
+    if(!history)
+        for(int i=0;i<8;i++)if(ha_preview[i].count && !strcmp(ha_preview[i].id,entity->id)) {
+            history=&ha_preview[i];break;
+        }
+    if(history) {
         device->count=history->count;
         device->categories=history->categories;
         memcpy(device->category,history->category,sizeof(device->category));
@@ -120,7 +124,6 @@ static void ha_device(Device *device,const HAEntity *entity,int detail) {
             device->t[k]=history->time[k];
             device->v[k]=history->value[k];
         }
-        break;
     }
 }
 static int ha_save_favorites(void) {

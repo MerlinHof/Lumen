@@ -23,6 +23,19 @@ static void selection_span(int left, int top, const Font *font, const char *text
             if (y >= 0 && xx >= 0)
                 if (ui_pixels[y * WIDTH + xx] > 180) ui_pixels[y * WIDTH + xx] = 180;
 }
+static int clipboard_menu_y(void) {
+    if(!keyboard_multiline())return lumen_popup_y(452,501,60,501,EDIT_SELECTION_HEIGHT);
+    int top=458,bottom=54;
+    for(int r=0;r<14 && editor_first18+r<editor_count18;r++) {
+        FlowLine line=editor_lines18[editor_first18+r];
+        if(clip_e<=line.start || clip_s>=line.end)continue;
+        int y=54+r*29;
+        if(y<top)top=y;
+        if(y+29>bottom)bottom=y+29;
+    }
+    if(top<60)top=60;
+    return lumen_popup_y(top,bottom,60,458,EDIT_SELECTION_HEIGHT);
+}
 static void clipboard_draw(void) {
     if (!editor_ui.clip_active)
         return;
@@ -45,8 +58,8 @@ static void clipboard_draw(void) {
         n = 0;
     memcpy(b, clip_source + clip_s, n);
     b[n] = 0;
-    const char *actions[] = {"Kopieren", "Alles", "Schließen", "Ausschneiden", "Einfügen"};
-    selection_menu_draw(EDIT_SELECTION_Y, b, actions);
+    const char *actions[] = {"Kopieren", "Alles", "Ausschneiden", "Einfügen"};
+    selection_menu_draw(clipboard_menu_y(), b, actions);
 }
 static char *clipboard_edit_buffer18(void) {
     return editor_ui.keyboard ? editor_ui.edit : NULL;
@@ -100,10 +113,10 @@ static int clipboard_input(const Input *in) {
     }
     if (editor_ui.clip_active == 2) {
         if (in->kind == INPUT_TAP) {
-            int action = selection_menu_action(EDIT_SELECTION_Y, in->x, in->y);
+            int action = selection_menu_action(clipboard_menu_y(), in->x, in->y);
             char *buffer = clipboard_edit_buffer18();
             int *cursor = clipboard_edit_cursor18();
-            if (action >= 0 && action < 3) {
+            if (action >= 0 && action < 2) {
                 if (action == 0) {
                     int n = clip_e - clip_s;
                     memcpy(clipboard_text, clip_source + clip_s, n);
@@ -113,10 +126,9 @@ static int clipboard_input(const Input *in) {
                 } else if (action == 1) {
                     clip_s = 0;
                     clip_e = strlen(clip_source);
-                } else
-                    editor_ui.clip_active = 0;
-            } else if (action >= 3) {
-                if (buffer && action == 3) {
+                }
+            } else if (action==2 || action==3) {
+                if (buffer && action == 2) {
                     int n = clip_e - clip_s;
                     memcpy(clipboard_text, clip_source + clip_s, n);
                     clipboard_text[n] = 0;

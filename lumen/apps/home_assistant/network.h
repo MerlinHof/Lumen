@@ -63,17 +63,25 @@ static int ha_set_connection(const char *address,const char *token) {
     free(json);
     return ok;
 }
+static int ha_endpoint(char url[2304],const char *endpoint) {
+    size_t base=strlen(ha_url);
+    while(base && ha_url[base-1]=='/')base--;
+    char probe[540];
+    int length=snprintf(probe,sizeof(probe),"%.*s/api/states",(int)base,ha_url);
+    int tls=length>0 && length<(int)sizeof(probe) && lumen_http_same_host_tls(probe);
+    const char *root=tls ? ha_url+7 : ha_url;
+    if(tls)base-=7;
+    return snprintf(url,2304,"%s%.*s%s",tls ? "https://" : "",(int)base,root,endpoint)<2304;
+}
 static pid_t ha_worker(const char *endpoint,const char *payload,const char *cache,size_t limit,int timeout) {
     if(!ha_url_valid(ha_url) || !ha_token_valid(ha_token))return 0;
-    char url[2304];
-    size_t size=strlen(ha_url);
-    while(size && ha_url[size-1]=='/')size--;
-    if(snprintf(url,sizeof(url),"%.*s%s",(int)size,ha_url,endpoint)>=(int)sizeof(url))return 0;
     pid_t child=lumen_worker_start();
     if(child)return child>0 ? child : 0;
+    char url[2304];
+    if(!ha_endpoint(url,endpoint))_exit(1);
     char *body=malloc(limit);
     int ok=body && lumen_http_text((LumenHttpRequest){.url=url,.bearer=ha_token,.json=payload,
-        .timeout=timeout,.connect_timeout=5,.allow_http=!strncmp(ha_url,"http://",7)},body,limit);
+        .timeout=timeout,.connect_timeout=5,.allow_http=!strncmp(url,"http://",7)},body,limit);
     if(ok && cache) {
         Json json;
         int count=128000;

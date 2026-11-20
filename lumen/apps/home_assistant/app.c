@@ -69,8 +69,10 @@ static void open_history(const Device *device) {
     show(GRAPH);
 }
 static void plot(const Device *d,int x,int y,int w,int h,int detail) {
-    double now=time(NULL),start=detail ? now-hours*3600 : d->count ? d->t[0] : now;
-    double end=detail ? now : d->count ? d->t[d->count-1] : now;
+    double now=time(NULL),first=d->count ? d->t[0] : now,last=d->count ? d->t[d->count-1] : now;
+    int archived=detail && d->count>1 && last<now-hours*3600;
+    double end=detail && !archived ? now : last;
+    double start=detail ? end-hours*3600 : first;
     if(end<=start)end=start+1;
     int carry=-1;
     for(int i=0;i<d->count && d->t[i]<start;i++)carry=i;
@@ -89,6 +91,13 @@ static void plot(const Device *d,int x,int y,int w,int h,int detail) {
     double pad=fmax(.01,(hi-lo)*.08);lo-=pad;hi+=pad;
     if(detail) {
         ui_paint_surface(x,y,w,h,10,255,140);
+        if(archived) {
+            char date[24];time_t time=(time_t)end;struct tm local;localtime_r(&time,&local);
+            strftime(date,sizeof(date),"%d.%m.%Y",&local);
+            char label[90];
+            snprintf(label,sizeof(label),"%s · %s",word("Zwischengespeichert","Cached history","Historique en cache"),date);
+            lumen_text(x,208,w,19,label,PAINT_SECONDARY,-1,1);
+        }
         int rows=d->categories ? d->categories : 5;
         for(int i=0;i<rows;i++) {
             int py=y+8+i*(h-16)/(rows>1 ? rows-1 : 2);

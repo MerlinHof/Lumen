@@ -22,6 +22,8 @@ static void check_http(const char *directory) {
           " */exact) printf %s 12345678;;\n"
           " */timeout) exit 28;;\n"
           " */redirect) exit 47;;\n"
+          " */upgrade) printf %s https://fixture.invalid/upgrade;;\n"
+          " */other-host) printf %s https://other.invalid/other-host;;\n"
           " */partial) printf %s partial; exit 18;;\n"
           " */large) printf %s 123456789;;\n"
           " */binary) printf 'A\\000Z';;\n"
@@ -37,6 +39,8 @@ static void check_http(const char *directory) {
     assert(!lumen_https_get("https://fixture.invalid/binary",text,sizeof(text)) && !*text);
     assert(lumen_http_text_result((LumenHttpRequest){.url="https://fixture.invalid/timeout"},text,sizeof(text))==LUMEN_HTTP_TIMEOUT);
     assert(lumen_http_text_result((LumenHttpRequest){.url="https://fixture.invalid/redirect",.redirects=1},text,sizeof(text))==LUMEN_HTTP_REDIRECT_LIMIT);
+    assert(lumen_http_same_host_tls("http://fixture.invalid/upgrade"));
+    assert(!lumen_http_same_host_tls("http://fixture.invalid/other-host"));
     FILE *partial=tmpfile();
     assert(partial && lumen_http_download_result((LumenHttpRequest){.url="https://fixture.invalid/partial"},
         fileno(partial),16)==LUMEN_HTTP_INTERRUPTED && fgetc(partial)==EOF);

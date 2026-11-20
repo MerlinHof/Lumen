@@ -546,26 +546,6 @@ static const char *match_term(const char *text,const char *term,const char **end
     }
     return NULL;
 }
-static int sentence_boundary(const char *start,const char *at) {
-    if(*at!='.' && *at!='!' && *at!='?')return 0;
-    const char *after=at+1;
-    while(*after) {
-        if(strchr("\"')]",*after))after++;
-        else if(!strncmp(after,"”",3) || !strncmp(after,"’",3) || !strncmp(after,"»",2))
-            after+=*after==(char)0xc2 ? 2 : 3;
-        else break;
-    }
-    if(*after && *after!=' ' && *after!='\n')return 0;
-    if(*at!='.')return 1;
-    const char *word=at;
-    while(word>start && isalpha((unsigned char)word[-1]))word--;
-    size_t size=(size_t)(at-word);
-    static const char *const titles[]={"Mr","Mrs","Ms","Dr","Prof","St","Jr","Sr","Mme","Mlle"};
-    if(size==1 && isupper((unsigned char)*word))return 0;
-    for(size_t i=0;i<sizeof(titles)/sizeof(*titles);i++)
-        if(size==strlen(titles[i]) && !strncmp(word,titles[i],size))return 0;
-    return 1;
-}
 static char *mention_page_text(int number) {
     if(number<0 || number>=count)return NULL;
     char *text=NULL;
@@ -593,91 +573,61 @@ static char *mention_page_text(int number) {
     fz_catch(ctx) {free(text);text=NULL;}
     return text;
 }
-static const char *context_before(const char *text,const char *at) {
-    for(int n=0;at>text && n<5;n++) {
-        while(at>text && at[-1]==' ')at--;
-        while(at>text && at[-1]!=' ')at--;
+static void mention_context(DocumentMention *result,int page,const char *match,const char *last,
+                            const char *text,const char *previous,const char *next) {
+    const char *start=match,*end=last,*tail=previous,*head=next;
+    int before=50,after=50,rune;
+    while(start>text && before>0) {
+        do start--;while(start>text && ((unsigned char)*start&192)==128);
+        before--;
     }
-    return at;
-}
-static const char *context_after(const char *at) {
-    for(int n=0;*at && n<5;n++) {
-        while(*at==' ')at++;
-        while(*at && *at!=' ')at++;
+    const char *tail_end=tail+strlen(tail);
+    tail=tail_end;
+    if(before>0 && tail>previous) {
+        before--;
+        while(tail>previous && before>0) {
+            do tail--;while(tail>previous && ((unsigned char)*tail&192)==128);
+            before--;
+        }
     }
-    return at;
-}
-static void mention_excerpt(const char *text,const char *match,const char *term_end,
-                            char *excerpt,size_t capacity,int *offset,int *length) {
-    const char *start=text,*end=term_end;
-    for(const char *p=text;p<match;p++)if(sentence_boundary(text,p))start=p+1;
-    while(*end && !sentence_boundary(text,end))end++;
-    if(*end)end++;
-    start=context_before(text,start);
-    end=context_after(end);
-    while(start<match && *start==' ')start++;
-    while(end>term_end && end[-1]==' ')end--;
-    size_t room=capacity-9,term_size=(size_t)(term_end-match);
-    if(term_size>room)term_size=room;
-    if((size_t)(end-start)>room) {
-        if((size_t)(match-start)>room/3)start=match-room/3;
-        while(((unsigned char)*start&192)==128)start++;
-        if((size_t)(end-start)>room)end=start+room;
-        while(end>start && ((unsigned char)*end&192)==128)end--;
+    while(*end && after>0){end+=fz_chartorune(&rune,end);after--;}
+    const char *head_end=head;
+    if(after>0 && *head) {
+        after--;
+        while(*head_end && after>0){head_end+=fz_chartorune(&rune,head_end);after--;}
     }
-    while(term_size && ((unsigned char)match[term_size]&192)==128)term_size--;
-    memcpy(excerpt,"... ",4);
-    size_t bytes=(size_t)(end-start);
-    memcpy(excerpt+4,start,bytes);
-    memcpy(excerpt+4+bytes," ...",5);
-    *offset=(int)(match-start)+4;
-    *length=(int)term_size;
+    char *out=result->quote;
+    memcpy(out,"... ",4);out+=4;
+    if(tail<tail_end){size_t n=(size_t)(tail_end-tail);memcpy(out,tail,n);out+=n;*out++=' ';}
+    size_t n=(size_t)(end-start);
+    result->page=page;result->offset=(int)(out-result->quote)+(int)(match-start);
+    result->length=(int)(last-match);
+    memcpy(out,start,n);out+=n;
+    if(head<head_end){*out++=' ';n=(size_t)(head_end-head);memcpy(out,head,n);out+=n;}
+    memcpy(out," ...",5);
 }
-/* The caller runs the bounded search outside the input and rendering loop. */
-int engine_first_mention(const char *term,int through,char *excerpt,size_t capacity,
-                         int *offset,int *length) {
-    if(!doc || !*term || through<0 || capacity<strlen(term)+16)return -1;
-    *excerpt=0;*offset=*length=0;
+/* Scan once to populate a small pager, keeping adjacent pages for context. */
+int engine_mentions(const char *term,int through,DocumentMention *out,int capacity) {
+    if(!doc || !*term || strlen(term)>128 || through<0 || capacity<1)return 0;
     if(through>=count)through=count-1;
     struct timespec started;
     clock_gettime(CLOCK_MONOTONIC,&started);
-    char *previous=NULL;
-    for(int page=0;page<=through;page++) {
+    char *previous=NULL,*text=mention_page_text(0);
+    int found=0;
+    for(int page=0;page<=through && found<capacity;page++) {
         struct timespec now;
         clock_gettime(CLOCK_MONOTONIC,&now);
         if(now.tv_sec-started.tv_sec>7)break;
-        char *text=mention_page_text(page);
-        if(!text)continue;
-        const char *term_end=NULL,*match=match_term(text,term,&term_end);
-        if(match) {
-            char *next=mention_page_text(page+1);
-            const char *tail=previous ? previous : "";
-            size_t before=strlen(tail),current_size=strlen(text);
-            if(before>4096)tail+=before-4096;
-            while(((unsigned char)*tail&192)==128)tail++;
-            before=strlen(tail);
-            size_t after=next ? strnlen(next,4096) : 0;
-            while(after && ((unsigned char)next[after]&192)==128)after--;
-            char *joined=malloc(before+current_size+after+3);
-            if(joined) {
-                memcpy(joined,tail,before);
-                joined[before]=' ';
-                memcpy(joined+before+1,text,current_size);
-                joined[before+1+current_size]=' ';
-                if(after)memcpy(joined+before+2+current_size,next,after);
-                joined[before+2+current_size+after]=0;
-                const char *base=joined+before+1;
-                mention_excerpt(joined,base+(match-text),base+(term_end-text),
-                                excerpt,capacity,offset,length);
-                free(joined);
-            } else mention_excerpt(text,match,term_end,excerpt,capacity,offset,length);
-            free(previous);free(text);free(next);
-            return page;
+        char *next=mention_page_text(page+1);
+        if(text) {
+            const char *match,*end;
+            for(const char *at=text;found<capacity && (match=match_term(at,term,&end));at=end)
+                mention_context(&out[found++],page,match,end,text,previous ? previous : "",next ? next : "");
         }
-        free(previous);previous=text;
+        free(previous);previous=text;text=next;
     }
-    free(previous);
-    return -1;
+    free(text);free(previous);
+    return found;
 }
 
 static fz_stext_page *selection_get(int number, fz_page *p) {

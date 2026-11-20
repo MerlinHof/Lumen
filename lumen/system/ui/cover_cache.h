@@ -1,6 +1,6 @@
 /* Bounded in-memory display tiles. Never writes another disk cache or reduces
  * source resolution. Exact source metadata and dither phase invalidate tiles. */
-#define COVER_TILE_LIMIT 8
+#define COVER_TILE_LIMIT 16
 #define COVER_TILE_PIXELS 80000
 static struct {
     struct stat source;

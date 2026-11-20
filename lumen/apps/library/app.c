@@ -29,32 +29,35 @@ static void action(const char *operation,const char *value) {
     lumen_service(catalog_service(),operation,data,!strcmp(operation,"read") ? 4 : 3);
 }
 static void cover(int x,int y,int w,int h,const char *id){lumen_book_cover_outline(x,y,w,h,id,198);}
+static int shelf_row(int index,int top,int featured) {
+    const typeof(*books) *book=&books[index];
+    if(!*book->id)return top;
+    int height=featured ? 221 : 98;
+    int w=featured ? 135 : 59,h=featured ? 184 : 80;
+    int x=28+w+(featured ? 23 : 15);
+    cover(28,top+(featured ? 11 : 8),w,h,book->id);
+    if(featured) {
+        lumen_text(x,top+14,572-x,27,word("Weiterlesen","Continue reading","Reprendre la lecture"),PAINT_SECONDARY,-1,1);
+        lumen_book_progress(x,top+62,572-x,book->title,book->author,book->progress);
+    } else {
+        lumen_text(x,top+12,(book->pin ? 465 : 505)-x,39,book->title,PAINT_BODY,-1,1);
+        lumen_text(x,top+50,505-x,29,book->author,PAINT_SECONDARY,-1,1);
+        if(book->pin)ui_paint_icon_button(469,top+26,IC_PIN);
+        lumen_progress_ring(546,top+48,25,book->progress);
+    }
+    char id[16];snprintf(id,sizeof(id),"book-%d",index);
+    lumen_rounded_action(id,28,top,544,height-3,9);
+    return top+height;
+}
 static void shelf(void) {
     const int featured=*books[6].id!=0;
     ui_paint_heading(word("Bibliothek","Library","Bibliothèque"),2);
     lumen_icon_action("search",468,74,IC_SEARCH);
     lumen_icon_action("preferences",528,74,IC_SETTINGS);
-    if(featured) {
-        ui_paint_surface(28,139,544,216,14,255,213);
-        cover(44,155,132,184,books[6].id);
-        lumen_text(199,156,348,27,word("Weiterlesen","Continue reading","Reprendre la lecture"),PAINT_SECONDARY,-1,1);
-        lumen_book_progress(199,208,348,books[6].title,books[6].author,books[6].progress);
-        lumen_rounded_action("book-6",28,139,544,216,14);
-        lumen_text(28,372,544,31,word("Meine Bücher","My books","Mes livres"),PAINT_HEADING,-1,1);
-        lumen_list_divider(28,407,572);
-    } else if(*query) {
-        lumen_text(28,125,544,26,query,PAINT_SECONDARY,-1,1);
-    }
-    int top=featured ? 425 : *query ? 166 : 140;
-    for(int i=0;i<(featured ? 3 : 6);i++)if(*books[i].id) {
-        int x=28+i%3*186,y=top+i/3*284;
-        cover(x+5,y,162,220,books[i].id);
-        if(books[i].pin)ui_paint_icon_button(x+116,y+3,IC_PIN);
-        lumen_wrapped(x+5,y+225,162,47,books[i].title,PAINT_BODY,2);
-        lumen_text(x+5,y+269,162,24,books[i].author,PAINT_SECONDARY,-1,1);
-        char id[16];snprintf(id,sizeof(id),"book-%d",i);
-        lumen_rounded_action(id,x+5,y,162,295,18);
-    }
+    if(*query)lumen_text(28,119,544,25,query,PAINT_SECONDARY,-1,1);
+    int top=*query ? 148 : 131;
+    if(featured)top=shelf_row(6,top,1);
+    for(int i=0;i<(featured ? 3 : 6);i++)top=shelf_row(i,top,0);
     if(!featured && !*books[0].id)lumen_wrapped(28,180,544,115,
         word("Deine Bücher erscheinen hier.","Your books will appear here.","Vos livres apparaîtront ici."),
         PAINT_TITLE,3);

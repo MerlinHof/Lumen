@@ -1,5 +1,5 @@
 /* Resolve responsive column groups at the actual browser viewport. */
-enum { WEB_VIEW_WIDTH=544, WEB_VIEW_HEIGHT=560, WEB_LAYOUT_RULES=128 };
+enum { WEB_VIEW_WIDTH=584, WEB_VIEW_HEIGHT=686, WEB_LAYOUT_RULES=128 };
 typedef struct {char selector[96];int columns,gap,specificity;} WebLayoutRule;
 typedef struct {WebLayoutRule rules[WEB_LAYOUT_RULES];int count;} WebLayout;
 

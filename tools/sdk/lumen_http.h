@@ -26,6 +26,8 @@ typedef struct {
     int allow_http;
     int compressed;
     int report_url;
+    int redirect_target;
+    const char *user_agent;
 } LumenHttpRequest;
 
 static inline int lumen_url_encode(const char *value,char *output,size_t capacity) {
@@ -69,6 +71,9 @@ static inline pid_t lumen_http_start(LumenHttpRequest request,int output,size_t 
        request.connect_timeout<0 || request.connect_timeout>30 ||
        request.redirects<0 || request.redirects>8 ||
        (strncmp(url,"https://",8) && (!request.allow_http || strncmp(url,"http://",7))))return -1;
+    if((request.user_agent && (strlen(request.user_agent)>256 || strpbrk(request.user_agent,"\r\n"))) ||
+       (request.redirect_target && (request.bearer || request.json || request.redirects || request.report_url)))
+        return -1;
     int secured=request.bearer!=NULL;
     if(secured && (!*request.bearer || strpbrk(request.bearer,"\r\n\t \"\\") ||
                    request.redirects))return -1;
@@ -94,9 +99,10 @@ static inline pid_t lumen_http_start(LumenHttpRequest request,int output,size_t 
     snprintf(bytes,sizeof(bytes),"%zu",limit);
     snprintf(redirects,sizeof(redirects),"%d",request.redirects);
     const char *protocols=request.allow_http ? "=http,https" : "=https";
-    const char *args[36]={"curl","-q","--silent","--fail","--proto",protocols,
+    const char *args[40]={"curl","-q","--silent","--fail","--proto",protocols,
         "--proto-redir",protocols,"--connect-timeout",connect,"--max-time",seconds,
-        "--max-filesize",bytes,"--globoff","--user-agent","LUMEN Kindle Reader (https://github.com/MerlinHof/Lumen)"};
+        "--max-filesize",bytes,"--globoff","--user-agent",request.user_agent ?
+        request.user_agent : "LUMEN Kindle Reader (https://github.com/MerlinHof/Lumen)"};
     int count=17;
     if(config){args[count++]="--config";args[count++]="-";}
     if(request.redirects){args[count++]="--location";args[count++]="--max-redirs";args[count++]=redirects;}
@@ -104,6 +110,10 @@ static inline pid_t lumen_http_start(LumenHttpRequest request,int output,size_t 
     if(request.report_url) {
         args[count++]="--write-out";
         args[count++]="\nLUMEN-EFFECTIVE-URL:%{url_effective}\n";
+    }
+    if(request.redirect_target) {
+        args[count++]="--output";args[count++]="/dev/null";
+        args[count++]="--write-out";args[count++]="%{redirect_url}";
     }
     args[count++]="--";
     args[count++]=url;
@@ -224,6 +234,15 @@ static inline LumenHttpResult lumen_http_page(LumenHttpRequest request,char *bod
     memcpy(url,address,length+1);
     *start=0;
     return LUMEN_HTTP_OK;
+}
+/* Resolve an HTTP-to-HTTPS upgrade without sending credentials to the
+   cleartext endpoint. An explicit configured HTTP endpoint still works. */
+static inline int lumen_http_same_host_tls(const char *url) {
+    if(!url || strncmp(url,"http://",7))return 0;
+    char target[2308];
+    return lumen_http_text((LumenHttpRequest){.url=url,.timeout=3,.connect_timeout=2,
+           .allow_http=1,.redirect_target=1},target,sizeof(target)) &&
+        !strncmp(target,"https://",8) && !strcmp(target+8,url+7);
 }
 static inline int lumen_https_get(const char *url,char *body,size_t capacity) {
     return lumen_http_text((LumenHttpRequest){.url=url,.redirects=4},body,capacity) && *body;
