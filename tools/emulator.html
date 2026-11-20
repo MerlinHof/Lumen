@@ -46,14 +46,29 @@ const updateZoom = () => {document.getElementById("device").className = "device 
 zoom.onchange = updateZoom;
 updateZoom();
 
-let inputs = Promise.resolve();
+const inputs = [];
+let sending = false;
 function send(kind, x = 0, y = 0) {
-  inputs = inputs.then(async () => {
-    const reply = await fetch("input", {
-      method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify([kind, x, y])
-    });
-    if (!reply.ok) throw new Error("Eingabe fehlgeschlagen");
-  }).catch(() => { status.value = "Verbindung unterbrochen"; });
+  const packet = [kind, x, y];
+  const last = inputs.at(-1);
+  if (kind === 2 && last?.[0] === 2) inputs[inputs.length - 1] = packet;
+  else inputs.push(packet);
+  if (!sending) flushInputs();
+}
+async function flushInputs() {
+  sending = true;
+  while (inputs.length) {
+    try {
+      const reply = await fetch("input", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(inputs.shift())
+      });
+      if (!reply.ok) throw new Error("Eingabe fehlgeschlagen");
+    } catch {
+      status.value = "Verbindung unterbrochen";
+    }
+  }
+  sending = false;
 }
 function point(event) {
   const r = canvas.getBoundingClientRect();
@@ -62,18 +77,16 @@ function point(event) {
     Math.max(0, Math.min(799, Math.floor((event.clientY - r.top) * 800 / r.height)))
   ];
 }
-let touch = null, lastMove = 0;
+let touch = null;
 canvas.onpointerdown = event => {
   if (touch !== null || event.button !== 0) return;
   event.preventDefault();
   touch = event.pointerId;
-  lastMove = 0;
   canvas.setPointerCapture(touch);
   send(1, ...point(event));
 };
 canvas.onpointermove = event => {
-  if (event.pointerId !== touch || performance.now() - lastMove < 32) return;
-  lastMove = performance.now();
+  if (event.pointerId !== touch) return;
   send(2, ...point(event));
 };
 canvas.onpointerup = event => {

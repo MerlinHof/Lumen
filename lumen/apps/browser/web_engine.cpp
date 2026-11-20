@@ -1,5 +1,8 @@
 #include <litehtml.h>
 #include <litehtml/render_item.h>
+#include <litehtml/media_query.h>
+#include <litehtml/style.h>
+#include <string_view>
 #include <algorithm>
 #include <cmath>
 #include <cctype>
@@ -96,6 +99,123 @@ Bytes decode_image(const std::string &url) {
     return data;
 }
 
+media_features viewport_features(int width,int height) {
+    media_features media;
+    media.type=media_type_screen;
+    media.width=media.device_width=width;
+    media.height=media.device_height=height;
+    media.resolution=96;
+    media.monochrome=8;
+    return media;
+}
+
+bool supported_declaration(std::string_view declaration) {
+    const auto colon=declaration.find(':');
+    if(colon==std::string_view::npos)return false;
+    auto property=declaration.substr(0,colon);
+    const auto start=property.find_first_not_of(" \t\r\n");
+    const auto end=property.find_last_not_of(" \t\r\n");
+    if(start==std::string_view::npos)return false;
+    std::string name(property.substr(start,end-start+1));
+    for(char &c:name)c=static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    const auto id=_id(name);
+    style candidate;
+    candidate.add_property(id,std::string(declaration.substr(colon+1)));
+    return !std::holds_alternative<invalid>(candidate.get_property(id));
+}
+
+bool supported_condition(std::string_view condition,int depth=0) {
+    if(depth>=8 || condition.size()>512)return false;
+    const auto start=condition.find_first_not_of(" \t\r\n");
+    const auto end=condition.find_last_not_of(" \t\r\n");
+    if(start==std::string_view::npos)return false;
+    condition=condition.substr(start,end-start+1);
+    if(condition.substr(0,4)=="not ")return !supported_condition(condition.substr(4),depth+1);
+    if(condition.size()<3 || condition.front()!='(' || condition.back()!=')')return false;
+    condition.remove_prefix(1);
+    condition.remove_suffix(1);
+    return supported_declaration(condition);
+}
+
+size_t css_skip_literal(std::string_view css,size_t i) {
+    if(css[i]=='"' || css[i]==39) {
+        const char delimiter=css[i++];
+        while(i<css.size() && css[i]!=delimiter) {
+            if(css[i]=='\\' && i+1<css.size())++i;
+            ++i;
+        }
+        return std::min(i+1,css.size());
+    }
+    if(css[i]=='/' && i+1<css.size() && css[i+1]=='*') {
+        const auto end=css.find("*/",i+2);
+        return end==std::string_view::npos ? css.size() : end+2;
+    }
+    if(css[i]=='\\' && i+1<css.size())return i+2;
+    return i;
+}
+
+/* Keep rules within feature queries or cascade-layer blocks that this renderer
+   can use. Layers retain source order in the lightweight renderer. */
+std::string compatible_css(std::string_view css,int depth=0) {
+    if(depth>=16 || (css.find("@layer")==std::string_view::npos &&
+                     css.find("@supports")==std::string_view::npos))return std::string(css);
+    std::string out;
+    out.reserve(css.size());
+    for(size_t i=0;i<css.size();) {
+        const auto literal=css_skip_literal(css,i);
+        if(literal!=i) {
+            out.append(css.substr(i,literal-i));
+            i=literal;
+            continue;
+        }
+        if(std::isspace(static_cast<unsigned char>(css[i]))) {
+            out+=css[i++];
+            continue;
+        }
+        const auto begin=i;
+        int parens=0;
+        for(;i<css.size();) {
+            const auto skip=css_skip_literal(css,i);
+            if(skip!=i){i=skip;continue;}
+            if(css[i]=='(' || css[i]=='[')++parens;
+            if(css[i]==')' || css[i]==']')parens=std::max(0,parens-1);
+            if(!parens && (css[i]==';' || css[i]=='{'))break;
+            ++i;
+        }
+        const auto prelude=css.substr(begin,i-begin);
+        const bool layer=prelude.substr(0,6)=="@layer" &&
+            (prelude.size()==6 || std::isspace(static_cast<unsigned char>(prelude[6])));
+        const bool support=prelude.substr(0,9)=="@supports" &&
+            (prelude.size()==9 || std::isspace(static_cast<unsigned char>(prelude[9])));
+        if(i==css.size() || css[i]==';') {
+            if(!layer)out.append(css.substr(begin,std::min(i+1,css.size())-begin));
+            if(i<css.size())++i;
+            continue;
+        }
+        const auto body=++i;
+        int level=1;
+        while(i<css.size() && level) {
+            const auto skip=css_skip_literal(css,i);
+            if(skip!=i){i=skip;continue;}
+            if(css[i]=='{')++level;
+            if(css[i]=='}')--level;
+            if(level)++i;
+        }
+        if(level) {out.append(css.substr(begin));break;}
+        if(layer || (support && supported_condition(prelude.substr(9))))
+            out+=compatible_css(css.substr(body,i-body),depth+1);
+        else if(!support) {
+            out.append(prelude);
+            out+='{';
+            if(prelude.substr(0,6)=="@media")out+=compatible_css(css.substr(body,i-body),depth+1);
+            else out.append(css.substr(body,i-body));
+            out+='}';
+        }
+        ++i;
+    }
+    return out;
+}
+
 class Screen final : public document_container {
     Face sans,serif,cjk;
     bool has_serif=false,has_cjk=false;
@@ -165,8 +285,9 @@ class Screen final : public document_container {
 public:
     Bytes pixels;
     bool ready=false;
-    explicit Screen(int w,int h,const std::string &assets,const char *fallback) :
-        width(w),height(h),pixels(static_cast<size_t>(w)*h,255) {
+    explicit Screen(int w,int h,const std::string &assets,const char *fallback,bool allocate=true) :
+        width(w),height(h),pixels(allocate ? static_cast<size_t>(w)*h : 0,255) {
+        if(!allocate)return;
         ready=sans.load(assets+"/assets/NotoSans-Regular.otf");
         has_serif=serif.load(assets+"/assets/NotoSerif-Regular.otf");
         if(fallback && *fallback)has_cjk=cjk.load(fallback);
@@ -174,6 +295,14 @@ public:
     }
     uint_ptr create_font(const font_description &style,const document *,font_metrics *metrics) override {
         int size=std::isfinite(style.size) ? static_cast<int>(std::clamp(style.size,6.f,112.f)) : 17;
+        if(!ready) {
+            metrics->font_size=metrics->height=size;
+            metrics->ascent=size*0.8f;
+            metrics->descent=size-metrics->ascent;
+            metrics->x_height=metrics->ch_width=size*0.5f;
+            metrics->draw_spaces=false;
+            return 0;
+        }
         const auto *face=has_serif && style.family.find("serif")!=std::string::npos &&
             style.family.find("sans")==std::string::npos ? &serif.font : &sans.font;
         float scale=stbtt_ScaleForMappingEmToPixels(face,static_cast<float>(size));
@@ -347,21 +476,48 @@ public:
         ++style_requests;
         char final[1024]={};
         std::unique_ptr<char,decltype(&std::free)> css(web_engine_stylesheet(url.c_str(),base.c_str(),final),std::free);
-        if(css){text=css.get();base=final;}
+        if(css){text=compatible_css(css.get());base=final;}
     }
     void set_clip(const position &box,const border_radiuses &) override {clips.push_back(fit(box));}
     void del_clip() override {if(clips.size()>1)clips.pop_back();}
     void get_viewport(position &box) const override {box=position(0,0,width,height);}
     element::ptr create_element(const char *,const string_map &,const std::shared_ptr<document> &) override {return nullptr;}
     void get_media_features(media_features &media) const override {
-        media.type=media_type_screen;
-        media.width=media.device_width=width;
-        media.height=media.device_height=height;
-        media.resolution=96;media.monochrome=8;
+        media=viewport_features(width,height);
     }
     void get_language(string &language,string &culture) const override {language="en";culture="en";}
 };
 
+}
+
+extern "C" int web_engine_css_supports(const char *property,const char *value) {
+    if(!property || std::strlen(property)>512 || (value && std::strlen(value)>512))return 0;
+    try {
+        if(!value)return supported_condition(property);
+        return supported_declaration(std::string(property)+":"+value);
+    } catch(const std::exception &) {
+        return 0;
+    }
+}
+extern "C" void web_engine_inline_css(FILE *out,const char *css) {
+    try {
+        const auto compatible=compatible_css(css);
+        std::fwrite(compatible.data(),1,compatible.size(),out);
+    } catch(const std::exception &) {
+        std::fputs(css,out);
+    }
+}
+
+extern "C" int web_engine_media_matches(const char *query,int width,int height) {
+    if(!query || !*query || std::strlen(query)>512)return 0;
+    try {
+        Screen viewport(width,height,"",nullptr,false);
+        auto doc=document::createFromString(estring("<html><body></body></html>"),&viewport);
+        const auto queries=parse_media_query_list(query,doc);
+        return !queries.empty() && queries.check(viewport_features(width,height));
+    } catch(const std::exception &) {
+        return 0;
+    }
 }
 
 extern "C" int web_engine_render(const char *html,const char *raster,int page,int width,int height,

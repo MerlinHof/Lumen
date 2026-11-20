@@ -136,7 +136,9 @@ class Display:
                 mode, pixels = self.pending
                 self.pending = None
             duration = self.durations[mode] / 1000
-            label = f"{WAVEFORMS[mode]} / {self.durations[mode]} ms"
+            label = WAVEFORMS[mode]
+            if duration:
+                label += f" / {self.durations[mode]} ms"
             if mode == 3 and duration:
                 self.publish(dark, label)
                 if self.stop.wait(duration * .23):
@@ -159,6 +161,9 @@ def handler_for(token, display, process):
     input_lock = threading.Lock()
 
     class Handler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+        disable_nagle_algorithm = True
+
         def log_message(self, *_):
             pass
 
@@ -246,9 +251,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=0, help="localhost port, default automatic")
     parser.add_argument("--no-open", action="store_true", help="print URL without opening a browser")
-    parser.add_argument("--du-ms", type=timing, default=260)
-    parser.add_argument("--gl16-ms", type=timing, default=450)
-    parser.add_argument("--gc16-ms", type=timing, default=450)
+    parser.add_argument("--du-ms", type=timing, default=0)
+    parser.add_argument("--gl16-ms", type=timing, default=0)
+    parser.add_argument("--gc16-ms", type=timing, default=0)
     parser.add_argument("--instant", action="store_true", help="skip simulated display delay")
     args = parser.parse_args()
     profile = ROOT / "build/emulator"

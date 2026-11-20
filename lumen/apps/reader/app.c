@@ -144,25 +144,25 @@ static void context_draw(void) {
     snprintf(label,sizeof(label),"%s",word("Erwähnungen","Mentions","Mentions"));
     lumen_text(40,235,520,31,label,PAINT_SECONDARY,-1,1);
     if(mention_state==2) {
-        lumen_excerpt(40,273,515,184,mentions[mention_index].quote,10,
+        lumen_excerpt(40,273,515,222,mentions[mention_index].quote,10,
                       mentions[mention_index].offset,mentions[mention_index].length);
-        lumen_pager(459,mention_index,mention_count);
+        lumen_pager(498,mention_index,mention_count);
     } else lumen_wrapped(40,273,515,95,mention_state==1 ?
         word("Buch wird durchsucht …","Searching the book…","Recherche dans le livre…") :
         word("Keine passende Textstelle gefunden.","No matching passage found.","Aucun passage correspondant."),
         PAINT_BODY,3);
-    lumen_list_divider(40,511,560);
-    lumen_text(40,522,520,33,"Wikipedia",PAINT_SECONDARY,-1,1);
+    lumen_list_divider(40,547,560);
+    lumen_text(40,558,520,29,"Wikipedia",PAINT_SECONDARY,-1,1);
     if(wiki_state==2) {
-        lumen_text(40,553,520,36,wiki_title,PAINT_HEADING,0,1);
-        lumen_wrapped(40,592,515,109,wiki_extract,PAINT_BODY,4);
+        lumen_text(40,583,520,35,wiki_title,PAINT_HEADING,0,1);
+        lumen_wrapped(40,620,515,82,wiki_extract,PAINT_BODY,3);
         lumen_text(40,708,520,22,"Wikipedia · CC BY-SA",PAINT_SECONDARY,-1,1);
-    } else if(wiki_state==1)lumen_wrapped(40,574,515,92,
+    } else if(wiki_state==1)lumen_wrapped(40,603,515,92,
         word("Artikel wird geladen …","Looking up the article…","Recherche de l’article…"),PAINT_BODY,3);
     else {
-        if(wiki_state==3)lumen_text(40,566,520,32,word("Kein Artikel verfügbar.",
+        if(wiki_state==3)lumen_text(40,596,520,32,word("Kein Artikel verfügbar.",
             "No article available.","Aucun article disponible."),PAINT_SECONDARY,-1,1);
-        lumen_button_action("context-wiki",40,610,250,48,word("Artikel suchen","Look up article",
+        lumen_button_action("context-wiki",40,636,250,48,word("Artikel suchen","Look up article",
             "Rechercher l’article"),0);
     }
 }

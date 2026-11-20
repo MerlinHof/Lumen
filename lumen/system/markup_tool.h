@@ -11,7 +11,11 @@ static int markup_write(fz_xml *node,uint32_t depth,int count,char **names) {
            !markup_field(fz_xml_tag(node)) || !markup_field(fz_xml_text(node)))return 0;
         for(int i=0;i<count;i++) {
             const char *value=fz_xml_att(node,names[i]);
-            if(value && !*value && (!strcmp(names[i],"hidden") || !strcmp(names[i],"disabled")))value="1";
+            if(value && !*value) {
+                static const char *const flags[]={"hidden","disabled","defer","async","nomodule","open","checked"};
+                for(size_t flag=0;flag<sizeof(flags)/sizeof(*flags);flag++)
+                    if(!strcmp(names[i],flags[flag])){value="1";break;}
+            }
             if(!markup_field(value))return 0;
         }
         if(depth<100 && !markup_write(fz_xml_down(node),depth+1,count,names))return 0;

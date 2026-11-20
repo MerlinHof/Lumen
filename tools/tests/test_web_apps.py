@@ -106,6 +106,37 @@ class Fixture(BaseHTTPRequestHandler):
                     if(xhr.status===200){document.title='XHR ready';document.querySelector('#note').textContent=xhr.responseText;}
                 };xhr.send();</script>'''),
             '/xhr-data': ('text/plain', b'Fetched fixture'),
+            '/modern': ('text/html', b'''<!doctype html><html><head><title>Loading modern fixture</title>
+                <base href="/platform/"><script defer src="deferred.js"></script>
+                <style>@layer base {details{display:block}}
+                @supports (display:flex){.layout{display:flex}}
+                @supports (display:grid){.unsupported{display:none}}</style></head>
+                <body><details><summary>Open details</summary><p>Details are open</p></details>
+                <picture><source type="image/png" media="(max-width: 40em)" srcset="small.png 1x">
+                <img src="fallback.png" alt="Responsive fixture"></picture>
+                <p id="phase" class="layout"></p><p id="timing"></p>
+                <script>
+                const notes=[];
+                const timer=setTimeout(()=>notes.push('canceled'),10);clearTimeout(timer);
+                let ticks=0;const repeating=setInterval(()=>{if(++ticks===2)clearInterval(repeating);},12);
+                document.addEventListener('DOMContentLoaded',()=>{
+                    queueMicrotask(()=>notes.push('microtask'));
+                    requestAnimationFrame(t=>{if(t>0)notes.push('frame');});
+                    const start=performance.now();
+                    setTimeout(()=>{
+                        const timersRan=performance.now()-start>=1100&&ticks===2&&notes.join(',')==='microtask,frame';
+                        const platform=CSS.supports('display','flex')&&!CSS.supports('display','grid')&&
+                            matchMedia('(max-width: 40em)').matches&&!matchMedia('(min-width: 900px)').matches&&
+                            new TextEncoder().encode('caf'+String.fromCharCode(233)).length===5;
+                        if(timersRan&&platform&&document.querySelector('#phase').textContent==='deferred interactive') {
+                            document.title='Modern fixture ready';
+                            document.querySelector('#timing').textContent='Timers, CSS detection and microtasks ready';
+                        }
+                    },1150);
+                });
+                </script></body></html>'''),
+            '/platform/deferred.js': ('application/javascript', b"document.querySelector('#phase').textContent='deferred '+document.readyState;"),
+            '/platform/small.png': ('image/png', fixture_image()),
             '/finished': ('text/html', b'<title>Submission complete</title>'),
             '/api/states': ('application/json', json.dumps([
                 dict(entity_id='sensor.room', state='23', attributes=dict(unit_of_measurement='C')),
@@ -254,6 +285,17 @@ with ThreadingHTTPServer(('127.0.0.1',0),Fixture) as server, TemporaryDirectory(
         app.click('link:0')
         frame=app.wait(lambda ui: label(ui,'Too many requests · HTTP 429'))
         assert label(frame,'Readable recovery') and label(frame,raster)
+        app.send('text',action=1,text=origin+'/modern')
+        frame=app.wait(lambda ui: label(ui,'Modern fixture ready'))
+        page=next(f for f in browser.glob('browser-[01].html') if 'Timers, CSS detection' in f.read_text())
+        modern=page.read_text()
+        assert f'src="{origin}/platform/small.png"' in modern
+        assert '.layout{display:flex}' in modern and '.unsupported{display:none}' not in modern
+        assert 'Details are open' not in modern
+        raster=next(c['text'] for c in frame if c.get('type')=='bitmap')
+        app.click('link:0')
+        app.wait(lambda ui: label(ui,'Modern fixture ready') and not label(ui,raster))
+        assert any('Details are open' in f.read_text() for f in browser.glob('browser-[01].html'))
     finally:
         app.close()
     print('PASS standalone Browser renders HTML and CSS, runs JavaScript and responsive layout, follows redirects and keeps navigation history.')

@@ -1,7 +1,9 @@
 ((g)=>{
 const lookup=g._find,get=g._get,set=g._set,make=g._make,insert=g._insert,remove=g._remove,resolve=g._resolve,active=g._active,pull=g._fetch,cookie=g._cookie,navigate=g._navigate;
+const clock=g._clock, mediaMatches=g._matchMedia, cssSupports=g._cssSupports;
 const nodes=new Map(), events=new Map();
-let ready=[], timers=[];
+const timers=new Map();
+let nextTimer=1;
 function listen(i,type,callback) {
     if(typeof callback!=='function')return;
     const key=i+':'+type, listeners=events.get(key)||[];
@@ -34,10 +36,10 @@ get nodeName(){return e.tagName;},get nodeType(){return 1;},
 get elements(){return e.querySelectorAll('input, textarea, button, select');},
 get tagName(){return get(i,'tagName').toUpperCase();}};
 Object.defineProperty(e,'_key',{value:i});
-for(const n of ['textContent','innerHTML','className','id','href','src','value','hidden','onclick','oninput','onchange','onsubmit'])
-Object.defineProperty(e,n,{get:()=>n==='onclick'?null:n==='hidden'?get(i,n)!==null:get(i,n)||'',
+for(const n of ['textContent','innerHTML','className','id','href','src','value','hidden','checked','open','onclick','oninput','onchange','onsubmit'])
+Object.defineProperty(e,n,{get:()=>n==='onclick'?null:['hidden','checked','open'].includes(n)?get(i,n)!==null:get(i,n)||'',
 set:v=>{if(n.startsWith('on')&&typeof v==='function')e.addEventListener(n.slice(2),v);
-else set(i,n,n==='hidden'&&!v?null:String(v));}});
+else set(i,n,['hidden','checked','open'].includes(n)?v?'1':null:String(v));}});
 e.classList={contains:n=>e.className.split(/\s+/).includes(n),add:(...a)=>{
 e.className=[...new Set(e.className.split(/\s+/).concat(a))].filter(Boolean).join(' ');},
 remove:(...a)=>{e.className=e.className.split(/\s+/).filter(n=>!a.includes(n)).join(' ');},
@@ -73,7 +75,7 @@ getElementById:n=>select('#'+n,0)[0]||null,querySelector:n=>select(n,0)[0]||null
 querySelectorAll:n=>select(n,0),getElementsByClassName:n=>select('.'+n,0),getElementsByTagName:n=>select(n,0),
 createElement:n=>wrap(make(String(n).toLowerCase())),readyState:'loading',
 get forms(){return select('form',0);},
-addEventListener:(n,f)=>{if(n==='DOMContentLoaded'&&typeof f==='function'&&ready.length<24)ready.push(f);else listen(-1,n,f);},removeEventListener:(n,f)=>{ready=ready.filter(fn=>fn!==f);unlisten(-1,n,f);}};
+addEventListener:(n,f)=>listen(-1,n,f),removeEventListener:(n,f)=>unlisten(-1,n,f)};
 g.window=g;g.self=g;g.innerWidth=g._viewportWidth;g.innerHeight=g._viewportHeight;
 const href=g._pageUrl;const m=href.match(/^(https?:)\/\/([^/?#]+)([^?#]*)(\?[^#]*)?(#.*)?$/);
 const loc=m?{protocol:m[1],host:m[2],hostname:m[2].split(':')[0],
@@ -81,7 +83,7 @@ origin:m[1]+'//'+m[2],pathname:m[3]||'/',search:m[4]||'',hash:m[5]||''}:{};
 loc.assign=loc.replace=v=>navigate(String(v));loc.toString=()=>href;
 Object.defineProperty(loc,'href',{get:()=>href,set:v=>navigate(String(v))});
 for(const target of [g,g.document])Object.defineProperty(target,'location',{get:()=>loc,set:v=>navigate(String(v))});
-g.document.URL=href;Object.defineProperty(g.document,'cookie',{get:()=>cookie(),set:v=>cookie(String(v))});
+g.document.URL=href;g.document.baseURI=g._baseUrl;Object.defineProperty(g.document,'cookie',{get:()=>cookie(),set:v=>cookie(String(v))});
 function storage(){const data=new Map();return {get length(){return data.size;},
 getItem:k=>data.get(String(k))??null,setItem:(k,v)=>{if(data.size<64)data.set(String(k),String(v));},
 removeItem:k=>data.delete(String(k)),clear:()=>data.clear(),key:i=>[...data.keys()][i]??null};}
@@ -89,8 +91,8 @@ g.sessionStorage=storage();g.localStorage=storage();
 g.document.hidden=false;g.removeEventListener=(n,f)=>unlisten(-2,n,f);
 Object.defineProperty(g.document,'title',{get:()=>select('title',0)[0]?.textContent||'',
 set:v=>{const el=select('title',0)[0];if(el)el.textContent=String(v);}});
-g.navigator={userAgent:g._userAgent,language:g._language,onLine:true,maxTouchPoints:1};
-const started=Date.now();g.performance={now:()=>Date.now()-started,timeOrigin:started};
+g.navigator={userAgent:g._userAgent,language:g._language,languages:[g._language],onLine:true,maxTouchPoints:1};
+const started=clock();g.performance={now:()=>clock()-started,timeOrigin:Date.now()};
 g.navigator.sendBeacon=()=>false;
 const digits='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 g.btoa=v=>{const s=String(v);let out='';for(let i=0;i<s.length;i+=3){
@@ -108,7 +110,7 @@ g.Event=class {
     stopImmediatePropagation(){this._immediate=this._stopped=true;}
 };
 g.CustomEvent=class extends g.Event{constructor(type,opts={}){super(type,opts);this.detail=opts.detail;}};
-g.addEventListener=(n,f)=>{if(n==='load')document.addEventListener('DOMContentLoaded',f);else listen(-2,n,f);};
+g.addEventListener=(n,f)=>listen(-2,n,f);
 g.console={log(){},warn(){},error(){}};
 function response(input) {
     const parts=pull(String(input));
@@ -118,8 +120,14 @@ function response(input) {
 }
 g.fetch=async(input,opts)=>{
     if(opts?.method&&String(opts.method).toUpperCase()!=='GET')throw new TypeError('Only GET requests are available');
-    const {body,...result}=response(input);
-    return result;
+    if(opts?.signal?.aborted)throw opts.signal.reason;
+    return new Promise((resolve,reject)=>g.setTimeout(()=>{
+        if(opts?.signal?.aborted){reject(opts.signal.reason);return;}
+        try {
+            const {body,...result}=response(input);
+            resolve(result);
+        } catch(error){reject(error);}
+    },0));
 };
 g.XMLHttpRequest=class {
     readyState=0;status=0;responseText='';responseType='';
@@ -184,14 +192,91 @@ g.URL=class {
     toString(){return this.href;}
     toJSON(){return this.href;}
 };
-g.setTimeout=(f,ms,...args)=>{if(typeof f!=='function'||ms>1000||timers.length>=24)return 0;
-timers.push(()=>f(...args));return timers.length;};
-g.clearTimeout=i=>{if(i>0&&i<=timers.length)timers[i-1]=null;};
-g.requestAnimationFrame=f=>g.setTimeout(()=>f(0),0);
-g._drain=()=>{const list=timers;timers=[];for(const f of list)if(f)try{f()}catch(_){};};
-g.document.createEvent=()=>({initEvent(type,bubbles,cancelable){Object.assign(this,{type,bubbles,cancelable});}});
-g._ready=()=>{document.readyState='complete';for(const f of ready)try{f.call(document)}catch(_){};ready=[];
-if(typeof g.onload==='function')try{g.onload()}catch(_){};};
+g.TextEncoder=class {
+    get encoding(){return 'utf-8';}
+    encode(value=''){
+        const bytes=[];
+        for(const character of String(value)) {
+            let cp=character.codePointAt(0);
+            if(cp>=0xd800&&cp<=0xdfff)cp=0xfffd;
+            if(cp<0x80)bytes.push(cp);
+            else if(cp<0x800)bytes.push(0xc0|(cp>>6),0x80|(cp&63));
+            else if(cp<0x10000)bytes.push(0xe0|(cp>>12),0x80|((cp>>6)&63),0x80|(cp&63));
+            else bytes.push(0xf0|(cp>>18),0x80|((cp>>12)&63),0x80|((cp>>6)&63),0x80|(cp&63));
+        }
+        return Uint8Array.from(bytes);
+    }
+};
+g.AbortController=class {
+    constructor(){
+        const listeners=new Set();
+        this.signal={aborted:false,reason:undefined,onabort:null,
+            addEventListener(type,fn){if(type==='abort'&&typeof fn==='function')listeners.add(fn);},
+            removeEventListener(type,fn){if(type==='abort')listeners.delete(fn);},
+            throwIfAborted(){if(this.aborted)throw this.reason;}};
+        this._listeners=listeners;
+    }
+    abort(reason=new Error('The operation was aborted')){
+        const signal=this.signal;
+        if(signal.aborted)return;
+        signal.aborted=true;signal.reason=reason;
+        const event=new g.Event('abort');
+        event.target=event.currentTarget=signal;
+        for(const listener of this._listeners)try{listener.call(signal,event);}catch(_){}
+        signal.onabort?.(event);
+    }
+};
+function schedule(callback,delay,args,repeat) {
+    if(typeof callback!=='function'||timers.size>=64)return 0;
+    const ms=Math.min(2147483647,Math.max(repeat?4:0,Number(delay)||0));
+    const id=nextTimer++;
+    timers.set(id,{callback,args,repeat,ms,due:clock()+ms});
+    return id;
+}
+g.setTimeout=(fn,ms,...args)=>schedule(fn,ms,args,false);
+g.setInterval=(fn,ms,...args)=>schedule(fn,ms,args,true);
+g.clearInterval=g.clearTimeout=id=>timers.delete(Number(id));
+g.requestAnimationFrame=fn=>schedule(()=>fn(g.performance.now()),16,[],false);
+g.cancelAnimationFrame=g.clearTimeout;
+g.queueMicrotask=fn=>{
+    if(typeof fn!=='function')throw new TypeError('Expected a callback');
+    Promise.resolve().then(fn);
+};
+g._nextTask=()=>{
+    let nextId,next;
+    for(const [id,task] of timers)if(!next||task.due<next.due){nextId=id;next=task;}
+    if(!next)return -1;
+    const now=clock();
+    if(next.due>now)return Math.max(1,Math.ceil(next.due-now));
+    if(next.repeat)next.due=now+next.ms;
+    else timers.delete(nextId);
+    try{next.callback.apply(g,next.args);}catch(_){}
+    return 0;
+};
+g.CSS={supports:(...args)=>args.length>1 ? cssSupports(String(args[0]),String(args[1])) : cssSupports(String(args[0]))};
+g.matchMedia=query=>{
+    const media=String(query);
+    return {media,matches:mediaMatches(media),onchange:null,
+        addListener(){},removeListener(){},addEventListener(){},removeEventListener(){}};
+};
+g.document.createEvent=()=>({initEvent(type,bubbles,cancelable){Object.assign(this,new g.Event(type,{bubbles,cancelable}));Object.setPrototypeOf(this,g.Event.prototype);}});
+function lifecycleEvent(id,type,target) {
+    const event=new g.Event(type);
+    event.target=event.currentTarget=target;
+    for(const listener of events.get(id+':'+type)||[])try{listener.call(target,event);}catch(_){}
+    const handler=target['on'+type];
+    if(typeof handler==='function')try{handler.call(target,event);}catch(_){}
+}
+g._lifecycle=state=>{
+    if(state==='DOMContentLoaded') {
+        lifecycleEvent(-1,state,document);
+        lifecycleEvent(-2,state,g);
+    } else {
+        document.readyState=state;
+        lifecycleEvent(-1,'readystatechange',document);
+        if(state==='complete')lifecycleEvent(-2,'load',g);
+    }
+};
 g._click=dispatch;
-for(const n of ['_find','_get','_set','_make','_insert','_remove','_resolve','_active','_fetch','_pageUrl','_userAgent','_language','_viewportWidth','_viewportHeight','_cookie','_navigate'])delete g[n];
+for(const n of ['_find','_get','_set','_make','_insert','_remove','_resolve','_active','_fetch','_clock','_matchMedia','_cssSupports','_pageUrl','_baseUrl','_userAgent','_language','_viewportWidth','_viewportHeight','_cookie','_navigate'])delete g[n];
 })(globalThis);

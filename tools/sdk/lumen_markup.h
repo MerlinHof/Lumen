@@ -9,7 +9,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 /* Reads the generic document helper's preorder tree in the package process. */
-enum { MARKUP_ATTRIBUTES=32, MARKUP_DEPTH=100, MARKUP_FIELD_LIMIT=4<<20 };
+enum { MARKUP_ATTRIBUTES=40, MARKUP_DEPTH=100, MARKUP_FIELD_LIMIT=4<<20 };
 
 typedef struct MarkupNode {
     struct MarkupNode *child,*next,*parent;

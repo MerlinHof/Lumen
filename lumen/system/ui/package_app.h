@@ -577,6 +577,16 @@ static void package_paint_frame_mode(const char *text,int mode) {
             if(json_get(&j,item,"match_offset")>=0 && h>0) {
                 int fit=h>=font->h ? 1+(h-font->h)/(font->h-4) : 1;
                 if(lines>fit)lines=fit;
+                if(lines>0 && lines<=16 && w>0) {
+                    const char *remaining;
+                    wrapped_emphasis(-1,0,label,font,w,lines,offset,length,&remaining);
+                    const Font *compact=ui_font(UI_SECONDARY);
+                    if(*remaining && compact->h<font->h) {
+                        font=compact;
+                        lines=h>=font->h ? 1+(h-font->h)/(font->h-4) : 1;
+                        if(lines>16)lines=16;
+                    }
+                }
             }
             if(lines>0 && lines<=16)wrapped_emphasis(x,y,label,font,w,lines,offset,length,NULL);
         }

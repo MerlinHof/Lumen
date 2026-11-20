@@ -4,8 +4,8 @@
 #include "lumen_markup.h"
 #include <ctype.h>
 #include <strings.h>
-#include "markup.h"
 #include "web_engine.h"
+#include "markup.h"
 
 enum { WEB_X=8, WEB_Y=56, WEB_W=WEB_VIEW_WIDTH, WEB_H=WEB_VIEW_HEIGHT, WEB_LINKS=64, WEB_HISTORY=32, WEB_ACTIONS=96 };
 typedef struct {

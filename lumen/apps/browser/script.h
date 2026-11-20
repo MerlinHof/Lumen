@@ -6,10 +6,10 @@ typedef struct {
     JSContext *context;
     MarkupNode *nodes[SCRIPT_NODES],*detached[SCRIPT_CHANGES];
     unsigned char interactive[SCRIPT_NODES];
-    int count,changes,inline_count,remote_count;
+    int count,changes,remote_count;
     size_t changed_bytes;
     int64_t deadline,network_end;
-    const char *base;
+    const char *url,*base;
     char *navigation;
     int requests,modules,cookie_writes;
 } WebScript;
@@ -18,6 +18,25 @@ static int64_t script_time(void) {
     struct timespec now;
     clock_gettime(CLOCK_MONOTONIC,&now);
     return (int64_t)now.tv_sec*1000+now.tv_nsec/1000000;
+}
+static JSValue script_clock(JSContext *js,JSValueConst self,int argc,JSValueConst *argv) {
+    (void)self;(void)argc;(void)argv;
+    return JS_NewInt64(js,script_time());
+}
+static JSValue script_match_media(JSContext *js,JSValueConst self,int argc,JSValueConst *argv) {
+    (void)self;
+    const char *query=argc ? JS_ToCString(js,argv[0]) : NULL;
+    int match=web_engine_media_matches(query,WEB_VIEW_WIDTH,WEB_VIEW_HEIGHT);
+    JS_FreeCString(js,query);
+    return JS_NewBool(js,match);
+}
+static JSValue script_css_supports(JSContext *js,JSValueConst self,int argc,JSValueConst *argv) {
+    (void)self;
+    const char *property=argc ? JS_ToCString(js,argv[0]) : NULL;
+    const char *value=argc>1 ? JS_ToCString(js,argv[1]) : NULL;
+    int supported=web_engine_css_supports(property,value);
+    JS_FreeCString(js,value);JS_FreeCString(js,property);
+    return JS_NewBool(js,supported);
 }
 static int script_timeout(JSRuntime *runtime,void *opaque) {
     (void)runtime;
@@ -234,7 +253,7 @@ static JSValue script_fetch(JSContext *js,JSValueConst self,int argc,JSValueCons
     if(!argc || script->requests>=6 || script_time()>=script->network_end)return JS_NULL;
     const char *ref=JS_ToCString(js,argv[0]);
     char url[WEB_URL];
-    int valid=ref && web_resource_url(script->base,ref,url) && same_origin(script->base,url);
+    int valid=ref && web_resource_url(script->base,ref,url) && same_origin(script->url,url);
     JS_FreeCString(js,ref);
     if(!valid)return JS_NULL;
     script->requests++;
@@ -259,12 +278,12 @@ static JSValue script_cookie(JSContext *js,JSValueConst self,int argc,JSValueCon
     WebScript *script=JS_GetContextOpaque(js);
     if(argc) {
         const char *value=JS_ToCString(js,argv[0]);
-        if(value && script->cookie_writes++<24)web_cookie_write(script->base,value);
+        if(value && script->cookie_writes++<24)web_cookie_write(script->url,value);
         JS_FreeCString(js,value);
         return JS_UNDEFINED;
     }
     char result[4096];
-    web_cookie_read(script->base,result);
+    web_cookie_read(script->url,result);
     return JS_NewString(js,result);
 }
 static JSValue script_resolve(JSContext *js,JSValueConst self,int argc,JSValueConst *argv) {
@@ -283,7 +302,7 @@ static JSValue script_navigate(JSContext *js,JSValueConst self,int argc,JSValueC
     if(!argc)return JS_UNDEFINED;
     const char *url=JS_ToCString(js,argv[0]);
     char resolved[WEB_URL];
-    if(url && web_resource_url(script->base,url,resolved) && strcmp(script->base,resolved))
+    if(url && web_resource_url(script->url,url,resolved) && strcmp(script->url,resolved))
         snprintf(script->navigation,WEB_URL,"%s",resolved);
     JS_FreeCString(js,url);
     return JS_UNDEFINED;
@@ -350,31 +369,83 @@ static char *script_bootstrap(void) {
     return code;
 }
 
-static void script_tree(WebScript *script,MarkupNode *node,const char *base) {
-    for(;node && script->inline_count<32;node=node->next) {
-        if(!node->tag)continue;
-        if(!strcmp(node->tag,"script")) {
-            const char *type=node->attribute[8];
-            int module=type && !strcasecmp(type,"module");
-            if(type && *type && !module && strcasecmp(type,"text/javascript") && strcasecmp(type,"application/javascript"))continue;
-            script->inline_count++;
-            if(node->attribute[6]) {
-                char url[WEB_URL];
-                if(script->remote_count>=6 || script_time()>=script->network_end ||
-                   !web_resource_url(base,node->attribute[6],url))continue;
-                script->remote_count++;
-                char *body=malloc(SCRIPT_SOURCE+1);
-                if(body && lumen_http_text((LumenHttpRequest){.url=url,.timeout=3,.redirects=2,.compressed=1,.user_agent=mobile_agent,.cookie_jar=web_cookie_jar(),
-                        .allow_http=!strncmp(url,"http://",7)},body,SCRIPT_SOURCE+1)) {
-                    script->deadline=script_time()+180;
-                    script_eval(script,body,url,module ? JS_EVAL_TYPE_MODULE : JS_EVAL_TYPE_GLOBAL);
-                }
-                free(body);
-            } else for(MarkupNode *child=node->child;child;child=child->next) {
-                script->deadline=script_time()+180;
-                script_eval(script,child->text,base,module ? JS_EVAL_TYPE_MODULE : JS_EVAL_TYPE_GLOBAL);
+enum { SCRIPT_TAGS=48 };
+typedef struct {MarkupNode *node;int phase,module;} ScriptTag;
+
+static void script_collect(MarkupNode *node,ScriptTag tags[SCRIPT_TAGS],int *count) {
+    for(;node && *count<SCRIPT_TAGS;node=node->next) {
+        if(!node->tag || !strcmp(node->tag,"template") || !strcmp(node->tag,"noscript"))continue;
+        if(strcmp(node->tag,"script")) {
+            script_collect(node->child,tags,count);
+            continue;
+        }
+        const char *type=node->attribute[8];
+        int module=type && !strcasecmp(type,"module");
+        if(node->attribute[ATTR_NO_MODULE] ||
+           (type && *type && !module && strcasecmp(type,"text/javascript") &&
+            strcasecmp(type,"application/javascript")))continue;
+        int external=node->attribute[6]!=NULL;
+        int phase=external && node->attribute[ATTR_ASYNC] ? 2 :
+                  module || (external && node->attribute[ATTR_DEFER]) ? 1 : 0;
+        tags[(*count)++]=(ScriptTag){node,phase,module};
+    }
+}
+static void script_phase(WebScript *script,const ScriptTag *tags,int count,int phase) {
+    if(*script->navigation)return;
+    for(int i=0;i<count && !*script->navigation && script_time()<script->network_end;i++) {
+        if(tags[i].phase!=phase)continue;
+        const MarkupNode *node=tags[i].node;
+        int flags=tags[i].module ? JS_EVAL_TYPE_MODULE : JS_EVAL_TYPE_GLOBAL;
+        if(node->attribute[6]) {
+            char url[WEB_URL],final[WEB_URL];
+            if(script->remote_count>=10 || !web_resource_url(script->base,node->attribute[6],url))continue;
+            script->remote_count++;
+            char *body=malloc(SCRIPT_SOURCE+WEB_URL+48);
+            if(body && lumen_http_page((LumenHttpRequest){.url=url,.timeout=3,.redirects=2,.compressed=1,
+                    .user_agent=mobile_agent,.cookie_jar=web_cookie_jar(),.allow_http=!strncmp(url,"http://",7)},
+                    body,SCRIPT_SOURCE+WEB_URL+48,final,sizeof(final))==LUMEN_HTTP_OK && url_valid(final)) {
+                script->deadline=script_time()+220;
+                script_eval(script,body,final,flags);
             }
-        } else script_tree(script,node->child,base);
+            free(body);
+        } else for(const MarkupNode *child=node->child;child;child=child->next) {
+            script->deadline=script_time()+220;
+            script_eval(script,child->text,script->base,flags);
+        }
+    }
+}
+static void script_jobs(WebScript *script,JSRuntime *runtime) {
+    for(int jobs=0;jobs<96 && JS_IsJobPending(runtime) && script_time()<script->deadline;jobs++) {
+        JSContext *job=NULL;
+        if(JS_ExecutePendingJob(runtime,&job)<0 && job)JS_FreeValue(job,JS_GetException(job));
+    }
+}
+static void script_lifecycle(WebScript *script,JSValue lifecycle,const char *state) {
+    JSContext *js=script->context;
+    JSValue arg=JS_NewString(js,state);
+    script->deadline=script_time()+220;
+    JSValue result=JS_Call(js,lifecycle,JS_UNDEFINED,1,&arg);
+    if(JS_IsException(result))JS_FreeValue(js,JS_GetException(js));
+    JS_FreeValue(js,result);JS_FreeValue(js,arg);
+}
+static void script_pump(WebScript *script,JSRuntime *runtime,JSValue next_task,int window_ms) {
+    JSContext *js=script->context;
+    const int64_t stop=script_time()+window_ms;
+    for(int turns=0;turns<128 && !*script->navigation && script_time()<=stop;turns++) {
+        script->deadline=script_time()+160;
+        script_jobs(script,runtime);
+        if(*script->navigation)break;
+        JSValue result=JS_Call(js,next_task,JS_UNDEFINED,0,NULL);
+        int32_t delay=-1;
+        if(JS_IsException(result))JS_FreeValue(js,JS_GetException(js));
+        else if(JS_IsNumber(result))JS_ToInt32(js,&delay,result);
+        JS_FreeValue(js,result);
+        if(delay<0)break;
+        if(delay>0) {
+            if(delay>stop-script_time())break;
+            struct timespec pause={delay/1000,(delay%1000)*1000000L};
+            nanosleep(&pause,NULL);
+        }
     }
 }
 static int form_editable(const MarkupNode *node) {
@@ -411,14 +482,42 @@ static const MarkupNode *form_owner(const MarkupNode *node) {
         if(node->tag && !strcmp(node->tag,"form"))return node;
     return NULL;
 }
+static int form_toggle(const MarkupNode *node) {
+    const char *type=node->attribute[8];
+    return node->tag && !strcmp(node->tag,"input") && type &&
+        (!strcasecmp(type,"checkbox") || !strcasecmp(type,"radio"));
+}
+static void set_boolean(MarkupNode *node,int field,int enabled) {
+    free(node->attribute[field]);
+    node->attribute[field]=enabled ? strdup("1") : NULL;
+}
+static int web_click_default(WebScript *script,MarkupNode *node) {
+    if(form_toggle(node) && !node->attribute[ATTR_DISABLED]) {
+        const char *name=node->attribute[ATTR_NAME];
+        int radio=!strcasecmp(node->attribute[8],"radio");
+        if(radio && node->attribute[ATTR_CHECKED])return 0;
+        if(radio && name)for(int i=1;i<=script->count;i++) {
+            MarkupNode *other=script->nodes[i];
+            if(other!=node && form_toggle(other) && !strcasecmp(other->attribute[8],"radio") &&
+               other->attribute[ATTR_NAME] && !strcmp(other->attribute[ATTR_NAME],name) &&
+               form_owner(other)==form_owner(node))set_boolean(other,ATTR_CHECKED,0);
+        }
+        set_boolean(node,ATTR_CHECKED,!node->attribute[ATTR_CHECKED]);
+        return 1;
+    }
+    if(!strcmp(node->tag,"summary") && node->parent && node->parent->tag &&
+       !strcmp(node->parent->tag,"details"))
+        set_boolean(node->parent,ATTR_OPEN,!node->parent->attribute[ATTR_OPEN]);
+    return 0;
+}
 static int form_parameters(MarkupNode *node,const MarkupNode *submit,char *out,size_t size,int *count,int post) {
     for(;node;node=node->next) {
         if(node->tag && node->attribute[ATTR_NAME] && !node->attribute[ATTR_DISABLED]) {
             const char *type=node->attribute[8];
-            if(form_editable(node) || node==submit || (!strcmp(node->tag,"input") && type && !strcasecmp(type,"hidden"))) {
+            if(form_editable(node) || node==submit || (form_toggle(node) && node->attribute[ATTR_CHECKED]) || (!strcmp(node->tag,"input") && type && !strcasecmp(type,"hidden"))) {
                 char name[256],value[4096];
                 if(!lumen_url_encode(node->attribute[ATTR_NAME],name,sizeof(name)) ||
-                   !lumen_url_encode(node->attribute[10] ? node->attribute[10] : "",value,sizeof(value)))return 0;
+                   !lumen_url_encode(node->attribute[10] ? node->attribute[10] : form_toggle(node) ? "on" : "",value,sizeof(value)))return 0;
                 size_t used=strlen(out);
                 const char *separator=*count ? "&" : post ? "" : "?";
                 int bytes=snprintf(out+used,size-used,"%s%s=%s",separator,name,value);
@@ -455,10 +554,10 @@ static int script_event(WebScript *script,JSValue dispatch,int id,const char *ev
     JS_FreeValue(js,args[1]);JS_FreeValue(js,result);
     return allowed;
 }
-static WebScript *script_run(MarkupNode *root,const char *base,const WebAction *actions,int count,int64_t network_end,char next_url[WEB_URL],char post[WEB_POST]) {
+static WebScript *script_run(MarkupNode *root,const char *url,const char *base,const WebAction *actions,int count,int64_t network_end,char next_url[WEB_URL],char post[WEB_POST]) {
     WebScript *script=calloc(1,sizeof(*script));
     if(!script)return NULL;
-    script->network_end=network_end;script->base=base;script->navigation=next_url;
+    script->network_end=network_end;script->url=url;script->base=base;script->navigation=next_url;
     script_index_tree(script,root);
     JSRuntime *runtime=JS_NewRuntime();
     if(!runtime)return script;
@@ -474,11 +573,12 @@ static WebScript *script_run(MarkupNode *root,const char *base,const WebAction *
         const struct {const char *name;JSCFunction *call;int args;} bindings[]={
             {"_find",script_lookup,2},{"_get",script_get,2},{"_set",script_set,3},
             {"_make",script_create,1},{"_insert",script_insert,3},{"_remove",script_remove,1},{"_resolve",script_resolve,2},{"_active",script_clickable,1},
-            {"_fetch",script_fetch,1},{"_cookie",script_cookie,1},{"_navigate",script_navigate,1}
+            {"_clock",script_clock,0},{"_matchMedia",script_match_media,1},{"_cssSupports",script_css_supports,2},{"_fetch",script_fetch,1},{"_cookie",script_cookie,1},{"_navigate",script_navigate,1}
         };
         for(size_t i=0;i<sizeof(bindings)/sizeof(*bindings);i++)
             JS_SetPropertyStr(js,globals,bindings[i].name,JS_NewCFunction(js,bindings[i].call,bindings[i].name,bindings[i].args));
-        JS_SetPropertyStr(js,globals,"_pageUrl",JS_NewString(js,base));
+        JS_SetPropertyStr(js,globals,"_pageUrl",JS_NewString(js,url));
+        JS_SetPropertyStr(js,globals,"_baseUrl",JS_NewString(js,base));
         JS_SetPropertyStr(js,globals,"_userAgent",JS_NewString(js,mobile_agent));
         const char *language=lumen_language==1 ? "en" : lumen_language==2 ? "fr" : "de";
         JS_SetPropertyStr(js,globals,"_language",JS_NewString(js,language));
@@ -488,46 +588,50 @@ static WebScript *script_run(MarkupNode *root,const char *base,const WebAction *
         char *bootstrap=script_bootstrap();
         script_eval(script,bootstrap,"lumen-dom",JS_EVAL_TYPE_GLOBAL);
         free(bootstrap);
-        JSValue ready=JS_GetPropertyStr(js,globals,"_ready");
+        JSValue lifecycle=JS_GetPropertyStr(js,globals,"_lifecycle");
         JSValue click=JS_GetPropertyStr(js,globals,"_click");
-        JSValue drain=JS_GetPropertyStr(js,globals,"_drain");
+        JSValue task=JS_GetPropertyStr(js,globals,"_nextTask");
 
-        script_tree(script,root,base);
-        const int64_t deadline=script_time()+350;
-        script->deadline=deadline;
-        JSValue result=JS_Call(js,ready,JS_UNDEFINED,0,NULL);
-        if(JS_IsException(result))JS_FreeValue(js,JS_GetException(js));
-        JS_FreeValue(js,result);
-        for(int i=-1;i<count && script_time()<deadline;i++) {
-            if(i>=0) {
-                const WebAction *action=&actions[i];
-                if(action->id<1 || action->id>script->count)continue;
-                MarkupNode *node=script->nodes[action->id];
-                if((action->kind==WEB_EDIT || action->kind==WEB_SEARCH) && form_editable(node)) {
-                    char *copy=strdup(action->value);
-                    if(copy){free(node->attribute[10]);node->attribute[10]=copy;}
+        ScriptTag tags[SCRIPT_TAGS];
+        int tag_count=0;
+        script_collect(root,tags,&tag_count);
+        script_phase(script,tags,tag_count,0);
+        script_lifecycle(script,lifecycle,"interactive");
+        script_phase(script,tags,tag_count,1);
+        script->deadline=script_time()+220;
+        script_jobs(script,runtime);
+        script_lifecycle(script,lifecycle,"DOMContentLoaded");
+        script_phase(script,tags,tag_count,2);
+        script_lifecycle(script,lifecycle,"complete");
+        script_pump(script,runtime,task,1600);
+        const int64_t replay_end=script_time()+2000;
+        for(int i=0;i<count && !*next_url && script_time()<replay_end;i++) {
+            script->deadline=script_time()+220;
+            const WebAction *action=&actions[i];
+            if(action->id<1 || action->id>script->count)continue;
+            MarkupNode *node=script->nodes[action->id];
+            if((action->kind==WEB_EDIT || action->kind==WEB_SEARCH) && form_editable(node)) {
+                char *copy=strdup(action->value);
+                if(copy){free(node->attribute[10]);node->attribute[10]=copy;}
+                script_event(script,click,action->id,"input");
+                script_event(script,click,action->id,"change");
+            }
+            int submit=action->kind==WEB_SEARCH;
+            if(action->kind==WEB_SUBMIT || action->kind==WEB_CLICK) {
+                int allowed=script_event(script,click,action->id,"click");
+                submit=allowed && action->kind==WEB_SUBMIT;
+                if(allowed && action->kind==WEB_CLICK && web_click_default(script,node)) {
                     script_event(script,click,action->id,"input");
                     script_event(script,click,action->id,"change");
                 }
-                int submit=action->kind==WEB_SEARCH;
-                if(action->kind==WEB_SUBMIT || action->kind==WEB_CLICK)
-                    submit=script_event(script,click,action->id,"click") && action->kind==WEB_SUBMIT;
-                if(submit) {
-                    int form=script_index(script,(MarkupNode *)form_owner(node));
-                    if(form && script_event(script,click,form,"submit"))form_target(base,node,next_url,post);
-                }
             }
-            for(int pass=0;pass<2 && script_time()<deadline;pass++) {
-                result=JS_Call(js,drain,JS_UNDEFINED,0,NULL);
-                if(JS_IsException(result))JS_FreeValue(js,JS_GetException(js));
-                JS_FreeValue(js,result);
-                for(int j=0;j<64 && JS_IsJobPending(runtime) && script_time()<deadline;j++) {
-                    JSContext *job;
-                    if(JS_ExecutePendingJob(runtime,&job)<0){JS_FreeValue(job,JS_GetException(job));break;}
-                }
+            if(submit) {
+                int form=script_index(script,(MarkupNode *)form_owner(node));
+                if(form && script_event(script,click,form,"submit"))form_target(base,node,next_url,post);
             }
+            script_pump(script,runtime,task,i==count-1 ? 650 : 150);
         }
-        JS_FreeValue(js,drain);JS_FreeValue(js,ready);JS_FreeValue(js,click);JS_FreeValue(js,globals);
+        JS_FreeValue(js,task);JS_FreeValue(js,lifecycle);JS_FreeValue(js,click);JS_FreeValue(js,globals);
         JS_FreeContext(js);
         script->context=NULL;
     }

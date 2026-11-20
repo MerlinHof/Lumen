@@ -601,7 +601,7 @@ static const char *mention_right(const char *start,int *remaining) {
 }
 static int mention_side(char out[640],const char *first,const char *last,int page,int step,
                         const char *adjacent) {
-    int remaining=20,used=0;
+    int remaining=25,used=0;
     for(int distance=0;distance<=8 && remaining;distance++) {
         char *extra=distance>1 ? mention_page_text(page+distance*step) : NULL;
         if(distance) {

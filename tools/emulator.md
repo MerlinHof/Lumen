@@ -18,12 +18,10 @@ The first launch creates a sample EPUB.
 
 ## Display timing
 
-The emulator uses the device’s refresh planner and models DU, GL16
-and GC16, including a flash for a clearing update. Default durations are
-260 ms for DU and 450 ms for GL16 and GC16. DU and GC16 are approximate
-[FBInk reference timings](https://github.com/NiLuJe/FBInk/blob/master/fbink.h).
-GL16 uses a 450 ms modeling value. Exact durations depend on the physical
-panel and waveform.
+The emulator uses the device’s refresh planner and publishes frames as soon as
+they are ready. Display delays and the clearing flash are disabled by default.
+To preview the panel timing, set explicit waveform durations. DU and GC16
+values below are approximate [FBInk reference timings](https://github.com/NiLuJe/FBInk/blob/master/fbink.h).
 
 To use measured timings, pass the values in milliseconds:
 
@@ -31,7 +29,7 @@ To use measured timings, pass the values in milliseconds:
 ./Emulator.command --du-ms 260 --gl16-ms 450 --gc16-ms 450
 ```
 
-`--instant` bypasses the simulated display delay. `--no-open` prints the URL
+`--instant` overrides any timing flags and publishes frames immediately. `--no-open` prints the URL
 for automated checks. The web server listens only on loopback.
 
 The emulator runs the native LUMEN UI with virtual display and input hardware.

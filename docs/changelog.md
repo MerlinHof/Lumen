@@ -1,5 +1,6 @@
 # Changelog
 
+- [7.7](releases/7.7.md) · Browser timers and CSS compatibility, longer Reader context, and an immediate web emulator.
 - [7.6](releases/7.6.md) · Browser page recovery, broader on-device web APIs, and 20-word Reader context.
 - [7.5](releases/7.5.md) · Browser navigation, cookies, POST forms and responsive images, plus smoother Library progress rings.
 
