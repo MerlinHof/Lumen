@@ -28,6 +28,16 @@ static int selector_attribute(const MarkupNode *node,const char *at,const char *
     }
     return 0;
 }
+static int selector_token(const char *p,size_t n,const char *token) {
+    return strlen(token)==n && !strncmp(p,token,n);
+}
+static int complex_match(const MarkupNode *node,const char *start,const char *end);
+static const MarkupNode *element_before(const MarkupNode *node) {
+    const MarkupNode *previous=NULL;
+    for(const MarkupNode *it=node->parent ? node->parent->child : NULL;it && it!=node;it=it->next)
+        if(it->tag)previous=it;
+    return previous;
+}
 static int simple_match(const MarkupNode *node,const char *p,const char *end) {
     if(!node || !node->tag || p==end)return 0;
     while(p<end) {
@@ -36,6 +46,33 @@ static int simple_match(const MarkupNode *node,const char *p,const char *end) {
             const char *right=memchr(p,']',(size_t)(end-p));
             if(!right || !selector_attribute(node,p,right))return 0;
             p=right+1;continue;
+        }
+        if(*p==':') {
+            const char *name=++p;
+            while(p<end && (isalnum((unsigned char)*p) || *p=='-'))p++;
+            size_t n=(size_t)(p-name);
+            if(selector_token(name,n,"checked")) {
+                if(!node->attribute[ATTR_CHECKED] && !node->attribute[ATTR_SELECTED])return 0;
+            } else if(selector_token(name,n,"disabled") || selector_token(name,n,"enabled")) {
+                if((node->attribute[ATTR_DISABLED]!=NULL)!=selector_token(name,n,"disabled"))return 0;
+            } else if(selector_token(name,n,"first-child")) {
+                if(!node->parent || element_before(node))return 0;
+            } else if(selector_token(name,n,"last-child")) {
+                if(!node->parent)return 0;
+                for(const MarkupNode *it=node->next;it;it=it->next)if(it->tag)return 0;
+            } else if(selector_token(name,n,"empty")) {
+                if(node->child)return 0;
+            } else if(selector_token(name,n,"root")) {
+                if(node->parent)return 0;
+            } else if(p<end && *p=='(' && (selector_token(name,n,"is") ||
+                       selector_token(name,n,"where") || selector_token(name,n,"not"))) {
+                const char *start=++p;
+                while(p<end && *p!=')' && *p!='(')p++;
+                if(p==end || *p!=')')return 0;
+                int found=complex_match(node,start,p++);
+                if(found==selector_token(name,n,"not"))return 0;
+            } else return 0;
+            continue;
         }
         char kind=*p=='.' || *p=='#' ? *p++ : 0;
         const char *part=p;
@@ -60,22 +97,28 @@ static int simple_match(const MarkupNode *node,const char *p,const char *end) {
     return 1;
 }
 static int selector_match(const MarkupNode *node,const char *start,const char *end,int *budget) {
-    if(*budget<=0)return 0;
+    if(!node || *budget<=0)return 0;
     --*budget;
     while(end>start && isspace((unsigned char)end[-1]))end--;
     const char *p=end;
-    int attribute=0;
+    int nested=0;
     while(p>start) {
         char c=p[-1];
-        if(c==']')attribute++;
-        else if(c=='[' && attribute)attribute--;
-        else if(!attribute && (isspace((unsigned char)c) || c=='>'))break;
+        if(c==']' || c==')')nested++;
+        else if((c=='[' || c=='(') && nested)nested--;
+        else if(!nested && (isspace((unsigned char)c) || c=='>' || c=='+' || c=='~'))break;
         p--;
     }
     if(!simple_match(node,p,end))return 0;
     while(p>start && isspace((unsigned char)p[-1]))p--;
     if(p==start)return 1;
     if(p[-1]=='>')return selector_match(node->parent,start,p-1,budget);
+    if(p[-1]=='+')return selector_match(element_before(node),start,p-1,budget);
+    if(p[-1]=='~') {
+        for(const MarkupNode *it=element_before(node);it && *budget>0;it=element_before(it))
+            if(selector_match(it,start,p-1,budget))return 1;
+        return 0;
+    }
     for(node=node->parent;node && *budget>0;node=node->parent)
         if(selector_match(node,start,p,budget))return 1;
     return 0;
@@ -91,8 +134,8 @@ static int complex_match(const MarkupNode *node,const char *start,const char *en
             group=p+1;
         } else if(quote) {
             if(*p==quote)quote=0;
-        } else if(*p=='[')brackets++;
-        else if(*p==']')brackets--;
+        } else if(*p=='[' || *p=='(')brackets++;
+        else if(*p==']' || *p==')')brackets--;
         else if(*p==34 || *p==39)quote=*p;
     }
     return 0;

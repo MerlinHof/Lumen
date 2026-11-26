@@ -1,12 +1,16 @@
 /* Translate web documents to a static HTML subset with bounded local resources. */
 enum { WEB_URL=1024, WEB_BODY=3<<20, WEB_CSS=256<<10, WEB_IMAGE=256<<10 };
-static const char *const attributes[]={"href","rel","class","id","style","alt","src","onclick","type","hidden","value","media","name","action","method","placeholder","disabled","formaction","http-equiv","aria-label","content","oninput","onchange","onsubmit","srcset","data-src","poster","role","dir","lang","width","height","defer","async","nomodule","open","checked"};
+static const char *const attributes[]={"href","rel","class","id","style","alt","src","onclick","type","hidden","value","media","name","action","method","placeholder","disabled","formaction","http-equiv","aria-label","content","oninput","onchange","onsubmit","srcset","data-src","poster","role","dir","lang","width","height","defer","async","nomodule","open","checked","selected","multiple"};
 #define WEB_ATTRIBUTES (sizeof(attributes)/sizeof(attributes[0]))
-enum { ATTR_HREF=0, ATTR_NAME=12, ATTR_ACTION, ATTR_METHOD, ATTR_PLACEHOLDER, ATTR_DISABLED, ATTR_FORM_ACTION, ATTR_HTTP_EQUIV, ATTR_ARIA_LABEL, ATTR_CONTENT, ATTR_SRCSET=24, ATTR_LAZY_SRC, ATTR_POSTER, ATTR_ROLE, ATTR_DIR, ATTR_LANG, ATTR_WIDTH, ATTR_HEIGHT, ATTR_DEFER, ATTR_ASYNC, ATTR_NO_MODULE, ATTR_OPEN, ATTR_CHECKED };
-enum { WEB_EDIT, WEB_CLICK, WEB_SUBMIT, WEB_SEARCH, WEB_FIELDS=40, WEB_FIELD_TEXT=256,WEB_POST=8192 };
-typedef struct {int id,kind;char value[WEB_FIELD_TEXT];} WebAction;
-typedef struct {int id,submit;char label[80],value[WEB_FIELD_TEXT];} WebField;
-static const char mobile_agent[]="Mozilla/5.0 (Linux; Kindle; Mobile) LUMEN/7.7";
+enum { ATTR_HREF=0, ATTR_NAME=12, ATTR_ACTION, ATTR_METHOD, ATTR_PLACEHOLDER, ATTR_DISABLED, ATTR_FORM_ACTION, ATTR_HTTP_EQUIV, ATTR_ARIA_LABEL, ATTR_CONTENT, ATTR_SRCSET=24, ATTR_LAZY_SRC, ATTR_POSTER, ATTR_ROLE, ATTR_DIR, ATTR_LANG, ATTR_WIDTH, ATTR_HEIGHT, ATTR_DEFER, ATTR_ASYNC, ATTR_NO_MODULE, ATTR_OPEN, ATTR_CHECKED, ATTR_SELECTED, ATTR_MULTIPLE };
+enum { WEB_EDIT, WEB_CLICK, WEB_SUBMIT, WEB_SEARCH, WEB_CHOOSE, WEB_FIELDS=40, WEB_FIELD_TEXT=256,WEB_CHOICES=24,WEB_POST=8192 };
+typedef struct {int id,kind,option;char value[WEB_FIELD_TEXT];} WebAction;
+typedef struct {
+    int id,submit,choice_count,choice_selected;
+    char label[80],value[WEB_FIELD_TEXT];
+    struct {int id;char label[96];} choices[WEB_CHOICES];
+} WebField;
+static const char mobile_agent[]="Mozilla/5.0 (Linux; Kindle; Mobile) LUMEN/7.9";
 static int url_valid(const char *url) {
     if(strncmp(url,"http://",7) && strncmp(url,"https://",8))return 0;
     const char *host=strstr(url,"://")+3;
@@ -117,7 +121,7 @@ static void web_attribute(FILE *out,const char *name,const char *value) {
 static int web_image(FILE *out,const char *base,const char *src,const MarkupNode *node) {
     char url[WEB_URL];
     if(src && (!strncmp(src,"data:image/png;base64,",22) || !strncmp(src,"data:image/jpeg;base64,",23) ||
-               !strncmp(src,"data:image/gif;base64,",22))) {
+               !strncmp(src,"data:image/gif;base64,",22) || !strncmp(src,"data:image/svg+xml;base64,",26))) {
         if(strlen(src)>WEB_IMAGE*4/3+64)return 0;
     } else {
         if(!web_resource_url(base,src,url))return 0;
@@ -136,7 +140,7 @@ static const char *picture_source(const MarkupNode *node) {
     for(const MarkupNode *source=node->parent->child;source && source!=node;source=source->next) {
         if(!source->tag || strcmp(source->tag,"source") || !source->attribute[ATTR_SRCSET])continue;
         const char *type=source->attribute[8],*media=source->attribute[11];
-        if(type && strcmp(type,"image/jpeg") && strcmp(type,"image/png") && strcmp(type,"image/gif"))continue;
+        if(type && strcmp(type,"image/jpeg") && strcmp(type,"image/png") && strcmp(type,"image/gif") && strcmp(type,"image/svg+xml"))continue;
         if(!media || web_engine_media_matches(media,WEB_VIEW_WIDTH,WEB_VIEW_HEIGHT))
             return source->attribute[ATTR_SRCSET];
     }
@@ -179,7 +183,7 @@ static void web_content(FILE *out,MarkupNode *node,const char *base,int readable
         "address","abbr","bdi","bdo","caption","cite","del","details","dfn","figcaption","figure","hgroup",
         "ins","kbd","mark","picture","q","ruby","rt","rp","s","samp","summary","time","var","wbr","tfoot"};
     static const char *const omit[]={"head","script","style","template","svg","math","iframe","video",
-        "audio","select","noscript","object","embed","source","canvas"};
+        "audio","noscript","object","embed","source","canvas"};
     for(;node;node=node->next) {
         const char *tag=node->tag;
         if(node->parent && node->parent->tag && !strcmp(node->parent->tag,"details") &&
@@ -202,6 +206,21 @@ static void web_content(FILE *out,MarkupNode *node,const char *base,int readable
         }
         int control=script_action(script,node);
         int field=script_node_id(script,node);
+        if(form_select(node) && field) {
+            char label[96];
+            const MarkupNode *option=selected_option(node);
+            option_text(option,label,sizeof(label));
+            fputs("<select class=\"lumen-field",out);
+            if(!readable && node->attribute[2]){fputc(' ',out);web_escape(out,node->attribute[2]);}
+            fprintf(out,"\" data-lumen-action=\"lumen-field:%d\"",field);
+            web_attribute(out,"id",node->attribute[3]);
+            web_attribute(out,"name",node->attribute[ATTR_NAME]);
+            if(!readable)web_attribute(out,"style",node->attribute[4]);
+            web_attribute(out,"data-lumen-label",*label ? label : "—");
+            fputs("></select>",out);
+            continue;
+        }
+        if(!strcmp(tag,"select"))continue;
         if(form_editable(node) && field) {
             const char *value=node->attribute[10],*placeholder=node->attribute[ATTR_PLACEHOLDER];
             const char *label=value && *value ? value : placeholder && *placeholder ? placeholder :
@@ -325,6 +344,7 @@ static int web_write(const char *path,MarkupNode *root,const char *url,char titl
           ".lumen-field{display:inline-block;background:#f2f2f2;border:1px solid #aaa;"
           "border-radius:5px;padding:8px 16px;min-width:150px;text-decoration:none;}"
           "[data-lumen-label]::before{content:attr(data-lumen-label);}"
+          "select.lumen-field::after{content:' ▾';}"
           "details,summary{display:block;}summary{padding:4px 0;text-decoration:underline;}"
           "input[type=checkbox],input[type=radio]{display:inline-block;min-width:22px;"
           "min-height:22px;border:1px solid #555;text-align:center;vertical-align:middle;}</style>",out);
@@ -350,9 +370,23 @@ static int web_document(const char *source,const char *clean,const char *readabl
     if(!*next_url && !count)web_meta_refresh(root,base,next_url);
     if(script)for(int i=1;i<=script->count && *field_count<WEB_FIELDS;i++) {
         MarkupNode *node=script->nodes[i];
-        if(!form_editable(node) || !script_visible(node))continue;
+        if(!(form_editable(node) || form_select(node)) || !script_visible(node))continue;
         WebField *field=&fields[(*field_count)++];
         field->id=i;
+        if(form_select(node)) {
+            const MarkupNode *selected=selected_option(node);
+            field->choice_selected=-1;
+            for(const MarkupNode *option=next_option(node,NULL);option && field->choice_count<WEB_CHOICES;
+                option=next_option(node,option)) {
+                int pick=field->choice_count;
+                field->choices[pick].id=script_node_id(script,option);
+                if(!field->choices[pick].id)continue;
+                option_text(option,field->choices[pick].label,sizeof(field->choices[pick].label));
+                if(option==selected)field->choice_selected=pick;
+                field->choice_count++;
+            }
+            continue;
+        }
         const char *label=node->attribute[ATTR_PLACEHOLDER];
         const MarkupNode *form=form_owner(node);
         const char *method=form ? form->attribute[ATTR_METHOD] : NULL;

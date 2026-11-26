@@ -34,7 +34,7 @@ static int shelf_row(int index,int top,int featured) {
     const typeof(*books) *book=&books[index];
     int height=featured ? FEATURE_ROWS*SHELF_ROW : SHELF_ROW;
     if(!*book->id)return top+height;
-    int w=featured ? 135 : 59,h=featured ? 184 : 80;
+    int w=featured ? 153 : 59,h=featured ? 209 : 80;
     int x=28+w+(featured ? 23 : 15);
     int center=top+height/2;
     cover(28,center-h/2,w,h,book->id);
@@ -51,7 +51,7 @@ static int shelf_row(int index,int top,int featured) {
     snprintf(id,sizeof(id),"book-%d",index);
     lumen_rounded_action(id,28,top,492,height-3,9);
     snprintf(id,sizeof(id),"more-%d",index);
-    lumen_icon_action(id,528,center-22,IC_MORE);
+    lumen_icon_action(id,528,center-22,IC_MORE_VERTICAL);
     return top+height;
 }
 static void shelf(void) {
@@ -229,7 +229,8 @@ static int input(const Input *in) {
         const char *modes[]={books[index].pin ? word("Loslösen","Unpin","Désépingler") :
             word("Anheften","Pin","Épingler"),word("Buchdetails","Book details","Détails"),
             word("Löschen","Delete","Supprimer")};
-        lumen_select(modes,3,-1,3);
+        const int icons[]={IC_PIN,IC_BOOK,IC_TRASH};
+        lumen_select_menu(modes,icons,3,-1,3,id);
     } else action("read",NULL);
     return 1;
 }

@@ -81,7 +81,7 @@ Bytes decode_image(const std::string &url) {
     auto comma=url.find(',');
     if(comma==std::string::npos || url.size()>400000 ||
        (url.compare(0,22,"data:image/png;base64,") && url.compare(0,23,"data:image/jpeg;base64,") &&
-        url.compare(0,22,"data:image/gif;base64,")))return {};
+        url.compare(0,22,"data:image/gif;base64,") && url.compare(0,26,"data:image/svg+xml;base64,")))return {};
     Bytes data;
     unsigned value=0,bits=0;
     for(size_t i=comma+1;i<url.size();i++) {
@@ -130,10 +130,38 @@ bool supported_condition(std::string_view condition,int depth=0) {
     const auto end=condition.find_last_not_of(" \t\r\n");
     if(start==std::string_view::npos)return false;
     condition=condition.substr(start,end-start+1);
+    int nesting=0;
+    bool joined=false,value=false;
+    std::string_view combinator;
+    size_t part=0;
+    for(size_t i=0;i<condition.size();i++) {
+        const char c=condition[i];
+        if(c=='(')++nesting;
+        if(c==')' && --nesting<0)return false;
+        if(nesting || !std::isspace(static_cast<unsigned char>(c)))continue;
+        size_t op=condition.find_first_not_of(" \t\r\n",i);
+        if(op==std::string_view::npos)break;
+        size_t after=condition.find_first_of(" \t\r\n",op);
+        if(after==std::string_view::npos)break;
+        auto token=condition.substr(op,after-op);
+        if(token!="and" && token!="or")continue;
+        if(joined && token!=combinator)return false;
+        bool valid=supported_condition(condition.substr(part,i-part),depth+1);
+        value=joined ? (combinator=="and" ? value&&valid : value||valid) : valid;
+        combinator=token;joined=true;part=after;i=after;
+    }
+    if(nesting)return false;
+    if(joined) {
+        bool valid=supported_condition(condition.substr(part),depth+1);
+        return combinator=="and" ? value&&valid : value||valid;
+    }
     if(condition.substr(0,4)=="not ")return !supported_condition(condition.substr(4),depth+1);
     if(condition.size()<3 || condition.front()!='(' || condition.back()!=')')return false;
     condition.remove_prefix(1);
     condition.remove_suffix(1);
+    if(condition.find_first_not_of(" \t\r\n")!=std::string_view::npos &&
+       condition[condition.find_first_not_of(" \t\r\n")]=='(')
+        return supported_condition(condition,depth+1);
     return supported_declaration(condition);
 }
 
@@ -222,6 +250,8 @@ class Screen final : public document_container {
     int width,height;
     std::map<std::string,Image> images;
     std::vector<position> clips;
+    struct RoundedClip { position box; border_radiuses radii; size_t depth; };
+    std::vector<RoundedClip> rounded_clips;
     unsigned image_requests=0,style_requests=0;
 
     position fit(position box) const {
@@ -237,6 +267,19 @@ class Screen final : public document_container {
         if(!alpha)return;
         const auto &clip=clips.back();
         if(x<clip.left() || x>=clip.right() || y<clip.top() || y>=clip.bottom())return;
+        for(const auto &rounded:rounded_clips) {
+            const auto &box=rounded.box;
+            const auto &r=rounded.radii;
+            const auto outside=[&](double x,double y,double rx,double ry) {
+                if(rx<=0 || ry<=0 || x>=rx || y>=ry)return false;
+                x=(rx-x)/rx;y=(ry-y)/ry;
+                return x*x+y*y>1;
+            };
+            if(outside(x+0.5-box.left(),y+0.5-box.top(),r.top_left_x,r.top_left_y) ||
+               outside(box.right()-x-0.5,y+0.5-box.top(),r.top_right_x,r.top_right_y) ||
+               outside(x+0.5-box.left(),box.bottom()-y-0.5,r.bottom_left_x,r.bottom_left_y) ||
+               outside(box.right()-x-0.5,box.bottom()-y-0.5,r.bottom_right_x,r.bottom_right_y))return;
+        }
         auto &p=pixels[static_cast<size_t>(y)*width+x];
         p=static_cast<unsigned char>((p*(255-alpha)+tone*alpha+127)/255);
     }
@@ -268,6 +311,11 @@ class Screen final : public document_container {
         }
         if(bytes.empty())return result;
         int channels=0;
+        if(!stbi_info_from_memory(bytes.data(),static_cast<int>(bytes.size()),&result.width,&result.height,&channels)) {
+            size_t length=0;
+            std::unique_ptr<unsigned char,decltype(&std::free)> raster(web_engine_svg(bytes.data(),bytes.size(),&length),std::free);
+            if(raster && length)bytes.assign(raster.get(),raster.get()+length);
+        }
         if(!stbi_info_from_memory(bytes.data(),static_cast<int>(bytes.size()),&result.width,&result.height,&channels) ||
            result.width<1 || result.height<1 || result.width>1600 || result.height>1600) {
             result.width=result.height=0;return result;
@@ -404,7 +452,10 @@ public:
         }
     }
     void draw_solid_fill(uint_ptr,const background_layer &layer,const web_color &color) override {
-        fill(layer.is_root ? clips.front() : layer.clip_box,color,layer.border_radius.top_left_x);
+        if(layer.is_root){fill(clips.front(),color);return;}
+        set_clip(layer.clip_box,layer.border_radius);
+        fill(layer.clip_box,color);
+        del_clip();
     }
     template <typename Sample>
     void draw_gradient(const background_layer &layer,const background_layer::gradient_base &gradient,Sample sample) {
@@ -478,8 +529,15 @@ public:
         std::unique_ptr<char,decltype(&std::free)> css(web_engine_stylesheet(url.c_str(),base.c_str(),final),std::free);
         if(css){text=compatible_css(css.get());base=final;}
     }
-    void set_clip(const position &box,const border_radiuses &) override {clips.push_back(fit(box));}
-    void del_clip() override {if(clips.size()>1)clips.pop_back();}
+    void set_clip(const position &box,const border_radiuses &radius) override {
+        clips.push_back(fit(box));
+        if(radius.top_left_x || radius.top_right_x || radius.bottom_left_x || radius.bottom_right_x)
+            rounded_clips.push_back({box,radius,clips.size()});
+    }
+    void del_clip() override {
+        if(!rounded_clips.empty() && rounded_clips.back().depth==clips.size())rounded_clips.pop_back();
+        if(clips.size()>1)clips.pop_back();
+    }
     void get_viewport(position &box) const override {box=position(0,0,width,height);}
     element::ptr create_element(const char *,const string_map &,const std::shared_ptr<document> &) override {return nullptr;}
     void get_media_features(media_features &media) const override {

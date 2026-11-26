@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.browser",
   "name": "Browser",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "native_dependencies": ["quickjs", "litehtml"],
   "sources": ["app.c", "web_engine.cpp"],
   "assets": ["assets/icon.pgm", "assets/dom.js", "assets/QuickJS-LICENSE.txt", "assets/litehtml-LICENSE.txt",

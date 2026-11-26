@@ -18,12 +18,19 @@ static int settings_autostart(int enabled) {
     options[OPT_AUTOSTART]=enabled;library_settings_save();return 1;
 }
 static int settings_wifi_operation(const char *operation,const char *data,int action) {
-    if(!strcmp(operation,"wifi_start")){wifi_open();return package_acknowledge(action,1);}
+    if(!strcmp(operation,"wifi_start")) {
+        wifi_join_poll();
+        if(wifi_join.state!=1)wifi_open();
+        return package_acknowledge(action,1);
+    }
     if(!strcmp(operation,"wifi_scan")) {
         wifi_ui.scanning=network_scan();return package_acknowledge(action,wifi_ui.scanning);
     }
     if(!strcmp(operation,"wifi_power")) {
         if(strcmp(data,"0") && strcmp(data,"1"))return package_acknowledge(action,0);
+        wifi_join_poll();
+        if(wifi_join.child>0)return package_acknowledge(action,0);
+        wifi_join.state=0;wifi_join.reason[0]=0;
         int enabled=*data=='1';
         if(!device_wifi(enabled))return package_acknowledge(action,0);
         wifi_ui.enabled=enabled;
@@ -43,14 +50,15 @@ static int settings_wifi_operation(const char *operation,const char *data,int ac
                 int connected=!strcmp(wifi_networks[i].ssid,wifi_ui.ssid);
                 ok=network_forget(i);
                 if(ok && connected){connect_stop();network_disconnect();wifi_ui.ssid[0]=0;}
-            } else ok=network_connect(i,end ? end+1 : "");
+            } else return package_acknowledge(action,wifi_join_start(i,end ? end+1 : ""));
             if(!ok)ui_message(network_error());
             return package_acknowledge(action,ok);
         }
         return package_acknowledge(action,0);
     }
     if(strcmp(operation,"wifi_list"))return 0;
-    if(wifi_ui.enabled) {
+    wifi_join_poll();
+    if(wifi_ui.enabled && wifi_join.state!=1) {
         char previous[sizeof(wifi_ui.ssid)];
         snprintf(previous,sizeof(previous),"%s",wifi_ui.ssid);
         network_status(wifi_ui.ssid,sizeof(wifi_ui.ssid));
@@ -62,6 +70,8 @@ static int settings_wifi_operation(const char *operation,const char *data,int ac
     if(!out)return 0;
     fprintf(out,",\"enabled\":%d,\"busy\":%d,\"count\":%d,\"page\":%d",
         wifi_ui.enabled,wifi_ui.scanning,wifi_count,page);
+    fprintf(out,",\"connection\":%d",wifi_join.state);
+    if(*wifi_join.reason)package_field(out,"connection_error",wifi_join.reason);
     for(int i=0;i<6 && page*6+i<wifi_count;i++) {
         WifiNetwork *n=&wifi_networks[page*6+i];
         char field[24];snprintf(field,sizeof(field),"name%d",i);package_field(out,field,n->ssid);

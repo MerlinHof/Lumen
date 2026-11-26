@@ -11,7 +11,7 @@ typedef struct {
     int64_t deadline,network_end;
     const char *url,*base;
     char *navigation;
-    int requests,modules,cookie_writes;
+    int requests,modules,cookie_writes,storage_writes;
 } WebScript;
 
 static int64_t script_time(void) {
@@ -96,6 +96,55 @@ static void script_flat(FILE *out,MarkupNode *node) {
         script_flat(out,node->child);
     }
 }
+static int form_select(const MarkupNode *node) {
+    return node->tag && !strcmp(node->tag,"select") && !node->attribute[ATTR_DISABLED] &&
+        !node->attribute[ATTR_MULTIPLE] && !node->attribute[9];
+}
+static const MarkupNode *next_option(const MarkupNode *select,const MarkupNode *previous) {
+    const MarkupNode *node=previous ? previous->next : select->child;
+    if(previous && !node && previous->parent!=select)node=previous->parent->next;
+    while(node) {
+        if(node->tag && !node->attribute[ATTR_DISABLED]) {
+            if(!strcmp(node->tag,"option"))return node;
+            if(!strcmp(node->tag,"optgroup") && node->child){node=node->child;continue;}
+        }
+        if(!node->next && node->parent!=select)node=node->parent->next;
+        else node=node->next;
+    }
+    return NULL;
+}
+static const MarkupNode *selected_option(const MarkupNode *select) {
+    const MarkupNode *first=next_option(select,NULL);
+    for(const MarkupNode *node=first;node;node=next_option(select,node))
+        if(node->attribute[ATTR_SELECTED])return node;
+    return first;
+}
+static void option_text(const MarkupNode *option,char *text,size_t capacity) {
+    *text=0;
+    if(!option)return;
+    size_t used=0;
+    for(const MarkupNode *node=option->child;node && used<capacity-1;node=node->next) {
+        if(!node->text)continue;
+        const char *part=node->text;
+        size_t n=strlen(part);
+        if(n>=capacity-used)n=capacity-used-1;
+        while(n && ((unsigned char)part[n]&192)==128)n--;
+        memcpy(text+used,part,n);used+=n;
+    }
+    text[used]=0;
+}
+static const char *option_value(const MarkupNode *option,char text[WEB_FIELD_TEXT]) {
+    if(option && option->attribute[10])return option->attribute[10];
+    option_text(option,text,WEB_FIELD_TEXT);
+    return text;
+}
+static void select_option(MarkupNode *select,const MarkupNode *choice) {
+    for(const MarkupNode *option=next_option(select,NULL);option;option=next_option(select,option)) {
+        MarkupNode *item=(MarkupNode *)option;
+        free(item->attribute[ATTR_SELECTED]);
+        item->attribute[ATTR_SELECTED]=option==choice ? strdup("1") : NULL;
+    }
+}
 static JSValue script_get(JSContext *js,JSValueConst self,int argc,JSValueConst *argv) {
     (void)self;
     WebScript *script=JS_GetContextOpaque(js);
@@ -106,7 +155,10 @@ static JSValue script_get(JSContext *js,JSValueConst self,int argc,JSValueConst 
     MarkupNode *node=script->nodes[id];
     JSValue value=JS_NULL;
     int field=script_field(key);
-    if(field>=0 && node->attribute[field])value=JS_NewString(js,node->attribute[field]);
+    if(field==10 && form_select(node)) {
+        char text[WEB_FIELD_TEXT];
+        value=JS_NewString(js,option_value(selected_option(node),text));
+    } else if(field>=0 && node->attribute[field])value=JS_NewString(js,node->attribute[field]);
     else if(!strcmp(key,"tagName"))value=JS_NewString(js,node->tag);
     else if(!strcmp(key,"parent"))value=JS_NewInt32(js,script_index(script,node->parent));
     else if(!strcmp(key,"textContent") || !strcmp(key,"innerHTML")) {
@@ -150,7 +202,12 @@ static JSValue script_set(JSContext *js,JSValueConst self,int argc,JSValueConst 
     if(key && length<=SCRIPT_SOURCE && script->changed_bytes+length<1<<20) {
         script->changed_bytes+=length;
         int field=script_field(key);
-        if(field>=0 && length<=8192) {
+        if(field==10 && value && form_select(node)) {
+            for(const MarkupNode *option=next_option(node,NULL);option;option=next_option(node,option)) {
+                char text[WEB_FIELD_TEXT];
+                if(!strcmp(value,option_value(option,text))){select_option(node,option);break;}
+            }
+        } else if(field>=0 && length<=8192) {
             char *copy=value ? strdup(value) : NULL;
             free(node->attribute[field]);node->attribute[field]=copy;
         } else if(value && (!strcmp(key,"textContent") || !strcmp(key,"innerHTML"))) {
@@ -295,6 +352,51 @@ static JSValue script_resolve(JSContext *js,JSValueConst self,int argc,JSValueCo
     JSValue result=valid ? JS_NewString(js,url_valid(ref) ? ref : url) : JS_NULL;
     JS_FreeCString(js,ref);JS_FreeCString(js,base);
     return result;
+}
+enum { WEB_STORAGE_SLOTS=64,WEB_STORAGE_LIMIT=8192 };
+
+static void storage_leaf(char name[40],int session,unsigned slot) {
+    snprintf(name,40,"browser-%s-%02u.json",session ? "session" : "local",slot);
+}
+static JSValue script_storage(JSContext *js,JSValueConst self,int argc,JSValueConst *argv) {
+    (void)self;
+    WebScript *script=JS_GetContextOpaque(js);
+    const char *host=strstr(script->url,"://")+3;
+    size_t length=(size_t)(host-script->url)+strcspn(host,"/?#");
+    char origin[WEB_URL];
+    unsigned hash=2166136261u;
+    for(size_t i=0;i<length;i++) {
+        origin[i]=(char)tolower((unsigned char)script->url[i]);
+        hash=(hash^(unsigned char)origin[i])*16777619u;
+    }
+    origin[length]='\n';
+    int session=argc && JS_ToBool(js,argv[0])>0;
+    char name[40],vacant[40]="",record[WEB_URL+WEB_STORAGE_LIMIT+1];
+    size_t payload=0;
+    int found=0;
+    for(unsigned n=0;n<8;n++) {
+        storage_leaf(name,session,(hash+n)%WEB_STORAGE_SLOTS);
+        size_t bytes=0;
+        if(!lumen_storage_read(name,record,sizeof(record)-1,&bytes)) {
+            if(!*vacant)snprintf(vacant,sizeof(vacant),"%s",name);
+            continue;
+        }
+        if(bytes>length+1 && bytes-length-1<=WEB_STORAGE_LIMIT && !memcmp(record,origin,length+1)) {
+            payload=bytes-length-1;found=1;break;
+        }
+    }
+    if(argc<2)return found ? JS_NewStringLen(js,record+length+1,payload) : JS_NULL;
+    if(script->storage_writes>=24 || (!found && !*vacant))return JS_FALSE;
+    size_t bytes=0;
+    const char *data=JS_ToCStringLen(js,&bytes,argv[1]);
+    int ok=0;
+    if(data && bytes>0 && bytes<=WEB_STORAGE_LIMIT) {
+        memcpy(record,origin,length+1);memcpy(record+length+1,data,bytes);
+        script->storage_writes++;
+        ok=lumen_storage_write(found ? name : vacant,record,length+1+bytes);
+    }
+    JS_FreeCString(js,data);
+    return JS_NewBool(js,ok);
 }
 static JSValue script_navigate(JSContext *js,JSValueConst self,int argc,JSValueConst *argv) {
     (void)self;
@@ -514,10 +616,13 @@ static int form_parameters(MarkupNode *node,const MarkupNode *submit,char *out,s
     for(;node;node=node->next) {
         if(node->tag && node->attribute[ATTR_NAME] && !node->attribute[ATTR_DISABLED]) {
             const char *type=node->attribute[8];
-            if(form_editable(node) || node==submit || (form_toggle(node) && node->attribute[ATTR_CHECKED]) || (!strcmp(node->tag,"input") && type && !strcasecmp(type,"hidden"))) {
-                char name[256],value[4096];
+            const MarkupNode *option=form_select(node) ? selected_option(node) : NULL;
+            if(option || form_editable(node) || node==submit || (form_toggle(node) && node->attribute[ATTR_CHECKED]) || (!strcmp(node->tag,"input") && type && !strcasecmp(type,"hidden"))) {
+                char name[256],value[4096],text[WEB_FIELD_TEXT];
+                const char *selected=option ? option_value(option,text) :
+                    node->attribute[10] ? node->attribute[10] : form_toggle(node) ? "on" : "";
                 if(!lumen_url_encode(node->attribute[ATTR_NAME],name,sizeof(name)) ||
-                   !lumen_url_encode(node->attribute[10] ? node->attribute[10] : form_toggle(node) ? "on" : "",value,sizeof(value)))return 0;
+                   !lumen_url_encode(selected,value,sizeof(value)))return 0;
                 size_t used=strlen(out);
                 const char *separator=*count ? "&" : post ? "" : "?";
                 int bytes=snprintf(out+used,size-used,"%s%s=%s",separator,name,value);
@@ -573,7 +678,7 @@ static WebScript *script_run(MarkupNode *root,const char *url,const char *base,c
         const struct {const char *name;JSCFunction *call;int args;} bindings[]={
             {"_find",script_lookup,2},{"_get",script_get,2},{"_set",script_set,3},
             {"_make",script_create,1},{"_insert",script_insert,3},{"_remove",script_remove,1},{"_resolve",script_resolve,2},{"_active",script_clickable,1},
-            {"_clock",script_clock,0},{"_matchMedia",script_match_media,1},{"_cssSupports",script_css_supports,2},{"_fetch",script_fetch,1},{"_cookie",script_cookie,1},{"_navigate",script_navigate,1}
+            {"_clock",script_clock,0},{"_matchMedia",script_match_media,1},{"_cssSupports",script_css_supports,2},{"_fetch",script_fetch,1},{"_cookie",script_cookie,1},{"_storage",script_storage,2},{"_navigate",script_navigate,1}
         };
         for(size_t i=0;i<sizeof(bindings)/sizeof(*bindings);i++)
             JS_SetPropertyStr(js,globals,bindings[i].name,JS_NewCFunction(js,bindings[i].call,bindings[i].name,bindings[i].args));
@@ -613,6 +718,12 @@ static WebScript *script_run(MarkupNode *root,const char *url,const char *base,c
             if((action->kind==WEB_EDIT || action->kind==WEB_SEARCH) && form_editable(node)) {
                 char *copy=strdup(action->value);
                 if(copy){free(node->attribute[10]);node->attribute[10]=copy;}
+                script_event(script,click,action->id,"input");
+                script_event(script,click,action->id,"change");
+            }
+            if(action->kind==WEB_CHOOSE && form_select(node) && action->option>0 && action->option<=script->count) {
+                const MarkupNode *choice=script->nodes[action->option];
+                select_option(node,choice);
                 script_event(script,click,action->id,"input");
                 script_event(script,click,action->id,"change");
             }

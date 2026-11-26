@@ -7,7 +7,8 @@ static const char *const preference_names[]={LUMEN_DEVICE_PREFERENCES(PREFERENCE
 #undef PREFERENCE_NAME
 static int screen,tab,page,count,prefs[sizeof(preference_names)/sizeof(*preference_names)],
     sleep_minutes=10,autostart,release_state,enabled,busy;
-static int remove_row=-1,reset;
+static int remove_row=-1,reset,joining;
+static char joining_name[129],wifi_error[192];
 static char version[24],new_version[24],checked[48],error[160],network_name[129],total[40],sizes[5][40];
 static int ratios[5];
 static struct {char id[64],name[129],version[24];int saved,locked,connected,visible,remove;} rows[8];
@@ -22,6 +23,15 @@ static const char *name(int target) {
 }
 static void request(const char *operation,const char *data,int action) {
     lumen_service("device",operation,data,action);
+}
+static void wifi_join(const char *name,const char *password) {
+    if(joining)return;
+    char data[645];
+    snprintf(data,sizeof(data),"%s\n%s",name,password);
+    snprintf(joining_name,sizeof(joining_name),"%s",name);
+    joining=1;
+    wifi_error[0]=0;
+    request("wifi_connect",data,6);
 }
 static void load(void) {
     char number[16];snprintf(number,sizeof(number),"%d",page);
@@ -84,17 +94,19 @@ static void draw_wifi(void) {
     }
     for(int i=0;i<6 && page*6+i<count;i++) {
         int y=222+i*74;
-        if(rows[i].connected || (rows[i].locked && !rows[i].saved))
-            ui_paint_icon_button(29,y+14,rows[i].connected ? IC_DONE : IC_LOCK);
+        int pending=joining && !strcmp(rows[i].name,joining_name);
+        int icon=pending ? IC_CLOCK : rows[i].connected ? IC_DONE :
+                 rows[i].saved ? IC_BOOKMARK : rows[i].locked ? IC_LOCK : IC_WIFI;
+        ui_paint_icon_button(29,y+14,icon);
         lumen_text(79,y+5,431,34,rows[i].name,PAINT_BODY,0,1);
-        lumen_text(79,y+38,430,25,rows[i].connected ? word("Verbunden","Connected","Connecté") :
+        lumen_text(79,y+38,430,25,pending ? word("Verbindung wird hergestellt …","Connecting…","Connexion…") : rows[i].connected ? word("Verbunden","Connected","Connecté") :
             rows[i].saved ? word("Gespeichert","Saved","Enregistré") :
             rows[i].locked ? word("Passwort geschützt","Password protected","Protégé") :
             word("Offenes Netz","Open network","Réseau ouvert"),PAINT_SECONDARY,-1,1);
         char id[24];
         snprintf(id,sizeof(id),"network-%d",i);
-        lumen_custom_action(id,28,y,482,73);
-        if(rows[i].saved) {
+        if(!joining)lumen_custom_action(id,28,y,482,73);
+        if(rows[i].saved && !joining) {
             snprintf(id,sizeof(id),"forget-%d",i);
             lumen_icon_action(id,522,y+15,IC_TRASH);
         }
@@ -102,8 +114,16 @@ static void draw_wifi(void) {
     }
     if(!count)lumen_wrapped(28,257,544,100,busy ? word("Suche läuft …","Scanning…","Recherche…") :
         word("Keine Netzwerke gefunden.","No networks found.","Aucun réseau trouvé."),PAINT_TITLE,3);
-    lumen_pager(745,page,(count+5)/6);lumen_icon_action("wifi-scan",528,745,IC_RESTART);
-    if(busy)lumen_schedule(1000);
+    if(joining || *wifi_error) {
+        char feedback[355];
+        if(joining)snprintf(feedback,sizeof(feedback),"%s %s",
+            word("Verbinde mit","Connecting to","Connexion à"),joining_name);
+        else snprintf(feedback,sizeof(feedback),"%s",wifi_error);
+        lumen_text(28,675,544,47,feedback,PAINT_SECONDARY,-1,1);
+    }
+    lumen_pager(745,page,(count+5)/6);
+    if(!joining)lumen_icon_action("wifi-scan",528,745,IC_RESTART);
+    if(busy || joining)lumen_schedule(joining ? 400 : 1000);
 }
 static void draw_appearance(void) {
     const char *tabs[]={word("Allgemein","General","Général"),word("Statusleiste","Status bar","Barre d’état"),
@@ -294,16 +314,17 @@ static int component_input(void) {
         return 1;
     }
     if(screen==WIFI) {
+        if(joining)return 1;
         int row=row_action(id,"network-",6),forget=row_action(id,"forget-",6);
         if(changed && !strcmp(id,"wifi-power"))request("wifi_power",value,5);
         else if(clicked && enabled && !strcmp(id,"wifi-scan"))request("wifi_scan","",5);
         else if(clicked && enabled && forget>=0 && rows[forget].saved)
             request("wifi_forget",rows[forget].name,5);
-        else if(clicked && enabled && row>=0 && *rows[row].name) {
+        else if(clicked && enabled && !joining && row>=0 && *rows[row].name) {
             if(rows[row].locked && !rows[row].saved) {
                 snprintf(network_name,sizeof(network_name),"%s",rows[row].name);
                 lumen_request("secret",network_name,"",1);
-            } else request("wifi_connect",rows[row].name,5);
+            } else wifi_join(rows[row].name,"");
         }
     } else if(screen==APPEARANCE || screen==TIME) {
         if(clicked && screen==APPEARANCE && tab==2 && !strcmp(id,"sleep")) {
@@ -382,8 +403,7 @@ static int input(const Input *in) {
     if(in->kind==INPUT_TEXT) {
         char value[512];if(!lumen_string("text",value,sizeof(value)))return 0;
         if(in->x==1){
-            char data[645];snprintf(data,sizeof(data),"%s\n%s",network_name,value);
-            request("wifi_connect",data,5);
+            wifi_join(network_name,value);
         } else if(in->x==2)request("time",value,5);
         return 1;
     }
@@ -397,13 +417,27 @@ static int input(const Input *in) {
             lumen_string("checked",checked,sizeof(checked));lumen_string("error",error,sizeof(error));
         } else if((in->x==2 || in->x==3) && in->y) {
             count=lumen_number("count");page=lumen_number("page");read_rows();
-            if(in->x==2){enabled=lumen_number("enabled");busy=lumen_number("busy");}
+            if(in->x==2) {
+                enabled=lumen_number("enabled");busy=lumen_number("busy");
+                int result=lumen_number("connection");
+                if(joining==2 && result!=1 && result!=0) {
+                    joining=0;
+                    if(result==3 && !lumen_string("connection_error",wifi_error,sizeof(wifi_error)))
+                        snprintf(wifi_error,sizeof(wifi_error),"%s",word("Verbindung fehlgeschlagen.","Could not connect.","Connexion impossible."));
+                }
+            }
         } else if(in->x==4 && in->y) {
             lumen_string("total",total,sizeof(total));
             for(int i=0;i<5;i++) {
                 char key[16];snprintf(key,sizeof(key),"size%d",i);lumen_string(key,sizes[i],sizeof(sizes[i]));
                 snprintf(key,sizeof(key),"ratio%d",i);ratios[i]=lumen_number(key);
             }
+        } else if(in->x==6) {
+            if(!in->y) {
+                joining=0;
+                snprintf(wifi_error,sizeof(wifi_error),"%s",word("Verbindung fehlgeschlagen.","Could not connect.","Connexion impossible."));
+            } else joining=2;
+            load();
         } else if(in->x==5) {
             if(!in->y)lumen_request("notify",name(screen),word("Aktion fehlgeschlagen.","Action failed.","Échec de l’action."),0);
             else load();

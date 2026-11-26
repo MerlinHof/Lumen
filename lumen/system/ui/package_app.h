@@ -1057,7 +1057,28 @@ static void package_dispatch_request(const char *message) {
     else if(!strcmp(kind,"select")) {
         int array=json_get(&j,0,"options");if(array>=0 && j.tokens[array].type=='[' && j.tokens[array].count>0 && j.tokens[array].count<=48) {
             int count=j.tokens[array].count;for(int i=0;i<count;i++){json_string(&j,json_at(&j,array,i),package_options[i],128);package_labels[i]=package_options[i];}
-            package_select_action=package_value(&j,0,"action");open_dropdown(2001,package_labels,count,package_value(&j,0,"selected"),220,180,350);
+            int x=220,y=180,width=350;
+            char anchor[64];
+            json_string(&j,json_get(&j,0,"anchor"),anchor,sizeof(anchor));
+            if(*anchor)for(int i=0;i<package_component_count;i++) {
+                const PackageComponent *component=&package_components[i];
+                if(strcmp(component->id,anchor))continue;
+                width=280;
+                x=component->left+component->width-width;
+                if(x<12)x=12;
+                int rows=count>14 ? 14 : count;
+                int height=rows*48+10+(count>rows ? 44 : 0);
+                y=lumen_popup_y(component->top,component->top+component->height,STATUS_HEIGHT+4,790,height);
+                break;
+            }
+            package_select_action=package_value(&j,0,"action");
+            open_dropdown(2001,package_labels,count,package_value(&j,0,"selected"),x,y,width);
+            int icons=json_get(&j,0,"icons");
+            if(icons>=0 && j.tokens[icons].type=='[' && j.tokens[icons].count==count)
+                for(int i=0;i<count;i++) {
+                    double icon=json_number(&j,json_at(&j,icons,i));
+                    if(icon>=0 && icon<=IC_LAST && icon==(int)icon)drop_icons[i]=(int)icon;
+                }
         }
     }
     else if(!strcmp(kind,"text_measure")) {

@@ -127,6 +127,20 @@ static void icon_native(int x, int y, int kind) {
         for (int i = -1; i <= 1; i++)
             disc(c + i * 10, d, 2, 0);
         break;
+    case IC_MORE_VERTICAL:
+        for (int i=-1;i<=1;i++)disc(c,d+i*10,2,0);
+        break;
+    case IC_WIFI:
+        for(int radius=7;radius<=19;radius+=6)aa_arc(c,d+11,radius,217,323,2);
+        disc(c,d+11,2,0);
+        break;
+    case IC_BOOKMARK:
+        stroke(c-10,d-13,c+10,d-13,2);
+        stroke(c-10,d-13,c-10,d+14,2);
+        stroke(c+10,d-13,c+10,d+14,2);
+        stroke(c-10,d+14,c,d+7,2);
+        stroke(c,d+7,c+10,d+14,2);
+        break;
     case IC_GRID:
         for (int i = 0; i < 9; i++)
             disc(x + 11 + i % 3 * 11, y + 11 + i / 3 * 11, 3, 0);

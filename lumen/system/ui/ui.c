@@ -112,7 +112,7 @@ static int widget_count, pressed = -1, press_canceled, down_y, history[64], hist
 static int dropdown, drop_target,
     drop_count, drop_selected, drop_first, drop_visible;
 static unsigned drop_generation;
-static int drop_x, drop_y, drop_w;
+static int drop_x, drop_y, drop_w,drop_icons[48];
 static const char **drop_labels;
 static size_t keyboard_capacity(void);
 static int hit(int x, int y) {
@@ -220,6 +220,7 @@ static void open_dropdown(int target, const char **labels, int count, int select
     drop_generation++;
     editor_ui.keyboard = 0;
     drop_target = target;
+    for(int i=0;i<48;i++)drop_icons[i]=-1;
     drop_labels = labels;
     drop_count = count;
     int max_rows = (790-STATUS_HEIGHT-10)/48;
@@ -1717,7 +1718,8 @@ static void overlays(void) {
             int y = drop_y + 5 + row * 48;
             region(drop_x + 5, y, drop_w - 10, 47);
             icon_sized(drop_x + 10, y + 10,
-                       dropdown_option_icon(drop_target, i, drop_labels[i]), 28);
+                       i<48 && drop_icons[i]>=0 ? drop_icons[i] :
+                       dropdown_option_icon(drop_target,i,drop_labels[i]),28);
             if (i == drop_selected) {
                 stroke(drop_x + drop_w - 29, y + 24, drop_x + drop_w - 24, y + 29, 2);
                 stroke(drop_x + drop_w - 24, y + 29, drop_x + drop_w - 15, y + 18, 2);
@@ -1827,6 +1829,7 @@ void ui_loading(const char *message) {
 #include "network_state.h"
 
 int ui_poll_interval(void) {
+    wifi_join_poll();
     if(updating)return update_error ? -1 : 400;
     if (sleeping)
         return v1_sleep_poll();

@@ -57,6 +57,9 @@ enum {
     IC_SEND,
     IC_FLAG_FILLED,
     IC_DISH,
-    IC_LAST = IC_DISH
+    IC_MORE_VERTICAL,
+    IC_BOOKMARK,
+    IC_WIFI,
+    IC_LAST = IC_WIFI
 };
 #endif

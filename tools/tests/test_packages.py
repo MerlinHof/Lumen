@@ -652,6 +652,7 @@ def shelf_label(title):
     return next(c for f in frames for c in f.get('ui',[]) if c.get('type')=='book_label' and
                 c.get('text')==title and c.get('compact')==1)
 assert shelf_label('Shelf book')['y']==shelf_label('Corresponding row')['y']
+assert any(f.get('request')=='select' and f.get('anchor')=='more-0' for f in frames)
 print('PASS packaged Library rows, progress, book details, Reader intent and pagination.')
 
 home_assistant=base/'home-assistant-legacy'
@@ -795,5 +796,6 @@ frames,_=app_session('lumen.settings',[
 assert any(f.get('service')=='device' and f.get('operation')=='preference' and f.get('text')=='lock_mode 5' for f in frames)
 assert any(f.get('request')=='secret' for f in frames)
 assert any(f.get('operation')=='wifi_connect' and f.get('text')=='Wi-Fi fixture\ntest-password' for f in frames)
+assert any(c.get('text')=='Connecting…' for f in frames for c in f.get('ui',[]))
 assert any(f.get('operation')=='check' for f in frames)
 print('PASS packaged Settings appearance, masked Wi-Fi connection and GitHub updates.')

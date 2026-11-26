@@ -118,7 +118,24 @@ static void lumen_button(int x,int y,int w,int h,const char*s,int primary){lumen
 static void lumen_toggle(int x,int y,int value){lumen_cmd("toggle",x,y,64,40);printf(",\"value\":%d}",value);}
 static void lumen_checkbox(int x,int y,int value){lumen_cmd("checkbox",x,y,30,30);printf(",\"value\":%d}",value);}
 static void lumen_select_row(int y,const char*label,const char*value){lumen_cmd("select",30,y,540,48);fputs(",\"text\":",stdout);lumen_json(label);fputs(",\"value\":",stdout);lumen_json(value);putchar('}');}
-static void lumen_select(const char**options,int count,int selected,int action){fputs("{\"request\":\"select\",\"options\":[",stdout);for(int i=0;i<count;i++){if(i)putchar(',');lumen_json(options[i]);}printf("],\"selected\":%d,\"action\":%d}\n",selected,action);fflush(stdout);}
+static inline void lumen_select_menu(const char **options,const int *icons,int count,int selected,int action,const char *anchor) {
+ fputs("{\"request\":\"select\",\"options\":[",stdout);
+ for(int i=0;i<count;i++){if(i)putchar(',');lumen_json(options[i]);}
+ printf("],\"selected\":%d,\"action\":%d",selected,action);
+ if(anchor && *anchor){fputs(",\"anchor\":",stdout);lumen_json(anchor);}
+ if(icons) {
+    fputs(",\"icons\":[",stdout);
+    for(int i=0;i<count;i++){if(i)putchar(',');printf("%d",icons[i]);}
+    putchar(']');
+ }
+ puts("}");fflush(stdout);
+}
+static inline void lumen_select_anchored(const char **options,int count,int selected,int action,const char *anchor) {
+ lumen_select_menu(options,NULL,count,selected,action,anchor);
+}
+static void lumen_select(const char **options,int count,int selected,int action) {
+ lumen_select_anchored(options,count,selected,action,NULL);
+}
 static int64_t ui_clock_millis(void){struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);return t.tv_sec*1000LL+t.tv_nsec/1000000;}
 static int lumen_storage_path(const char *name,char *path,size_t capacity) {
  const char *root=getenv("LUMEN_APP_DATA");

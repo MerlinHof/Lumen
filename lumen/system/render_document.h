@@ -69,3 +69,34 @@ static int render_document(const char *file,int number,int width,int height,cons
     fz_drop_context(context);
     return ok;
 }
+
+/* Rasterize a self-contained vector image without a filesystem archive. */
+static int render_svg(const char *file,const char *output) {
+    fz_context *ctx=fz_new_context(NULL,NULL,8u<<20);
+    if(!ctx)return 0;
+    fz_buffer *buffer=NULL;
+    fz_display_list *list=NULL;
+    fz_pixmap *pixels=NULL;
+    int ok=0;
+    fz_var(buffer);fz_var(list);fz_var(pixels);fz_var(ok);
+    fz_try(ctx) {
+        struct stat size;
+        if(stat(file,&size) || !S_ISREG(size.st_mode) || size.st_size<1 || size.st_size>262144)
+            fz_throw(ctx,FZ_ERROR_LIMIT,"Vector image input limit");
+        buffer=fz_read_file(ctx,file);
+        float width,height;
+        list=fz_new_display_list_from_svg(ctx,buffer,NULL,NULL,&width,&height);
+        if(!(width>0 && width<=10000 && height>0 && height<=10000))
+            fz_throw(ctx,FZ_ERROR_LIMIT,"Invalid vector image dimensions");
+        float scale=fminf(1,512/fmaxf(width,height));
+        pixels=fz_new_pixmap_from_display_list(ctx,list,fz_scale(scale,scale),fz_device_gray(ctx),1);
+        fz_save_pixmap_as_png(ctx,pixels,output);
+        ok=1;
+    }
+    fz_always(ctx) {
+        fz_drop_pixmap(ctx,pixels);fz_drop_display_list(ctx,list);fz_drop_buffer(ctx,buffer);
+    }
+    fz_catch(ctx){ok=0;}
+    fz_drop_context(ctx);
+    return ok;
+}

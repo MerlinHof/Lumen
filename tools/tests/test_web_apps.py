@@ -137,6 +137,24 @@ class Fixture(BaseHTTPRequestHandler):
                 </script></body></html>'''),
             '/platform/deferred.js': ('application/javascript', b"document.querySelector('#phase').textContent='deferred '+document.readyState;"),
             '/platform/small.png': ('image/png', fixture_image()),
+            '/controls': ('text/html', b'''<title>Control fixture</title>
+                <style>@supports (display:flex) and (color: black){.working{display:flex}}</style>
+                <form action="/chosen"><label for="kind">Kind</label>
+                <select id="kind" name="kind"><option value="a">First</option>
+                <optgroup label="Other"><option disabled>Unavailable</option><option value="b">Second</option></optgroup></select>
+                <button type="submit">Go</button></form><p class="working"></p><img src="/art.svg">
+                <script>
+                localStorage.setItem('fixture','persisted');
+                const kind=document.querySelector('label + select:not([disabled])');
+                kind.onchange=()=>{document.title='Changed to '+kind.value;
+                    sessionStorage.setItem('choice',kind.value);};
+                </script>'''),
+            '/art.svg': ('image/svg+xml', b'<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">'
+                          b'<rect width="64" height="64" fill="#606060"/></svg>'),
+            '/chosen': ('text/html', b'''<title>Form submitted</title><script>
+                if(localStorage.getItem('fixture')==='persisted'&&sessionStorage.getItem('choice')==='b')
+                    document.title='Stored selection received';
+                </script>'''),
             '/finished': ('text/html', b'<title>Submission complete</title>'),
             '/api/states': ('application/json', json.dumps([
                 dict(entity_id='sensor.room', state='23', attributes=dict(unit_of_measurement='C')),
@@ -149,6 +167,8 @@ class Fixture(BaseHTTPRequestHandler):
             return
         if request.path=='/xhr-data':
             assert parse_qs(request.query)=={'q':['ink & paper']}
+        if request.path=='/chosen':
+            assert parse_qs(request.query)=={'kind':['b']}
         if request.path=='/catalog':
             assert parse_qs(request.query)=={'q':['ink & paper'],'src':['book']}
         if request.path=='/receipt':
@@ -242,6 +262,8 @@ with ThreadingHTTPServer(('127.0.0.1',0),Fixture) as server, TemporaryDirectory(
     browser.mkdir()
     app=App('lumen.browser',browser)
     try:
+        home=app.wait(lambda ui: label(ui,'Standard Ebooks'))
+        assert label(home,'Google') and any(c.get('id')=='home' for c in home)
         app.send('text',action=1,text=origin+'/go')
         commands=app.wait(lambda ui: label(ui,'Browser fixture'))
         assert any(c.get('id')=='link:0' for c in commands), commands
@@ -296,6 +318,19 @@ with ThreadingHTTPServer(('127.0.0.1',0),Fixture) as server, TemporaryDirectory(
         app.click('link:0')
         app.wait(lambda ui: label(ui,'Modern fixture ready') and not label(ui,raster))
         assert any('Details are open' in f.read_text() for f in browser.glob('browser-[01].html'))
+        app.send('text',action=1,text=origin+'/controls')
+        frame=app.wait(lambda ui: label(ui,'Control fixture'))
+        pixels=(browser/next(c['text'] for c in frame if c.get('type')=='bitmap')).read_bytes()
+        assert pixels.count(96)>2000, 'SVG rectangle was not painted'
+        assert any('.working{display:flex}' in f.read_text() for f in browser.glob('browser-[01].html'))
+        app.click('link:0')
+        app.send('select',action=3,value=1)
+        app.wait(lambda ui: label(ui,'Changed to b'))
+        app.click('link:1')
+        app.wait(lambda ui: label(ui,'Stored selection received'))
+        app.click('home')
+        frame=app.wait(lambda ui: label(ui,'Wikipedia'))
+        assert not any(c.get('type')=='bitmap' for c in frame)
     finally:
         app.close()
     print('PASS standalone Browser renders HTML and CSS, runs JavaScript and responsive layout, follows redirects and keeps navigation history.')

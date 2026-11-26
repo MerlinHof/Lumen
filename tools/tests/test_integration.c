@@ -94,6 +94,12 @@ static void test_package_surfaces(void) {
     package_component_count=widget_count=0;
     package_paint_frame(form);
     assert(package_component_count>0 && !strcmp(package_components[0].id,"row-18"));
+    package_component_count=1;
+    package_components[0]=(PackageComponent){.left=528,.top=647,.width=44,.height=44};
+    strcpy(package_components[0].id,"more-2");
+    package_dispatch_request("{\"request\":\"select\",\"anchor\":\"more-2\",\"options\":[\"Pin\",\"Details\",\"Delete\"]}");
+    assert(dropdown && drop_x+drop_w==572 && drop_y+154<647 && drop_y>460);
+    dropdown=0;package_component_count=0;
     package_form.active=0;
 
 }

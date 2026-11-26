@@ -1,5 +1,6 @@
 ((g)=>{
 const lookup=g._find,get=g._get,set=g._set,make=g._make,insert=g._insert,remove=g._remove,resolve=g._resolve,active=g._active,pull=g._fetch,cookie=g._cookie,navigate=g._navigate;
+const readWriteStorage=g._storage;
 const clock=g._clock, mediaMatches=g._matchMedia, cssSupports=g._cssSupports;
 const nodes=new Map(), events=new Map();
 const timers=new Map();
@@ -36,10 +37,10 @@ get nodeName(){return e.tagName;},get nodeType(){return 1;},
 get elements(){return e.querySelectorAll('input, textarea, button, select');},
 get tagName(){return get(i,'tagName').toUpperCase();}};
 Object.defineProperty(e,'_key',{value:i});
-for(const n of ['textContent','innerHTML','className','id','href','src','value','hidden','checked','open','onclick','oninput','onchange','onsubmit'])
-Object.defineProperty(e,n,{get:()=>n==='onclick'?null:['hidden','checked','open'].includes(n)?get(i,n)!==null:get(i,n)||'',
+for(const n of ['textContent','innerHTML','className','id','href','src','value','hidden','checked','selected','open','onclick','oninput','onchange','onsubmit'])
+Object.defineProperty(e,n,{get:()=>n==='onclick'?null:['hidden','checked','selected','open'].includes(n)?get(i,n)!==null:get(i,n)||'',
 set:v=>{if(n.startsWith('on')&&typeof v==='function')e.addEventListener(n.slice(2),v);
-else set(i,n,['hidden','checked','open'].includes(n)?v?'1':null:String(v));}});
+else set(i,n,['hidden','checked','selected','open'].includes(n)?v?'1':null:String(v));}});
 e.classList={contains:n=>e.className.split(/\s+/).includes(n),add:(...a)=>{
 e.className=[...new Set(e.className.split(/\s+/).concat(a))].filter(Boolean).join(' ');},
 remove:(...a)=>{e.className=e.className.split(/\s+/).filter(n=>!a.includes(n)).join(' ');},
@@ -84,10 +85,38 @@ loc.assign=loc.replace=v=>navigate(String(v));loc.toString=()=>href;
 Object.defineProperty(loc,'href',{get:()=>href,set:v=>navigate(String(v))});
 for(const target of [g,g.document])Object.defineProperty(target,'location',{get:()=>loc,set:v=>navigate(String(v))});
 g.document.URL=href;g.document.baseURI=g._baseUrl;Object.defineProperty(g.document,'cookie',{get:()=>cookie(),set:v=>cookie(String(v))});
-function storage(){const data=new Map();return {get length(){return data.size;},
-getItem:k=>data.get(String(k))??null,setItem:(k,v)=>{if(data.size<64)data.set(String(k),String(v));},
-removeItem:k=>data.delete(String(k)),clear:()=>data.clear(),key:i=>[...data.keys()][i]??null};}
-g.sessionStorage=storage();g.localStorage=storage();
+function storage(session){
+    const data=new Map();
+    const parse=JSON.parse,stringify=JSON.stringify;
+    try {
+        const seed=parse(readWriteStorage(session));
+        if(Array.isArray(seed))for(const [key,value] of seed)data.set(String(key),String(value));
+    } catch(_){}
+    function persist(previous){
+        if(!readWriteStorage(session,stringify([...data]))) {
+            data.clear();
+            for(const [key,value] of previous)data.set(key,value);
+            throw new Error('Storage quota exceeded');
+        }
+    }
+    return {
+        get length(){return data.size;},
+        getItem:k=>data.get(String(k))??null,
+        setItem(k,v){
+            k=String(k);v=String(v);
+            if(data.size>=64&&!data.has(k))throw new Error('Storage quota exceeded');
+            if(data.get(k)===v)return;
+            const previous=[...data];data.set(k,v);persist(previous);
+        },
+        removeItem(k){
+            k=String(k);if(!data.has(k))return;
+            const previous=[...data];data.delete(k);persist(previous);
+        },
+        clear(){if(data.size){const previous=[...data];data.clear();persist(previous);}},
+        key:i=>[...data.keys()][i]??null
+    };
+}
+g.sessionStorage=storage(true);g.localStorage=storage(false);
 g.document.hidden=false;g.removeEventListener=(n,f)=>unlisten(-2,n,f);
 Object.defineProperty(g.document,'title',{get:()=>select('title',0)[0]?.textContent||'',
 set:v=>{const el=select('title',0)[0];if(el)el.textContent=String(v);}});
@@ -278,5 +307,5 @@ g._lifecycle=state=>{
     }
 };
 g._click=dispatch;
-for(const n of ['_find','_get','_set','_make','_insert','_remove','_resolve','_active','_fetch','_clock','_matchMedia','_cssSupports','_pageUrl','_baseUrl','_userAgent','_language','_viewportWidth','_viewportHeight','_cookie','_navigate'])delete g[n];
+for(const n of ['_find','_get','_set','_make','_insert','_remove','_resolve','_active','_fetch','_clock','_matchMedia','_cssSupports','_pageUrl','_baseUrl','_userAgent','_language','_viewportWidth','_viewportHeight','_cookie','_storage','_navigate'])delete g[n];
 })(globalThis);
