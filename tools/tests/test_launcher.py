@@ -25,6 +25,19 @@ assert '999998' not in log
 assert 'disableEnablePillow disable'in log and 'disableEnablePillow enable'in log
 assert 'preventScreenSaver 0'in log
 assert not(root/'tmp/lumen-session').exists()
+# The restart supervisor may hold the screen during installation, then releases
+# that hold before the trial process takes input.
+update=root/'mnt/us/lumen/.update';update.mkdir(exist_ok=True)
+(update/'system-ready').touch();(update/'system-trial').touch()
+native=root/'mnt/us/lumen/bin/lumen'
+native.write_text('#!/bin/sh\necho native-started >> "$LAUNCH_ACTIONS"\n')
+(root/'actions').write_text('')
+subprocess.run(['/bin/sh',str(f)],env=env,timeout=10,check=True)
+log=(root/'actions').read_text()
+start=log.index('native-started')
+hold=log.index('preventScreenSaver 1')
+assert hold<start and 'preventScreenSaver 0' in log[hold:start]
+(update/'system-ready').unlink();(update/'system-trial').unlink()
 # Existing pauses are not ours; reused PIDs must never be resumed.
 (root/'tmp/lumen-session').mkdir();(root/'actions').write_text('')
 (root/'proc/999998/status').write_text('State:\tT (stopped)\n')

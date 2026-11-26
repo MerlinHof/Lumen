@@ -46,12 +46,12 @@ static void package_flow_list(Json *j,int item) {
         else divider(x,y+height[i],width);
         region(x,y,width,height[i]);
         int left=x+(columns==2 ? 8 : 1),flag=x+(columns==2 ? 212 : 430);
-        int action_x=flag-48,text_x=x+(columns==2 ? 60 : 52);
+        int action_x=flag-48,delete_x=flag+48,text_x=x+(columns==2 ? 60 : 52);
         int available=text_width-(has_action ? 46 : 0);
         int text_top=center-(line_count[i]*27+(*detail ? 21 : 0))/2;
         checkbox(left,center-15,checked);
         icon_button(flag,center-22,pinned ? IC_FLAG_FILLED : IC_FLAG);
-        if(columns==1)icon_button(522,center-22,IC_TRASH);
+        if(columns==1)icon_button(delete_x,center-22,IC_TRASH);
         if(has_action)icon_button(action_x,center-22,IC_CLOCK);
         text_flow_draw(text_x,text_top,available,title,ui_font(UI_BODY),27,14,checked);
         if(*detail) {
@@ -65,7 +65,7 @@ static void package_flow_list(Json *j,int item) {
         }
         package_flow_action(id,left,center-24,44,48,1);
         package_flow_action(id,flag,center-22,44,44,2);
-        if(columns==1)package_flow_action(id,510,y,62,height[i],3);
+        if(columns==1)package_flow_action(id,delete_x,center-22,44,44,3);
         if(has_action)package_flow_action(id,action_x,center-22,44,44,4);
         package_flow_action(id,x,y,width,height[i],0);
     }

@@ -150,11 +150,12 @@ int main(int argc, char **argv) {
     device_present(ui_pixels, 1, settings.refresh);
 #ifndef LUMEN_HOST
     if(system_update_trial()) {
-        if(system_update_keep()) {
+        device_finish_update();
+        int kept=system_update_keep();
+        if(kept) {
             unlink("/mnt/us/lumen/.update/system-starting");
             app_packages_seed();
             ui_prepare_home();
-            device_finish_update();
         }
     }
 #endif
@@ -181,7 +182,7 @@ int main(int argc, char **argv) {
         if (feedback_pending && !redraw_pending) {
             feedback_pending = 0;
             ui_feedback_draw();
-            device_present_async(ui_pixels);
+            device_present_async(ui_pixels,0);
             feedback_shown = 1;
             continue;
         }
@@ -191,10 +192,7 @@ int main(int argc, char **argv) {
         ui_draw();
         feedback_shown = ui_feedback_active();
         int full_refresh = ui_full_refresh();
-        if (!full_refresh)
-            device_present_async(ui_pixels);
-        else
-            device_present(ui_pixels, full_refresh, settings.refresh);
+        device_present_async(ui_pixels,full_refresh);
         if (profile)
             fprintf(stderr, "action=%d render_ms=%.1f\n", input.kind, (stamp() - began) * 1000);
     }

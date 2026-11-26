@@ -42,7 +42,6 @@
 unsigned char ui_pixels[WIDTH * HEIGHT];
 static int ink_color, ui_y_offset;
 static int power_menu,power_hold,power_request;
-static int64_t power_menu_wake_until;
 
 #include "editor_state.h"
 static struct {
@@ -465,16 +464,18 @@ static int textwidth_raw(const char *s, const Font *f) {
 static int textwidth(const char *s, const Font *f) {
     return textwidth_raw(tr(s), f);
 }
-static int ink_top(const char *label, const Font *f, int *height) {
-    int top = f->h, bottom = -1;
-    while (*label) {
-        unsigned c = glyph(&label);
-        if (glyph_bottom(f, c) >= glyph_top(f, c)) {
-            if (glyph_top(f, c) < top)
-                top = glyph_top(f, c);
-            if (glyph_bottom(f, c) > bottom)
-                bottom = glyph_bottom(f, c);
-        }
+static int ink_top_width(const char *label,const Font *f,int width,int *height) {
+    int top=f->h,bottom=-1,used=0;
+    while(*label && *label!='\n') {
+        unsigned c=glyph(&label);
+        used+=glyph_advance(f,c);
+        if(used>width)break;
+        const GlyphBounds *bounds=text_bounds(f,c);
+        int first=bounds ? bounds->top : glyph_top(f,c);
+        int last=bounds ? (int)bounds->bottom-1 : glyph_bottom(f,c);
+        if(first>last)continue;
+        if(first<top)top=first;
+        if(last>bottom)bottom=last;
     }
     if (bottom < top) {
         *height = 0;
@@ -482,6 +483,9 @@ static int ink_top(const char *label, const Font *f, int *height) {
     }
     *height = bottom - top + 1;
     return top;
+}
+static int ink_top(const char *label,const Font *f,int *height) {
+    return ink_top_width(label,f,WIDTH*1024,height);
 }
 static void text_caret(int x, int y, const Font *f) {
     int cap, top = ink_top("H", f, &cap), height = f->h - 8;
@@ -518,18 +522,20 @@ static void centered(int x, int y, int w, int h, const char *label, const Font *
         font = &caption;
         width = textwidth(label, font);
     }
-    int ink, top = ink_top(label, font, &ink);
-    drawtext(width > w - 16 ? x + 8 : x + (w - width) / 2, y + (h - ink) / 2 - top, label, font,
-             w - 16);
+    int available=w-16;
+    if(available<=0)return;
+    int ink,top=ink_top_width(label,font,available,&ink);
+    drawtext_raw(width>available ? x+8 : x+(w-width)/2,y+(h-ink+1)/2-top,label,font,available);
 }
 static void button_h(int x, int y, int w, int h, const char *label, int chosen) {
     region(x, y, w, h);
-    widget_shape(x, y, w, h, RADIUS_MEDIUM, 3, 0);
-    control_surface(x, y, w, h, RADIUS_MEDIUM, 0);
-    control_surface(x + 2, y + 2, w - 4, h - 4, 10, 255);
-    if (chosen)
-        rect(x + 8, y + h - 5, w - 16, 3, 0);
-    centered(x, y, w, h, label, &small);
+    widget_shape(x,y,w,h,RADIUS_MEDIUM,3,chosen!=0);
+    control_surface(x,y,w,h,RADIUS_MEDIUM,UI_INK);
+    if(!chosen)control_surface(x+2,y+2,w-4,h-4,10,UI_PAPER);
+    int previous=ink_color;
+    ink_color=chosen ? UI_PAPER : UI_INK;
+    centered(x,y,w,h,label,&small);
+    ink_color=previous;
 }
 static void dropdown_button(int x, int y, int w, int h, const char *label) {
     region(x, y, w, h);
@@ -921,7 +927,7 @@ static void system_loading(void) {
     if(options[OPT_INVERT])
         for(int y=336;y<404;y++)for(int x=258;x<342;x++)
             ui_pixels[y*WIDTH+x]=255-ui_pixels[y*WIDTH+x];
-    device_present_async(ui_pixels);
+    device_present_async(ui_pixels,0);
 #endif
 }
 #include "widgets.h"

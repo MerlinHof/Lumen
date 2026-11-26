@@ -30,7 +30,61 @@ static int fbfd = -1, touch = -1, power = -1, lockfd = -1, eventfd = -1, usbfd =
 static pid_t eventpid = -1, usbpid = -1;
 static int wait_ms = -1;
 static PowerState power_state=POWER_AWAKE;
-static int check_power,emit_power;
+static PowerState emit_power;
+static int64_t probe_until,probe_next,power_event_at;
+static unsigned power_generation,probe_generation;
+typedef struct {pid_t pid;int fd;} DeviceJob;
+static DeviceJob status_job={.fd=-1},power_job={.fd=-1};
+static pid_t activity_pid,reclaim_pid,sleep_pid,wake_pid;
+static int64_t status_sample;
+static struct {char battery[32],wifi[32];int charging;} status_cache;
+static int64_t monotonic_ms(void) {
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC,&now);
+    return (int64_t)now.tv_sec*1000+now.tv_nsec/1000000;
+}
+static void reconcile_power(void) {
+    int64_t now=monotonic_ms();
+    probe_next=now+150;
+    if(probe_next<power_event_at+350)probe_next=power_event_at+350;
+    probe_until=now+1600;
+}
+static void command_lifetime(void) {
+    signal(SIGALRM,SIG_DFL);
+    signal(SIGTERM,SIG_DFL);
+    alarm(2);
+}
+static void reap_command(pid_t *pid) {
+    if(*pid>0 && waitpid(*pid,NULL,WNOHANG)!=0)*pid=0;
+}
+static int start_job(DeviceJob *job) {
+    int pipefd[2];
+    if(job->pid || pipe2(pipefd,O_CLOEXEC|O_NONBLOCK))return -1;
+    pid_t parent=getpid(),child=fork();
+    if(!child) {
+        close(pipefd[0]);
+        prctl(PR_SET_PDEATHSIG,SIGTERM);
+        if(getppid()!=parent)_exit(1);
+        signal(SIGTERM,SIG_DFL);
+        signal(SIGALRM,SIG_DFL);
+        alarm(6);
+        return pipefd[1];
+    }
+    close(pipefd[1]);
+    if(child<0){close(pipefd[0]);return -1;}
+    *job=(DeviceJob){child,pipefd[0]};
+    return -1;
+}
+static int finish_job(DeviceJob *job,void *result,size_t size) {
+    pid_t pid=job->pid;
+    reap_command(&job->pid);
+    if(!pid || job->pid)return 0;
+    ssize_t got;
+    do got=read(job->fd,result,size);while(got<0 && errno==EINTR);
+    close(job->fd);
+    job->fd=-1;
+    return got==(ssize_t)size;
+}
 static unsigned char *fb;
 static size_t fbsize;
 static int stride, xoff, yoff;
@@ -41,8 +95,10 @@ static int initialized;
 static pid_t feedback_pid = -1;
 int device_refresh_busy(void) {
     if (feedback_pid <= 0) return 0;
-    pid_t status = waitpid(feedback_pid,NULL,WNOHANG);
+    int result=0;
+    pid_t status = waitpid(feedback_pid,&result,WNOHANG);
     if (status == 0 || (status < 0 && errno == EINTR)) return 1;
+    if(status<0 || !WIFEXITED(result) || WEXITSTATUS(result))initialized=0;
     feedback_pid = -1;
     return 0;
 }
@@ -66,14 +122,16 @@ static void on_signal(int s) {
 static int execute(const char *path, char *const args[]) {
     pid_t p = fork();
     if (!p) {
+        command_lifetime();
         execv(path, args);
         _exit(127);
     }
     if (p < 0)
         return -1;
     int status = 0;
-    while (waitpid(p, &status, 0) < 0 && errno == EINTR) {
-    }
+    pid_t waited;
+    do waited=waitpid(p,&status,0);while(waited<0 && errno==EINTR);
+    if(waited!=p)return -1;
     return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 }
 static void getprop(const char *obj, const char *name, char *out, int cap) {
@@ -85,6 +143,7 @@ static void getprop(const char *obj, const char *name, char *out, int cap) {
         return;
     pid_t p = fork();
     if (!p) {
+        command_lifetime();
         close(pipes[0]);
         dup2(pipes[1], 1);
         close(pipes[1]);
@@ -92,14 +151,17 @@ static void getprop(const char *obj, const char *name, char *out, int cap) {
         _exit(127);
     }
     close(pipes[1]);
-    ssize_t n = read(pipes[0], out, (size_t)cap - 1);
+    struct pollfd ready={pipes[0],POLLIN,0};
+    ssize_t n = p>0 && poll(&ready,1,2100)>0 ? read(pipes[0], out, (size_t)cap - 1) : -1;
     if (n > 0) {
         out[n] = 0;
         out[strcspn(out, "\r\n")] = 0;
     }
     close(pipes[0]);
-    if (p > 0)
-        waitpid(p, NULL, 0);
+    if(p>0) {
+        if(n<0)kill(p,SIGKILL);
+        while(waitpid(p,NULL,0)<0 && errno==EINTR){}
+    }
 }
 static int monitor(const char *source, pid_t *pid) {
     int pipes[2];
@@ -158,10 +220,13 @@ int device_init(void) {
         return 0;
     eventfd = monitor("com.lab126.powerd", &eventpid);
     usbfd = monitor("com.lab126.hal", &usbpid);
+    reconcile_power();
     return 1;
 }
 void device_close(void) {
     feedback_join();
+    if(status_job.pid>0)kill(status_job.pid,SIGTERM);
+    if(power_job.pid>0)kill(power_job.pid,SIGTERM);
     if (touch >= 0) {
         ioctl(touch, EVIOCGRAB, 0);
         close(touch);
@@ -191,52 +256,70 @@ void device_close(void) {
     fprintf(stderr, "peak_rss_kb=%ld user_cpu=%.3f\n", r.ru_maxrss,
             r.ru_utime.tv_sec + r.ru_utime.tv_usec / 1e6);
 }
-void device_status(char *battery, int cap, char *wifi, int nc) {
-    getprop("com.lab126.powerd", "battLevel", battery, cap);
-    char state[64] = "";
-    getprop("com.lab126.wifid", "cmState", state, sizeof(state));
-    char ssid[128] = "";
+static void sample_status(void) {
+    if(status_job.pid || (status_sample && monotonic_ms()-status_sample<1000))return;
+    int fd=start_job(&status_job);
+    if(fd<0)return;
+    getprop("com.lab126.powerd","battLevel",status_cache.battery,sizeof(status_cache.battery));
+    char value[64];
+    getprop("com.lab126.powerd","isCharging",value,sizeof(value));
+    if(*value)status_cache.charging=atoi(value)!=0;
+    getprop("com.lab126.wifid","cmState",value,sizeof(value));
+    char ssid[128];
     int connection=network_status(ssid,sizeof(ssid));
-    if (connection>=0)
-        snprintf(wifi,(size_t)nc,"%s",connection ? "WLAN" : "Offline");
-    else if (!strcasecmp(state,"CONNECTED"))
-        snprintf(wifi,(size_t)nc,"WLAN");
-    else if (!*wifi)
-        snprintf(wifi,(size_t)nc,"Offline");
+    if(connection>=0 || *value)
+        snprintf(status_cache.wifi,sizeof(status_cache.wifi),"%s",
+            (connection>=0 ? connection : !strcasecmp(value,"CONNECTED")) ? "WLAN" : "Offline");
+    write(fd,&status_cache,sizeof(status_cache));
+    _exit(0);
+}
+void device_status(char *battery,int cap,char *wifi,int nc) {
+    if(*status_cache.battery)snprintf(battery,cap,"%s",status_cache.battery);
+    if(*status_cache.wifi)snprintf(wifi,nc,"%s",status_cache.wifi);
+    sample_status();
 }
 int device_charging(void) {
-    char value[16];
-    getprop("com.lab126.powerd", "isCharging", value, sizeof(value));
-    return atoi(value) != 0;
+    sample_status();
+    return status_cache.charging;
+}
+static void launch_command(pid_t *pid,const char *path,char *const args[]) {
+    reap_command(pid);
+    if(*pid>0)return;
+    pid_t child=fork();
+    if(!child) {
+        command_lifetime();
+        execv(path,args);
+        _exit(127);
+    }
+    if(child>0)*pid=child;
 }
 void device_activity(void) {
-    static time_t last;
-    time_t now = time(NULL);
-    if (now - last < 25)
-        return;
-    last = now;
-    char *a[] = {"lipc-set-prop", "-i", "com.lab126.powerd", "touchScreenSaverTimeout", "1", NULL};
-    execute("/usr/bin/lipc-set-prop", a);
+    static int64_t last;
+    int64_t now=monotonic_ms();
+    if(last && now-last<25000)return;
+    last=now;
+    char *args[]={"lipc-set-prop","-i","com.lab126.powerd","touchScreenSaverTimeout","1",NULL};
+    launch_command(&activity_pid,"/usr/bin/lipc-set-prop",args);
 }
 int device_input_pending(void) {
-    struct pollfd p[2] = {{touch, POLLIN, 0}, {power, POLLIN, 0}};
-    return poll(p, 2, 0) > 0;
+    struct pollfd p[2]={{touch,POLLIN,0},{power,POLLIN,0}};
+    return poll(p,2,0)>0 && ((p[0].revents|p[1].revents)&POLLIN);
 }
-void device_poll_interval(int ms) { wait_ms = ms; }
+void device_poll_interval(int ms) {wait_ms=ms;}
 void device_request_sleep(void) {
-    char *a[] = {"lipc-set-prop", "-i", "com.lab126.powerd", "powerButton", "1", NULL};
-    execute("/usr/bin/lipc-set-prop", a);
-    check_power=1;
+    char *args[]={"lipc-set-prop","-i","com.lab126.powerd","powerButton","1",NULL};
+    launch_command(&sleep_pid,"/usr/bin/lipc-set-prop",args);
+    reconcile_power();
 }
 static void reclaim_ui(void) {
-    char *args[] = {"sh", "/mnt/us/lumen/ui-session.sh", "reassert", NULL};
-    execute("/bin/sh", args);
+    char *args[]={"sh","/mnt/us/lumen/ui-session.sh","reassert",NULL};
+    launch_command(&reclaim_pid,"/bin/sh",args);
 }
 int device_wake(void) {
-    char *a[] = {"lipc-set-prop", "-i", "com.lab126.powerd", "wakeUp", "1", NULL};
-    int ok = execute("/usr/bin/lipc-set-prop", a) == 0;
-    check_power=1;
-    return ok;
+    char *args[]={"lipc-set-prop","-i","com.lab126.powerd","wakeUp","1",NULL};
+    launch_command(&wake_pid,"/usr/bin/lipc-set-prop",args);
+    reconcile_power();
+    return wake_pid>0;
 }
 int device_system_power(int restart) {
     char *args[] = {restart ? "reboot" : "poweroff", NULL};
@@ -297,7 +380,8 @@ void device_ip(char *out, int size) {
     freeifaddrs(ifs);
 }
 static void present_frame(const unsigned char *pixels, int full, int asynchronous) {
-    feedback_join();
+    if(asynchronous && device_refresh_busy())return;
+    if(!asynchronous)feedback_join();
     RefreshPlan plan=refresh_plan(previous,pixels,WIDTH,HEIGHT,STATUS_HEIGHT,initialized,full);
     if(plan.waveform==REFRESH_NONE)return;
     int top=plan.area.top,bottom=plan.area.bottom,left=plan.area.left,right=plan.area.right;
@@ -325,13 +409,13 @@ static void present_frame(const unsigned char *pixels, int full, int asynchronou
     pid_t parent = getpid();
     pid_t child = fork();
     if (child < 0) {
-        execute(path, args);
+        initialized=0;
         return;
     }
     if (child == 0) {
         prctl(PR_SET_PDEATHSIG, SIGTERM);
         if (getppid() != parent) _exit(0);
-        signal(SIGTERM, SIG_DFL);
+        command_lifetime();
         execv(path,args);
         _exit(127);
     }
@@ -341,8 +425,8 @@ void device_present(const unsigned char *pixels, int full, int interval) {
     (void)interval;
     present_frame(pixels,full,0);
 }
-void device_present_async(const unsigned char *pixels) {
-    present_frame(pixels,0,1);
+void device_present_async(const unsigned char *pixels,int full) {
+    present_frame(pixels,full,1);
 }
 static int parse_event(int fd, int source, Input *input) {
     static char lines[2][1024];
@@ -369,6 +453,9 @@ static int parse_event(int fd, int source, Input *input) {
     if(usb){input->kind=INPUT_USB;return 1;}
     if(transition!=POWER_UNKNOWN) {
         emit_power=transition;
+        power_generation++;
+        power_event_at=monotonic_ms();
+        probe_until=0;
         return 0;
     }
     if(status){input->kind=INPUT_STATUS;input->x=-1;return 1;}
@@ -377,12 +464,21 @@ static int parse_event(int fd, int source, Input *input) {
 static int sync_power(Input *input) {
     PowerState state=emit_power;
     emit_power=POWER_UNKNOWN;
-    if(check_power) {
-        char status[128];
-        check_power=0;
-        getprop("com.lab126.powerd","status",status,sizeof(status));
-        PowerState observed=power_state_status(status);
-        if(observed!=POWER_UNKNOWN)state=observed;
+    PowerState observed;
+    if(finish_job(&power_job,&observed,sizeof(observed)) && state==POWER_UNKNOWN &&
+       probe_generation==power_generation)state=observed;
+    int64_t now=monotonic_ms();
+    if(!power_job.pid && now>=probe_next && now<=probe_until) {
+        probe_next=now+200;
+        probe_generation=power_generation;
+        int fd=start_job(&power_job);
+        if(fd>=0) {
+            char status[128];
+            getprop("com.lab126.powerd","status",status,sizeof(status));
+            observed=power_state_status(status);
+            write(fd,&observed,sizeof(observed));
+            _exit(0);
+        }
     }
     if(state==POWER_UNKNOWN || state==power_state)return 0;
     power_state=state;
@@ -405,12 +501,24 @@ int device_wait(Input *input) {
             active=started=release=held=desynced=0;
             return 1;
         }
+        reap_command(&activity_pid);
+        reap_command(&reclaim_pid);
+        reap_command(&sleep_pid);
+        reap_command(&wake_pid);
+        if(finish_job(&status_job,&status_cache,sizeof(status_cache))) {
+            status_sample=monotonic_ms();
+            input->kind=INPUT_STATUS;
+            input->x=-1;
+            return 1;
+        }
         if (network_ready) {
             network_ready = 0;
             input->kind = INPUT_NETWORK;
             return 1;
         }
         int timeout = wait_ms;
+        int64_t now=monotonic_ms();
+        if((status_job.pid || power_job.pid || now<=probe_until) && (timeout<0 || timeout>40))timeout=40;
         if (active && started && !held) {
             struct timespec t;
             clock_gettime(CLOCK_MONOTONIC, &t);
@@ -480,12 +588,19 @@ int device_wait(Input *input) {
             active=started=release=held=desynced=0;
             return 1;
         }
-        for (int k = 0; k < 2; k++) {
+        for (int k = 1; k >= 0; k--) {
             if (!(p[k].revents & POLLIN))
                 continue;
             struct input_event e;
             while (read(p[k].fd, &e, sizeof(e)) == (ssize_t)sizeof(e)) {
                 if (k == 1) {
+                    if(e.type==EV_SYN && e.code==SYN_DROPPED) {
+                        power_active=power_sent=0;
+                        reconcile_power();
+                        input->kind=INPUT_POWER;
+                        input->x=0;
+                        return 1;
+                    }
                     if (e.type == EV_KEY && e.code == KEY_POWER) {
                         fprintf(stderr, "physical_power=%d\n", e.value);
                         if (e.value == 0 || e.value == 1) {
@@ -497,7 +612,7 @@ int device_wait(Input *input) {
                                 power_sent = 0;
                             } else {
                                 power_active = 0;
-                                check_power=1;
+                                reconcile_power();
                             }
                             input->kind = INPUT_POWER;
                             input->x = e.value;
@@ -541,7 +656,7 @@ int device_wait(Input *input) {
                         input->x = x;
                         input->y = y;
                         if (!started && power_state==POWER_ASLEEP) {
-                            check_power=1;
+                            reconcile_power();
                             if(sync_power(input)) {
                                 active=started=release=held=desynced=0;
                                 return 1;
@@ -625,7 +740,7 @@ int device_wifi(int e) {
     return 1;
 }
 void device_ip(char *s, int n) { snprintf(s, n, "127.0.0.1"); }
-void device_present_async(const unsigned char *p) { (void)p; }
+void device_present_async(const unsigned char *p,int full) { (void)p;(void)full; }
 void device_present(const unsigned char *p, int f, int i) {
     (void)p;
     (void)f;

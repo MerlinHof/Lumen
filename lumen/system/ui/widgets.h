@@ -1,7 +1,7 @@
 /* System widgets shared by applications; hit regions and text metrics stay consistent. */
 static void label_at(int x, int y, int w, int h, const char *s, const Font *f) {
-    int height, top = ink_top(s, f, &height);
-    drawtext_raw(x, y + (h - height) / 2 - top, s, f, w);
+    int height, top = ink_top_width(s,f,w,&height);
+    drawtext_raw(x, y + (h - height + 1) / 2 - top, s, f, w);
 }
 /* The last visible line is complete UTF-8 and explicitly indicates truncation. */
 static void label_ellipsis(int x, int y, int w, int h, const char *text, const Font *font,

@@ -2,7 +2,6 @@ static int polish_power(const Input *in) {
     if (in->kind == INPUT_POWER && in->x == 2) {
         if (sleeping && !device_wake()) return 1;
         power_hold = 1;
-        power_menu_wake_until = extra_millis() + 2500;
         power_menu = 1;
         return 1;
     }
@@ -13,7 +12,7 @@ static int polish_power(const Input *in) {
     if (!power_menu)
         return 0;
     if (in->kind == INPUT_SLEEP) {
-        if (power_hold || extra_millis() < power_menu_wake_until) {
+        if (power_hold) {
             device_wake();
             return 0;
         }

@@ -514,16 +514,27 @@ static void package_paint_frame_mode(const char *text,int mode) {
         } else if(!strcmp(type,"book_label") && x>=0 && x+w<=WIDTH && y+h<=HEIGHT) {
             char author[256];
             json_string(&j,json_get(&j,item,"author"),author,sizeof(author));
-            const Font *font=ui_font(UI_TITLE);
-            int lines=wrapped_raw(x,y,label,font,w,2);
-            const Font *body_font=ui_font(UI_BODY);
-            int author_y=y+lines*(font->h-4)+4;
-            drawtext_raw(x,author_y,author,body_font,w);
+            int compact=package_value(&j,item,"compact");
+            const Font *font=ui_font(compact ? UI_BODY : UI_TITLE);
+            const Font *body_font=ui_font(compact ? UI_SECONDARY : UI_BODY);
+            int step=font->h-5,author_height=body_font->h-5;
+            FlowLine lines[2];
+            int count=text_flow(label,font,w,lines,2);
+            int height=count*step+(*author ? author_height+2 : 0);
+            int title_y=y+(compact && h>height ? (h-height)/2 : 0);
+            if(count==2) {
+                char first[sizeof(label)];
+                snprintf(first,sizeof(first),"%.*s",lines[0].end-lines[0].start,label+lines[0].start);
+                label_at(x,title_y,w,step,first,font);
+            }
+            label_ellipsis(x,title_y+(count-1)*step,w,step,label+lines[count-1].start,font,0);
+            int author_y=title_y+count*step+2;
+            if(*author)label_ellipsis(x,author_y,w,author_height,author,body_font,0);
             if(json_get(&j,item,"progress")>=0 && w>=100) {
                 int value=package_value(&j,item,"progress");
                 if(value<0)value=0;
                 if(value>100)value=100;
-                int progress_y=author_y+(*author ? body_font->h : 0)+9;
+                int progress_y=author_y+(*author ? author_height : 0)+9;
                 int length=w-62;
                 int track=progress_y+8;
                 capsule_surface(x,track,length,7,222);

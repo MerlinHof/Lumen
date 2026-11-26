@@ -638,14 +638,20 @@ frames,_=app_session('lumen.library',[
     dict(event='service',action=1,ok=1,count=6,has_recent=1,sort=2,id16='1234567890abcdee',
          title16='Continue book',author16='An Author',progress16=45,id0='1234567890abcdef',
          title0='Shelf book',author0='Another Author',progress0=23),
-    component('book-0','long_pressed'),dict(event='select',action=3,value=1),
+    component('more-0'),dict(event='select',action=3,value=1),
     dict(event='service',action=2,ok=1,id0='1234567890abcdef',title0='Shelf book',supported=1),
-    component('read'),dict(event='back'),dict(event='page',page=1)])
+    component('read'),dict(event='back'),dict(event='page',page=1),
+    dict(event='service',action=1,ok=1,count=9,has_recent=1,sort=2,
+         id3='1234567890abcded',title3='Corresponding row')])
 assert any(c.get('type')=='book_cover' for f in frames for c in f.get('ui',[]))
 assert any(f.get('operation')=='detail' and f.get('text')=='1234567890abcdef' for f in frames)
 assert any(f.get('operation')=='read' and f.get('text')=='1234567890abcdef' for f in frames)
 assert any(f.get('operation')=='query' and f.get('text','').startswith('3 6 2 3\n') for f in frames)
 assert any(c.get('type')=='progress_ring' and c.get('value')==23 for f in frames for c in f.get('ui',[]))
+def shelf_label(title):
+    return next(c for f in frames for c in f.get('ui',[]) if c.get('type')=='book_label' and
+                c.get('text')==title and c.get('compact')==1)
+assert shelf_label('Shelf book')['y']==shelf_label('Corresponding row')['y']
 print('PASS packaged Library rows, progress, book details, Reader intent and pagination.')
 
 home_assistant=base/'home-assistant-legacy'

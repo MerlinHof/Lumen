@@ -91,9 +91,8 @@ while :; do
     fi
     if [ -f .update/system-trial ]; then
         : > .update/system-starting
-    else
-        lipc-set-prop -i com.lab126.powerd preventScreenSaver 0
     fi
+    lipc-set-prop -i com.lab126.powerd preventScreenSaver 0
     rollback_wireless || exit 1
     if [ -f .update/approved ]; then
         if ! bin/lumen --apply-wireless; then

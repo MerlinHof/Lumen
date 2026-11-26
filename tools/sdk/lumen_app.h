@@ -204,6 +204,10 @@ static inline void lumen_book_progress(int x,int y,int w,const char *title,const
  if(progress>=0)printf(",\"progress\":%d",progress);
  putchar('}');
 }
+static inline void lumen_book_row_label(int x,int y,int w,int h,const char *title,const char *author) {
+ lumen_cmd("book_label",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(title);
+ fputs(",\"author\":",stdout);lumen_json(author);fputs(",\"compact\":1}",stdout);
+}
 static void lumen_book_label(int x,int y,int w,const char *title,const char *author) {
  lumen_book_progress(x,y,w,title,author,-1);
 }

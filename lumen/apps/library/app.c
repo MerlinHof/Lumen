@@ -29,24 +29,29 @@ static void action(const char *operation,const char *value) {
     lumen_service(catalog_service(),operation,data,!strcmp(operation,"read") ? 4 : 3);
 }
 static void cover(int x,int y,int w,int h,const char *id){lumen_book_cover_outline(x,y,w,h,id,198);}
+enum { SHELF_ROW=98, FEATURE_ROWS=3 };
 static int shelf_row(int index,int top,int featured) {
     const typeof(*books) *book=&books[index];
-    if(!*book->id)return top;
-    int height=featured ? 221 : 98;
+    int height=featured ? FEATURE_ROWS*SHELF_ROW : SHELF_ROW;
+    if(!*book->id)return top+height;
     int w=featured ? 135 : 59,h=featured ? 184 : 80;
     int x=28+w+(featured ? 23 : 15);
-    cover(28,top+(featured ? 11 : 8),w,h,book->id);
+    int center=top+height/2;
+    cover(28,center-h/2,w,h,book->id);
     if(featured) {
-        lumen_text(x,top+14,572-x,27,word("Weiterlesen","Continue reading","Reprendre la lecture"),PAINT_SECONDARY,-1,1);
-        lumen_book_progress(x,top+62,572-x,book->title,book->author,book->progress);
+        int y=center-91;
+        lumen_text(x,y,515-x,26,word("Weiterlesen","Continue reading","Reprendre la lecture"),PAINT_SECONDARY,-1,1);
+        lumen_book_progress(x,y+42,515-x,book->title,book->author,book->progress);
     } else {
-        lumen_text(x,top+12,(book->pin ? 465 : 505)-x,39,book->title,PAINT_BODY,-1,1);
-        lumen_text(x,top+50,505-x,29,book->author,PAINT_SECONDARY,-1,1);
-        if(book->pin)ui_paint_icon_button(469,top+26,IC_PIN);
-        lumen_progress_ring(546,top+48,25,book->progress);
+        lumen_book_row_label(x,top,(book->pin ? 414 : 451)-x,height,book->title,book->author);
+        if(book->pin)ui_paint_icon_button(419,center-22,IC_PIN);
+        lumen_progress_ring(493,center,25,book->progress);
     }
-    char id[16];snprintf(id,sizeof(id),"book-%d",index);
-    lumen_rounded_action(id,28,top,544,height-3,9);
+    char id[16];
+    snprintf(id,sizeof(id),"book-%d",index);
+    lumen_rounded_action(id,28,top,492,height-3,9);
+    snprintf(id,sizeof(id),"more-%d",index);
+    lumen_icon_action(id,528,center-22,IC_MORE);
     return top+height;
 }
 static void shelf(void) {
@@ -187,8 +192,7 @@ static int input(const Input *in) {
     }
     char id[64];
     int clicked=lumen_action(in,id,"clicked");
-    int held=!clicked && lumen_action(in,id,"long_pressed");
-    if(!clicked && !held)return 0;
+    if(!clicked)return 0;
     if(confirm) {
         if(clicked && !strcmp(id,"confirm")){action("delete",NULL);view=SHELF;}
         else if(!clicked || strcmp(id,"cancel"))return 0;
@@ -216,11 +220,12 @@ static int input(const Input *in) {
         lumen_request("input",word("Bücher suchen","Search books","Chercher des livres"),query,1);
         return 1;
     }
-    if((!clicked && !held) || strncmp(id,"book-",5) || strlen(id)!=6 || id[5]<'0' || id[5]>'6')return 0;
+    int more=!strncmp(id,"more-",5);
+    if((!more && strncmp(id,"book-",5)) || strlen(id)!=6 || id[5]<'0' || id[5]>'6')return 0;
     int index=id[5]-'0';
     if(!*books[index].id)return 0;
     snprintf(selected,sizeof(selected),"%s",books[index].id);
-    if(held) {
+    if(more) {
         const char *modes[]={books[index].pin ? word("Loslösen","Unpin","Désépingler") :
             word("Anheften","Pin","Épingler"),word("Buchdetails","Book details","Détails"),
             word("Löschen","Delete","Supprimer")};
