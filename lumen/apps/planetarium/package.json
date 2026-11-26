@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.planetarium",
   "name": "Planetarium",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "sources": [
     "app.c",
     "astronomy.c"

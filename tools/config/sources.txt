@@ -4,6 +4,7 @@ system/library.c
 system/defaults.c
 system/engine.c
 system/device.c
+system/virtual_device.c
 system/connect.c
 system/wireless_update.c
 system/amazon.c

@@ -85,6 +85,13 @@ static int package_device(const char *operation,const char *data,int action,int 
     if(provider<0 || app_process_owner()!=provider || active_app()!=provider)
         return package_acknowledge(action,0);
     if(!strncmp(operation,"wifi_",5))return settings_wifi_operation(operation,data,action);
+    if(!strcmp(operation,"brightness") || !strcmp(operation,"bluetooth")) {
+        char *end;
+        long value=strtol(data,&end,10);
+        if(end==data || *end || value<0 || value>100)return package_acknowledge(action,0);
+        int ok=!strcmp(operation,"brightness") ? device_brightness((int)value) : device_bluetooth((int)value);
+        return package_acknowledge(action,ok);
+    }
     if(!strcmp(operation,"preference")) {
         char name[32],tail;
         int value;
@@ -200,6 +207,8 @@ static int package_device(const char *operation,const char *data,int action,int 
         }
     } else {
         release_poll();
+        DeviceCapabilities caps=device_capabilities();
+        fprintf(out,",\"hardware_controls\":1,\"brightness\":%d,\"bluetooth\":%d",caps.brightness,caps.bluetooth);
         for(size_t i=0;i<sizeof(device_preferences)/sizeof(*device_preferences);i++) {
             int value=options[device_preferences[i].option];
             if(legacy)fprintf(out,",\"p%zu\":%d",i,value);

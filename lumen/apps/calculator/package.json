@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.calculator",
   "name": "Rechner",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "sources": [
     "app.c",
     "evaluate.c"

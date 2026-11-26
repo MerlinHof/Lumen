@@ -24,6 +24,19 @@ static struct {
     int x,y,w,h;
     int owner,active;
 } package_pointer;
+static void package_format_input(char *event,size_t size,const Input *in,int captured) {
+    snprintf(event,size,
+        "{\"event\":\"input\",\"kind\":%d,\"x\":%d,\"y\":%d,\"dx\":%d,\"dy\":%d,"
+        "\"captured\":%d,\"geometry\":1,\"fx\":%d,\"fy\":%d,\"fdx\":%d,\"fdy\":%d}",
+        in->kind,in->x,in->y,in->dx,in->dy,captured,
+        lumen_geometry_encode(in->x,WIDTH),lumen_geometry_encode(in->y,HEIGHT),
+        lumen_geometry_encode(in->dx,WIDTH),lumen_geometry_encode(in->dy,HEIGHT));
+}
+static int package_send_input(const Input *in,int captured) {
+    char event[256];
+    package_format_input(event,sizeof(event),in,captured);
+    return app_process_send(event);
+}
 static int package_pointer_input(const Input *in);
 static JsonToken package_tokens[32768];
 static int package_value(Json*j,int obj,const char*key){double v=json_number(j,json_get(j,obj,key));return isfinite(v)&&v>=-100000&&v<=100000?(int)v:0;}
@@ -210,8 +223,19 @@ static void package_form_paragraph(const char *text,const Font *font,int offset,
         remaining=next;
     }
 }
+static int package_position_value(double value,int extent) {
+    if(!isfinite(value) || value < -8*LUMEN_GEOMETRY_SCALE || value > 8*LUMEN_GEOMETRY_SCALE)
+        return 9*extent;
+    return lumen_geometry_decode((int)value,extent);
+}
+static int package_position(Json *j,int item,const char *key,int extent,int relative) {
+    if(!relative)return package_value(j,item,key);
+    int token=json_get(j,item,key);
+    return token<0 ? 0 : package_position_value(json_number(j,token),extent);
+}
 static void package_paint_frame_mode(const char *text,int mode) {
     Json j;if(!json_parse(&j,text,package_tokens,32768))return;
+    int relative=package_value(&j,0,"geometry")==1;
     int commands=json_get(&j,0,"ui");if(commands<0 || j.tokens[commands].type!='[' || j.tokens[commands].count>2048)return;
     if(mode==PACKAGE_PAINT_FOREGROUND)package_fullscreen=!!package_value(&j,0,"fullscreen");
     if(mode==PACKAGE_PAINT_FOREGROUND && package_fullscreen)memset(ui_pixels,255,WIDTH*STATUS_HEIGHT);
@@ -225,15 +249,15 @@ static void package_paint_frame_mode(const char *text,int mode) {
             int raised=!strcmp(type,"raised");
             if(!raised && strcmp(type,"surface"))continue;
             surfaces[surface_count++]=(Widget){
-                .x=package_value(&j,item,"x"),.y=package_value(&j,item,"y"),
-                .w=package_value(&j,item,"w"),.h=package_value(&j,item,"h"),
-                .radius=raised ? 15 : package_value(&j,item,"radius")};
+                .x=package_position(&j,item,"x",WIDTH,relative),.y=package_position(&j,item,"y",HEIGHT,relative),
+                .w=package_position(&j,item,"w",WIDTH,relative),.h=package_position(&j,item,"h",HEIGHT,relative),
+                .radius=raised ? 15 : package_position(&j,item,"radius",WIDTH,relative)};
         }
     }
     for(int item=commands+1;item<j.tokens[commands].next;item=j.tokens[item].next) {
         char type[32],label[2048];
         json_string(&j,json_get(&j,item,"type"),type,sizeof(type));json_string(&j,json_get(&j,item,"text"),label,sizeof(label));
-        int x=package_value(&j,item,"x"),y=package_value(&j,item,"y"),w=package_value(&j,item,"w"),h=package_value(&j,item,"h");
+        int x=package_position(&j,item,"x",WIDTH,relative),y=package_position(&j,item,"y",HEIGHT,relative),w=package_position(&j,item,"w",WIDTH,relative),h=package_position(&j,item,"h",HEIGHT,relative);
         if(mode==PACKAGE_PAINT_OVERLAY && !package_overlay_primitive(type))continue;
         if(mode==PACKAGE_PAINT_CAPTURE && strcmp(type,"line") && strcmp(type,"text") && strcmp(type,"bitmap"))continue;
         if(!strcmp(type,"view_title")) {
@@ -287,7 +311,7 @@ static void package_paint_frame_mode(const char *text,int mode) {
             } else if(!strcmp(type,"dropdown_action"))dropdown_button(x,y,w,h,label);
             else {
                 region(x,y,w,h);
-                int radius=package_value(&j,item,"radius");
+                int radius=package_position(&j,item,"radius",WIDTH,relative);
                 if(json_get(&j,item,"radius")>=0)widget_shape(x,y,w,h,radius,3,0);
                 else if(widget_count && widgets[widget_count-1].x==x &&
                         widgets[widget_count-1].y==y+ui_y_offset &&
@@ -438,10 +462,10 @@ static void package_paint_frame_mode(const char *text,int mode) {
             if(count<3 || count>9000 || count%3)continue;
             estimate=(size_t)(count/3)*121;
         }
-        if(!strcmp(type,"ellipse"))estimate=4u*(unsigned)abs(package_value(&j,item,"rx"))*(unsigned)abs(package_value(&j,item,"ry"));
+        if(!strcmp(type,"ellipse"))estimate=4u*(unsigned)abs(package_position(&j,item,"rx",WIDTH,relative))*(unsigned)abs(package_position(&j,item,"ry",HEIGHT,relative));
         if(!strcmp(type,"hex_cell"))estimate=65*37;
-        if(!strcmp(type,"ring") || !strcmp(type,"arc")){int r=package_value(&j,item,"radius");estimate=4u*(unsigned)abs(r)*(unsigned)abs(r);}
-        if(!strcmp(type,"line"))estimate=(size_t)(abs(x-package_value(&j,item,"x2"))+32)*(abs(y-package_value(&j,item,"y2"))+32);
+        if(!strcmp(type,"ring") || !strcmp(type,"arc")){int r=package_position(&j,item,"radius",WIDTH,relative);estimate=4u*(unsigned)abs(r)*(unsigned)abs(r);}
+        if(!strcmp(type,"line"))estimate=(size_t)(abs(x-package_position(&j,item,"x2",WIDTH,relative))+32)*(abs(y-package_position(&j,item,"y2",HEIGHT,relative))+32);
         if(estimate>4000000 || cost+estimate>4000000)break;cost+=estimate;
         if(mode==PACKAGE_PAINT_OVERLAY && !strcmp(type,"device_image")) {
             if(overlay_image)overlay_image(label,x,y,w,h);
@@ -681,7 +705,7 @@ static void package_paint_frame_mode(const char *text,int mode) {
         else if(!strcmp(type,"icon"))icon_button(x,y,package_value(&j,item,"icon"));
         else if(!strcmp(type,"hit"))region(x,y,w,h);
         else if(!strcmp(type,"surface")) {
-            int radius=package_value(&j,item,"radius");
+            int radius=package_position(&j,item,"radius",WIDTH,relative);
             ui_paint_surface(x,y,w,h,radius,package_value(&j,item,"gray"),package_value(&j,item,"outline"));
 
         }
@@ -693,12 +717,17 @@ static void package_paint_frame_mode(const char *text,int mode) {
                 double px=json_number(&j,point);point=j.tokens[point].next;
                 double py=json_number(&j,point);point=j.tokens[point].next;
                 double radius=json_number(&j,point);point=j.tokens[point].next;
+                if(relative) {
+                    px=package_position_value(px,WIDTH);
+                    py=package_position_value(py,HEIGHT);
+                    radius=package_position_value(radius,WIDTH);
+                }
                 if(px>=4 && px<WIDTH-4 && py>=STATUS_HEIGHT+4 && py<HEIGHT-4 &&
                    radius>=1 && radius<=4)
                     aa_disc((int)px,(int)py,(int)radius,tone);
             }
         }
-        else if(!strcmp(type,"ellipse")){int rx=package_value(&j,item,"rx"),ry=package_value(&j,item,"ry");if(rx>=0&&rx<=300&&ry>=0&&ry<=400)ui_paint_ellipse(x,y,rx,ry,package_value(&j,item,"gray"));}
+        else if(!strcmp(type,"ellipse")){int rx=package_position(&j,item,"rx",WIDTH,relative),ry=package_position(&j,item,"ry",HEIGHT,relative);if(rx>=0&&rx<=300&&ry>=0&&ry<=400)ui_paint_ellipse(x,y,rx,ry,package_value(&j,item,"gray"));}
         else if(!strcmp(type,"hex_cell")) {
             int fill=package_value(&j,item,"gray");
             if(fill<0 || fill>255)continue;
@@ -712,10 +741,10 @@ static void package_paint_frame_mode(const char *text,int mode) {
                 stroke_color(x+dx[k],y+dy[k],x+dx[n],y+dy[n],2,0);
             }
         }
-        else if(!strcmp(type,"line")){int x2=package_value(&j,item,"x2"),y2=package_value(&j,item,"y2"),weight=package_value(&j,item,"weight");if((mode==PACKAGE_PAINT_OVERLAY || y2>=56)&&y2>=0&&y2<=800&&x2>=-600&&x2<=1200&&weight>0&&weight<=32)ui_paint_line(x,y,x2,y2,weight,package_value(&j,item,"gray"));}
+        else if(!strcmp(type,"line")){int x2=package_position(&j,item,"x2",WIDTH,relative),y2=package_position(&j,item,"y2",HEIGHT,relative),weight=package_position(&j,item,"weight",WIDTH,relative);if((mode==PACKAGE_PAINT_OVERLAY || y2>=56)&&y2>=0&&y2<=800&&x2>=-600&&x2<=1200&&weight>0&&weight<=32)ui_paint_line(x,y,x2,y2,weight,package_value(&j,item,"gray"));}
         else if(!strcmp(type,"arc")) {
-            int r=package_value(&j,item,"radius"),a=package_value(&j,item,"start"),
-                b=package_value(&j,item,"end"),weight=package_value(&j,item,"weight"),
+            int r=package_position(&j,item,"radius",WIDTH,relative),a=package_value(&j,item,"start"),
+                b=package_value(&j,item,"end"),weight=package_position(&j,item,"weight",WIDTH,relative),
                 gray=package_value(&j,item,"gray");
             if(r>=1 && r<=300 && a>=0 && b<=360 && a<b && weight>=1 && weight<=24 && gray>=0 && gray<=255)
                 aa_arc_color(x,y,r,a,b,weight,gray);
@@ -725,7 +754,7 @@ static void package_paint_frame_mode(const char *text,int mode) {
                 type_display(x,y,w,h,label,family,size,gray);
         }
         else if(!strcmp(type,"progress_ring")) {
-            int radius=package_value(&j,item,"radius"),value=package_value(&j,item,"value");
+            int radius=package_position(&j,item,"radius",WIDTH,relative),value=package_value(&j,item,"value");
             if(radius>=18 && radius<=50 && x-radius>=0 && x+radius<WIDTH &&
                y-radius>=STATUS_HEIGHT && y+radius<HEIGHT) {
                 if(value<0)value=0;
@@ -735,7 +764,7 @@ static void package_paint_frame_mode(const char *text,int mode) {
                 type_centered(x-radius,y-radius,2*radius,2*radius,percent,UI_SECONDARY);
             }
         }
-        else if(!strcmp(type,"ring")){int r=package_value(&j,item,"radius"),weight=package_value(&j,item,"weight");if(r>0&&r<=300&&weight>0&&weight<=24)ui_paint_ring(x,y,r,weight);}
+        else if(!strcmp(type,"ring")){int r=package_position(&j,item,"radius",WIDTH,relative),weight=package_position(&j,item,"weight",WIDTH,relative);if(r>0&&r<=300&&weight>0&&weight<=24)ui_paint_ring(x,y,r,weight);}
     }
 
     if(mode==PACKAGE_PAINT_FOREGROUND && package_form.active) {
@@ -787,10 +816,7 @@ static int package_pointer_input(const Input *in) {
     if(in->kind==INPUT_HOLD)return 1;
     if(in->kind!=INPUT_DOWN && in->kind!=INPUT_MOVE && in->kind!=INPUT_TAP &&
        in->kind!=INPUT_SWIPE && in->kind!=INPUT_CANCEL)return 0;
-    char event[192];
-    snprintf(event,sizeof(event),"{\"event\":\"input\",\"kind\":%d,\"x\":%d,\"y\":%d,\"dx\":%d,\"dy\":%d,\"captured\":1}",
-        in->kind,in->x,in->y,in->dx,in->dy);
-    app_process_send(event);
+    package_send_input(in,1);
     return 1;
 }
 static int package_ui_input(const Input*in) {
@@ -859,8 +885,7 @@ static int package_ui_input(const Input*in) {
             app_process_send(event);return 2;
         }
     }
-    char event[256];snprintf(event,sizeof(event),"{\"event\":\"input\",\"kind\":%d,\"x\":%d,\"y\":%d,\"dx\":%d,\"dy\":%d}",in->kind,in->x,in->y,in->dx,in->dy);
-    app_process_open(active_app());app_process_send(event);return 2;
+    app_process_open(active_app());package_send_input(in,0);return 2;
 }
 static int package_ui_commit(int target,const char*text) {
     if(target!=2000 && target!=2002 && target!=2003)return 0;
@@ -1016,6 +1041,10 @@ static void package_text_measure(const char *message,int action,int wide,int nar
 }
 static void package_capture(const char *message) {
     int x=lumen_number("x"),y=lumen_number("y"),w=lumen_number("w"),h=lumen_number("h");
+    if(lumen_number("geometry")==1) {
+        x=lumen_geometry_decode(x,WIDTH);y=lumen_geometry_decode(y,HEIGHT);
+        w=lumen_geometry_decode(w,WIDTH);h=lumen_geometry_decode(h,HEIGHT);
+    }
     int action=lumen_number("action"),ok=0;
     char path[1025];
     if(x>=0 && x<WIDTH && y>=STATUS_HEIGHT && y<HEIGHT && w>0 && w<=WIDTH-x &&

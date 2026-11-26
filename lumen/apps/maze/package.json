@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.maze",
   "name": "Labyrinth",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "sources": [
     "app.c"
   ],

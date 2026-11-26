@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.study",
   "name": "Lernen",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "operations": [
     "material_count"
   ],

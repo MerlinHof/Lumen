@@ -1,5 +1,5 @@
 #define _GNU_SOURCE
-#include "device.h"
+#include "virtual_device.h"
 #include "version.h"
 #include "engine.h"
 #include "library.h"
@@ -24,6 +24,15 @@ static double stamp(void) {
     return t.tv_sec + t.tv_nsec / 1e9;
 }
 int main(int argc, char **argv) {
+#ifndef LUMEN_HOST
+    if(getpid()==1 && getenv("LUMEN_EMULATOR_INIT")) {
+        if(!virtual_device_guest_bootstrap()){perror("Emulator guest setup");return 1;}
+        static char *guest_args[]={
+            "/lumen/bin/lumen","--library","/lumen/books","--data","/lumen/data",NULL
+        };
+        argc=5;argv=guest_args;
+    }
+#endif
     if(argc==4 && !strcmp(argv[1],"--raster-svg"))return render_svg(argv[2],argv[3]) ? 0 : 1;
     if(argc==7 && !strcmp(argv[1],"--render-document"))
         return render_document(argv[2],atoi(argv[3]),atoi(argv[4]),atoi(argv[5]),argv[6]) ? 0 : 1;

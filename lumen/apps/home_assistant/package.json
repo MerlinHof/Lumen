@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.home-assistant",
   "name": "Home Assistant",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "sources": [
     "app.c"
   ],

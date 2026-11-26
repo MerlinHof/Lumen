@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.openai",
   "name": "OpenAI",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "operations": [
     "send",
     "models_refresh"

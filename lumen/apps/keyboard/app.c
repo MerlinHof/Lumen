@@ -110,7 +110,9 @@ static void layout_key(const KeyboardKey18 *key,int language) {
     case KEY_ENTER18: action=EDIT_SUBMIT;icon=IC_ENTER;break;
     }
     if(key->y==506)style=CAP_NUMBER;
-    printf("[%d,%d,%d,%d,%d,%d,%d,%d,",key->x,key->y,key->w,key->h,action,next,icon,style);
+    printf("[%d,%d,%d,%d,%d,%d,%d,%d,",lumen_position(key->x,WIDTH),
+           lumen_position(key->y,HEIGHT),lumen_position(key->w,WIDTH),
+           lumen_position(key->h,HEIGHT),action,next,icon,style);
     lumen_json(text);
     putchar(']');
 }
@@ -155,7 +157,7 @@ static void legacy_layouts(void) {
 
 
 static void layouts(void) {
-    fputs("{\"ui\":[],\"keymaps\":[",stdout);
+    printf("{\"ui\":[],\"geometry\":%d,\"keymaps\":[",lumen_relative);
     for(int language=0;language<3;language++) {
         for(symbols_page=0;symbols_page<3;symbols_page++) {
             for(shift=0;shift<2;shift++) {

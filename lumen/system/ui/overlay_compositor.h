@@ -1,5 +1,4 @@
-/* Coordinates in overlay frames are absolute screen coordinates. The bounds
- * in the open event govern both compositing and touch capture. */
+/* Overlay bounds in the logical viewport govern compositing and touch capture. */
 typedef struct {
     int x,y,w,h;
 } OverlayBounds;
@@ -55,8 +54,11 @@ static int overlay_actions(const char *frame,OverlayAction *actions,int capacity
         char type[24];
         json_string(&json,json_get(&json,item,"type"),type,sizeof(type));
         if(strcmp(type,"overlay_action"))continue;
-        OverlayBounds bounds={package_value(&json,item,"x"),package_value(&json,item,"y"),
-                              package_value(&json,item,"w"),package_value(&json,item,"h")};
+        int relative=package_value(&json,0,"geometry")==1;
+        OverlayBounds bounds={package_position(&json,item,"x",WIDTH,relative),
+                              package_position(&json,item,"y",HEIGHT,relative),
+                              package_position(&json,item,"w",WIDTH,relative),
+                              package_position(&json,item,"h",HEIGHT,relative)};
         if(bounds.x<0 || bounds.y<0 || bounds.w<1 || bounds.h<1 ||
            bounds.w>WIDTH-bounds.x || bounds.h>HEIGHT-bounds.y)continue;
         OverlayAction *action=&actions[count++];
@@ -127,7 +129,9 @@ static void package_overlay_request(Json *json,const char *kind,int action) {
                !strcmp(presentation,"modal") ? OVERLAY_MODAL :
                !strcmp(presentation,"fullscreen") ? OVERLAY_FULLSCREEN : -1;
     int index=existing>=0 ? existing : free_slot;
-    int w=package_value(json,0,"width"),h=package_value(json,0,"height");
+    int relative=package_value(json,0,"geometry")==1;
+    int w=package_position(json,0,"width",WIDTH,relative);
+    int h=package_position(json,0,"height",HEIGHT,relative);
     if(policy==OVERLAY_FULLSCREEN){w=WIDTH;h=HEIGHT-STATUS_HEIGHT;}
     if(owner<0 || index<0 || handle<=0 || policy<0 || w<32 || w>WIDTH ||
        h<32 || h>HEIGHT-STATUS_HEIGHT ||
@@ -193,10 +197,8 @@ static int package_overlays_input(const Input *input) {
             if(input->kind==INPUT_DOWN)overlay_capture=index;
             if(input->kind==INPUT_TAP || input->kind==INPUT_SWIPE)overlay_capture=-1;
             if(inside || layer->policy!=OVERLAY_MODAL) {
-                char event[140];
-                snprintf(event,sizeof(event),
-                    "{\"event\":\"input\",\"kind\":%d,\"x\":%d,\"y\":%d,\"dx\":%d,\"dy\":%d}",
-                    input->kind,input->x,input->y,input->dx,input->dy);
+                char event[256];
+                package_format_input(event,sizeof(event),input,0);
                 app_overlay_event(layer->process,event);
             }
             return 1;

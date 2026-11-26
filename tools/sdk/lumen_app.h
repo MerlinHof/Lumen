@@ -17,7 +17,7 @@
 #include "lumen_state.h"
 #include "lumen_icons.h"
 typedef enum{PAINT_BODY,PAINT_HEADING,PAINT_DISPLAY,PAINT_SECONDARY,PAINT_TITLE}PaintText;
-static char lumen_event[65536];static int lumen_first,lumen_language,lumen_back,lumen_frame_tick,lumen_fullscreen,lumen_ready=1;
+static char lumen_event[65536];static int lumen_first,lumen_language,lumen_back,lumen_frame_tick,lumen_fullscreen,lumen_relative,lumen_ready=1;
 static void lumen_json_write(FILE *out,const char *s) {
  fputc('"',out);
  for(;*s;s++) {
@@ -39,17 +39,28 @@ static int lumen_next(void) {
          int c;while((c=getchar())!=EOF && c!='\n'){}
          continue;
      }
-     if(wire_read(lumen_event))return 1;
+     if(wire_read(lumen_event)) {
+         char event[24];
+         if(lumen_string("event",event,sizeof(event)) && !strcmp(event,"open"))
+             lumen_relative=lumen_number("surface_api")>=3;
+         return 1;
+     }
  }
  wire_event.count=0;return 0;
 }
 static int lumen_is(const char *event) {
  char name[48];return lumen_string("event",name,sizeof(name)) && !strcmp(name,event);
 }
-static void lumen_begin(void){lumen_first=1;lumen_frame_tick=0;printf("{\"back\":%s,\"ui\":[",lumen_back?"true":"false");}
+static void lumen_begin(void){
+ lumen_first=1;lumen_frame_tick=0;
+ printf("{\"back\":%s,\"geometry\":%d,\"ui\":[",lumen_back?"true":"false",lumen_relative);
+}
+static int lumen_position(int value,int extent) {
+ return lumen_relative ? lumen_geometry_encode(value,extent) : value;
+}
 static void lumen_end(void){int idle=lumen_state_wait();if(idle && (!lumen_frame_tick || idle<lumen_frame_tick))lumen_frame_tick=idle;printf("],\"tick\":%d,\"fullscreen\":%d,\"ready\":%s}\n",lumen_frame_tick,lumen_fullscreen,lumen_ready ? "true" : "false");fflush(stdout);}
 static void lumen_schedule(int milliseconds){lumen_frame_tick=milliseconds;}
-static void lumen_cmd(const char*type,int x,int y,int w,int h){if(!lumen_first)putchar(',');lumen_first=0;fputs("{\"type\":",stdout);lumen_json(type);printf(",\"x\":%d,\"y\":%d,\"w\":%d,\"h\":%d",x,y,w,h);}
+static void lumen_cmd(const char*type,int x,int y,int w,int h){if(!lumen_first)putchar(',');lumen_first=0;fputs("{\"type\":",stdout);lumen_json(type);printf(",\"x\":%d,\"y\":%d,\"w\":%d,\"h\":%d",lumen_position(x,WIDTH),lumen_position(y,HEIGHT),lumen_position(w,WIDTH),lumen_position(h,HEIGHT));}
 static void ui_paint_heading(const char*s,int actions){lumen_cmd("heading",28,74,544,44);fputs(",\"text\":",stdout);lumen_json(s);printf(",\"actions\":%d}",actions);}
 static void lumen_formula(int x,int y,int w,int h,const char *expression) {
  lumen_cmd("formula",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(expression);putchar('}');
@@ -94,26 +105,26 @@ static void lumen_icon_action(const char *id,int x,int y,int icon) {
 }
 static void ui_paint_icon_button(int x,int y,int icon){lumen_cmd("icon",x,y,44,44);printf(",\"icon\":%d}",icon);}
 static void ui_paint_hitbox(int x,int y,int w,int h){lumen_cmd("hit",x,y,w,h);putchar('}');}
-static void ui_paint_surface(int x,int y,int w,int h,int radius,int gray,int outline){lumen_cmd("surface",x,y,w,h);printf(",\"radius\":%d,\"gray\":%d,\"outline\":%d}",radius,gray,outline);}
-static void ui_paint_ellipse(int x,int y,int rx,int ry,int gray){lumen_cmd("ellipse",x,y,0,0);printf(",\"rx\":%d,\"ry\":%d,\"gray\":%d}",rx,ry,gray);}
+static void ui_paint_surface(int x,int y,int w,int h,int radius,int gray,int outline){lumen_cmd("surface",x,y,w,h);printf(",\"radius\":%d,\"gray\":%d,\"outline\":%d}",lumen_position(radius,WIDTH),gray,outline);}
+static void ui_paint_ellipse(int x,int y,int rx,int ry,int gray){lumen_cmd("ellipse",x,y,0,0);printf(",\"rx\":%d,\"ry\":%d,\"gray\":%d}",lumen_position(rx,WIDTH),lumen_position(ry,HEIGHT),gray);}
 /* A batch contains at most 3000 points with radii from 1 to 4. */
 static void lumen_points_begin(int gray) {
  lumen_cmd("points",0,56,0,0);printf(",\"gray\":%d,\"points\":[",gray);
 }
 static void lumen_point(int index,int x,int y,int radius) {
- printf("%s%d,%d,%d",index?",":"",x,y,radius);
+ printf("%s%d,%d,%d",index?",":"",lumen_position(x,WIDTH),lumen_position(y,HEIGHT),lumen_position(radius,WIDTH));
 }
 static void lumen_points_end(void){fputs("]}",stdout);}
 static void lumen_arc(int x,int y,int radius,int start,int end,int weight,int gray) {
- lumen_cmd("arc",x,y,0,0);printf(",\"radius\":%d,\"start\":%d,\"end\":%d,\"weight\":%d,\"gray\":%d}",radius,start,end,weight,gray);
+ lumen_cmd("arc",x,y,0,0);printf(",\"radius\":%d,\"start\":%d,\"end\":%d,\"weight\":%d,\"gray\":%d}",lumen_position(radius,WIDTH),start,end,lumen_position(weight,WIDTH),gray);
 }
 static void lumen_display_text(int x,int y,int w,int h,const char *value,int family,int size,int gray) {
  lumen_cmd("display_text",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(value);
  printf(",\"family\":%d,\"size\":%d,\"gray\":%d}",family,size,gray);
 }
-static void ui_paint_line(int x,int y,int x2,int y2,int weight,int gray){lumen_cmd("line",x,y,0,0);printf(",\"x2\":%d,\"y2\":%d,\"weight\":%d,\"gray\":%d}",x2,y2,weight,gray);}
+static void ui_paint_line(int x,int y,int x2,int y2,int weight,int gray){lumen_cmd("line",x,y,0,0);printf(",\"x2\":%d,\"y2\":%d,\"weight\":%d,\"gray\":%d}",lumen_position(x2,WIDTH),lumen_position(y2,HEIGHT),lumen_position(weight,WIDTH),gray);}
 static void lumen_hex_cell(int x,int y,int gray){lumen_cmd("hex_cell",x,y,0,0);printf(",\"gray\":%d}",gray);}
-static void ui_paint_ring(int x,int y,int radius,int weight){lumen_cmd("ring",x,y,0,0);printf(",\"radius\":%d,\"weight\":%d}",radius,weight);}
+static void ui_paint_ring(int x,int y,int radius,int weight){lumen_cmd("ring",x,y,0,0);printf(",\"radius\":%d,\"weight\":%d}",lumen_position(radius,WIDTH),lumen_position(weight,WIDTH));}
 static void lumen_button(int x,int y,int w,int h,const char*s,int primary){lumen_cmd("button",x,y,w,h);fputs(",\"text\":",stdout);lumen_json(s);printf(",\"primary\":%d}",primary);}
 static void lumen_toggle(int x,int y,int value){lumen_cmd("toggle",x,y,64,40);printf(",\"value\":%d}",value);}
 static void lumen_checkbox(int x,int y,int value){lumen_cmd("checkbox",x,y,30,30);printf(",\"value\":%d}",value);}
@@ -197,7 +208,9 @@ static inline void lumen_view_title(const char *title) {
 /* Capture a paint-only frame to a scoped PGM image. */
 static inline void lumen_capture_begin(const char *path,int x,int y,int w,int h,int action) {
  fputs("{\"request\":\"capture\",\"text\":",stdout);lumen_json(path);
- printf(",\"x\":%d,\"y\":%d,\"w\":%d,\"h\":%d,\"action\":%d,\"ui\":[",x,y,w,h,action);
+ printf(",\"geometry\":%d,\"x\":%d,\"y\":%d,\"w\":%d,\"h\":%d,\"action\":%d,\"ui\":[",
+        lumen_relative,lumen_position(x,WIDTH),lumen_position(y,HEIGHT),
+        lumen_position(w,WIDTH),lumen_position(h,HEIGHT),action);
  lumen_first=1;
 }
 static inline void lumen_capture_end(void) {puts("]}");fflush(stdout);}
@@ -229,7 +242,7 @@ static void lumen_book_label(int x,int y,int w,const char *title,const char *aut
  lumen_book_progress(x,y,w,title,author,-1);
 }
 static inline void lumen_progress_ring(int x,int y,int radius,int percent) {
- lumen_cmd("progress_ring",x,y,radius*2,radius*2);printf(",\"radius\":%d,\"value\":%d}",radius,percent);
+ lumen_cmd("progress_ring",x,y,radius*2,radius*2);printf(",\"radius\":%d,\"value\":%d}",lumen_position(radius,WIDTH),percent);
 }
 static inline void lumen_cover_asset(int x,int y,int w,int h,const char *name,const char *title) {
  lumen_cmd("cover_asset",x,y,w,h);fputs(",\"asset\":",stdout);lumen_json(name);
@@ -334,7 +347,7 @@ static inline void lumen_custom_action(const char *id,int x,int y,int w,int h) {
    within the view and independent of the current screen coordinates. */
 static inline void lumen_rounded_action(const char *id,int x,int y,int w,int h,int radius) {
  lumen_cmd("custom_action",x,y,w,h);
- fputs(",\"id\":",stdout);lumen_json(id);printf(",\"radius\":%d}",radius);
+ fputs(",\"id\":",stdout);lumen_json(id);printf(",\"radius\":%d}",lumen_position(radius,WIDTH));
 }
 static inline void lumen_index_action(const char *group,int index,int x,int y,int w,int h) {
  char id[64];
@@ -495,7 +508,8 @@ static inline void lumen_overlay_open(const char *app,int handle,const char *pre
  fputs("{\"request\":\"overlay_open\",\"app\":",stdout);lumen_json(app);
  fputs(",\"presentation\":",stdout);lumen_json(presentation);
  fputs(",\"anchor\":",stdout);lumen_json(anchor);
- printf(",\"handle\":%d,\"width\":%d,\"height\":%d,\"action\":%d}\n",handle,width,height,action);
+ printf(",\"geometry\":%d,\"handle\":%d,\"width\":%d,\"height\":%d,\"action\":%d}\n",
+        lumen_relative,handle,lumen_position(width,WIDTH),lumen_position(height,HEIGHT),action);
  fflush(stdout);
 }
 static inline void lumen_overlay_close(int handle,int action) {
@@ -557,11 +571,21 @@ static void lumen_run(void(*draw)(void),int(*input)(const Input*),void(*save)(vo
    if(lumen_is("tick")){Input in={.kind=INPUT_TICK};input(&in);}
    lumen_state_idle();
    if(lumen_is("page")){Input in={.kind=INPUT_PAGE,.x=lumen_number("page")};input(&in);if(save)save();}
-   if(lumen_is("viewport")){Input in={.kind=INPUT_VIEWPORT,.y=lumen_number("bottom")};input(&in);}
+   if(lumen_is("viewport")){
+      int bottom=wire_get("bottom_fraction") ?
+          lumen_geometry_decode(lumen_number("bottom_fraction"),HEIGHT) : lumen_number("bottom");
+      Input in={.kind=INPUT_VIEWPORT,.y=bottom};input(&in);
+   }
    if(lumen_is("back")){Input in={.kind=INPUT_BACK};input(&in);if(save)save();}
    if(lumen_is("text")||lumen_is("select")){Input in={.kind=lumen_is("text")?INPUT_TEXT:INPUT_SELECT,.x=lumen_number("action"),.y=lumen_number("value")};input(&in);if(save)save();}
    if(lumen_is("input")) {
      Input in={lumen_number("kind"),lumen_number("x"),lumen_number("y"),lumen_number("dx"),lumen_number("dy")};
+     if(lumen_number("geometry")==1) {
+        in.x=lumen_geometry_decode(lumen_number("fx"),WIDTH);
+        in.y=lumen_geometry_decode(lumen_number("fy"),HEIGHT);
+        in.dx=lumen_geometry_decode(lumen_number("fdx"),WIDTH);
+        in.dy=lumen_geometry_decode(lumen_number("fdy"),HEIGHT);
+     }
      int handled=input(&in);
      if(save)save();
      if(!handled && lumen_number("captured"))continue;

@@ -1686,9 +1686,13 @@ int ui_input(const Input *in) {
     int package_keyboard=editor_ui.keyboard && editor_ui.keyboard_target==2000;
     int result = ui_dispatch_input(in);
     int attached=editor_ui.keyboard && editor_ui.keyboard_target==2000;
-    if(attached!=package_keyboard && from==active_app() && app_package_installed(from))
-        app_process_send(attached ? "{\"event\":\"viewport\",\"bottom\":395}" :
-                                    "{\"event\":\"viewport\",\"bottom\":800}");
+    if(attached!=package_keyboard && from==active_app() && app_package_installed(from)) {
+        int bottom=attached ? 395 : HEIGHT;
+        char event[96];
+        snprintf(event,sizeof(event),"{\"event\":\"viewport\",\"bottom\":%d,\"bottom_fraction\":%d}",
+                 bottom,lumen_geometry_encode(bottom,HEIGHT));
+        app_process_send(event);
+    }
     return result;
 }
 

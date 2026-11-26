@@ -10,7 +10,45 @@ static void clear_frames(void) {
     memset(before,255,sizeof(before));
     memset(after,255,sizeof(after));
 }
+#include "../../lumen/system/display_viewport.h"
+
+static void test_display_viewports(void) {
+    DisplayViewport view;
+    assert(!display_viewport(&view,1440,1080));
+    assert(!display_viewport(&view,1,800));
+    assert(display_viewport(&view,600,800));
+    assert(display_damage(&view,(LumenRect){19,37,30,29}).x==19);
+    assert(display_viewport(&view,1080,1440));
+    assert(view.box.x==0 && view.box.y==0 && view.box.w==1080 && view.box.h==1440);
+    assert(display_viewport(&view,1072,1448));
+    assert(view.box.x==0 && view.box.y==9 && view.box.w==1072 && view.box.h==1429);
+    assert(display_viewport(&view,1920,2560));
+    assert(display_viewport(&view,800,800));
+    assert(view.box.x==100 && view.box.y==0);
+    assert(display_axis(-1000,-1000,1000,800)==0);
+    assert(display_axis(1000,-1000,1000,800)==799);
+    assert(display_to_logical(0,100,600,600)==0);
+    assert(display_to_logical(799,100,600,600)==599);
+    assert(display_viewport(&view,1072,1448));
+    for(int y=0;y<LUMEN_SURFACE_HEIGHT;y++) {
+        LumenRect box=display_damage(&view,(LumenRect){0,y,LUMEN_SURFACE_WIDTH,1});
+        for(int pixel=box.y;pixel<box.y+box.h;pixel++)
+            assert(display_to_logical(pixel,view.box.y,view.box.h,LUMEN_SURFACE_HEIGHT)==y);
+    }
+    assert(!display_contains(&view,10,0));
+    assert(display_contains(&view,0,view.box.y));
+    assert(!display_contains(&view,0,view.box.y+view.box.h));
+    uint32_t palette[256];
+    assert(display_gray_palette(16,(DisplayChannel[]){{11,5},{5,6},{0,5},{0,0}},palette));
+    assert(palette[0]==0 && palette[255]==0xffff && palette[128]==0x8410);
+    assert(display_gray_palette(32,(DisplayChannel[]){{16,8},{8,8},{0,8},{24,8}},palette));
+    assert(palette[0]==0xff000000 && palette[128]==0xff808080 && palette[255]==0xffffffff);
+    assert(!display_gray_palette(16,(DisplayChannel[]){{10,5},{9,6},{0,5},{0,0}},palette));
+    LumenRect relative=lumen_fraction_rect(50,100,950,900);
+    assert(relative.x==30 && relative.y==80 && relative.w==540 && relative.h==640);
+}
 int main(void) {
+    test_display_viewports();
     clear_frames();
     assert(plan(0).waveform==REFRESH_NONE && plan(1).waveform==REFRESH_GC16);
     assert(refresh_plan(before,after,W,H,BAR,0,0).waveform==REFRESH_CLEAR);

@@ -35,9 +35,13 @@ static int notification_poll(void) {
        json_number(&j,json_get(&j,0,"generation"))==notification_generation) {
         int rect=json_get(&j,0,"capture");
         int values[4]={0};
+        int relative=json_number(&j,json_get(&j,0,"geometry"))==1;
         for(int i=0;i<4;i++) {
             double n=json_number(&j,json_at(&j,rect,i));
-            if(n>=0 && n<=800)values[i]=(int)n;
+            int extent=i%2 ? HEIGHT : WIDTH;
+            if(relative && n>=0 && n<=LUMEN_GEOMETRY_SCALE)
+                values[i]=lumen_geometry_decode((int)n,extent);
+            else if(!relative && n>=0 && n<=extent)values[i]=(int)n;
         }
         int x=values[0],y=values[1],w=values[2],h=values[3];
         if(x>=0 && y>=STATUS_HEIGHT && y<180 && w>0 && h>0 && w<=WIDTH &&

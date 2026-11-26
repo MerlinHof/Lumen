@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.periodic-table",
   "name": "Periodensystem",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "sources": [
     "app.c"
   ],

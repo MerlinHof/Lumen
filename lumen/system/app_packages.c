@@ -443,7 +443,7 @@ static int process_open(AppProcess *p,AppId id,const char *role) {
  if(p==service || p==periodic_process || p==system_query)return 1;
  char*event=NULL;size_t n=0;FILE*f=open_memstream(&event,&n);
  int background_action=p==&foreground && service_background_owner==(int)id ? service_action : 0;
- fprintf(f,"{\"event\":\"open\",\"api\":%d,\"surface_api\":2,\"catalog_query\":1,\"reader_preferences\":1,\"width\":600,\"height\":800,\"content_y\":56,\"language\":%d,\"background_action\":%d,\"data_dir\":",entries[id].api,options[OPT_LANGUAGE],background_action);json_text(f,state);fputs(",\"role\":",f);json_text(f,role);fputc('}',f);fclose(f);int ok=process_send(p,event);free(event);return ok;
+ fprintf(f,"{\"event\":\"open\",\"api\":%d,\"surface_api\":3,\"catalog_query\":1,\"reader_preferences\":1,\"coordinate_space\":\"logical\",\"width\":%d,\"height\":%d,\"content_y\":%d,\"language\":%d,\"background_action\":%d,\"data_dir\":",entries[id].api,WIDTH,HEIGHT,STATUS_HEIGHT,options[OPT_LANGUAGE],background_action);json_text(f,state);fputs(",\"role\":",f);json_text(f,role);fputc('}',f);fclose(f);int ok=process_send(p,event);free(event);return ok;
 }
 static int wire_true(const char *key) {
     const WireField *field=wire_get(key);

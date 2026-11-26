@@ -16,6 +16,11 @@ void device_request_sleep(void);
 int device_system_power(int restart);
 void device_poll_interval(int ms);
 int device_wifi(int enabled);
+typedef struct { int brightness,bluetooth; } DeviceCapabilities;
+/* A negative value means that no usable control backend was detected. */
+DeviceCapabilities device_capabilities(void);
+int device_brightness(int percent);
+int device_bluetooth(int enabled);
 void device_hold_awake(int enabled);
 void device_finish_update(void);
 int device_wifi_enabled(void);

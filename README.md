@@ -6,15 +6,15 @@
 
 An illustrated Home, a shared Reader, and useful tools for a paper screen.
 
-[**Download 7.9**](https://github.com/MerlinHof/Lumen/releases/tag/v7.9) ·
-[Release notes](docs/releases/7.9.md) ·
+[**Download 8.0**](https://github.com/MerlinHof/Lumen/releases/tag/v8.0) ·
+[Release notes](docs/releases/8.0.md) ·
 [Installation](docs/installation.md) ·
 [Build](docs/building.md) ·
 [Agent guide](AGENTS.md)
 
 ![LUMEN — native Home, library and calculator screens](docs/images/hero.png)
 
-**Native C · 600 × 800 E-Ink · Local first · Deutsch / English / Français**
+**Native C · Adaptive E-Ink viewport · Local first · Deutsch / English / Français**
 
 </div>
 
@@ -67,15 +67,16 @@ Online features depend on their providers. Home Assistant and OpenAI use your
 own server or account configuration. The calendar is local. Timers provide a
 visual interruption while LUMEN is awake and cannot wake the Kindle from deep sleep.
 
-## What's new in 7.9
+## What's new in 8.0
 
-- Wi-Fi shows an icon for each network state and tracks connection progress.
-- Library book menus open beside their vertical three-dot buttons. Continue
-  Reading has a larger cover.
-- Browser adds a Home page with four shortcuts, HTML select controls, SVG
-  images, more CSS queries and persistent site storage.
+- The display and touch adapt to the detected panel. Apps use the SDK’s
+  device-independent layout and input geometry.
+- Settings → Hardware shows screen brightness and Bluetooth radio controls,
+  with unavailable hardware visibly disabled.
+- The desktop emulator boots the Kindle ARM build under QEMU with live
+  display presets and custom resolution and PPI. [Emulator guide](tools/emulator.md)
 
-[Full 7.9 release notes](docs/releases/7.9.md) · [Version history](docs/changelog.md)
+[Full 8.0 release notes](docs/releases/8.0.md) · [Version history](docs/changelog.md)
 
 <table>
 <tr>
@@ -95,16 +96,18 @@ visual interruption while LUMEN is awake and cannot wake the Kindle from deep sl
 Each individual screen is 600 × 800 pixels. They are software previews;
 physical E-Ink appearance and response time depend on the Kindle.*
 
-## Install LUMEN 7.9
+## Install LUMEN 8.0
 
 Already running LUMEN? Use **Settings → System → Update** on the Kindle. The steps below cover first installation and USB recovery.
 
-**Current hardware target — Kindle Touch 2 (KT2), firmware 5.12.2.2, ARMv7.**
+**Supported installation target — Kindle Touch 2 (KT2), firmware 5.12.2.2, ARMv7.**
+The 2026 Kindle Basic and other Kindle models are pending physical validation.
+[Kindle compatibility](docs/kindle-porting.md)
 
 A compatible jailbreak, the Kindle .sh launcher and FBInk must already be
 installed. LUMEN's installer checks these prerequisites.
 
-1. [Download LUMEN-7.9.zip](https://github.com/MerlinHof/Lumen/releases/download/v7.9/LUMEN-7.9.zip)
+1. [Download LUMEN-8.0.zip](https://github.com/MerlinHof/Lumen/releases/download/v8.0/LUMEN-8.0.zip)
    and extract the complete folder.
 2. Connect the prepared Kindle over USB.
 3. Open **Install-LUMEN.command** on macOS, or run the Python installer with

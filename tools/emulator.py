@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the unmodified LUMEN host UI with virtual Kindle hardware over localhost."""
+"""Run LUMEN with a browser-based Kindle display and touch panel."""
 
 import argparse
 import fcntl
@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import shutil
 import struct
 import subprocess
 import sys
@@ -18,9 +19,11 @@ import zipfile
 import zlib
 
 import build
+import emulator_vm
 
 ROOT = build.ROOT
 WIDTH, HEIGHT = 600, 800
+FRAME_MAGIC = b"LUMENFB\x01"
 WAVEFORMS = ("DU", "GL16", "GC16", "GC16 full")
 BOOK = """# The Quiet Hours
 
@@ -34,23 +37,25 @@ reader to show its controls. Hold on a word to open text selection.
 """
 
 
-def build_emulator(output):
+def run_native(books, data, log):
     try:
-        mupdf, _, libraries = build.dependencies("host")
+        build.dependencies("host")
     except SystemExit:
         subprocess.run([sys.executable, str(ROOT / "tools/setup.py"), "host"], check=True)
-        mupdf, _, libraries = build.dependencies("host")
-    build.build("host")
-    adapter = output / "virtual-device.o"
-    binary = output / "lumen-emulator"
-    subprocess.run(["clang", "-O2", "-Wall", "-Wextra", "-I" + str(ROOT / "lumen"),
-                    "-I" + str(mupdf / "include"), "-c",
-                    str(ROOT / "tools/emulator-device.c"), "-o", str(adapter)], check=True)
-    objects = [build.object_path("host", source) for source in build.sources()
-               if source != "system/device.c"]
-    subprocess.run(["clang++", *map(str, objects + [adapter] + libraries),
-                    "-lm", "-lpthread", "-o", str(binary)], check=True)
-    return binary
+    binary = build.build("host")
+    read_fd, write_fd = os.pipe()
+    try:
+        process = subprocess.Popen(
+            [str(binary), "--library", str(books), "--data", str(data)],
+            cwd=ROOT, stdin=subprocess.PIPE, stdout=log, stderr=log,
+            pass_fds=(write_fd,), start_new_session=True,
+            env=dict(os.environ, LUMEN_EMULATOR_DISPLAY_FD=str(write_fd)))
+    except BaseException:
+        os.close(read_fd)
+        raise
+    finally:
+        os.close(write_fd)
+    return process, os.fdopen(read_fd, "rb")
 
 
 def prepare_profile(profile):
@@ -84,18 +89,52 @@ def prepare_profile(profile):
     return books, data
 
 
-def png(pixels):
+class Panel:
+    def __init__(self, width=WIDTH, height=HEIGHT, ppi=167):
+        if not (240 <= width <= height <= 3000 and height >= 320):
+            raise ValueError("Expected a portrait panel of at least 240 × 320 and at most 3000 × 3000")
+        if not 80 <= ppi <= 600:
+            raise ValueError("Expected a density of 80–600 PPI")
+        self.width, self.height, self.ppi = width, height, ppi
+        if width * HEIGHT > height * WIDTH:
+            content_w, content_h = height * WIDTH // HEIGHT, height
+        else:
+            content_w, content_h = width, width * HEIGHT // WIDTH
+        left, top = (width - content_w) // 2, (height - content_h) // 2
+        self.viewport = (left, top, content_w, content_h)
+        self.columns = [x * WIDTH // content_w for x in range(content_w)]
+        self.rows = [y * HEIGHT // content_h for y in range(content_h)]
+
+    def expand(self, pixels):
+        if (self.width, self.height) == (WIDTH, HEIGHT):
+            return pixels
+        left, top, width, height = self.viewport
+        padding = bytes([255]) * left
+        trailing = bytes([255]) * (self.width - left - width)
+        scaled = {}
+        for y in set(self.rows):
+            line = pixels[y*WIDTH:(y+1)*WIDTH]
+            scaled[y] = padding + bytes(map(line.__getitem__, self.columns)) + trailing
+        margin = bytes([255]) * self.width
+        return margin * top + b"".join(scaled[y] for y in self.rows) + margin * (self.height - top - height)
+
+    def encode(self, pixels):
+        return png(self.expand(pixels), self.width, self.height)
+
+
+def png(pixels, width=WIDTH, height=HEIGHT):
     def chunk(kind, payload):
         return (struct.pack(">I", len(payload)) + kind + payload +
                 struct.pack(">I", zlib.crc32(kind + payload)))
-    scanlines = b"".join(b"\0" + pixels[y:y + WIDTH] for y in range(0, len(pixels), WIDTH))
-    header = struct.pack(">IIBBBBB", WIDTH, HEIGHT, 8, 0, 0, 0, 0)
+    scanlines = b"".join(b"\0" + pixels[y:y + width] for y in range(0, len(pixels), width))
+    header = struct.pack(">IIBBBBB", width, height, 8, 0, 0, 0, 0)
     return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header) + chunk(
         b"IDAT", zlib.compress(scanlines, 3)) + chunk(b"IEND", b"")
 
 
 class Display:
-    def __init__(self, durations):
+    def __init__(self, durations, panel=None):
+        self.panel = panel or Panel()
         self.durations = durations
         self.condition = threading.Condition()
         self.stop = threading.Event()
@@ -105,23 +144,40 @@ class Display:
         self.snapshot = None
         self.waveform = ""
 
-    def read(self, pipe):
+    def read(self, pipe, boot_log):
         with pipe:
+            # QEMU's serial port first carries the guest kernel's boot log.
+            prefix = bytearray()
+            while not self.stop.is_set():
+                byte = pipe.read(1)
+                if not byte:
+                    boot_log.write(prefix)
+                    self.close()
+                    return
+                prefix.extend(byte)
+                if prefix.endswith(FRAME_MAGIC):
+                    boot_log.write(prefix[:-len(FRAME_MAGIC)])
+                    boot_log.flush()
+                    break
+                if byte == b"\n" or len(prefix) >= 4096:
+                    boot_log.write(prefix)
+                    boot_log.flush()
+                    prefix.clear()
             while not self.stop.is_set():
                 mode = pipe.read(1)
                 pixels = pipe.read(WIDTH * HEIGHT) if mode else b""
-                if len(pixels) != WIDTH * HEIGHT:
+                if len(pixels) != WIDTH * HEIGHT or mode[0] >= len(WAVEFORMS):
                     break
                 with self.condition:
                     self.pending = (mode[0], pixels)
                     self.condition.notify_all()
         self.close()
 
-    def publish(self, image, waveform, settled=False):
+    def publish(self, image, waveform, snapshot=None):
         with self.condition:
             self.image, self.waveform = image, waveform
-            if settled:
-                self.snapshot = image
+            if snapshot is not None:
+                self.snapshot = snapshot
             self.revision += 1
             self.condition.notify_all()
 
@@ -147,7 +203,7 @@ class Display:
                 duration *= .77
             if self.stop.wait(duration):
                 return
-            self.publish(png(pixels), label, settled=True)
+            self.publish(png(pixels), label, snapshot=pixels)
 
     def close(self):
         self.stop.set()
@@ -155,9 +211,12 @@ class Display:
             self.condition.notify_all()
 
 
-def handler_for(token, display, process):
+def handler_for(token, display, process, backend="native"):
     prefix = "/" + token + "/"
-    html = (ROOT / "tools/emulator.html").read_bytes()
+    panel = display.panel
+    config = json.dumps(dict(width=panel.width, height=panel.height,
+                             logical=[WIDTH, HEIGHT], ppi=panel.ppi, backend=backend))
+    html = (ROOT / "tools/emulator.html").read_bytes().replace(b"__LUMEN_PANEL__", config.encode("ascii"))
     input_lock = threading.Lock()
 
     class Handler(BaseHTTPRequestHandler):
@@ -191,7 +250,7 @@ def handler_for(token, display, process):
                 if snapshot is None:
                     self.reply(503)
                 else:
-                    self.reply(200, snapshot, "image/png")
+                    self.reply(200, panel.encode(snapshot), "image/png")
             elif url.path == prefix + "frame":
                 try:
                     after = int(parse_qs(url.query).get("after", ["0"])[0])
@@ -228,9 +287,12 @@ def handler_for(token, display, process):
             except (ValueError, UnicodeDecodeError):
                 self.reply(400)
                 return
+            if display.revision == 0:
+                self.reply(503)
+                return
             try:
                 with input_lock:
-                    process.stdin.write(struct.pack("=iii", kind, x, y))
+                    process.stdin.write(struct.pack("<iii", kind, x, y))
                     process.stdin.flush()
             except (BrokenPipeError, OSError):
                 self.reply(503)
@@ -255,8 +317,32 @@ def main():
     parser.add_argument("--gl16-ms", type=timing, default=0)
     parser.add_argument("--gc16-ms", type=timing, default=0)
     parser.add_argument("--instant", action="store_true", help="skip simulated display delay")
+    parser.add_argument("--profile", choices=("2014", "2026"), default="2014",
+                        help="panel simulation preset")
+    parser.add_argument("--panel", metavar="WIDTHxHEIGHT", help="override simulated portrait panel size")
+    parser.add_argument("--ppi", type=int, help="override simulated pixel density")
+    parser.add_argument("--backend", choices=("auto", "arm", "native"), default="auto",
+                        help="use QEMU ARM Linux when configured, or run the standard host build")
+    parser.add_argument("--kernel", type=Path, help="Linux ARMv7 kernel with QEMU virt support")
+    parser.add_argument("--qemu", default=os.environ.get("LUMEN_QEMU", "qemu-system-arm"))
+    parser.add_argument("--rebuild", action="store_true", help="rebuild the standard Kindle artifacts before booting")
     args = parser.parse_args()
     profile = ROOT / "build/emulator"
+    kernel = (args.kernel or profile / "vmlinuz-armv7").expanduser().resolve()
+    qemu = shutil.which(args.qemu)
+    if not qemu and args.qemu == "qemu-system-arm":
+        qemu = shutil.which(str(ROOT / ".local/deps/qemu/bin/qemu-system-arm"))
+    arm = args.backend == "arm" or (args.backend == "auto" and
+                                   (args.kernel or (qemu and kernel.is_file())))
+    if arm and not (qemu and kernel.is_file()):
+        parser.error("ARM mode requires qemu-system-arm and an ARMv7 kernel (--kernel FILE).")
+    backend = "arm" if arm else "native"
+    try:
+        dimensions = tuple(map(int,args.panel.lower().split("x"))) if args.panel else (
+            (WIDTH,HEIGHT) if args.profile=="2014" else (1080,1440))
+        panel = Panel(*dimensions, ppi=args.ppi if args.ppi is not None else (167 if args.profile == "2014" else 300))
+    except (ValueError,TypeError) as error:
+        parser.error(f"Invalid panel: {error}")
     profile.mkdir(parents=True, exist_ok=True)
     with (profile / "session.lock").open("a") as lock:
         try:
@@ -264,45 +350,43 @@ def main():
         except BlockingIOError:
             parser.exit(1, "Der LUMEN-Emulator läuft bereits. Beende den ersten Starter.\n")
         books, data = prepare_profile(profile)
-        binary = build_emulator(profile)
         durations = (0, 0, 0, 0) if args.instant else (
             args.du_ms, args.gl16_ms, args.gc16_ms, args.gc16_ms)
-        display = Display(durations)
-        read_fd, write_fd = os.pipe()
-        with (profile / "emulator.log").open("wb") as log:
-            try:
-                process = subprocess.Popen(
-                    [str(binary), "--library", str(books), "--data", str(data)],
-                    cwd=ROOT, stdin=subprocess.PIPE, stdout=log, stderr=log,
-                    pass_fds=(write_fd,), start_new_session=True,
-                    env=dict(os.environ, LUMEN_EMULATOR_DISPLAY_FD=str(write_fd)))
-            except BaseException:
-                os.close(read_fd)
-                raise
-            finally:
-                os.close(write_fd)
-            reader = threading.Thread(target=display.read, args=(os.fdopen(read_fd, "rb"),), daemon=True)
+        display = Display(durations, panel)
+        with (profile / "emulator.log").open("wb") as log, (profile / "guest-boot.log").open("wb") as boot_log:
+            if arm:
+                process = emulator_vm.launch(qemu, kernel, profile, books, log, args.rebuild)
+                frame_pipe = process.stdout
+            else:
+                process, frame_pipe = run_native(books, data, log)
+            reader = threading.Thread(target=display.read, args=(frame_pipe, boot_log), daemon=True)
             painter = threading.Thread(target=display.update, daemon=True)
             reader.start()
             painter.start()
             token = secrets.token_urlsafe(18)
+            stopped = False
             try:
                 with ThreadingHTTPServer(("127.0.0.1", args.port),
-                                         handler_for(token, display, process)) as server:
+                                         handler_for(token, display, process, backend)) as server:
                     server.timeout = .25
                     url = f"http://127.0.0.1:{server.server_port}/{token}/"
                     print(url, flush=True)
-                    print(f"Bücher: {books}\nBeenden mit Ctrl+C.", flush=True)
+                    print(f"Modus: {backend}\nBücher: {books}\nBeenden mit Ctrl+C.", flush=True)
                     if not args.no_open:
                         webbrowser.open(url)
                     while process.poll() is None:
                         server.handle_request()
             except KeyboardInterrupt:
-                pass
+                stopped = True
             finally:
                 # EOF runs LUMEN's normal exit path and saves its profile.
                 if process.stdin:
-                    process.stdin.close()
+                    try:
+                        if arm and display.revision:
+                            process.stdin.write(struct.pack("<iii", 7, 0, 0))
+                        process.stdin.close()
+                    except BrokenPipeError:
+                        pass
                 try:
                     process.wait(timeout=4)
                 except subprocess.TimeoutExpired:
@@ -313,7 +397,8 @@ def main():
                         process.kill()
                         process.wait()
                 display.close()
-            if process.returncode:
+                reader.join(timeout=1)
+            if process.returncode and not stopped:
                 print(f"LUMEN wurde beendet ({process.returncode}). Log: {profile / 'emulator.log'}",
                       file=sys.stderr)
                 return 1

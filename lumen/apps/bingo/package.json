@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.bingo",
   "name": "Bingo",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "sources": [
     "app.c"
   ],

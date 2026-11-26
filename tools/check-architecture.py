@@ -68,15 +68,16 @@ if args.sdk:
         'timer': 'full-screen clock dismissal',
     }
     raw = re.compile(r'\b(?:INPUT_(?:TAP|HOLD|DOWN)|ui_paint_hitbox)\b')
+    display_hardware = re.compile(r'/dev/(?:fb[0-9]|input/event)|/sys/class/(?:graphics|backlight)|\b(?:FBIOGET_[VF]SCREENINFO|EVIOCGABS)\b')
     network = re.compile(r'"curl"')
     pending = []
     for manifest in sorted((root/'lumen/apps').glob('*/package.json')):
         for source in manifest.parent.rglob('*'):
-            if not source.is_file() or source.suffix not in ('.c','.h'):
+            if not source.is_file() or source.suffix not in ('.c','.h','.cpp','.hpp'):
                 continue
             for number,line in enumerate(source.read_text().splitlines(),1):
-                if network.search(line) or (raw.search(line) and manifest.parent.name not in spatial):
+                if display_hardware.search(line) or network.search(line) or (raw.search(line) and manifest.parent.name not in spatial):
                     pending.append(f'{source.relative_to(root)}:{number}')
     if pending:
-        raise SystemExit('Raw controls or private HTTP outside the SDK boundary:\n'+'\n'.join(pending))
-    print(f'PASS SDK action and HTTP audit across all {len(manifests)} bundled packages.')
+        raise SystemExit('Hardware geometry, raw controls or private HTTP outside the SDK boundary:\n'+'\n'.join(pending))
+    print(f'PASS SDK geometry, action and HTTP audit across all {len(manifests)} bundled packages.')

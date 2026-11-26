@@ -10,7 +10,7 @@ typedef struct {
     char label[80],value[WEB_FIELD_TEXT];
     struct {int id;char label[96];} choices[WEB_CHOICES];
 } WebField;
-static const char mobile_agent[]="Mozilla/5.0 (Linux; Kindle; Mobile) LUMEN/7.9";
+static const char mobile_agent[]="Mozilla/5.0 (Linux; Kindle; Mobile) LUMEN/8.0";
 static int url_valid(const char *url) {
     if(strncmp(url,"http://",7) && strncmp(url,"https://",8))return 0;
     const char *host=strstr(url,"://")+3;

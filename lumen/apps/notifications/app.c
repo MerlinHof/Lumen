@@ -11,7 +11,9 @@ static const char *localized(const char *de,const char *en,const char *fr) {
 static void banner(void) {
     lumen_first=1;
     if(*message) {
-        printf("{\"generation\":%d,\"capture\":[19,57,558,91],\"ui\":[",generation);
+        printf("{\"generation\":%d,\"geometry\":%d,\"capture\":[%d,%d,%d,%d],\"ui\":[",
+               generation,lumen_relative,lumen_position(19,WIDTH),lumen_position(57,HEIGHT),
+               lumen_position(558,WIDTH),lumen_position(91,HEIGHT));
         lumen_cmd("raised",19,57,558,91);putchar('}');
         lumen_cmd("wrap",37,76,470,65);
         fputs(",\"text\":",stdout);lumen_json(message);fputs(",\"lines\":2}",stdout);

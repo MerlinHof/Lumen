@@ -1,12 +1,13 @@
 #include "lumen_app.h"
 #include "lumen_device_preferences.h"
 
-enum {HOME,WIFI,APPEARANCE,TIME,APPS,SYSTEM};
+enum {HOME,WIFI,APPEARANCE,TIME,APPS,SYSTEM,HARDWARE};
 #define PREFERENCE_NAME(name, option) name,
 static const char *const preference_names[]={LUMEN_DEVICE_PREFERENCES(PREFERENCE_NAME)};
 #undef PREFERENCE_NAME
 static int screen,tab,page,count,prefs[sizeof(preference_names)/sizeof(*preference_names)],
     sleep_minutes=10,autostart,release_state,enabled,busy;
+static int brightness=-1,bluetooth=-1;
 static int remove_row=-1,reset,joining;
 static char joining_name[129],wifi_error[192];
 static char version[24],new_version[24],checked[48],error[160],network_name[129],total[40],sizes[5][40];
@@ -18,7 +19,7 @@ static const char *word(const char *de,const char *en,const char *fr) {
 static const char *name(int target) {
     const char *names[][3]={{"Einstellungen","Settings","Réglages"},{"WLAN","Wi-Fi","Wi-Fi"},
         {"Darstellung","Appearance","Apparence"},{"Datum & Uhrzeit","Date & time","Date et heure"},
-        {"Apps verwalten","Manage apps","Gérer les apps"},{"System","System","Système"}};
+        {"Apps verwalten","Manage apps","Gérer les apps"},{"System","System","Système"},{"Gerät","Hardware","Matériel"}};
     return word(names[target][0],names[target][1],names[target][2]);
 }
 static void request(const char *operation,const char *data,int action) {
@@ -237,6 +238,25 @@ static void draw_system(void) {
         for(int i=0;i<4;i++)lumen_button_action(actions[i],28,304+i*84,544,60,management(i),0);
     }
 }
+static void draw_hardware(void) {
+    const char *unavailable=word("Nicht verfügbar","Unavailable","Indisponible");
+    const char *light=word("Bildschirmbeleuchtung","Screen brightness","Luminosité de l’écran");
+    const char *radio=word("Bluetooth-Funk","Bluetooth radio","Radio Bluetooth");
+    if(brightness>=0) {
+        char percent[8];snprintf(percent,sizeof(percent),"%d%%",brightness);
+        lumen_select_action("brightness",147,light,percent);
+    } else {
+        lumen_text(30,147,325,48,light,PAINT_BODY,120,1);
+        lumen_text_right(356,147,212,48,unavailable,PAINT_SECONDARY);
+    }
+    lumen_list_divider(28,206,572);
+    if(bluetooth>=0)toggle_row("bluetooth",221,radio,bluetooth);
+    else {
+        lumen_text(30,221,325,48,radio,PAINT_BODY,120,1);
+        lumen_text_right(356,221,212,48,unavailable,PAINT_SECONDARY);
+        lumen_list_divider(28,276,572);
+    }
+}
 static void draw_content(void) {
     if(screen==HOME) {
         lumen_form(name(screen));
@@ -244,13 +264,15 @@ static void draw_content(void) {
             word("Sprache, Sperrbild und Statusleiste","Language, lock screen and status bar","Langue, veille et barre d’état"),
             word("Zeit, Zeitzone und WLAN-Abgleich","Time, time zone and synchronization","Heure, fuseau et synchronisation"),
             word("Sichtbarkeit & Reihenfolge","Visibility and order","Visibilité et ordre"),
-            word("Speicher, Version und Konfiguration","Storage, updates and configuration","Stockage, mises à jour et configuration")};
-        const char *sections[]={"wifi","appearance","date-time","manage","system"};
-        for(int i=1;i<=5;i++)lumen_form_link(sections[i-1],name(i),hints[i-1]);
+            word("Speicher, Version und Konfiguration","Storage, updates and configuration","Stockage, mises à jour et configuration"),
+            word("Beleuchtung und Bluetooth","Screen light and Bluetooth","Luminosité et Bluetooth")};
+        const char *sections[]={"wifi","appearance","date-time","manage","system","hardware"};
+        for(int i=1;i<=HARDWARE;i++)lumen_form_link(sections[i-1],name(i),hints[i-1]);
         return;
     }
     ui_paint_heading(name(screen),0);
-    if(screen==WIFI)draw_wifi();
+    if(screen==HARDWARE)draw_hardware();
+    else if(screen==WIFI)draw_wifi();
     else if(screen==APPEARANCE)draw_appearance();
     else if(screen==TIME)draw_time();
     else if(screen==APPS)draw_apps();
@@ -304,13 +326,20 @@ static int component_input(void) {
         return 1;
     }
     if(screen==HOME && clicked) {
-        const char *sections[]={"wifi","appearance","date-time","manage","system"};
-        for(int i=0;i<5;i++)if(!strcmp(id,sections[i])){show(i+1);return 1;}
+        const char *sections[]={"wifi","appearance","date-time","manage","system","hardware"};
+        for(int i=0;i<HARDWARE;i++)if(!strcmp(id,sections[i])){show(i+1);return 1;}
     }
     if((screen==APPEARANCE || screen==SYSTEM) && !strcmp(id,"tab") &&
        !strcmp(gesture,"selected") && value[0]>='0' && value[0]<='2' && !value[1]) {
         tab=value[0]-'0';
         if(screen==SYSTEM)load();
+        return 1;
+    }
+    if(screen==HARDWARE) {
+        if(clicked && brightness>=0 && !strcmp(id,"brightness")) {
+            const char *levels[]={"0%","10%","20%","30%","40%","50%","60%","70%","80%","90%","100%"};
+            lumen_select_anchored(levels,11,(brightness+5)/10,31,"brightness");
+        } else if(changed && bluetooth>=0 && !strcmp(id,"bluetooth"))request("bluetooth",value,5);
         return 1;
     }
     if(screen==WIFI) {
@@ -381,7 +410,7 @@ static int input(const Input *in) {
         if(!strcmp(op,"wifi"))show(WIFI);
         else if(!strcmp(op,"settings-section")) {
             int dest=lumen_number("section");
-            if(dest>=HOME && dest<=SYSTEM)show(dest);
+            if(dest>=HOME && dest<=HARDWARE)show(dest);
         }
         return 1;
     }
@@ -393,7 +422,10 @@ static int input(const Input *in) {
     if(in->kind==INPUT_PAGE){page=in->x;load();return 1;}
     if(in->kind==INPUT_COMPONENT)return component_input();
     if(in->kind==INPUT_SELECT && in->y>=0) {
-        if(in->x==30 && in->y<6){char value[16];snprintf(value,sizeof(value),"%d",durations[in->y]);request("sleep",value,5);}
+        if(in->x==31 && brightness>=0 && in->y<=10) {
+            char percent[8];snprintf(percent,sizeof(percent),"%d",in->y*10);
+            request("brightness",percent,5);
+        } else if(in->x==30 && in->y<6){char value[16];snprintf(value,sizeof(value),"%d",durations[in->y]);request("sleep",value,5);}
         else if(in->x>=10 && in->x<25) {
             int id=in->x-10,n,selected;
             if(values(id,&n,&selected) && in->y<n)preference(id,id==9 ? lock_ids[in->y] : in->y);
@@ -413,6 +445,8 @@ static int input(const Input *in) {
                 prefs[i]=lumen_number(preference_names[i]);
             lumen_language=prefs[0];sleep_minutes=lumen_number("sleep");autostart=lumen_number("autostart");
             release_state=lumen_number("release");
+            brightness=lumen_number("hardware_controls") ? lumen_number("brightness") : -1;
+            bluetooth=lumen_number("hardware_controls") ? lumen_number("bluetooth") : -1;
             lumen_string("version",version,sizeof(version));lumen_string("release_version",new_version,sizeof(new_version));
             lumen_string("checked",checked,sizeof(checked));lumen_string("error",error,sizeof(error));
         } else if((in->x==2 || in->x==3) && in->y) {

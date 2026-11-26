@@ -1,5 +1,16 @@
 # LUMEN app packages · Protocol 2
 
+The SDK uses a device-independent 600 × 800 portrait reference surface.
+Use the shared layout controls for ordinary screens and
+`lumen_fraction_rect` from `lumen_surface.h` for proportional custom regions.
+Packages never receive a physical framebuffer size or PPI.
+
+Surface API 3 encodes the width and height as 10,000 units per axis on the
+package wire. Drawing commands, overlays, capture regions and touch events
+scale to this same surface. The C SDK handles conversion for existing layout
+calls and the host continues to accept older package frames.
+
+
 One catalog and one package identity are used for every app. Packages do not
 carry a “system” or “custom” privilege flag. Installing a new version with an
 existing ID replaces that app's entry, icon and executable; it does not create a

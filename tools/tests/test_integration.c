@@ -611,8 +611,14 @@ int main(int argc, char **argv) {
         app_overlay_poll(app_provider_overlay_slot(PROVIDER_SLEEP));
     }
     assert(app_package_installed(app_package_find("lumen.lock-screen")));
-    assert(strstr(app_overlay_frame(app_provider_overlay_slot(PROVIDER_SLEEP)),"display_text\",\"x\":20,\"y\":285"));
-    assert(strstr(app_overlay_frame(app_provider_overlay_slot(PROVIDER_SLEEP)),"display_text\",\"x\":20,\"y\":418"));
+    const char *lock_frame=app_overlay_frame(app_provider_overlay_slot(PROVIDER_SLEEP));
+    assert(strstr(lock_frame,"\"geometry\":1"));
+    for(int i=0;i<2;i++) {
+        char expected[80];
+        snprintf(expected,sizeof(expected),"display_text\",\"x\":%d,\"y\":%d",
+                 lumen_geometry_encode(20,WIDTH),lumen_geometry_encode(i ? 418 : 285,HEIGHT));
+        assert(strstr(lock_frame,expected));
+    }
     sleeping=0;options[OPT_LOCK]=old_lock;options[OPT_LOCK_DATE]=old_date;
     char restart_dir[2048], restart_path[2048];
     snprintf(restart_dir,sizeof(restart_dir),"%s/../.update",data_root);

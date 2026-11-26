@@ -1,5 +1,5 @@
 /* Bounded selector matching for the JavaScript DOM bridge. */
-enum { WEB_VIEW_WIDTH=584, WEB_VIEW_HEIGHT=686 };
+enum { WEB_VIEW_WIDTH=LUMEN_SURFACE_WIDTH-16, WEB_VIEW_HEIGHT=LUMEN_SURFACE_HEIGHT-LUMEN_STATUS_HEIGHT-58 };
 
 static int selector_attribute(const MarkupNode *node,const char *at,const char *end) {
     const char *name=at;

@@ -1,8 +1,9 @@
 #ifndef LUMEN_INPUT_H
 #define LUMEN_INPUT_H
-#define WIDTH 600
-#define HEIGHT 800
-#define STATUS_HEIGHT 56
+#include "lumen_surface.h"
+#define WIDTH LUMEN_SURFACE_WIDTH
+#define HEIGHT LUMEN_SURFACE_HEIGHT
+#define STATUS_HEIGHT LUMEN_STATUS_HEIGHT
 typedef struct {
     int kind, x, y, dx, dy;
 } Input;

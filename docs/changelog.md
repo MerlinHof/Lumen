@@ -1,5 +1,7 @@
 # Changelog
 
+- [8.0](releases/8.0.md) · Adaptive Kindle display mapping, relative SDK geometry, hardware controls, and ARM emulation.
+
 - [7.9](releases/7.9.md) · Wi-Fi connection feedback, anchored Library menus, and a new Browser home.
 - [7.8](releases/7.8.md) · More responsive input, sleep recovery, aligned Library rows, and shared button refinements.
 - [7.7](releases/7.7.md) · Browser timers and CSS compatibility, longer Reader context, and an immediate web emulator.

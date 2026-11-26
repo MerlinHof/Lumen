@@ -54,6 +54,7 @@ static void keyboard_layout18(void) {
     if(!keyboard_layout_valid)return;
     int rows=json_get(&keyboard_package,0,"keymaps");
     int keys=json_at(&keyboard_package,rows,layout);
+    int relative=json_number(&keyboard_package,json_get(&keyboard_package,0,"geometry"))==1;
     for(int i=0;i<56;i++) {
         int item=json_at(&keyboard_package,keys,i);
         if(item<0)break;
@@ -63,6 +64,8 @@ static void keyboard_layout18(void) {
         for(int field=0;field<8;field++) {
             json_string(&keyboard_package,json_at(&keyboard_package,item,field),value,sizeof(value));
             geometry[field]=atoi(value);
+            if(relative && field<4)
+                geometry[field]=lumen_geometry_decode(geometry[field],field%2 ? HEIGHT : WIDTH);
         }
         k.x=geometry[0];k.y=geometry[1];k.w=geometry[2];k.h=geometry[3];k.action=geometry[4];
         k.next=geometry[5];k.icon=geometry[6];k.style=geometry[7];

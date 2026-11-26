@@ -1,8 +1,9 @@
 #define _GNU_SOURCE
-#include "device.h"
+#include "virtual_device.h"
 #include "app_packages.h"
 #include "network.h"
 #include "refresh.h"
+#include "display_viewport.h"
 #include "power_state.h"
 #include <errno.h>
 #include <fcntl.h>
@@ -15,8 +16,12 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+
+static int virtual_hardware;
 #ifndef LUMEN_HOST
 #include <arpa/inet.h>
+#include <dirent.h>
+#include <linux/rfkill.h>
 #include <ifaddrs.h>
 #include <linux/fb.h>
 #include <linux/input.h>
@@ -87,13 +92,18 @@ static int finish_job(DeviceJob *job,void *result,size_t size) {
 }
 static unsigned char *fb;
 static size_t fbsize;
-static int stride, xoff, yoff;
+static int stride,xoff,yoff,pixel_bytes;
+static DisplayViewport viewport;
+static uint32_t gray_palette[256];
+static uint16_t source_column[8192],source_row[8192];
 static struct input_absinfo ax, ay;
 static int xcode = ABS_MT_POSITION_X, ycode = ABS_MT_POSITION_Y;
 static unsigned char previous[WIDTH * HEIGHT];
 static int initialized;
 static pid_t feedback_pid = -1;
 int device_refresh_busy(void) {
+    if(virtual_hardware)return virtual_device_refresh_busy();
+
     if (feedback_pid <= 0) return 0;
     int result=0;
     pid_t status = waitpid(feedback_pid,&result,WNOHANG);
@@ -183,7 +193,75 @@ static int monitor(const char *source, pid_t *pid) {
     fcntl(pipes[0], F_SETFD, FD_CLOEXEC);
     return pipes[0];
 }
+static int bit_set(const unsigned long *bits,unsigned index) {
+    const unsigned width=sizeof(*bits)*8;
+    return !!(bits[index/width] & (1ul<<(index%width)));
+}
+static int touch_axes(int fd,struct input_absinfo *x,struct input_absinfo *y,int *xc,int *yc) {
+    int xs[]={ABS_MT_POSITION_X,ABS_X},ys[]={ABS_MT_POSITION_Y,ABS_Y};
+    for(int i=0;i<2;i++)if(!ioctl(fd,EVIOCGABS(xs[i]),x) &&
+       !ioctl(fd,EVIOCGABS(ys[i]),y) && x->maximum>x->minimum && y->maximum>y->minimum) {
+        *xc=xs[i];*yc=ys[i];
+        return 1;
+    }
+    return 0;
+}
+static int open_inputs(void) {
+    int best=-1;
+    for(int i=0;i<64;i++) {
+        char path[48];
+        snprintf(path,sizeof(path),"/dev/input/event%d",i);
+        int fd=open(path,O_RDONLY|O_NONBLOCK|O_CLOEXEC);
+        if(fd<0)continue;
+        unsigned long keys[(KEY_MAX+sizeof(long)*8)/(sizeof(long)*8)]={0};
+        unsigned long props[(INPUT_PROP_MAX+sizeof(long)*8)/(sizeof(long)*8)]={0};
+        unsigned long axes[(ABS_MAX+sizeof(long)*8)/(sizeof(long)*8)]={0};
+        ioctl(fd,EVIOCGBIT(EV_KEY,sizeof(keys)),keys);
+        ioctl(fd,EVIOCGBIT(EV_ABS,sizeof(axes)),axes);
+        ioctl(fd,EVIOCGPROP(sizeof(props)),props);
+        struct input_absinfo tx,ty;
+        int xc,yc;
+        int direct=bit_set(props,INPUT_PROP_DIRECT);
+        int tracks=bit_set(axes,ABS_MT_TRACKING_ID);
+        if(!bit_set(props,INPUT_PROP_POINTER) && (tracks || bit_set(keys,BTN_TOUCH)) &&
+           touch_axes(fd,&tx,&ty,&xc,&yc)) {
+            int score=direct*2+tracks;
+            if(score>best) {
+                if(touch>=0)close(touch);
+                touch=fd;ax=tx;ay=ty;xcode=xc;ycode=yc;best=score;
+                continue;
+            }
+        }
+        if(power<0 && bit_set(keys,KEY_POWER)){power=fd;continue;}
+        close(fd);
+    }
+    return touch>=0 && !ioctl(touch,EVIOCGRAB,1);
+}
+static int display_format(const struct fb_var_screeninfo *v,const struct fb_fix_screeninfo *f) {
+    if(f->type!=FB_TYPE_PACKED_PIXELS || v->nonstd)return 0;
+    if(v->bits_per_pixel==8 && (v->grayscale==1 ||
+       (v->xres==WIDTH && v->yres==HEIGHT) || f->visual==FB_VISUAL_STATIC_PSEUDOCOLOR ||
+       f->visual==FB_VISUAL_PSEUDOCOLOR)) {
+        pixel_bytes=1;
+        for(unsigned i=0;i<256;i++)gray_palette[i]=i;
+        return 1;
+    }
+    if(f->visual!=FB_VISUAL_TRUECOLOR ||
+       (v->bits_per_pixel!=16 && v->bits_per_pixel!=24 && v->bits_per_pixel!=32))return 0;
+    const struct fb_bitfield fields[]={v->red,v->green,v->blue,v->transp};
+    DisplayChannel channels[4];
+    for(int i=0;i<4;i++) {
+        if(fields[i].length && fields[i].msb_right)return 0;
+        channels[i]=(DisplayChannel){fields[i].offset,fields[i].length};
+    }
+    if(!display_gray_palette(v->bits_per_pixel,channels,gray_palette))return 0;
+    pixel_bytes=v->bits_per_pixel/8;
+    return 1;
+}
 int device_init(void) {
+    virtual_hardware=getenv("LUMEN_EMULATOR_TTY") || getenv("LUMEN_EMULATOR_DISPLAY_FD");
+    if(virtual_hardware)return virtual_device_init();
+
     signal(SIGUSR1, on_network);
     signal(SIGTERM, on_signal);
     signal(SIGINT, on_signal);
@@ -197,33 +275,30 @@ int device_init(void) {
     struct fb_fix_screeninfo f;
     if (fbfd < 0 || ioctl(fbfd, FBIOGET_VSCREENINFO, &v) || ioctl(fbfd, FBIOGET_FSCREENINFO, &f))
         return 0;
-    if (v.bits_per_pixel != 8 || v.xres != WIDTH || v.yres != HEIGHT)
-        return 0;
-    stride = f.line_length;
-    xoff = v.xoffset;
-    yoff = v.yoffset;
-    fbsize = f.smem_len;
-    if ((size_t)(yoff + HEIGHT) * stride > fbsize)
-        return 0;
-    fb = mmap(NULL, fbsize, PROT_READ | PROT_WRITE, MAP_SHARED, fbfd, 0);
-    if (fb == MAP_FAILED) {
-        fb = NULL;
+    if(v.xres>8192 || v.yres>8192 || !display_viewport(&viewport,(int)v.xres,(int)v.yres) ||
+       !display_format(&v,&f) || (uint64_t)(v.xoffset+(uint64_t)v.xres)*pixel_bytes>f.line_length ||
+       ((uint64_t)v.yoffset+v.yres)*f.line_length>f.smem_len) {
+        fprintf(stderr,"Unsupported framebuffer: %ux%u at %u bits, visual %u\n",
+                v.xres,v.yres,v.bits_per_pixel,f.visual);
         return 0;
     }
-    touch = open("/dev/input/event1", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
-    power = open("/dev/input/event0", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
-    if (touch < 0 || ioctl(touch, EVIOCGRAB, 1) < 0)
-        return 0;
-    if (ioctl(touch, EVIOCGABS(xcode), &ax) || ioctl(touch, EVIOCGABS(ycode), &ay))
-        return 0;
-    if (ax.maximum <= ax.minimum || ay.maximum <= ay.minimum)
-        return 0;
+    for(int x=0;x<viewport.box.w;x++)source_column[x]=(uint16_t)(x*WIDTH/viewport.box.w);
+    for(int y=0;y<viewport.box.h;y++)source_row[y]=(uint16_t)(y*HEIGHT/viewport.box.h);
+    stride=f.line_length;xoff=v.xoffset;yoff=v.yoffset;fbsize=f.smem_len;
+    fb=mmap(NULL,fbsize,PROT_READ|PROT_WRITE,MAP_SHARED,fbfd,0);
+    if(fb==MAP_FAILED){fb=NULL;return 0;}
+    if(!open_inputs())return 0;
+    fprintf(stderr,"Panel %dx%d, logical viewport %dx%d at %d,%d; power input %s\n",
+        viewport.panel_w,viewport.panel_h,viewport.box.w,viewport.box.h,viewport.box.x,viewport.box.y,
+        power>=0 ? "available" : "firmware events");
     eventfd = monitor("com.lab126.powerd", &eventpid);
     usbfd = monitor("com.lab126.hal", &usbpid);
     reconcile_power();
     return 1;
 }
 void device_close(void) {
+    if(virtual_hardware){virtual_device_close();return;}
+
     feedback_join();
     if(status_job.pid>0)kill(status_job.pid,SIGTERM);
     if(power_job.pid>0)kill(power_job.pid,SIGTERM);
@@ -274,11 +349,15 @@ static void sample_status(void) {
     _exit(0);
 }
 void device_status(char *battery,int cap,char *wifi,int nc) {
+    if(virtual_hardware){virtual_device_status(battery,cap,wifi,nc);return;}
+
     if(*status_cache.battery)snprintf(battery,cap,"%s",status_cache.battery);
     if(*status_cache.wifi)snprintf(wifi,nc,"%s",status_cache.wifi);
     sample_status();
 }
 int device_charging(void) {
+    if(virtual_hardware)return virtual_device_charging();
+
     sample_status();
     return status_cache.charging;
 }
@@ -294,6 +373,8 @@ static void launch_command(pid_t *pid,const char *path,char *const args[]) {
     if(child>0)*pid=child;
 }
 void device_activity(void) {
+    if(virtual_hardware){virtual_device_activity();return;}
+
     static int64_t last;
     int64_t now=monotonic_ms();
     if(last && now-last<25000)return;
@@ -302,11 +383,17 @@ void device_activity(void) {
     launch_command(&activity_pid,"/usr/bin/lipc-set-prop",args);
 }
 int device_input_pending(void) {
+    if(virtual_hardware)return virtual_device_input_pending();
+
     struct pollfd p[2]={{touch,POLLIN,0},{power,POLLIN,0}};
     return poll(p,2,0)>0 && ((p[0].revents|p[1].revents)&POLLIN);
 }
-void device_poll_interval(int ms) {wait_ms=ms;}
+void device_poll_interval(int ms) {
+    if(virtual_hardware){virtual_device_poll_interval(ms);return;}
+wait_ms=ms;}
 void device_request_sleep(void) {
+    if(virtual_hardware){virtual_device_request_sleep();return;}
+
     char *args[]={"lipc-set-prop","-i","com.lab126.powerd","powerButton","1",NULL};
     launch_command(&sleep_pid,"/usr/bin/lipc-set-prop",args);
     reconcile_power();
@@ -316,12 +403,16 @@ static void reclaim_ui(void) {
     launch_command(&reclaim_pid,"/bin/sh",args);
 }
 int device_wake(void) {
+    if(virtual_hardware)return virtual_device_wake();
+
     char *args[]={"lipc-set-prop","-i","com.lab126.powerd","wakeUp","1",NULL};
     launch_command(&wake_pid,"/usr/bin/lipc-set-prop",args);
     reconcile_power();
     return wake_pid>0;
 }
 int device_system_power(int restart) {
+    if(virtual_hardware)return virtual_device_system_power(restart);
+
     char *args[] = {restart ? "reboot" : "poweroff", NULL};
     const char *path = restart ? "/sbin/reboot" : "/sbin/poweroff";
     if (!access(path, X_OK))
@@ -330,10 +421,14 @@ int device_system_power(int restart) {
     return execute("/bin/busybox", busy) == 0;
 }
 void device_finish_update(void) {
+    if(virtual_hardware){virtual_device_finish_update();return;}
+
     char *args[]={"lipc-set-prop","-i","com.lab126.powerd","preventScreenSaver","0",NULL};
     execute("/usr/bin/lipc-set-prop",args);
 }
 void device_hold_awake(int enabled) {
+    if(virtual_hardware){virtual_device_hold_awake(enabled);return;}
+
     static int owned;
     if (enabled && !owned) {
         char previous[16]="";
@@ -349,16 +444,121 @@ void device_hold_awake(int enabled) {
     }
 }
 int device_wifi_enabled(void) {
+    if(virtual_hardware)return virtual_device_wifi_enabled();
+
     char value[32];
     getprop("com.lab126.cmd", "wirelessEnable", value, sizeof(value));
     return !strcmp(value, "1");
 }
 int device_wifi(int enabled) {
+    if(virtual_hardware)return virtual_device_wifi(enabled);
+
     char *a[] = {"lipc-set-prop",     "-i", "com.lab126.cmd", "wirelessEnable",
                  enabled ? "1" : "0", NULL};
     return execute("/usr/bin/lipc-set-prop", a) == 0;
 }
+static int sysfs_text(const char *path,char *out,size_t capacity) {
+    int fd=open(path,O_RDONLY|O_CLOEXEC);
+    if(fd<0)return 0;
+    ssize_t n=read(fd,out,capacity-1);
+    close(fd);
+    if(n<=0)return 0;
+    out[n]=0;
+    out[strcspn(out,"\r\n")]=0;
+    return 1;
+}
+static int sysfs_number(const char *path) {
+    char text[32],*end;
+    if(!sysfs_text(path,text,sizeof(text)))return -1;
+    long value=strtol(text,&end,10);
+    return end!=text && !*end && value>=0 && value<=100000 ? (int)value : -1;
+}
+static int backlight_path(char path[256],int *current) {
+    DIR *dir=opendir("/sys/class/backlight");
+    if(!dir)return -1;
+    int max=-1;
+    for(struct dirent *ent;(ent=readdir(dir));) {
+        if(ent->d_name[0]=='.' || strlen(ent->d_name)>100)continue;
+        char file[256];
+        snprintf(file,sizeof(file),"/sys/class/backlight/%s/max_brightness",ent->d_name);
+        int available=sysfs_number(file);
+        if(available<=0)continue;
+        snprintf(file,sizeof(file),"/sys/class/backlight/%s/brightness",ent->d_name);
+        int level=sysfs_number(file);
+        if(level<0 || level>available || access(file,W_OK))continue;
+        /* An ambiguous driver list needs a device-specific backend. */
+        if(max>=0){max=-1;break;}
+        max=available;*current=level;
+        snprintf(path,256,"%s",file);
+    }
+    closedir(dir);
+    return max;
+}
+static int bluetooth_radio(int *enabled) {
+    if(access("/dev/rfkill",W_OK))return -1;
+    DIR *dir=opendir("/sys/class/rfkill");
+    if(!dir)return -1;
+    int index=-1;
+    for(struct dirent *ent;(ent=readdir(dir));) {
+        if(strncmp(ent->d_name,"rfkill",6))continue;
+        char *end,type[32],path[256];
+        long n=strtol(ent->d_name+6,&end,10);
+        if(end==ent->d_name+6 || *end || n<0 || n>100000)continue;
+        snprintf(path,sizeof(path),"/sys/class/rfkill/rfkill%ld/type",n);
+        if(!sysfs_text(path,type,sizeof(type)) || strcmp(type,"bluetooth"))continue;
+        snprintf(path,sizeof(path),"/sys/class/rfkill/rfkill%ld/hard",n);
+        if(sysfs_number(path)!=0)continue;
+        snprintf(path,sizeof(path),"/sys/class/rfkill/rfkill%ld/soft",n);
+        int soft=sysfs_number(path);
+        if(soft<0 || soft>1)continue;
+        if(index>=0){index=-1;break;}
+        index=(int)n;*enabled=!soft;
+    }
+    closedir(dir);
+    return index;
+}
+DeviceCapabilities device_capabilities(void) {
+    if(virtual_hardware)return virtual_device_capabilities();
+
+    DeviceCapabilities caps={-1,-1};
+    char path[256];
+    int current;
+    int max=backlight_path(path,&current);
+    if(max>0)caps.brightness=(current*100+max/2)/max;
+    if(bluetooth_radio(&current)>=0)caps.bluetooth=current;
+    return caps;
+}
+int device_brightness(int percent) {
+    if(virtual_hardware)return virtual_device_brightness(percent);
+
+    if(percent<0 || percent>100)return 0;
+    char path[256],value[16];
+    int current,max=backlight_path(path,&current);
+    if(max<=0)return 0;
+    int length=snprintf(value,sizeof(value),"%d\n",(percent*max+50)/100);
+    int fd=open(path,O_WRONLY|O_CLOEXEC);
+    if(fd<0)return 0;
+    ssize_t n=write(fd,value,(size_t)length);
+    close(fd);
+    return n==length;
+}
+int device_bluetooth(int enabled) {
+    if(virtual_hardware)return virtual_device_bluetooth(enabled);
+
+    if(enabled!=0 && enabled!=1)return 0;
+    int current,index=bluetooth_radio(&current);
+    if(index<0)return 0;
+    int fd=open("/dev/rfkill",O_WRONLY|O_NONBLOCK|O_CLOEXEC);
+    if(fd<0)return 0;
+    struct rfkill_event event={.idx=(uint32_t)index,.type=RFKILL_TYPE_BLUETOOTH,
+        .op=RFKILL_OP_CHANGE,.soft=!enabled};
+    ssize_t n=write(fd,&event,sizeof(event));
+    close(fd);
+    return n==(ssize_t)sizeof(event);
+}
 void device_ip(char *out, int size) {
+    if(virtual_hardware){virtual_device_ip(out,size);return;}
+
     if (size < 1)
         return;
     out[0] = 0;
@@ -384,20 +584,42 @@ static void present_frame(const unsigned char *pixels, int full, int asynchronou
     if(!asynchronous)feedback_join();
     RefreshPlan plan=refresh_plan(previous,pixels,WIDTH,HEIGHT,STATUS_HEIGHT,initialized,full);
     if(plan.waveform==REFRESH_NONE)return;
-    int top=plan.area.top,bottom=plan.area.bottom,left=plan.area.left,right=plan.area.right;
-    int clear=plan.waveform==REFRESH_CLEAR;
-    for (int y = top; y < bottom; y++)
-        memcpy(fb + (y + yoff) * stride + xoff + left, pixels + y * WIDTH + left,
-               (size_t)(right - left));
+    int clear=plan.waveform==REFRESH_CLEAR || !initialized;
+    LumenRect damage=display_damage(&viewport,(LumenRect){plan.area.left,plan.area.top,
+        plan.area.right-plan.area.left,plan.area.bottom-plan.area.top});
+    if(clear) {
+        for(int y=0;y<viewport.panel_h;y++) {
+            unsigned char *dest=fb+(size_t)(y+yoff)*stride+(size_t)xoff*pixel_bytes;
+            memset(dest,255,(size_t)viewport.panel_w*pixel_bytes);
+        }
+        damage=viewport.box;
+    }
+    if(!damage.w || !damage.h) {
+        memcpy(previous,pixels,sizeof(previous));
+        return;
+    }
+    for(int y=damage.y;y<damage.y+damage.h;y++) {
+        int sy=source_row[y-viewport.box.y];
+        unsigned char *dest=fb+(size_t)(y+yoff)*stride+(size_t)(damage.x+xoff)*pixel_bytes;
+        if(pixel_bytes==1 && viewport.box.w==WIDTH) {
+            memcpy(dest,pixels+sy*WIDTH+damage.x-viewport.box.x,(size_t)damage.w);
+            continue;
+        }
+        for(int x=damage.x;x<damage.x+damage.w;x++) {
+            int sx=source_column[x-viewport.box.x];
+            uint32_t sample=gray_palette[pixels[sy*WIDTH+sx]];
+            for(int byte=0;byte<pixel_bytes;byte++)*dest++=(unsigned char)(sample>>(8*byte));
+        }
+    }
+    LumenRect dirty=clear ? (LumenRect){0,0,viewport.panel_w,viewport.panel_h} : damage;
     char region[100];
-    snprintf(region, sizeof(region), "top=%d,left=%d,width=%d,height=%d", top, left, right - left,
-             bottom - top);
+    snprintf(region,sizeof(region),"top=%d,left=%d,width=%d,height=%d",dirty.y,dirty.x,dirty.w,dirty.h);
     memcpy(previous, pixels, sizeof(previous));
     initialized = 1;
     const char *waveform=plan.waveform==REFRESH_DU ? "DU" :
                          plan.waveform==REFRESH_GL16 ? "GL16" : "GC16";
     char *partial[] = {"fbink","-q","-W",(char *)waveform,"-s",region,NULL};
-    char *clean[] = {"fbink", "-q", "-W", "GC16", "-f", "-s", "top=0,left=0,width=600,height=800",
+    char *clean[] = {"fbink", "-q", "-W", "GC16", "-f", "-s",region,
                      NULL};
     char **args = clear ? clean : partial;
     const char *path = "/mnt/us/libkh/bin/fbink";
@@ -422,10 +644,14 @@ static void present_frame(const unsigned char *pixels, int full, int asynchronou
     feedback_pid = child;
 }
 void device_present(const unsigned char *pixels, int full, int interval) {
+    if(virtual_hardware){virtual_device_present(pixels,full,interval);return;}
+
     (void)interval;
     present_frame(pixels,full,0);
 }
 void device_present_async(const unsigned char *pixels,int full) {
+    if(virtual_hardware){virtual_device_present_async(pixels,full);return;}
+
     present_frame(pixels,full,1);
 }
 static int parse_event(int fd, int source, Input *input) {
@@ -490,15 +716,17 @@ static int sync_power(Input *input) {
     return 1;
 }
 int device_wait(Input *input) {
-    static int x, y, sx, sy, active, started, release, held, desynced;
+    if(virtual_hardware)return virtual_device_wait(input);
+
+    static int x,y,px,py,sx,sy,active,started,release,held,desynced,blocked;
     static int64_t began, power_began;
-    static int power_active, power_sent;
+    static int power_active,power_sent,slot;
     memset(input, 0, sizeof(*input));
     struct pollfd p[6+APP_OVERLAY_COUNT] = {
         {touch, POLLIN, 0}, {power, POLLIN, 0}, {eventfd, POLLIN, 0}, {usbfd, POLLIN, 0}, {-1, POLLIN, 0}, {-1, POLLIN, 0}};
     while (alive) {
         if(sync_power(input)) {
-            active=started=release=held=desynced=0;
+            active=started=release=held=desynced=blocked=0;
             return 1;
         }
         reap_command(&activity_pid);
@@ -585,7 +813,7 @@ int device_wait(Input *input) {
             }
         }
         if(sync_power(input)) {
-            active=started=release=held=desynced=0;
+            active=started=release=held=desynced=blocked=0;
             return 1;
         }
         for (int k = 1; k >= 0; k--) {
@@ -622,7 +850,7 @@ int device_wait(Input *input) {
                     continue;
                 }
                 if (e.type == EV_SYN && e.code == SYN_DROPPED) {
-                    active = started = release = held = 0;
+                    active=started=release=held=blocked=0;
                     desynced = 1;
                     input->kind = INPUT_CANCEL;
                     return 1;
@@ -632,10 +860,16 @@ int device_wait(Input *input) {
                     continue;
                 }
                 if (e.type == EV_ABS) {
-                    if (e.code == xcode)
-                        x = (e.value - ax.minimum) * (WIDTH - 1) / (ax.maximum - ax.minimum);
-                    if (e.code == ycode)
-                        y = (e.value - ay.minimum) * (HEIGHT - 1) / (ay.maximum - ay.minimum);
+                    if(e.code==ABS_MT_SLOT){slot=e.value;continue;}
+                    if(slot)continue;
+                    if(e.code==xcode) {
+                        px=display_axis(e.value,ax.minimum,ax.maximum,viewport.panel_w);
+                        x=display_to_logical(px,viewport.box.x,viewport.box.w,WIDTH);
+                    }
+                    if(e.code==ycode) {
+                        py=display_axis(e.value,ay.minimum,ay.maximum,viewport.panel_h);
+                        y=display_to_logical(py,viewport.box.y,viewport.box.h,HEIGHT);
+                    }
                     if (e.code == ABS_MT_TRACKING_ID) {
                         if (e.value < 0)
                             release = 1;
@@ -658,10 +892,12 @@ int device_wait(Input *input) {
                         if (!started && power_state==POWER_ASLEEP) {
                             reconcile_power();
                             if(sync_power(input)) {
-                                active=started=release=held=desynced=0;
+                                active=started=release=held=desynced=blocked=0;
                                 return 1;
                             }
                         }
+                        if(!started && !display_contains(&viewport,px,py))blocked=1;
+                        if(blocked)continue;
                         if (!started) {
                             sx = x;
                             sy = y;
@@ -679,7 +915,7 @@ int device_wait(Input *input) {
                         return 1;
                     }
                     if (release && !started) {
-                        active = release = held = 0;
+                        active=release=held=blocked=0;
                         continue;
                     }
                     if (release) {
@@ -690,7 +926,7 @@ int device_wait(Input *input) {
                         input->kind = started && (abs(input->dx) > 65 || abs(input->dy) > 80)
                                           ? INPUT_SWIPE
                                           : INPUT_TAP;
-                        active = started = release = held = 0;
+                        active=started=release=held=blocked=0;
                         return 1;
                     }
                 }
@@ -712,41 +948,89 @@ int device_wait(Input *input) {
     return 1;
 }
 #else
-int device_input_pending(void) { return 0; }
-int device_refresh_busy(void) { return 0; }
-void device_poll_interval(int ms) { (void)ms; }
-int device_init(void) { return 1; }
-void device_close(void) {}
+int device_input_pending(void) {
+    if(virtual_hardware)return virtual_device_input_pending();
+     return 0; }
+int device_refresh_busy(void) {
+    if(virtual_hardware)return virtual_device_refresh_busy();
+     return 0; }
+void device_poll_interval(int ms) {
+    if(virtual_hardware){virtual_device_poll_interval(ms);return;}
+     (void)ms; }
+int device_init(void) {
+    virtual_hardware=getenv("LUMEN_EMULATOR_TTY") || getenv("LUMEN_EMULATOR_DISPLAY_FD");
+    if(virtual_hardware)return virtual_device_init();
+     return 1; }
+void device_close(void) {
+    if(virtual_hardware){virtual_device_close();return;}
+}
 void device_status(char *b, int n, char *w, int nc) {
+    if(virtual_hardware){virtual_device_status(b,n,w,nc);return;}
+
     snprintf(b, n, "68");
     snprintf(w, nc, "Offline");
 }
 int device_charging(void) {
+    if(virtual_hardware)return virtual_device_charging();
+
     const char *s = getenv("LUMEN_CHARGING");
     return s && atoi(s);
 }
-void device_activity(void) {}
-void device_request_sleep(void) {}
-int device_wake(void) { return 1; }
+void device_activity(void) {
+    if(virtual_hardware){virtual_device_activity();return;}
+}
+void device_request_sleep(void) {
+    if(virtual_hardware){virtual_device_request_sleep();return;}
+}
+int device_wake(void) {
+    if(virtual_hardware)return virtual_device_wake();
+     return 1; }
 int device_system_power(int restart) {
+    if(virtual_hardware)return virtual_device_system_power(restart);
+
     (void)restart;
     return 1;
 }
-void device_hold_awake(int enabled) { (void)enabled; }
-void device_finish_update(void) {}
-int device_wifi_enabled(void) { return 1; }
+void device_hold_awake(int enabled) {
+    if(virtual_hardware){virtual_device_hold_awake(enabled);return;}
+     (void)enabled; }
+void device_finish_update(void) {
+    if(virtual_hardware){virtual_device_finish_update();return;}
+}
+DeviceCapabilities device_capabilities(void) {
+    if(virtual_hardware)return virtual_device_capabilities();
+     return (DeviceCapabilities){-1,-1}; }
+int device_brightness(int percent) {
+    if(virtual_hardware)return virtual_device_brightness(percent);
+     (void)percent;return 0; }
+int device_bluetooth(int enabled) {
+    if(virtual_hardware)return virtual_device_bluetooth(enabled);
+     (void)enabled;return 0; }
+int device_wifi_enabled(void) {
+    if(virtual_hardware)return virtual_device_wifi_enabled();
+     return 1; }
 int device_wifi(int e) {
+    if(virtual_hardware)return virtual_device_wifi(e);
+
     (void)e;
     return 1;
 }
-void device_ip(char *s, int n) { snprintf(s, n, "127.0.0.1"); }
-void device_present_async(const unsigned char *p,int full) { (void)p;(void)full; }
+void device_ip(char *s, int n) {
+    if(virtual_hardware){virtual_device_ip(s,n);return;}
+     snprintf(s, n, "127.0.0.1"); }
+void device_present_async(const unsigned char *p,int full) {
+    if(virtual_hardware){virtual_device_present_async(p,full);return;}
+     (void)p;(void)full; }
 void device_present(const unsigned char *p, int f, int i) {
+    if(virtual_hardware){virtual_device_present(p,f,i);return;}
+
     (void)p;
     (void)f;
     (void)i;
 }
 int device_wait(Input *in) {
+    if(virtual_hardware)return virtual_device_wait(in);
+
     in->kind = INPUT_EXIT;
     return 1;
 }

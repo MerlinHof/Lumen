@@ -15,7 +15,9 @@ An independent app is a static ARMv7 executable plus assets and a SHA-256 manife
 It exchanges Protocol 2 newline JSON with LUMEN. The system renders its UI through
 `system/ui/package_app.h`, using the existing controls, typography, icons,
 rounding and refresh engine. The app receives bounded queued input and the system
-keyboard's text results. Markdown requests open the same Reader used by books,
+keyboard's text results. Surface API 3 normalizes drawing and touch coordinates
+to relative axes. A single device viewport maps that reference layout to the
+detected portrait panel. Markdown requests open the same Reader used by books,
 Wikipedia, notes and model answers. Apps can expose an internal Back state.
 
 The SDK (`tools/sdk/lumen_app.h`) and `tools/build-app.py` compile only the app.

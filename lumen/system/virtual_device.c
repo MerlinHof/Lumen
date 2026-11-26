@@ -1,21 +1,26 @@
-/* Host-only virtual hardware for the browser emulator. */
+/* Touch and grayscale frame transport for the emulator. */
 #define _POSIX_C_SOURCE 200809L
-#include "system/device.h"
-#include "system/refresh.h"
+#include "virtual_device.h"
+#include "refresh.h"
 #include <string.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <termios.h>
 #include <poll.h>
-#include "../lumen/system/app_packages.h"
+#include "app_packages.h"
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
+#ifndef LUMEN_HOST
+#include <sys/mount.h>
+#endif
 
 enum { TOUCH_DOWN = 1, TOUCH_MOVE, TOUCH_UP, TOUCH_CANCEL, POWER_DOWN, POWER_UP, STOP };
 typedef struct { int32_t kind, x, y; } Packet;
-static int display_fd, timeout_ms = -1, asleep, pending_sleep, pending_power_release;
+static int input_fd=STDIN_FILENO,display_fd=-1, timeout_ms = -1, asleep, pending_sleep, pending_power_release;
 static int touching, held, touch_x, touch_y, start_x, start_y;
 static int power_pressed, power_held;
 static int64_t touch_started, power_started;
@@ -29,7 +34,7 @@ static int read_packet(Packet *packet) {
     unsigned char *destination = (unsigned char *)packet;
     size_t remaining = sizeof(*packet);
     while (remaining) {
-        ssize_t n = read(STDIN_FILENO, destination, remaining);
+        ssize_t n = read(input_fd, destination, remaining);
         if (n < 0 && errno == EINTR) continue;
         if (n <= 0) return 0;
         destination += n;
@@ -53,31 +58,77 @@ static void present(const unsigned char *pixels, int full) {
     RefreshPlan plan=refresh_plan(previous,pixels,WIDTH,HEIGHT,STATUS_HEIGHT,initialized,full);
     if(plan.waveform==REFRESH_NONE)return;
     unsigned char mode=(unsigned char)plan.waveform;
+    static const unsigned char magic[]={0x4c,0x55,0x4d,0x45,0x4e,0x46,0x42,0x01};
+    if(!initialized && !write_all(magic,sizeof(magic)))return;
     if (write_all(&mode, 1) && write_all(pixels, sizeof(previous))) {
         memcpy(previous, pixels, sizeof(previous));
         initialized = 1;
     }
 }
-int device_init(void) {
-    const char *fd = getenv("LUMEN_EMULATOR_DISPLAY_FD");
-    if (!fd) return 0;
-    display_fd = atoi(fd);
-    signal(SIGPIPE, SIG_IGN);
-    return display_fd > STDERR_FILENO;
+
+#ifndef LUMEN_HOST
+int virtual_device_guest_bootstrap(void) {
+    if(mount("devtmpfs","/dev","devtmpfs",0,NULL)!=0 ||
+       mount("proc","/proc","proc",0,NULL)!=0 ||
+       mount("sysfs","/sys","sysfs",0,NULL)!=0 ||
+       setenv("LUMEN_EMULATOR_TTY","/dev/ttyAMA0",1)!=0)return 0;
+    const char *epoch=getenv("LUMEN_EMULATOR_EPOCH");
+    if(epoch) {
+        struct timespec now={.tv_sec=(time_t)strtoll(epoch,NULL,10)};
+        if(now.tv_sec>0 && clock_settime(CLOCK_REALTIME,&now)!=0)return 0;
+    }
+    int sink=open("/dev/null",O_RDWR);
+    if(sink<0)return 0;
+    int ok=dup2(sink,STDIN_FILENO)>=0 && dup2(sink,STDOUT_FILENO)>=0 && dup2(sink,STDERR_FILENO)>=0;
+    if(sink>STDERR_FILENO)close(sink);
+    return ok;
 }
-void device_close(void) { if (display_fd > STDERR_FILENO) close(display_fd); }
-void device_present(const unsigned char *pixels, int full, int interval) {
+#endif
+
+int virtual_device_init(void) {
+    const char *tty=getenv("LUMEN_EMULATOR_TTY");
+    const char *fd=getenv("LUMEN_EMULATOR_DISPLAY_FD");
+    if(tty) {
+        input_fd=open(tty,O_RDWR|O_NOCTTY|O_CLOEXEC);
+        if(input_fd<0)return 0;
+        struct termios mode={0};
+        if(tcgetattr(input_fd,&mode)!=0)goto failed;
+        mode.c_iflag=0;mode.c_oflag=0;mode.c_lflag=0;
+        mode.c_cflag=(mode.c_cflag & ~(CSIZE|PARENB))|CS8|CREAD|CLOCAL;
+        mode.c_cc[VMIN]=1;mode.c_cc[VTIME]=0;
+        if(tcsetattr(input_fd,TCSANOW,&mode)!=0)goto failed;
+        display_fd=input_fd;
+    } else {
+        if(!fd)return 0;
+        char *end;
+        long value=strtol(fd,&end,10);
+        if(*end || value<=STDERR_FILENO || value>2147483647 || fcntl((int)value,F_GETFD)<0)
+            return 0;
+        display_fd=(int)value;
+        if(fcntl(display_fd,F_SETFD,FD_CLOEXEC)<0)return 0;
+    }
+    signal(SIGPIPE,SIG_IGN);
+    return 1;
+failed:
+    close(input_fd);
+    input_fd=STDIN_FILENO;
+    return 0;
+}
+void virtual_device_close(void) {
+    if(display_fd>STDERR_FILENO)close(display_fd);
+}
+void virtual_device_present(const unsigned char *pixels, int full, int interval) {
     (void)interval;
     present(pixels, full);
 }
-void device_present_async(const unsigned char *pixels,int full) { present(pixels,full); }
-void device_poll_interval(int ms) { timeout_ms = ms; }
-int device_refresh_busy(void) { return 0; }
-int device_input_pending(void) {
-    struct pollfd fd = {STDIN_FILENO, POLLIN, 0};
+void virtual_device_present_async(const unsigned char *pixels,int full) { present(pixels,full); }
+void virtual_device_poll_interval(int ms) { timeout_ms = ms; }
+int virtual_device_refresh_busy(void) { return 0; }
+int virtual_device_input_pending(void) {
+    struct pollfd fd = {input_fd, POLLIN, 0};
     return poll(&fd, 1, 0) > 0 && (fd.revents & POLLIN);
 }
-int device_wait(Input *input) {
+int virtual_device_wait(Input *input) {
     *input = (Input){0};
     int64_t status_due = timeout_ms < 0 ? INT64_MAX : milliseconds() + timeout_ms;
     for (;;) {
@@ -96,7 +147,7 @@ int device_wait(Input *input) {
         if (touching && !held && touch_started + 550 < deadline) deadline = touch_started + 550;
         if (power_pressed && !power_held && power_started + 900 < deadline)
             deadline = power_started + 900;
-        struct pollfd fds[3+APP_OVERLAY_COUNT]={{STDIN_FILENO,POLLIN,0},{app_process_fd(),POLLIN,0}};
+        struct pollfd fds[3+APP_OVERLAY_COUNT]={{input_fd,POLLIN,0},{app_process_fd(),POLLIN,0}};
         for(int i=0;i<APP_OVERLAY_COUNT;i++)fds[2+i]=(struct pollfd){app_overlay_fd(i),POLLIN,0};
         fds[2+APP_OVERLAY_COUNT]=(struct pollfd){app_service_fd(),POLLIN,0};
         int service_wait=app_service_wait_ms();
@@ -187,17 +238,20 @@ int device_wait(Input *input) {
     input->kind = INPUT_EXIT;
     return 1;
 }
-void device_status(char *battery, int size, char *wifi, int wifi_size) {
+void virtual_device_status(char *battery, int size, char *wifi, int wifi_size) {
     snprintf(battery, size, "68");
     snprintf(wifi, wifi_size, "Offline");
 }
-int device_charging(void) { return 0; }
-void device_activity(void) {}
-void device_request_sleep(void) { if (!asleep) pending_sleep = 1; }
-int device_wake(void) { asleep = pending_sleep = 0; return 1; }
-int device_system_power(int restart) { (void)restart; return 1; }
-int device_wifi_enabled(void) { return 0; }
-int device_wifi(int enabled) { (void)enabled; return 0; }
-void device_ip(char *address, int size) { snprintf(address, size, "127.0.0.1"); }
-void device_hold_awake(int enabled) { (void)enabled; }
-void device_finish_update(void) {}
+int virtual_device_charging(void) { return 0; }
+void virtual_device_activity(void) {}
+void virtual_device_request_sleep(void) { if (!asleep) pending_sleep = 1; }
+int virtual_device_wake(void) { asleep = pending_sleep = 0; return 1; }
+int virtual_device_system_power(int restart) { (void)restart; return 1; }
+DeviceCapabilities virtual_device_capabilities(void) { return (DeviceCapabilities){-1,-1}; }
+int virtual_device_brightness(int percent) { (void)percent;return 0; }
+int virtual_device_bluetooth(int enabled) { (void)enabled;return 0; }
+int virtual_device_wifi_enabled(void) { return 0; }
+int virtual_device_wifi(int enabled) { (void)enabled; return 0; }
+void virtual_device_ip(char *address, int size) { snprintf(address, size, "127.0.0.1"); }
+void virtual_device_hold_awake(int enabled) { (void)enabled; }
+void virtual_device_finish_update(void) {}
