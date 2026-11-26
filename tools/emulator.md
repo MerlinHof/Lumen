@@ -26,12 +26,27 @@ works with the following command:
 Place the kernel at `build/emulator/vmlinuz-armv7` to select ARM mode
 automatically when QEMU is available. The launcher checks your PATH for
 `qemu-system-arm` and also accepts `--qemu /path/to/qemu-system-arm`.
-It boots the existing `build/kindle/lumen` and bundled ARM app binaries.
+QEMU runs on the Mac or Linux host. The browser displays and controls the guest.
+QEMU boots the existing `build/kindle/lumen` and bundled ARM app binaries.
 It builds the standard Kindle target if those files are missing. Use
 `--rebuild` after changing the source.
 
 QEMU emulates an ARM CPU and boots generic Linux with a virtual display and
-touchscreen. The guest uses temporary storage and has no network. The
+touchscreen. The ARM guest uses temporary storage and stays offline. Wi-Fi controls
+show a simulated network. Frontlight changes affect the web preview.
+The Bluetooth tab can discover and connect a simulated speaker.
+
+On macOS, pass an already-paired speaker address to connect or disconnect
+that speaker through the host:
+
+```sh
+./Emulator.command --bluetooth-speaker AA:BB:CC:DD:EE:FF
+```
+
+This option requires [blueutil](https://github.com/toy/blueutil) on PATH
+and macOS Bluetooth access. Use `blueutil --paired` to find the address.
+This tests the connection through the Mac radio. The guest has no audio
+output path. The
 `build/emulator/books` directory is read at guest startup. Exact Kindle
 firmware, radio, power, and E Ink driver behavior require a physical device.
 Use `--backend native` for the host build and a persistent preview profile.
@@ -48,3 +63,7 @@ pass explicit durations in milliseconds. [FBInk reference timings](https://githu
 The `--instant` flag overrides the timing flags. The `--no-open` flag prints
 the URL without opening a browser. Use `--profile 2026` or
 `--panel 1072x1448 --ppi 300` to set the initial display.
+
+Preview modes use filtered scaling to avoid jagged noninteger enlargement.
+The pixel grid keeps nearest-neighbor display. The guest still renders the
+600 × 800 reference canvas. A PPI change cannot create new source detail.

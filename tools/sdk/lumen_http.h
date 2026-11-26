@@ -71,7 +71,7 @@ static inline int lumen_http_quote(FILE *config,const char *value) {
 static inline pid_t lumen_http_start(LumenHttpRequest request,int output,size_t limit,
                                     int file_limit) {
     const char *url=request.url;
-    if(!limit || (request.report_status && !request.report_url) || !url || strpbrk(url,"\r\n\t \"\\") || request.timeout<0 || request.timeout>180 ||
+    if(!limit || (request.report_status && !request.report_url) || !url || strpbrk(url,"\r\n\t \"\\") || request.timeout<0 || request.timeout>600 ||
        request.connect_timeout<0 || request.connect_timeout>30 ||
        request.redirects<0 || request.redirects>8 ||
        (strncmp(url,"https://",8) && (!request.allow_http || strncmp(url,"http://",7))))return -1;

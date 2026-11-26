@@ -429,3 +429,12 @@ timeouts, redirect limits, size limits, interrupted transfers, and local I/O
 errors. A failed download clears the partial file. The bearer convenience
 helper uses HTTPS. Set `.allow_http=1` on a specific request only when using
 an explicitly configured plain-HTTP service.
+
+### Slider
+
+`lumen_slider` draws a labelled, stepped horizontal control. Supply its bounds,
+integer minimum, maximum and step, current value, enabled state, suffix,
+and an unavailable label. The range must be divisible by the step.
+The system previews movement locally and sends one component event with
+gesture `selected` and the committed number in `text`. Disabled sliders
+stay visible and send no event.

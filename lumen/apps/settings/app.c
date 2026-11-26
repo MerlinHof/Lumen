@@ -1,13 +1,14 @@
 #include "lumen_app.h"
 #include "lumen_device_preferences.h"
 
-enum {HOME,WIFI,APPEARANCE,TIME,APPS,SYSTEM,HARDWARE};
+enum {HOME,WIFI,APPEARANCE,TIME,APPS,SYSTEM};
 #define PREFERENCE_NAME(name, option) name,
 static const char *const preference_names[]={LUMEN_DEVICE_PREFERENCES(PREFERENCE_NAME)};
 #undef PREFERENCE_NAME
 static int screen,tab,page,count,prefs[sizeof(preference_names)/sizeof(*preference_names)],
     sleep_minutes=10,autostart,release_state,enabled,busy;
-static int brightness=-1,bluetooth=-1;
+static int brightness=-1,bluetooth=-1,beta_updates;
+static int bluetooth_discovery=-1,bluetooth_connected,bluetooth_remote;
 static int remove_row=-1,reset,joining;
 static char joining_name[129],wifi_error[192];
 static char version[24],new_version[24],checked[48],error[160],network_name[129],total[40],sizes[5][40];
@@ -17,9 +18,9 @@ static const char *word(const char *de,const char *en,const char *fr) {
     return lumen_language==1 ? en : lumen_language==2 ? fr : de;
 }
 static const char *name(int target) {
-    const char *names[][3]={{"Einstellungen","Settings","Réglages"},{"WLAN","Wi-Fi","Wi-Fi"},
+    const char *names[][3]={{"Einstellungen","Settings","Réglages"},{"WLAN & Bluetooth","Wi-Fi & Bluetooth","Wi-Fi et Bluetooth"},
         {"Darstellung","Appearance","Apparence"},{"Datum & Uhrzeit","Date & time","Date et heure"},
-        {"Apps verwalten","Manage apps","Gérer les apps"},{"System","System","Système"},{"Gerät","Hardware","Matériel"}};
+        {"Apps verwalten","Manage apps","Gérer les apps"},{"System","System","Système"}};
     return word(names[target][0],names[target][1],names[target][2]);
 }
 static void request(const char *operation,const char *data,int action) {
@@ -36,7 +37,7 @@ static void wifi_join(const char *name,const char *password) {
 }
 static void load(void) {
     char number[16];snprintf(number,sizeof(number),"%d",page);
-    if(screen==WIFI)request("wifi_list",number,2);
+    if(screen==WIFI && !tab)request("wifi_list",number,2);
     else if(screen==APPS)request("apps",number,3);
     else if(screen==SYSTEM && tab==1)request("storage","",4);
     else request("state","",1);
@@ -88,13 +89,13 @@ static void toggle_row(const char *id,int y,const char *title,int selected) {
     lumen_toggle_action(id,492,y+4,selected);lumen_list_divider(28,y+55,572);
 }
 static void draw_wifi(void) {
-    toggle_row("wifi-power",137,name(WIFI),enabled);
+    toggle_row("wifi-power",187,word("WLAN","Wi-Fi","Wi-Fi"),enabled);
     if(!enabled) {
         lumen_wrapped(28,257,544,100,word("WLAN ist ausgeschaltet.","Wi-Fi is off.","Le Wi-Fi est désactivé."),PAINT_TITLE,3);
         return;
     }
     for(int i=0;i<6 && page*6+i<count;i++) {
-        int y=222+i*74;
+        int y=252+i*68;
         int pending=joining && !strcmp(rows[i].name,joining_name);
         int icon=pending ? IC_CLOCK : rows[i].connected ? IC_DONE :
                  rows[i].saved ? IC_BOOKMARK : rows[i].locked ? IC_LOCK : IC_WIFI;
@@ -106,12 +107,12 @@ static void draw_wifi(void) {
             word("Offenes Netz","Open network","Réseau ouvert"),PAINT_SECONDARY,-1,1);
         char id[24];
         snprintf(id,sizeof(id),"network-%d",i);
-        if(!joining)lumen_custom_action(id,28,y,482,73);
+        if(!joining)lumen_custom_action(id,28,y,482,67);
         if(rows[i].saved && !joining) {
             snprintf(id,sizeof(id),"forget-%d",i);
             lumen_icon_action(id,522,y+15,IC_TRASH);
         }
-        lumen_list_divider(28,y+73,572);
+        lumen_list_divider(28,y+67,572);
     }
     if(!count)lumen_wrapped(28,257,544,100,busy ? word("Suche läuft …","Scanning…","Recherche…") :
         word("Keine Netzwerke gefunden.","No networks found.","Aucun réseau trouvé."),PAINT_TITLE,3);
@@ -120,7 +121,7 @@ static void draw_wifi(void) {
         if(joining)snprintf(feedback,sizeof(feedback),"%s %s",
             word("Verbinde mit","Connecting to","Connexion à"),joining_name);
         else snprintf(feedback,sizeof(feedback),"%s",wifi_error);
-        lumen_text(28,675,544,47,feedback,PAINT_SECONDARY,-1,1);
+        lumen_text(28,674,544,47,feedback,PAINT_SECONDARY,-1,1);
     }
     lumen_pager(745,page,(count+5)/6);
     if(!joining)lumen_icon_action("wifi-scan",528,745,IC_RESTART);
@@ -138,6 +139,12 @@ static void draw_appearance(void) {
             int n,selected;const char **options=values(i,&n,&selected);
             lumen_select_action(id,y,label(i),options[selected<n ? selected : 0]);
         } else toggle_row(id,y,label(i),prefs[i]);
+    }
+    if(!tab) {
+        lumen_slider("brightness",28,475,544,56,
+            word("Bildschirmbeleuchtung","Screen brightness","Luminosité de l’écran"),
+            0,100,5,brightness,brightness>=0,"%",word("Nicht verfügbar","Unavailable","Indisponible"));
+        lumen_list_divider(28,536,572);
     }
     if(tab==2) {
         char time[18];
@@ -217,6 +224,8 @@ static void draw_system(void) {
             lumen_button_action("install",28,598,544,54,word("Update installieren","Install update","Installer la mise à jour"),1);
         } else if(release_state<0)lumen_wrapped(30,553,540,100,error,PAINT_SECONDARY,3);
         lumen_button_action("check",28,672,544,54,word("Nach Updates suchen","Check for updates","Rechercher une mise à jour"),0);
+        if(release_state!=1)
+            toggle_row("beta",732,word("Beta-Updates","Beta updates","Mises à jour bêta"),beta_updates);
         if(release_state==1)lumen_schedule(750);
     } else if(tab==1) {
         lumen_text(30,270,540,48,total,PAINT_TITLE,0,1);
@@ -238,48 +247,58 @@ static void draw_system(void) {
         for(int i=0;i<4;i++)lumen_button_action(actions[i],28,304+i*84,544,60,management(i),0);
     }
 }
-static void draw_hardware(void) {
-    const char *unavailable=word("Nicht verfügbar","Unavailable","Indisponible");
-    const char *light=word("Bildschirmbeleuchtung","Screen brightness","Luminosité de l’écran");
-    const char *radio=word("Bluetooth-Funk","Bluetooth radio","Radio Bluetooth");
-    if(brightness>=0) {
-        char percent[8];snprintf(percent,sizeof(percent),"%d%%",brightness);
-        lumen_select_action("brightness",147,light,percent);
-    } else {
-        lumen_text(30,147,325,48,light,PAINT_BODY,120,1);
-        lumen_text_right(356,147,212,48,unavailable,PAINT_SECONDARY);
+static void draw_bluetooth(void) {
+    const char *radio="Bluetooth";
+    if(bluetooth<0) {
+        lumen_text(30,187,320,48,radio,PAINT_BODY,120,1);
+        lumen_text_right(356,187,212,48,word("Nicht verfügbar","Unavailable","Indisponible"),PAINT_SECONDARY);
+        lumen_list_divider(28,242,572);
+        return;
     }
-    lumen_list_divider(28,206,572);
-    if(bluetooth>=0)toggle_row("bluetooth",221,radio,bluetooth);
-    else {
-        lumen_text(30,221,325,48,radio,PAINT_BODY,120,1);
-        lumen_text_right(356,221,212,48,unavailable,PAINT_SECONDARY);
-        lumen_list_divider(28,276,572);
+    toggle_row("bluetooth",187,radio,bluetooth);
+    if(!bluetooth)return;
+    if(bluetooth_discovery>0) {
+        const char *title=bluetooth_remote ? word("Lautsprecher des Macs","Mac speaker","Enceinte du Mac") :
+            word("Testlautsprecher","Test speaker","Enceinte de test");
+        const char *detail=bluetooth_connected==2 ? word("Verbindung wird geändert …","Changing connection…","Connexion en cours…") :
+            bluetooth_connected==3 ? word("Verbindung fehlgeschlagen","Connection failed","Échec de la connexion") :
+            bluetooth_remote ? (bluetooth_connected==1 ? word("Verbunden","Connected","Connectée") :
+                word("Verbinden","Connect","Connecter")) :
+            bluetooth_connected==1 ? word("Verbunden · simuliert","Connected · simulated","Connectée · simulation") :
+                word("Koppeln · simuliert","Pair · simulated","Associer · simulation");
+        lumen_list_action("bluetooth-speaker",258,64,title,detail,IC_NEXT);
+        if(bluetooth_connected==2)lumen_schedule(350);
+        return;
     }
+    if(bluetooth_discovery==0)
+        lumen_button_action("bluetooth-scan",28,265,544,50,
+            word("Nach Geräten suchen","Find devices","Rechercher des appareils"),0);
 }
 static void draw_content(void) {
     if(screen==HOME) {
         lumen_form(name(screen));
-        const char *hints[]={word("Netzwerke und Verbindung","Networks and connection","Réseaux et connexion"),
-            word("Sprache, Sperrbild und Statusleiste","Language, lock screen and status bar","Langue, veille et barre d’état"),
+        const char *hints[]={word("Netzwerke und Funkverbindungen","Networks and wireless devices","Réseaux et appareils sans fil"),
+            word("Beleuchtung, Sprache und Sperrbild","Brightness, language and lock screen","Luminosité, langue et veille"),
             word("Zeit, Zeitzone und WLAN-Abgleich","Time, time zone and synchronization","Heure, fuseau et synchronisation"),
             word("Sichtbarkeit & Reihenfolge","Visibility and order","Visibilité et ordre"),
-            word("Speicher, Version und Konfiguration","Storage, updates and configuration","Stockage, mises à jour et configuration"),
-            word("Beleuchtung und Bluetooth","Screen light and Bluetooth","Luminosité et Bluetooth")};
-        const char *sections[]={"wifi","appearance","date-time","manage","system","hardware"};
-        for(int i=1;i<=HARDWARE;i++)lumen_form_link(sections[i-1],name(i),hints[i-1]);
+            word("Speicher, Version und Konfiguration","Storage, updates and configuration","Stockage, mises à jour et configuration")};
+        const char *sections[]={"wifi","appearance","date-time","manage","system"};
+        for(int i=1;i<=SYSTEM;i++)lumen_form_link(sections[i-1],name(i),hints[i-1]);
         return;
     }
     ui_paint_heading(name(screen),0);
-    if(screen==HARDWARE)draw_hardware();
-    else if(screen==WIFI)draw_wifi();
+    if(screen==WIFI) {
+        const char *tabs[]={word("WLAN","Wi-Fi","Wi-Fi"),"Bluetooth"};
+        lumen_segments("tab",28,131,544,44,tabs,2,tab);
+        if(tab)draw_bluetooth();else draw_wifi();
+    }
     else if(screen==APPEARANCE)draw_appearance();
     else if(screen==TIME)draw_time();
     else if(screen==APPS)draw_apps();
     else draw_system();
 }
 static void draw(void) {
-    if((screen==WIFI && enabled) || (screen==SYSTEM && tab==0))lumen_schedule(2000);
+    if((screen==WIFI && !tab && enabled) || (screen==SYSTEM && tab==0))lumen_schedule(2000);
     if(reset || remove_row>=0) {
         ui_paint_heading(name(screen),0);
         ui_paint_surface(24,275,552,220,16,255,105);
@@ -326,21 +345,26 @@ static int component_input(void) {
         return 1;
     }
     if(screen==HOME && clicked) {
-        const char *sections[]={"wifi","appearance","date-time","manage","system","hardware"};
-        for(int i=0;i<HARDWARE;i++)if(!strcmp(id,sections[i])){show(i+1);return 1;}
+        const char *sections[]={"wifi","appearance","date-time","manage","system"};
+        for(int i=0;i<SYSTEM;i++)if(!strcmp(id,sections[i])){show(i+1);return 1;}
     }
-    if((screen==APPEARANCE || screen==SYSTEM) && !strcmp(id,"tab") &&
+    if((screen==APPEARANCE || screen==SYSTEM || screen==WIFI) && !strcmp(id,"tab") &&
        !strcmp(gesture,"selected") && value[0]>='0' && value[0]<='2' && !value[1]) {
-        tab=value[0]-'0';
-        if(screen==SYSTEM)load();
+        int next=value[0]-'0';
+        if(screen==WIFI && next>1)return 0;
+        tab=next;
+        if(screen==SYSTEM || screen==WIFI)load();
         return 1;
     }
-    if(screen==HARDWARE) {
-        if(clicked && brightness>=0 && !strcmp(id,"brightness")) {
-            const char *levels[]={"0%","10%","20%","30%","40%","50%","60%","70%","80%","90%","100%"};
-            lumen_select_anchored(levels,11,(brightness+5)/10,31,"brightness");
-        } else if(changed && bluetooth>=0 && !strcmp(id,"bluetooth"))request("bluetooth",value,5);
+    if(screen==WIFI && tab) {
+        if(changed && bluetooth>=0 && !strcmp(id,"bluetooth"))request("bluetooth",value,5);
+        else if(clicked && bluetooth>0 && !strcmp(id,"bluetooth-scan"))request("bluetooth_scan","",5);
+        else if(clicked && bluetooth>0 && !strcmp(id,"bluetooth-speaker"))request("bluetooth_speaker","",5);
         return 1;
+    }
+    if(screen==APPEARANCE && !tab && brightness>=0 && !strcmp(id,"brightness") &&
+       !strcmp(gesture,"selected")) {
+        request("brightness",value,5);return 1;
     }
     if(screen==WIFI) {
         if(joining)return 1;
@@ -392,7 +416,8 @@ static int component_input(void) {
             }
         }
     } else if(screen==SYSTEM) {
-        if(!tab && clicked && !strcmp(id,"check") && release_state!=1)request("check","",5);
+        if(!tab && changed && !strcmp(id,"beta"))request("beta",value,5);
+        else if(!tab && clicked && !strcmp(id,"check") && release_state!=1)request("check","",5);
         else if(!tab && clicked && !strcmp(id,"install") && release_state>=3)request("install","",5);
         else if(tab==2 && changed && !strcmp(id,"autostart"))request("autostart",value,5);
         else if(tab==2 && clicked) {
@@ -410,7 +435,7 @@ static int input(const Input *in) {
         if(!strcmp(op,"wifi"))show(WIFI);
         else if(!strcmp(op,"settings-section")) {
             int dest=lumen_number("section");
-            if(dest>=HOME && dest<=HARDWARE)show(dest);
+            if(dest>=HOME && dest<=SYSTEM)show(dest);
         }
         return 1;
     }
@@ -422,10 +447,7 @@ static int input(const Input *in) {
     if(in->kind==INPUT_PAGE){page=in->x;load();return 1;}
     if(in->kind==INPUT_COMPONENT)return component_input();
     if(in->kind==INPUT_SELECT && in->y>=0) {
-        if(in->x==31 && brightness>=0 && in->y<=10) {
-            char percent[8];snprintf(percent,sizeof(percent),"%d",in->y*10);
-            request("brightness",percent,5);
-        } else if(in->x==30 && in->y<6){char value[16];snprintf(value,sizeof(value),"%d",durations[in->y]);request("sleep",value,5);}
+        if(in->x==30 && in->y<6){char value[16];snprintf(value,sizeof(value),"%d",durations[in->y]);request("sleep",value,5);}
         else if(in->x>=10 && in->x<25) {
             int id=in->x-10,n,selected;
             if(values(id,&n,&selected) && in->y<n)preference(id,id==9 ? lock_ids[in->y] : in->y);
@@ -444,7 +466,10 @@ static int input(const Input *in) {
             for(size_t i=0;i<sizeof(preference_names)/sizeof(*preference_names);i++)
                 prefs[i]=lumen_number(preference_names[i]);
             lumen_language=prefs[0];sleep_minutes=lumen_number("sleep");autostart=lumen_number("autostart");
-            release_state=lumen_number("release");
+            release_state=lumen_number("release");beta_updates=lumen_number("beta_updates");
+            bluetooth_discovery=lumen_number("emulated") ? lumen_number("bluetooth_discovery") : -1;
+            bluetooth_connected=lumen_number("bluetooth_connected");
+            bluetooth_remote=lumen_number("bluetooth_remote");
             brightness=lumen_number("hardware_controls") ? lumen_number("brightness") : -1;
             bluetooth=lumen_number("hardware_controls") ? lumen_number("bluetooth") : -1;
             lumen_string("version",version,sizeof(version));lumen_string("release_version",new_version,sizeof(new_version));

@@ -18,9 +18,10 @@
 #include <sys/mount.h>
 #endif
 
-enum { TOUCH_DOWN = 1, TOUCH_MOVE, TOUCH_UP, TOUCH_CANCEL, POWER_DOWN, POWER_UP, STOP };
+enum { TOUCH_DOWN = 1, TOUCH_MOVE, TOUCH_UP, TOUCH_CANCEL, POWER_DOWN, POWER_UP, STOP, BLUETOOTH_RESULT };
 typedef struct { int32_t kind, x, y; } Packet;
 static int input_fd=STDIN_FILENO,display_fd=-1, timeout_ms = -1, asleep, pending_sleep, pending_power_release;
+static int brightness=70,bluetooth=1,wifi_on=1,bluetooth_remote,bluetooth_connection;
 static int touching, held, touch_x, touch_y, start_x, start_y;
 static int power_pressed, power_held;
 static int64_t touch_started, power_started;
@@ -57,12 +58,25 @@ static void present(const unsigned char *pixels, int full) {
     static int initialized;
     RefreshPlan plan=refresh_plan(previous,pixels,WIDTH,HEIGHT,STATUS_HEIGHT,initialized,full);
     if(plan.waveform==REFRESH_NONE)return;
-    unsigned char mode=(unsigned char)plan.waveform;
-    static const unsigned char magic[]={0x4c,0x55,0x4d,0x45,0x4e,0x46,0x42,0x01};
+    /* Send only the changed rectangle over the emulated serial link. */
+    static unsigned char frame[10+WIDTH*HEIGHT];
+    static const unsigned char magic[]={0x4c,0x55,0x4d,0x45,0x4e,0x46,0x42,0x02};
     if(!initialized && !write_all(magic,sizeof(magic)))return;
-    if (write_all(&mode, 1) && write_all(pixels, sizeof(previous))) {
-        memcpy(previous, pixels, sizeof(previous));
-        initialized = 1;
+    RefreshBounds box=plan.area;
+    int values[]={box.left,box.top,box.right,box.bottom};
+    frame[0]=(unsigned char)plan.waveform;
+    frame[1]=(unsigned char)brightness;
+    for(int i=0;i<4;i++) {
+        frame[2+2*i]=(unsigned char)values[i];
+        frame[3+2*i]=(unsigned char)(values[i]>>8);
+    }
+    size_t size=10;
+    int width=box.right-box.left;
+    for(int y=box.top;y<box.bottom;y++,size+=width)
+        memcpy(frame+size,pixels+y*WIDTH+box.left,width);
+    if(write_all(frame,size)) {
+        memcpy(previous,pixels,sizeof(previous));
+        initialized=1;
     }
 }
 
@@ -107,6 +121,7 @@ int virtual_device_init(void) {
         display_fd=(int)value;
         if(fcntl(display_fd,F_SETFD,FD_CLOEXEC)<0)return 0;
     }
+    bluetooth_remote=getenv("LUMEN_EMULATOR_BLUETOOTH")!=NULL;
     signal(SIGPIPE,SIG_IGN);
     return 1;
 failed:
@@ -187,6 +202,10 @@ int virtual_device_wait(Input *input) {
         }
         Packet packet;
         if (!read_packet(&packet) || packet.kind == STOP) break;
+        if(packet.kind==BLUETOOTH_RESULT && bluetooth_remote) {
+            if(packet.x>=0 && packet.x<=3)bluetooth_connection=packet.x;
+            input->kind=INPUT_STATUS;return 1;
+        }
         if (packet.kind == POWER_DOWN) {
             if (power_pressed) continue;
             power_pressed = 1;
@@ -247,11 +266,26 @@ void virtual_device_activity(void) {}
 void virtual_device_request_sleep(void) { if (!asleep) pending_sleep = 1; }
 int virtual_device_wake(void) { asleep = pending_sleep = 0; return 1; }
 int virtual_device_system_power(int restart) { (void)restart; return 1; }
-DeviceCapabilities virtual_device_capabilities(void) { return (DeviceCapabilities){-1,-1}; }
-int virtual_device_brightness(int percent) { (void)percent;return 0; }
-int virtual_device_bluetooth(int enabled) { (void)enabled;return 0; }
-int virtual_device_wifi_enabled(void) { return 0; }
-int virtual_device_wifi(int enabled) { (void)enabled; return 0; }
+DeviceCapabilities virtual_device_capabilities(void) { return (DeviceCapabilities){brightness,bluetooth}; }
+int virtual_device_brightness(int percent) { brightness=percent;return 1; }
+int virtual_device_bluetooth(int enabled) {
+    if(!enabled && bluetooth_connection==1 && !virtual_device_bluetooth_connect(0))return 0;
+    bluetooth=!!enabled;
+    return 1;
+}
+int virtual_device_bluetooth_remote(void) {return bluetooth_remote;}
+int virtual_device_bluetooth_connection(void) {return bluetooth_connection;}
+int virtual_device_bluetooth_connect(int connect) {
+    if(!bluetooth || bluetooth_connection==2)return 0;
+    if(bluetooth_remote) {
+        unsigned char request[]={128,!!connect};
+        if(!write_all(request,sizeof(request)))return 0;
+        bluetooth_connection=2;
+    } else bluetooth_connection=!!connect;
+    return 1;
+}
+int virtual_device_wifi_enabled(void) { return wifi_on; }
+int virtual_device_wifi(int enabled) { wifi_on=!!enabled;return 1; }
 void virtual_device_ip(char *address, int size) { snprintf(address, size, "127.0.0.1"); }
 void virtual_device_hold_awake(int enabled) { (void)enabled; }
 void virtual_device_finish_update(void) {}

@@ -799,13 +799,16 @@ assert any(f.get('operation')=='wifi_connect' and f.get('text')=='Wi-Fi fixture\
 assert any(c.get('text')=='Connecting…' for f in frames for c in f.get('ui',[]))
 assert any(f.get('operation')=='check' for f in frames)
 hardware,_=app_session('lumen.settings',[
-    component('hardware'),dict(event='service',action=1,ok=1,hardware_controls=1,brightness=-1,bluetooth=-1),
-    component('brightness'),component('bluetooth','changed','1'),
+    component('appearance'),dict(event='service',action=1,ok=1,hardware_controls=1,brightness=-1,bluetooth=-1),
+    component('brightness','selected','70'),
     dict(event='service',action=1,ok=1,hardware_controls=1,brightness=40,bluetooth=0),
-    component('brightness'),dict(event='select',action=31,value=7),component('bluetooth','changed','1')])
-ui=[c for f in hardware for c in f.get('ui',[])]
-assert any(c.get('text')=='Screen brightness' and c.get('ink')==120 for c in ui)
-assert any(c.get('text')=='Bluetooth radio' and c.get('ink')==120 for c in ui)
+    component('brightness','selected','70'),dict(event='back'),component('wifi'),
+    component('tab','selected','1'),component('bluetooth','changed','1'),
+    dict(event='back'),component('system'),component('beta','changed','1')])
+sliders=[c for frame in hardware for c in frame.get('ui',[]) if c.get('type')=='component_slider']
+assert any(c.get('text')=='Screen brightness' and c.get('enabled')==0 for c in sliders)
+assert any(c.get('value')==40 and c.get('enabled')==1 for c in sliders)
 assert sum(f.get('operation')=='brightness' and f.get('text')=='70' for f in hardware)==1
 assert sum(f.get('operation')=='bluetooth' and f.get('text')=='1' for f in hardware)==1
+assert sum(f.get('operation')=='beta' and f.get('text')=='1' for f in hardware)==1
 print('PASS packaged Settings appearance, masked Wi-Fi connection and GitHub updates.')

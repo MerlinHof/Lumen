@@ -1,5 +1,7 @@
 # Changelog
 
+- [8.1](releases/8.1.md) · Wireless update integrity, smoother ARM emulation, shared sliders, and beta opt-in.
+
 - [8.0](releases/8.0.md) · Adaptive Kindle display mapping, relative SDK geometry, hardware controls, and ARM emulation.
 
 - [7.9](releases/7.9.md) · Wi-Fi connection feedback, anchored Library menus, and a new Browser home.

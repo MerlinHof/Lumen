@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import re
 import shutil
 import struct
 import subprocess
@@ -23,7 +24,7 @@ import emulator_vm
 
 ROOT = build.ROOT
 WIDTH, HEIGHT = 600, 800
-FRAME_MAGIC = b"LUMENFB\x01"
+FRAME_MAGIC = b"LUMENFB"
 WAVEFORMS = ("DU", "GL16", "GC16", "GC16 full")
 BOOK = """# The Quiet Hours
 
@@ -37,19 +38,22 @@ reader to show its controls. Hold on a word to open text selection.
 """
 
 
-def run_native(books, data, log):
+def run_native(books, data, log, bluetooth=False):
     try:
         build.dependencies("host")
     except SystemExit:
         subprocess.run([sys.executable, str(ROOT / "tools/setup.py"), "host"], check=True)
     binary = build.build("host")
     read_fd, write_fd = os.pipe()
+    env=dict(os.environ, LUMEN_EMULATOR_DISPLAY_FD=str(write_fd))
+    if bluetooth:
+        env["LUMEN_EMULATOR_BLUETOOTH"]="1"
     try:
         process = subprocess.Popen(
             [str(binary), "--library", str(books), "--data", str(data)],
             cwd=ROOT, stdin=subprocess.PIPE, stdout=log, stderr=log,
             pass_fds=(write_fd,), start_new_session=True,
-            env=dict(os.environ, LUMEN_EMULATOR_DISPLAY_FD=str(write_fd)))
+            env=env)
     except BaseException:
         os.close(read_fd)
         raise
@@ -143,11 +147,14 @@ class Display:
         self.image = None
         self.snapshot = None
         self.waveform = ""
+        self.brightness = 70
+        self.input_lock = threading.Lock()
 
-    def read(self, pipe, boot_log):
+    def read(self, pipe, boot_log, speaker):
         with pipe:
             # QEMU's serial port first carries the guest kernel's boot log.
             prefix = bytearray()
+            protocol = 0
             while not self.stop.is_set():
                 byte = pipe.read(1)
                 if not byte:
@@ -158,18 +165,46 @@ class Display:
                 if prefix.endswith(FRAME_MAGIC):
                     boot_log.write(prefix[:-len(FRAME_MAGIC)])
                     boot_log.flush()
+                    protocol = int.from_bytes(pipe.read(1), "little")
                     break
                 if byte == b"\n" or len(prefix) >= 4096:
                     boot_log.write(prefix)
                     boot_log.flush()
                     prefix.clear()
-            while not self.stop.is_set():
-                mode = pipe.read(1)
-                pixels = pipe.read(WIDTH * HEIGHT) if mode else b""
-                if len(pixels) != WIDTH * HEIGHT or mode[0] >= len(WAVEFORMS):
+            image=bytearray([255])*(WIDTH*HEIGHT)
+            while protocol in (1,2) and not self.stop.is_set():
+                mode=pipe.read(1)
+                if mode==b"\x80" and protocol==2 and speaker:
+                    command=pipe.read(1)
+                    if command not in (b"\x00",b"\x01"):
+                        break
+                    speaker.change(command==b"\x01")
+                    continue
+                if not mode or mode[0]>=len(WAVEFORMS):
                     break
+                if protocol==2:
+                    header=pipe.read(9)
+                    if len(header)!=9 or header[0]>100:
+                        break
+                    self.brightness=header[0]
+                    left,top,right,bottom=struct.unpack("<4H",header[1:])
+                    if not (0<=left<right<=WIDTH and 0<=top<bottom<=HEIGHT):
+                        break
+                    width=right-left
+                    damage=pipe.read(width*(bottom-top))
+                    if len(damage)!=width*(bottom-top):
+                        break
+                    for y in range(top,bottom):
+                        offset=y*WIDTH+left
+                        row=(y-top)*width
+                        image[offset:offset+width]=damage[row:row+width]
+                else:
+                    pixels=pipe.read(WIDTH*HEIGHT)
+                    if len(pixels)!=WIDTH*HEIGHT:
+                        break
+                    image[:]=pixels
                 with self.condition:
-                    self.pending = (mode[0], pixels)
+                    self.pending=(mode[0],bytes(image))
                     self.condition.notify_all()
         self.close()
 
@@ -217,7 +252,6 @@ def handler_for(token, display, process, backend="native"):
     config = json.dumps(dict(width=panel.width, height=panel.height,
                              logical=[WIDTH, HEIGHT], ppi=panel.ppi, backend=backend))
     html = (ROOT / "tools/emulator.html").read_bytes().replace(b"__LUMEN_PANEL__", config.encode("ascii"))
-    input_lock = threading.Lock()
 
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -261,7 +295,8 @@ def handler_for(token, display, process, backend="native"):
                     display.condition.wait_for(
                         lambda: display.revision > after or display.stop.is_set(), timeout=15)
                     frame = display.image if display.revision > after else None
-                    headers = {"X-Frame": display.revision, "X-Waveform": display.waveform}
+                    headers = {"X-Frame": display.revision, "X-Waveform": display.waveform,
+                               "X-Brightness": display.brightness}
                 if frame is not None:
                     self.reply(200, frame, "image/png", headers)
                 else:
@@ -291,7 +326,7 @@ def handler_for(token, display, process, backend="native"):
                 self.reply(503)
                 return
             try:
-                with input_lock:
+                with display.input_lock:
                     process.stdin.write(struct.pack("<iii", kind, x, y))
                     process.stdin.flush()
             except (BrokenPipeError, OSError):
@@ -300,6 +335,38 @@ def handler_for(token, display, process, backend="native"):
             self.reply(204)
 
     return Handler
+
+
+class HostSpeaker:
+    """Connect a specifically configured, already paired macOS speaker."""
+    def __init__(self, executable, address, process, lock):
+        self.executable = executable
+        self.address = address
+        self.process = process
+        self.lock = lock
+        self.worker = None
+
+    def change(self, connect):
+        if self.worker and self.worker.is_alive():
+            return
+        self.worker = threading.Thread(target=self.run, args=(connect,), daemon=True)
+        self.worker.start()
+
+    def run(self, connect):
+        try:
+            subprocess.run([self.executable, "--connect" if connect else "--disconnect", self.address],
+                           timeout=15, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            status = subprocess.check_output([self.executable, "--is-connected", self.address],
+                                             timeout=5, text=True).strip()
+            result = int(status) if status in ("0", "1") and int(status)==int(connect) else 3
+        except (OSError, subprocess.SubprocessError):
+            result = 3
+        try:
+            with self.lock:
+                self.process.stdin.write(struct.pack("<iii", 8, result, 0))
+                self.process.stdin.flush()
+        except (OSError, ValueError):
+            pass
 
 
 def timing(value):
@@ -326,7 +393,16 @@ def main():
     parser.add_argument("--kernel", type=Path, help="Linux ARMv7 kernel with QEMU virt support")
     parser.add_argument("--qemu", default=os.environ.get("LUMEN_QEMU", "qemu-system-arm"))
     parser.add_argument("--rebuild", action="store_true", help="rebuild the standard Kindle artifacts before booting")
+    parser.add_argument("--bluetooth-speaker", metavar="ADDRESS",
+                        help="allow this emulator session to connect an already paired Mac speaker")
     args = parser.parse_args()
+    blueutil=None
+    if args.bluetooth_speaker:
+        if sys.platform!="darwin" or not re.fullmatch(r"(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}",args.bluetooth_speaker):
+            parser.error("--bluetooth-speaker requires a MAC address on macOS.")
+        blueutil=shutil.which("blueutil")
+        if not blueutil:
+            parser.error("--bluetooth-speaker requires blueutil on PATH.")
     profile = ROOT / "build/emulator"
     kernel = (args.kernel or profile / "vmlinuz-armv7").expanduser().resolve()
     qemu = shutil.which(args.qemu)
@@ -355,11 +431,12 @@ def main():
         display = Display(durations, panel)
         with (profile / "emulator.log").open("wb") as log, (profile / "guest-boot.log").open("wb") as boot_log:
             if arm:
-                process = emulator_vm.launch(qemu, kernel, profile, books, log, args.rebuild)
+                process = emulator_vm.launch(qemu, kernel, profile, books, log, args.rebuild, bool(blueutil))
                 frame_pipe = process.stdout
             else:
-                process, frame_pipe = run_native(books, data, log)
-            reader = threading.Thread(target=display.read, args=(frame_pipe, boot_log), daemon=True)
+                process, frame_pipe = run_native(books, data, log, bool(blueutil))
+            speaker=HostSpeaker(blueutil,args.bluetooth_speaker,process,display.input_lock) if blueutil else None
+            reader = threading.Thread(target=display.read, args=(frame_pipe, boot_log, speaker), daemon=True)
             painter = threading.Thread(target=display.update, daemon=True)
             reader.start()
             painter.start()

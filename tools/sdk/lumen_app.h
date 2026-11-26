@@ -281,6 +281,19 @@ static void lumen_flow_row(int row,const char *id,const char *title,int column,i
  lumen_flow_row_detail(row,id,title,column,checked,pinned,NULL,0);
 }
 static void lumen_flow_end(void){fputs("]}",stdout);}
+/* Horizontal control. A committed touch reports the integer value in a
+ * component "selected" event. Enabled values are spaced by step. */
+static inline void lumen_slider(const char *id,int x,int y,int w,int h,const char *label,
+                               int minimum,int maximum,int step,int value,int enabled,
+                               const char *suffix,const char *unavailable) {
+ lumen_cmd("component_slider",x,y,w,h);
+ fputs(",\"id\":",stdout);lumen_json(id);
+ fputs(",\"text\":",stdout);lumen_json(label);
+ fputs(",\"suffix\":",stdout);lumen_json(suffix);
+ fputs(",\"unavailable\":",stdout);lumen_json(unavailable);
+ printf(",\"min\":%d,\"max\":%d,\"step\":%d,\"value\":%d,\"enabled\":%d}",
+        minimum,maximum,step,value,!!enabled);
+}
 static void lumen_segments(const char *id,int x,int y,int w,int h,const char **labels,int count,int selected) {
  lumen_cmd("component_segments",x,y,w,h);
  fputs(",\"id\":",stdout);lumen_json(id);

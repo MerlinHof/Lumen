@@ -32,3 +32,14 @@ To move from 4.6 to 4.7, confirm 4.6 with **Keep update** if that button is stil
 visible. Check for updates, download 4.7 and choose **Restart now** in the older
 interface. If 4.6 exits without reopening, launch LUMEN once from the Kindle
 library. Updates started from 4.7 use the new progress and restart flow.
+
+## Update channels
+
+Stable updates come from `main`. Under **Settings → System → Update**,
+**Beta updates** is off by default. Enable it to include newer builds
+published by the `beta` branch. Disabling it returns discovery to stable
+releases. Installed versions are never downgraded.
+
+Beta builds use a version newer than `main` and publish to the rolling
+`lumen-beta` prerelease. The workflow uploads the verified runtime before
+publishing its wireless metadata.

@@ -18,6 +18,10 @@
 #include <unistd.h>
 
 static int virtual_hardware;
+int device_emulated(void) {return virtual_hardware;}
+int device_bluetooth_remote(void) {return virtual_hardware && virtual_device_bluetooth_remote();}
+int device_bluetooth_connection(void) {return virtual_hardware ? virtual_device_bluetooth_connection() : -1;}
+int device_bluetooth_connect(int connect) {return virtual_hardware && virtual_device_bluetooth_connect(connect);}
 #ifndef LUMEN_HOST
 #include <arpa/inet.h>
 #include <dirent.h>

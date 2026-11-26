@@ -15,9 +15,9 @@
   button:active{background:#f0f0f0;color:#151515}
   main{width:max-content;min-width:100%;box-sizing:border-box;padding:16px;text-align:center}
   .device{display:inline-block;position:relative;line-height:0;background:#f8f8f8;border:10px solid #252525;border-radius:12px;overflow:hidden;box-shadow:0 6px 20px #0003}
-  canvas{display:block;width:var(--panel-width);height:auto;aspect-ratio:var(--panel-ratio);image-rendering:pixelated;touch-action:none;user-select:none;cursor:crosshair}
+  canvas{display:block;width:var(--panel-width);height:auto;aspect-ratio:var(--panel-ratio);image-rendering:auto;touch-action:none;user-select:none;cursor:crosshair}
   .fit canvas{width:min(var(--panel-width),calc(100vw - 52px),max(180px,calc((100dvh - var(--bar-height, 70px) - 52px) * var(--panel-ratio))));height:auto}
-  .raster canvas{width:calc(3 * var(--panel-width));height:auto}
+  .raster canvas{image-rendering:pixelated;width:calc(3 * var(--panel-width));height:auto}
   .raster::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,#7774 1px,transparent 1px),linear-gradient(#7774 1px,transparent 1px);background-size:3px 3px}
   .physical canvas{width:var(--physical-width)}
   #custom{display:flex;align-items:center;gap:6px}
@@ -60,7 +60,8 @@ const custom = document.getElementById("custom");
 const zoom = document.getElementById("zoom");
 let bitmap = null;
 function paint() {
-  context.imageSmoothingEnabled = false;
+  context.imageSmoothingEnabled = zoom.value !== "raster";
+  context.imageSmoothingQuality = "high";
   context.fillStyle = "#fff";
   context.fillRect(0, 0, canvas.width, canvas.height);
   if (bitmap) context.drawImage(bitmap, ...panel.viewport);
@@ -116,7 +117,10 @@ const toolbar = document.querySelector("header");
 new ResizeObserver(() => {
   document.documentElement.style.setProperty("--bar-height", toolbar.offsetHeight + "px");
 }).observe(toolbar);
-const updateZoom = () => {document.getElementById("device").className = "device " + zoom.value;};
+const updateZoom = () => {
+  document.getElementById("device").className = "device " + zoom.value;
+  if (panel.viewport) paint();
+};
 zoom.onchange = updateZoom;
 updateZoom();
 
@@ -205,6 +209,8 @@ async function frames() {
       const response = await fetch("frame?after=" + revision, {cache: "no-store"});
       if (response.status === 204) continue;
       if (!response.ok) throw new Error("Bildabruf fehlgeschlagen");
+      const brightness = Number(response.headers.get("X-Brightness") ?? 70);
+      canvas.style.filter = "brightness(" + (.82 + .18 * brightness / 100) + ")";
       const next = await createImageBitmap(await response.blob());
       bitmap?.close();
       bitmap = next;

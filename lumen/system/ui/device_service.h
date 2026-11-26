@@ -17,6 +17,30 @@ static int settings_autostart(int enabled) {
     else if(!atomic_write(path,"",0))return 0;
     options[OPT_AUTOSTART]=enabled;library_settings_save();return 1;
 }
+static int emulator_bluetooth_discovery;
+static int emulator_wifi_connected=1;
+static int settings_emulated_wifi(const char *operation,const char *data,int action) {
+    int on=device_wifi_enabled();
+    if(!strcmp(operation,"wifi_power")) {
+        if(strcmp(data,"0") && strcmp(data,"1"))return package_acknowledge(action,0);
+        return package_acknowledge(action,device_wifi(*data=='1'));
+    }
+    if(!strcmp(operation,"wifi_connect")) {
+        if(!on || (strncmp(data,"LUMEN Demo",10) || (data[10] && data[10]!='\n')))
+            return package_acknowledge(action,0);
+        emulator_wifi_connected=1;
+        return package_acknowledge(action,1);
+    }
+    if(!strcmp(operation,"wifi_forget"))emulator_wifi_connected=0;
+    if(strcmp(operation,"wifi_list"))return package_acknowledge(action,1);
+    char *message=NULL;size_t length=0;FILE *out=package_reply(&message,&length,action,1);
+    if(!out)return 0;
+    fprintf(out,",\"enabled\":%d,\"busy\":0,\"count\":%d,\"page\":0,\"connection\":%d",
+            on,on,on && emulator_wifi_connected ? 2 : 3);
+    if(on)fputs(",\"name0\":\"LUMEN Demo\",\"locked0\":0",out);
+    if(on && emulator_wifi_connected)fputs(",\"saved0\":1,\"connected0\":1",out);
+    package_reply_end(out,&message);return 1;
+}
 static int settings_wifi_operation(const char *operation,const char *data,int action) {
     if(!strcmp(operation,"wifi_start")) {
         wifi_join_poll();
@@ -84,12 +108,26 @@ static int package_device(const char *operation,const char *data,int action,int 
     int provider=app_package_provider_id(PROVIDER_DEVICE_CONTROL);
     if(provider<0 || app_process_owner()!=provider || active_app()!=provider)
         return package_acknowledge(action,0);
-    if(!strncmp(operation,"wifi_",5))return settings_wifi_operation(operation,data,action);
+    if(!strncmp(operation,"wifi_",5))return device_emulated() ?
+        settings_emulated_wifi(operation,data,action) : settings_wifi_operation(operation,data,action);
+    if(!strcmp(operation,"beta")) {
+        if(strcmp(data,"0") && strcmp(data,"1"))return package_acknowledge(action,0);
+        return package_acknowledge(action,release_set_beta(*data=='1'));
+    }
+    if(!strcmp(operation,"bluetooth_scan") || !strcmp(operation,"bluetooth_speaker")) {
+        if(!device_emulated() || device_capabilities().bluetooth!=1)return package_acknowledge(action,0);
+        if(!strcmp(operation,"bluetooth_scan"))emulator_bluetooth_discovery=1;
+        else if(emulator_bluetooth_discovery)
+            return package_acknowledge(action,device_bluetooth_connect(device_bluetooth_connection()!=1));
+        return package_acknowledge(action,1);
+    }
     if(!strcmp(operation,"brightness") || !strcmp(operation,"bluetooth")) {
         char *end;
         long value=strtol(data,&end,10);
         if(end==data || *end || value<0 || value>100)return package_acknowledge(action,0);
         int ok=!strcmp(operation,"brightness") ? device_brightness((int)value) : device_bluetooth((int)value);
+        if(ok && device_emulated() && !strcmp(operation,"bluetooth") && !value)
+            emulator_bluetooth_discovery=0;
         return package_acknowledge(action,ok);
     }
     if(!strcmp(operation,"preference")) {
@@ -209,6 +247,8 @@ static int package_device(const char *operation,const char *data,int action,int 
         release_poll();
         DeviceCapabilities caps=device_capabilities();
         fprintf(out,",\"hardware_controls\":1,\"brightness\":%d,\"bluetooth\":%d",caps.brightness,caps.bluetooth);
+        fprintf(out,",\"beta_updates\":%d,\"emulated\":%d,\"bluetooth_discovery\":%d,\"bluetooth_connected\":%d,\"bluetooth_remote\":%d",
+                release_beta_enabled(),device_emulated(),emulator_bluetooth_discovery,device_bluetooth_connection(),device_bluetooth_remote());
         for(size_t i=0;i<sizeof(device_preferences)/sizeof(*device_preferences);i++) {
             int value=options[device_preferences[i].option];
             if(legacy)fprintf(out,",\"p%zu\":%d",i,value);

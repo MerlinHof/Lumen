@@ -6048,5 +6048,25 @@
     "Mitteilungen",
     "Notifications",
     "Notifications"
+  ],
+  "Nicht genügend freier Speicher für das Update.": [
+    "Nicht genügend freier Speicher für das Update.",
+    "Not enough free space for the update.",
+    "Espace libre insuffisant pour la mise à jour."
+  ],
+  "Update-Download fehlgeschlagen. WLAN prüfen und erneut versuchen.": [
+    "Update-Download fehlgeschlagen. WLAN prüfen und erneut versuchen.",
+    "Update download failed. Check Wi-Fi and try again.",
+    "Le téléchargement a échoué. Vérifiez le Wi-Fi et réessayez."
+  ],
+  "Die Update-Datei stimmt nicht mit der Prüfsumme überein.": [
+    "Die Update-Datei stimmt nicht mit der Prüfsumme überein.",
+    "The update file does not match its checksum.",
+    "La somme de contrôle du fichier de mise à jour est incorrecte."
+  ],
+  "Das Update konnte nicht auf dem Kindle vorbereitet werden.": [
+    "Das Update konnte nicht auf dem Kindle vorbereitet werden.",
+    "The update could not be prepared on the Kindle.",
+    "La préparation de la mise à jour a échoué sur le Kindle."
   ]
 }

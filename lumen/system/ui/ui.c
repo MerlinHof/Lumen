@@ -71,6 +71,7 @@ static char package_view_title[128];
 static AppId package_fullscreen_owner=-1;
 static int package_ui_input(const Input *);
 static int package_pointer_input(const Input *);
+static int package_slider_input(const Input *);
 static int package_ui_commit(int target,const char *text);
 static void package_input_checkpoint(void);
 static void package_ui_choice(int choice);
@@ -1428,6 +1429,7 @@ static int ui_dispatch_input(const Input *in) {
         return 1;
     }
     if (in->kind == INPUT_CANCEL) {
+        package_slider_input(in);
         package_pointer_input(in);
         notification_input(in,0);
         package_overlays_input(in);
@@ -1460,6 +1462,10 @@ static int ui_dispatch_input(const Input *in) {
                      (active_app()!=document_provider() || reader_ui.reader_chrome || app_package_installed(document_provider()));
     int system_pager = !sleeping && !editor_ui.keyboard && !dropdown &&
                        pagination_hit(in);
+    if(!sleeping && !editor_ui.keyboard && !dropdown && app_package_installed(active_app())) {
+        int slider=package_slider_input(in);
+        if(slider){pressed=-1;activity16=extra_millis();return slider;}
+    }
     if(!sleeping && !editor_ui.keyboard && !dropdown && !status_tap && !system_pager &&
        app_package_installed(active_app()) && package_pointer_input(in)) {
         pressed=-1;

@@ -3,6 +3,8 @@
 #include <time.h>
 /* Full verified runtime packages from GitHub, with durable rollback. */
 int release_start(int install);
+int release_beta_enabled(void);
+int release_set_beta(int enabled);
 int release_poll(void);
 int release_progress(int *percent);
 int release_activate(void);

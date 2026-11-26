@@ -2,6 +2,7 @@
 #define LUMEN_DEVICE_H
 #include "../../tools/sdk/lumen_input.h"
 int device_init(void);
+int device_emulated(void);
 void device_close(void);
 int device_wait(Input *input);
 int device_input_pending(void);
@@ -21,6 +22,9 @@ typedef struct { int brightness,bluetooth; } DeviceCapabilities;
 DeviceCapabilities device_capabilities(void);
 int device_brightness(int percent);
 int device_bluetooth(int enabled);
+int device_bluetooth_remote(void);
+int device_bluetooth_connection(void);
+int device_bluetooth_connect(int connect);
 void device_hold_awake(int enabled);
 void device_finish_update(void);
 int device_wifi_enabled(void);

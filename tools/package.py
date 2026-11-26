@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Package only explicit runtime files; never sweep a workspace into a release."""
 from pathlib import Path
-import hashlib,json,shutil,zipfile,re
+import hashlib,json,shutil,zipfile,re,os,stat
 ROOT=Path(__file__).resolve().parents[1]
 def runtime_mapping():
     mapping=json.loads((ROOT/'tools/config/runtime.json').read_text())
@@ -53,8 +53,17 @@ def validate_app_coverage(mapping):
         if built['api'] != 2 or built['format'] != 'lumen-app-2':
             raise RuntimeError(f'Expected Protocol 2 archive: {filename}')
 
+def add_zip_entry(archive, name, content, mode=0o644):
+    # A repack of the same runtime must preserve the published checksum.
+    info=zipfile.ZipInfo(str(name),date_time=(1980,1,1,0,0,0))
+    info.create_system=3
+    info.external_attr=(stat.S_IFREG | stat.S_IMODE(mode))<<16
+    archive.writestr(info,content,compress_type=zipfile.ZIP_DEFLATED,compresslevel=6)
+
 def package():
     version=validate_version((ROOT/'VERSION').read_text().strip());dist=ROOT/'dist';dist.mkdir(exist_ok=True)
+    tag=os.environ.get('LUMEN_RELEASE_TAG','v'+version)
+    if tag not in {'v'+version,'lumen-beta'}:raise ValueError('Invalid publication tag')
     mapping=runtime_mapping();validate_runtime_mapping(mapping);validate_app_coverage(mapping)
     bundle=dist/('LUMEN-'+version);payload=bundle/'Kindle'
     if bundle.exists():shutil.rmtree(bundle)
@@ -83,16 +92,18 @@ exit "$result"
     archive=dist/('LUMEN-'+version+'.zip')
     with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
         for p in sorted(bundle.rglob('*')):
-            if p.is_file():z.write(p,Path(bundle.name)/p.relative_to(bundle))
+            if p.is_file():add_zip_entry(z,Path(bundle.name)/p.relative_to(bundle),p.read_bytes(),p.stat().st_mode)
     (archive.with_suffix('.zip.sha256')).write_text(hashlib.sha256(archive.read_bytes()).hexdigest()+'  '+archive.name+'\n')
     system_archive=dist/f'LUMEN-{version}.lumen-system'
     system_manifest={'format':'lumen-system-1','version':version,'files':[
         {'path':rel,'size':(payload/rel).stat().st_size,'sha256':sha} for rel,sha in sorted(manifest.items())]}
     with zipfile.ZipFile(system_archive,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
-        z.writestr('manifest.json',json.dumps(system_manifest))
-        for rel in sorted(manifest):z.write(payload/rel,'payload/'+rel)
+        add_zip_entry(z,'manifest.json',json.dumps(system_manifest))
+        for rel in sorted(manifest):
+            file=payload/rel
+            add_zip_entry(z,'payload/'+rel,file.read_bytes(),file.stat().st_mode)
     wireless={'format':'lumen-system-1','version':version,
-              'url':f'https://github.com/MerlinHof/Lumen/releases/download/v{version}/{system_archive.name}',
+              'url':f'https://github.com/MerlinHof/Lumen/releases/download/{tag}/{system_archive.name}',
               'size':system_archive.stat().st_size,'installed_size':sum((payload/r).stat().st_size for r in manifest),
               'sha256':hashlib.sha256(system_archive.read_bytes()).hexdigest()}
     (dist/f'LUMEN-{version}.wireless.json').write_text(json.dumps(wireless,indent=2)+'\n')

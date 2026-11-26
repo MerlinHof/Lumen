@@ -3,7 +3,7 @@
   "api": 2,
   "id": "lumen.reader",
   "name": "Lesen",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "sources": [
     "app.c"
   ],

@@ -3,7 +3,7 @@ on:
   workflow_run:
     workflows: [Native checks]
     types: [completed]
-    branches: [main]
+    branches: [main, beta]
   workflow_dispatch:
 permissions:
   contents: write
@@ -12,11 +12,12 @@ concurrency:
   cancel-in-progress: false
 jobs:
   release:
-    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository)
+    if: (github.event_name == 'workflow_dispatch' && (github.ref_name == 'main' || github.ref_name == 'beta')) || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       GH_TOKEN: ${{ github.token }}
+      RELEASE_BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,7 +28,16 @@ jobs:
           VERSION=$(cat VERSION)
           python3 -c 'import sys;sys.path.insert(0,"tools");from package import validate_version;validate_version(open("VERSION").read().strip())'
           echo "number=$VERSION" >> "$GITHUB_OUTPUT"
-          if gh release view "v$VERSION" >/dev/null 2>&1; then
+          if [ "$RELEASE_BRANCH" = beta ]; then
+            STABLE=$(gh api "repos/$GITHUB_REPOSITORY/contents/VERSION?ref=main" --jq '.content' | base64 -d)
+            if python3 -c 'import sys; ver=lambda s: tuple(int(n) for n in s.strip().split(".")); sys.exit(not ver(sys.argv[1]) > ver(sys.argv[2]))' "$VERSION" "$STABLE"; then
+              test -f "docs/releases/$VERSION.md"
+              echo 'publish=true' >> "$GITHUB_OUTPUT"
+              echo 'LUMEN_RELEASE_TAG=lumen-beta' >> "$GITHUB_ENV"
+            else
+              echo 'publish=false' >> "$GITHUB_OUTPUT"
+            fi
+          elif gh release view "v$VERSION" >/dev/null 2>&1; then
             echo 'publish=false' >> "$GITHUB_OUTPUT"
           else
             test -f "docs/releases/$VERSION.md"
@@ -49,11 +59,29 @@ jobs:
           python3 tools/build.py kindle
           python3 tools/package.py
           python3 tools/export-sdk.py
+      - name: Verify checksums before publication
+        if: steps.version.outputs.publish == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.number }}
+        run: |
+          cd dist
+          sha256sum -c "LUMEN-$VERSION.zip.sha256"
+          python3 -c 'import hashlib,json,sys,pathlib; p=pathlib.Path("LUMEN-"+sys.argv[1]); m=json.loads(p.with_suffix(p.suffix+".wireless.json").read_text()); b=p.with_suffix(p.suffix+".lumen-system").read_bytes(); assert len(b)==m["size"] and hashlib.sha256(b).hexdigest()==m["sha256"]' "$VERSION"
       - name: Publish verified update assets
         if: steps.version.outputs.publish == 'true'
         env:
           VERSION: ${{ steps.version.outputs.number }}
         run: |
+          if [ "$RELEASE_BRANCH" = beta ]; then
+            if ! gh release view lumen-beta >/dev/null 2>&1; then
+              gh release create lumen-beta --target "$(git rev-parse HEAD)" --prerelease --latest=false \
+                --title "LUMEN Beta" --notes-file "docs/releases/$VERSION.md"
+            fi
+            gh release upload lumen-beta "dist/LUMEN-$VERSION.lumen-system" "dist/LUMEN-$VERSION.zip" "dist/LUMEN-$VERSION.zip.sha256" --clobber
+            gh release upload lumen-beta "dist/LUMEN-$VERSION.wireless.json" --clobber
+            gh release edit lumen-beta --prerelease --latest=false --notes-file "docs/releases/$VERSION.md"
+            exit 0
+          fi
           if gh release view "v$VERSION" >/dev/null 2>&1; then exit 0; fi
           test -f "docs/releases/$VERSION.md"
           gh release create "v$VERSION" --target "$(git rev-parse HEAD)" --latest --title "LUMEN $VERSION" --notes-file "docs/releases/$VERSION.md" "dist/LUMEN-$VERSION.zip" "dist/LUMEN-$VERSION.zip.sha256" "dist/LUMEN-$VERSION.lumen-system" "dist/LUMEN-$VERSION.wireless.json" "dist/LUMEN-$VERSION-sdk.zip" build/apps/kindle/*/*.lumen-app

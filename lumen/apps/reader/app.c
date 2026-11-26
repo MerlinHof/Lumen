@@ -98,7 +98,10 @@ static void draw_settings(void) {
         const char **options=choices(id,&n);
         char key[16];snprintf(key,sizeof(key),"setting-%d",id);
         if(options)lumen_select_action(key,y,setting_label(id),options[preferences[id]>=0 && preferences[id]<n ? preferences[id] : 0]);
-        else {
+        else if(id==1) {
+            lumen_slider("font-size",28,y,544,48,setting_label(id),16,34,2,preferences[id],1,"","");
+            lumen_list_divider(28,y+62,572);
+        } else {
             lumen_text(30,y,351,48,setting_label(id),PAINT_BODY,0,1);
             if(id==7) {
                 lumen_toggle(492,y+6,preferences[id]);lumen_custom_action(key,470,y,102,48);
@@ -419,6 +422,12 @@ static int input(const Input *in) {
     if(in->kind==INPUT_COMPONENT) {
         char id[24],gesture[24],value[8];
         if(!lumen_string("id",id,sizeof(id)) || !lumen_string("gesture",gesture,sizeof(gesture)))return 0;
+        if(view==SETTINGS && !strcmp(id,"font-size") && !strcmp(gesture,"selected") &&
+           lumen_string("text",value,sizeof(value))) {
+            char *end;long size=strtol(value,&end,10);
+            if(!*end && size>=16 && size<=34)setting(1,(int)size);
+            return 1;
+        }
         if(!strcmp(gesture,"clicked"))return view==SELECTION ? selection_action(id) : activate(id);
         if(view==CONTENTS && confirm<0 && !strcmp(id,"contents") && !strcmp(gesture,"selected") &&
            lumen_string("text",value,sizeof(value)) && strlen(value)==1 && value[0]>='0' && value[0]<='2') {

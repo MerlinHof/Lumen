@@ -111,6 +111,7 @@ static const char *package_labels[48];
 static void package_ui_choice(int choice){char event[128];snprintf(event,sizeof(event),"{\"event\":\"select\",\"action\":%d,\"value\":%d}",package_select_action,choice);app_process_send(event);}
 typedef struct {
     int left,top,width,height,kind,checked,count;
+    int minimum,maximum,step,slider_value;
     char id[64],label[120],value[1024];
 } PackageComponent;
 enum { PACKAGE_COMPONENT_LIMIT=144 };
@@ -130,7 +131,21 @@ static int package_form_row(int height) {
     return (!package_form.active || package_form.index==package_form.page) && top+height<=HEIGHT-8 ? top : -1;
 }
 static char package_focused_component[64];
-enum { COMPONENT_BUTTON, COMPONENT_FIELD, COMPONENT_TOGGLE, COMPONENT_CHECKBOX, COMPONENT_SEGMENTS, COMPONENT_FLOW, COMPONENT_EDITOR_LINE, COMPONENT_NESTED_TOGGLE };
+enum { COMPONENT_BUTTON, COMPONENT_FIELD, COMPONENT_TOGGLE, COMPONENT_CHECKBOX, COMPONENT_SEGMENTS, COMPONENT_FLOW, COMPONENT_EDITOR_LINE, COMPONENT_NESTED_TOGGLE, COMPONENT_SLIDER };
+static struct {
+    int active,owner,value;
+    char id[64];
+} package_slider;
+static int slider_track_start(int x,int w) { return x+w/2+2; }
+static int slider_track_end(int x,int w) { return x+w-76; }
+static int slider_value_at(const PackageComponent *c,int x) {
+    int left=slider_track_start(c->left,c->width),right=slider_track_end(c->left,c->width);
+    if(x<=left)return c->minimum;
+    if(x>=right)return c->maximum;
+    int span=right-left;
+    int steps=(c->maximum-c->minimum)/c->step;
+    return c->minimum+c->step*(((x-left)*steps+span/2)/span);
+}
 static void package_component_event(const char *id,const char *gesture,const char *text) {
     char *message=NULL;size_t length=0;
     FILE *out=open_memstream(&message,&length);
@@ -363,6 +378,41 @@ static void package_paint_frame_mode(const char *text,int mode) {
                 widget_shape(x-10,y-8,90,48,RADIUS_MEDIUM,3,0);
             } else button_h(x,y,w,h,label,package_value(&j,item,"primary"));
             package_component_count++;
+            continue;
+        }
+        if(!strcmp(type,"component_slider")) {
+            int min=package_value(&j,item,"min"),max=package_value(&j,item,"max");
+            int step=package_value(&j,item,"step"),value=package_value(&j,item,"value");
+            int enabled=!!package_value(&j,item,"enabled");
+            if(x<0 || y<STATUS_HEIGHT || w<360 || w>WIDTH-x || h<44 || h>HEIGHT-y ||
+               min < -10000 || max>10000 || min>=max || step<1 || (max-min)%step ||
+               package_component_count>=PACKAGE_COMPONENT_LIMIT)continue;
+            char id[64],suffix[18],display[64];
+            json_string(&j,json_get(&j,item,"id"),id,sizeof(id));
+            json_string(&j,json_get(&j,item,"suffix"),suffix,sizeof(suffix));
+            if(!*id || (enabled && (value<min || value>max)))continue;
+            if(enabled && package_slider.active && package_slider.owner==(int)active_app() && !strcmp(package_slider.id,id))
+                value=package_slider.value;
+            int start=slider_track_start(x,w),end=slider_track_end(x,w);
+            int middle=y+h/2;
+            if(enabled) {
+                int knob=start+(end-start)*(value-min)/(max-min);
+                ui_paint_surface(start,middle-2,end-start,4,2,176,-1);
+                if(knob>start)ui_paint_surface(start,middle-2,knob-start,4,2,0,-1);
+                aa_disc(knob,middle,8,0);
+                snprintf(display,sizeof(display),"%d%s",value,suffix);
+                PackageComponent *c=&package_components[package_component_count++];
+                *c=(PackageComponent){.left=x,.top=y,.width=w,.height=h,.kind=COMPONENT_SLIDER,
+                    .minimum=min,.maximum=max,.step=step,.slider_value=value};
+                snprintf(c->id,sizeof(c->id),"%s",id);
+            } else {
+                ui_paint_surface(start,middle-2,end-start,4,2,215,-1);
+                json_string(&j,json_get(&j,item,"unavailable"),display,sizeof(display));
+            }
+            label_ellipsis(x+2,y,enabled ? w/2-15 : w/2-24,h,label,
+                           ui_font(UI_BODY),enabled ? 0 : 145);
+            if(enabled)type_label(end+13,y,x+w-end-14,h,display,UI_SECONDARY);
+            else type_label(end-72,y,x+w-end+72,h,display,UI_SECONDARY);
             continue;
         }
         if(!strcmp(type,"component_segments")) {
@@ -798,7 +848,37 @@ static void package_ui_draw(void) {
     package_paint_frame(text);
     if(!package_document_visible && active_app()==document_provider())reader_ui.reader_chrome=0;
 }
+static int package_slider_input(const Input *in) {
+    int active=package_slider.active && package_slider.owner==(int)active_app();
+    if(in->kind==INPUT_CANCEL){package_slider.active=0;return active;}
+    if(in->kind!=INPUT_DOWN && in->kind!=INPUT_MOVE && in->kind!=INPUT_TAP &&
+       in->kind!=INPUT_SWIPE && in->kind!=INPUT_HOLD)return 0;
+    if(in->kind==INPUT_DOWN)active=package_slider.active=0;
+    for(int i=0;i<package_component_count;i++) {
+        const PackageComponent *c=&package_components[i];
+        if(c->kind!=COMPONENT_SLIDER)continue;
+        if(active ? strcmp(c->id,package_slider.id)!=0 :
+           (in->kind!=INPUT_DOWN && in->kind!=INPUT_TAP) ||
+           in->x<slider_track_start(c->left,c->width)-10 || in->x>=c->left+c->width ||
+           in->y<c->top || in->y>=c->top+c->height)continue;
+        if(in->kind==INPUT_HOLD)return 2;
+        int value=slider_value_at(c,in->x);
+        if(in->kind==INPUT_DOWN || in->kind==INPUT_MOVE) {
+            int changed=!active || value!=package_slider.value;
+            package_slider.active=1;package_slider.owner=active_app();package_slider.value=value;
+            snprintf(package_slider.id,sizeof(package_slider.id),"%s",c->id);
+            return changed ? 1 : 2;
+        }
+        package_slider.active=0;
+        char text[24];snprintf(text,sizeof(text),"%d",value);
+        package_component_event(c->id,"selected",text);
+        return 1;
+    }
+    if(active)package_slider.active=0;
+    return active;
+}
 static void package_pointer_reset(void) {
+    package_slider.active=0;
     package_pointer.active=0;
     package_pointer.w=0;
 }

@@ -43,7 +43,12 @@ int system_update_stage(const char*archive,const char*version) {
    }
  }
  free(p);snprintf(binary,sizeof(binary),"%s/../bin/lumen",data_root);
- if(ok && executable)ok=package_copy(binary,helper) && !chmod(helper,0700) && atomic_write(ready,version,strlen(version));else ok=0;
+ if(ok && executable) {
+   ok=package_copy(binary,helper);
+   /* FAT applies mount-wide permissions and can reject a per-file chmod. */
+   if(ok && access(helper,X_OK))ok=!chmod(helper,0700) && !access(helper,X_OK);
+   if(ok)ok=atomic_write(ready,version,strlen(version));
+ } else ok=0;
  if(!ok)package_remove(stage);return ok;
 }
 /* Every original is durably copied before the write-ahead journal is committed.

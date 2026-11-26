@@ -17,6 +17,7 @@
 #include <sys/statvfs.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#define API_ROOT "https://api.github.com/repos/MerlinHof/Lumen/releases/"
 #define RELEASE_ROOT "https://github.com/MerlinHof/Lumen/releases/download/"
 static pid_t worker;
 static int state, loaded, installing, last_step, last_percent;
@@ -56,17 +57,17 @@ int release_activate(void) {
     snprintf(restart,sizeof(restart),"%s/../.update/relaunch",data_root);
     return state == 4 && !access(ready,F_OK) && atomic_write(restart,"1",1);
 }
-static int download(const char *url,const char *file,size_t limit) {
+static LumenHttpResult download(const char *url,const char *file,size_t limit) {
     char ca[2048];
     snprintf(ca,sizeof(ca),"%s/../certs/ca-bundle.pem",data_root);
     if(!getenv("CURL_CA_BUNDLE") && !access(ca,R_OK))setenv("CURL_CA_BUNDLE",ca,1);
     int fd=open(file,O_WRONLY|O_CREAT|O_TRUNC|O_NOFOLLOW|O_CLOEXEC,0600);
-    if(fd<0)return 0;
-    int ok=lumen_http_download((LumenHttpRequest){.url=url,.redirects=5,
-         .connect_timeout=8,.timeout=180},fd,limit);
-    if(close(fd))ok=0;
-    if(!ok)unlink(file);
-    return ok;
+    if(fd<0)return LUMEN_HTTP_IO;
+    LumenHttpResult status=lumen_http_download_result((LumenHttpRequest){.url=url,.redirects=5,
+         .connect_timeout=12,.timeout=limit>262144 ? 600 : 45},fd,limit);
+    if(close(fd))status=LUMEN_HTTP_IO;
+    if(status!=LUMEN_HTTP_OK)unlink(file);
+    return status;
 }
 static int digest_file(const char *name,char out[65]) {
     FILE *f=fopen(name,"rb");if(!f)return 0;
@@ -88,6 +89,75 @@ static void result(int code,const char *v,const char *message) {
     snprintf(b,sizeof(b),"%d %lld %s\n%s",code,(long long)time(NULL),*v?v:"-",message);
     atomic_write(p,b,strlen(b));
 }
+int release_beta_enabled(void) {
+    char file[2048];path(file,"release-beta");
+    return access(file,F_OK)==0;
+}
+int release_set_beta(int enabled) {
+    if(worker || state==4)return 0;
+    char file[2048];path(file,"release-beta");
+    if(enabled) {
+        if(!atomic_write(file,"1",1))return 0;
+    } else if(unlink(file) && errno!=ENOENT)return 0;
+    path(file,"release-check.txt");unlink(file);
+    state=0;loaded=1;checked=0;version[0]=error[0]=0;
+    return 1;
+}
+static int release_number(const char *value) {
+    int major,minor;char tail;
+    if(sscanf(value,"%d.%d%c",&major,&minor,&tail)!=2 ||
+       major<1 || major>9999 || minor<0 || minor>9)return -1;
+    return major*10+minor;
+}
+static int release_candidate(const char *file,const char *endpoint,const char *prefix,
+                             char tag[32],char url[2048]) {
+    if(download(endpoint,file,262144)!=LUMEN_HTTP_OK)return -1;
+    Json json;JsonToken tokens[16384];
+    char *text=read_json(file,&json,tokens,16384);
+    if(!text)return -1;
+    char candidate[32]="";
+    json_string(&json,json_get(&json,0,"tag_name"),candidate,sizeof(candidate));
+    int beta=!strcmp(prefix,"beta");
+    size_t skip=beta ? 0 : strlen(prefix);
+    int value=beta || strncmp(candidate,prefix,skip) ? -1 : release_number(candidate+skip);
+    char beta_version[32]="";
+    if(beta && !strcmp(candidate,"lumen-beta")) {
+        int list=json_get(&json,0,"assets");
+        if(list>=0 && json.tokens[list].type=='[')for(int i=0;i<json.tokens[list].count;i++) {
+            char name[128],tail;
+            int asset=json_at(&json,list,i),major,minor;
+            json_string(&json,json_get(&json,asset,"name"),name,sizeof(name));
+            if(sscanf(name,"LUMEN-%d.%d.wireless.json%c",&major,&minor,&tail)!=2)continue;
+            char number[32],expected[128];
+            snprintf(number,sizeof(number),"%d.%d",major,minor);
+            snprintf(expected,sizeof(expected),"LUMEN-%s.wireless.json",number);
+            int parsed=release_number(number);
+            if(!strcmp(name,expected) && parsed>value) {
+                value=parsed;
+                snprintf(beta_version,sizeof(beta_version),"%s",number);
+            }
+        }
+    }
+    const char *number=beta ? beta_version : candidate+skip;
+    if(value>=0) {
+        snprintf(tag,32,"v%s",number);
+        int assets=json_get(&json,0,"assets");
+        char expected[64],address[2048];
+        snprintf(expected,sizeof(expected),"LUMEN-%s.wireless.json",number);
+        int count=assets>=0 && json.tokens[assets].type=='[' ? json.tokens[assets].count : 0;
+        for(int i=0;i<count;i++) {
+            int asset=json_at(&json,assets,i);char name[128];
+            json_string(&json,json_get(&json,asset,"name"),name,sizeof(name));
+            if(strcmp(name,expected))continue;
+            json_string(&json,json_get(&json,asset,"browser_download_url"),address,sizeof(address));
+            char exact[256];
+            snprintf(exact,sizeof(exact),RELEASE_ROOT "%s/%s",candidate,expected);
+            if(!strcmp(address,exact))snprintf(url,2048,"%s",address);
+            break;
+        }
+    }
+    free(text);return value;
+}
 static void check_worker(int install,pid_t parent) {
     nice(8);
     char api[2048],meta[2048],binary[2048];
@@ -96,24 +166,24 @@ static void check_worker(int install,pid_t parent) {
     Json json;JsonToken tokens[4096];char *text=NULL;
     char tag[32]="",url[2048]="",hash[65]="",actual[65];
     const char *failure="GitHub nicht erreichbar. WLAN prüfen.";
-    if(!download("https://api.github.com/repos/MerlinHof/Lumen/releases/latest",api,262144))goto failed;
-    text=read_json(api,&json,tokens,4096);if(!text)goto failed;
-    json_string(&json,json_get(&json,0,"tag_name"),tag,sizeof(tag));
-    int major,minor,cm,cn;sscanf(LUMEN_VERSION,"%d.%d",&cm,&cn);
-    if(sscanf(tag,"v%d.%d",&major,&minor)!=2)goto failed;
-    if(major<cm || (major==cm && minor<=cn)){result(2,tag,"");goto done;}
-    int assets=json_get(&json,0,"assets");
-    if(assets<0 || json.tokens[assets].type!='[')goto failed;
-    for(int i=0;i<json.tokens[assets].count;i++) {
-        int asset=json_at(&json,assets,i);char name[128];
-        json_string(&json,json_get(&json,asset,"name"),name,sizeof(name));
-        if(strstr(name,".wireless.json"))json_string(&json,json_get(&json,asset,"browser_download_url"),url,sizeof(url));
+    int newest=release_candidate(api,API_ROOT "latest","v",tag,url);
+    if(release_beta_enabled()) {
+        char beta_tag[32]="",beta_url[2048]="";
+        int beta=release_candidate(api,API_ROOT "tags/lumen-beta","beta",beta_tag,beta_url);
+        if(beta>newest && *beta_url) {
+            newest=beta;
+            snprintf(tag,sizeof(tag),"%s",beta_tag);
+            snprintf(url,sizeof(url),"%s",beta_url);
+        }
     }
+    if(newest<0)goto failed;
+    if(newest<=release_number(LUMEN_VERSION)){result(2,tag,"");goto done;}
     if(!install){result(3,tag,"");goto done;}
     failure="Dieses Update benötigt USB: Laufzeitdateien unterscheiden sich.";
-    if(strncmp(url,RELEASE_ROOT,strlen(RELEASE_ROOT)))goto failed;
-    free(text);text=NULL;
-    if(!download(url,meta,262144))goto failed;
+    if(!*url)goto failed;
+    char root[256];
+    snprintf(root,sizeof(root),"%.*s",(int)(strrchr(url,'/')-url+1),url);
+    if(download(url,meta,262144)!=LUMEN_HTTP_OK)goto failed;
     text=read_json(meta,&json,tokens,4096);if(!text)goto failed;
     char v[32];json_string(&json,json_get(&json,0,"version"),v,sizeof(v));
     if(strcmp(v,tag+1))goto failed;
@@ -123,18 +193,24 @@ static void check_worker(int install,pid_t parent) {
     json_string(&json,json_get(&json,0,"sha256"),hash,sizeof(hash));
     double bytes=json_number(&json,json_get(&json,0,"size"));
     double installed=json_number(&json,json_get(&json,0,"installed_size"));
-    if(strncmp(url,RELEASE_ROOT,strlen(RELEASE_ROOT)) || strlen(hash)!=64 ||
+    char expected_binary[320];
+    snprintf(expected_binary,sizeof(expected_binary),"%sLUMEN-%s.lumen-system",root,v);
+    if(strcmp(url,expected_binary) || strlen(hash)!=64 ||
+       strspn(hash,"0123456789abcdef")!=64 ||
        !(bytes>=4096 && bytes<=128*1024*1024) || !(installed>=4096 && installed<=160*1024*1024))goto failed;
     long length=(long)bytes;
-    failure="Update konnte nicht geprüft werden. Bitte erneut versuchen.";
+    failure="Nicht genügend freier Speicher für das Update.";
     struct statvfs disk;if(statvfs(data_root,&disk) || (uint64_t)disk.f_bavail*disk.f_frsize<(uint64_t)length+2*(uint64_t)installed+16*1024*1024)goto failed;
     char dir[2048];snprintf(dir,sizeof(dir),"%s/../.update",data_root);mkdir(dir,0700);
     progress_file(1,length);
-    if(!download(url,binary,128*1024*1024))goto failed;
+    failure="Update-Download fehlgeschlagen. WLAN prüfen und erneut versuchen.";
+    if(download(url,binary,(size_t)length)!=LUMEN_HTTP_OK)goto failed;
     progress_file(2,length);
+    failure="Die Update-Datei stimmt nicht mit der Prüfsumme überein.";
     if(!digest_file(binary,actual) || strcmp(actual,hash))goto failed;
     struct stat info;if(stat(binary,&info) || info.st_size!=length)goto failed;
     progress_file(3,length);
+    failure="Das Update konnte nicht auf dem Kindle vorbereitet werden.";
     if(getppid()!=parent || !system_update_stage(binary,tag+1))goto failed;
     result(4,tag,"");
     goto done;
